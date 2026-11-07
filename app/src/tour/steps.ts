@@ -1,4 +1,4 @@
-// The tour's stops: each one opens a screen and points at its place in the top bar.
+// The tour's stops: each one opens a screen and points at a part of it.
 
 import type { CoachMode } from "~/ai/settings";
 
@@ -19,35 +19,35 @@ export const TOUR_STEPS: TourStep[] = [
     id: "hello",
     route: "/",
     title: "A quick look around",
-    body: "Two minutes: what each screen is for, then a demo ride on a simulated trainer so you can see how riding works before you clip in.",
+    body: "What each screen is for, then a walk around the Ride screen so you know what you'll see on the bike.",
   },
   {
     id: "today",
     route: "/",
     target: "today",
     title: "Today",
-    body: "Where you start each day: today's workout from your plan, your form, and your recovery once sleep data comes in. After a ride it shows what you did against what was planned.",
+    body: "Your morning check-in (recovery, weigh-in, how you feel), today's workout from your plan, your form and your last ride. Once you've ridden, it shows the ride against what was planned.",
   },
   {
     id: "plan",
     route: "/plan",
     target: "plan",
     title: "Plan",
-    body: "Your weeks ahead, built around the time you have and your goal. Click a day to change it, drag a workout to swap days, and add races or time off. The plan adjusts as you ride.",
+    body: "Your plan's phases toward your goal, a fitness forecast, and each day's workout. Click a day to change it or drag it to another day. Add events, and breaks for travel or time off.",
   },
   {
     id: "progress",
     route: "/progress",
     target: "progress",
     title: "Progress",
-    body: "Fitness, fatigue and form over time, your power curve, and every ride. Open a ride for its charts, laps and map.",
+    body: "Fitness, fatigue and form over the range you pick, your power curve and power profile, and every ride. Open a ride for its charts and route map.",
   },
   {
     id: "health",
     route: "/health",
     target: "health",
     title: "Health",
-    body: "Sleep, HRV, resting heart rate and weight, with a daily recovery score. Lactic uses it to tell you when to push and when to back off.",
+    body: "Recovery, sleep, HRV, resting heart rate and weight, from Apple Health and your scale. Tap any of them for its history.",
   },
   {
     id: "coach",
@@ -55,7 +55,7 @@ export const TOUR_STEPS: TourStep[] = [
     target: "coach",
     coach: ["builtin"],
     title: "Coach",
-    body: "Ask about your training, or ask for changes. The coach reads your numbers from Lactic and proposes plan changes you can apply or dismiss. ⌘K opens it from anywhere.",
+    body: "Ask about your training or for changes. The coach reads your numbers from Lactic and proposes plan changes for you to apply or dismiss. ⌘K opens it from any screen.",
   },
   {
     id: "coach-external",
@@ -63,21 +63,63 @@ export const TOUR_STEPS: TourStep[] = [
     target: "coach",
     coach: ["external"],
     title: "Your AI coach",
-    body: "Your AI app reads your training through Lactic's MCP server. Changes it suggests show up here for you to apply or dismiss.",
+    body: "Your AI app reads your training through Lactic's MCP server. Changes it suggests show up in Lactic for you to apply or dismiss.",
   },
   {
     id: "settings",
     route: "/settings",
     target: "settings",
     title: "Settings",
-    body: "Everything from setup lives here, so you can finish it any time: your zones, gear, ride history, health data and coach.",
+    body: "Your profile and zones, appearance, the coach, connections (intervals.icu, Apple Health, FIT files), your Bluetooth gear, and a backup of your data.",
   },
   {
     id: "ride",
     route: "/",
     target: "ride",
     title: "Ride",
-    body: "On the bike, press Ride. Lactic connects your trainer and sets its resistance for every interval, so you just pedal. Zwift can stay open for the scenery; it only reads power, cadence and heart rate.",
+    body: "When you're on the bike, press Ride. Next, a look at what's on the Ride screen.",
+  },
+  {
+    id: "ride-gear",
+    route: "/ride",
+    target: "ride-gear",
+    title: "Your gear",
+    body: "Trainer, power meter and heart rate. Paired gear reconnects by itself when you open Ride; connect anything that isn't here yet.",
+  },
+  {
+    id: "ride-pick",
+    route: "/ride",
+    target: "ride-pick",
+    title: "What to ride",
+    body: "Today's planned workout comes first. Pick a workout instead (by type and length, or from My workouts, where .zwo files import), or Free ride at one ERG target you move as you go.",
+  },
+  {
+    id: "ride-player",
+    route: "/ride",
+    target: "ride-player",
+    title: "The workout",
+    body: "Time left in the interval, your power against the target, heart rate and cadence, the workout chart and the ride so far. Lactic sets the trainer's resistance for each interval, so you just pedal. The controls pause, skip, make it easier or harder, and turn ERG off. Open overlay puts a small always-on-top version over Zwift.",
+  },
+  {
+    id: "ride-editor",
+    route: "/ride",
+    target: "ride-editor",
+    title: "Change the workout",
+    body: "Adjust any interval before or during the ride, and save it to My workouts.",
+  },
+  {
+    id: "ride-outside",
+    route: "/ride",
+    target: "ride-outside",
+    title: "Ride it outside",
+    body: "Sends the workout to your bike computer (Karoo, Garmin, Wahoo) through intervals.icu, in place of the day's planned one.",
+  },
+  {
+    id: "ride-setup",
+    route: "/ride",
+    target: "ride-setup",
+    title: "Ride setup",
+    body: "Open Setup for: start when you pedal, open the overlay when you start, power from the trainer or a power meter, and this ride's FTP. Riding with Zwift open: pair Zwift for power, cadence and heart rate only, so Lactic keeps control of the trainer.",
   },
 ];
 

@@ -70,7 +70,7 @@ export default async function SettingsPage() {
           <Section id="appearance" title="Appearance" description="Light, dark, or match the system. Applies everywhere, the ride overlay included.">
             <ThemeSetting />
           </Section>
-          <Section id="tour" title="Getting started" description="A two-minute look at each screen, with a demo ride on a simulated trainer.">
+          <Section id="tour" title="Getting started" description="A quick look at what each screen is for, and what the Ride screen shows.">
             <TakeTour />
           </Section>
         </div>
