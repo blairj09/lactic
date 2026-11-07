@@ -3,7 +3,7 @@ name = "lactic"
 version = "0.1.0"
 description = "Lactic: an open-source cycling coach for your computer"
 authors = ["James Blair"]
-license = "AGPL-3.0-or-later"
+license = "MIT"
 edition = "2021"
 rust-version = "1.80"
 
