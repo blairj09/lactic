@@ -52,7 +52,15 @@ export function HealthSetup() {
         ? "Install iCloud for Windows and turn on iCloud Drive so your iPhone can hand Lactic its Health data, or choose another folder that syncs from your phone (Dropbox, Google Drive)."
         : "Choose a folder that syncs from your phone, such as Dropbox, Nextcloud or Syncthing. Your iPhone saves its Health data there and Lactic picks it up.";
   return (
-    <div className="space-y-3 rounded-lg border border-line p-4">
+    <>
+      <div className="space-y-1 rounded-lg border border-line p-4">
+        <p className="font-medium">Garmin, Oura, WHOOP, Polar, Coros, Suunto</p>
+        <p className="text-sm text-muted">
+          Link your watch or ring to intervals.icu and connect intervals.icu here. Lactic reads the sleep, HRV, resting heart rate and weight it collects. On Android,
+          this is the way in for most watches.
+        </p>
+      </div>
+      <div className="space-y-3 rounded-lg border border-line p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="font-medium">Apple Health</p>
@@ -93,6 +101,7 @@ export function HealthSetup() {
           {result && <Result ok={result.ok}>{result.message}</Result>}
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }

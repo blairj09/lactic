@@ -111,7 +111,7 @@ export default async function SettingsPage() {
               )}
             </div>
           </Section>
-          <Section id="health" title="Apple Health" description="Recovery and sleep from your iPhone, through iCloud Drive or another synced folder.">
+          <Section id="health" title="Health and recovery" description="Sleep, HRV and resting heart rate from your watch or ring, through intervals.icu or your iPhone.">
             <div className="sm:col-span-2">
               <HealthSetup />
             </div>

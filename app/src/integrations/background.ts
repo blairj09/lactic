@@ -2,7 +2,7 @@
 // and walking back through history after a first connect. One job at a time, quietly.
 
 import { syncIntervals } from "@/app/actions";
-import { loadConnection } from "@/lib/intervals/client";
+import { loadConnection, syncWellness } from "@/lib/intervals/client";
 import { createClient } from "~/db/supabase-client";
 import { revalidatePath } from "~/shims/next-cache";
 import { logEvent } from "~/support/log";
@@ -65,6 +65,17 @@ registerJob("intervals", async () => {
     ok = batch.ok;
     message = batch.message;
     if (!batch.more) break;
+  }
+  // Sleep, HRV and resting HR from whatever watch or ring feeds intervals.icu (Garmin, Oura, WHOOP, ...).
+  try {
+    const w = await syncWellness(createClient(), connection);
+    if (w.mornings || w.weighIns) {
+      const parts = [w.mornings && `${w.mornings} morning${w.mornings === 1 ? "" : "s"} of recovery data`, w.weighIns && `${w.weighIns} weigh-in${w.weighIns === 1 ? "" : "s"}`].filter(Boolean);
+      message = `${message} Wellness: ${parts.join(" and ")}.`;
+    }
+  } catch (e) {
+    ok = false;
+    message = `${message} Wellness failed: ${e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String(e.message) : String(e)}`;
   }
   revalidatePath("/");
   return { ok, message };
