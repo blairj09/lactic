@@ -19,6 +19,7 @@ import {
 import { Panel, Segmented, button, input } from "@/components/ui";
 import { saveCustomWorkout } from "./actions";
 import { formatTime } from "./player";
+import Select from "@/components/select";
 
 const UNIT_PREF = "ride.editorUnit";
 const UNDO_DEPTH = 50;
@@ -265,11 +266,11 @@ export default function WorkoutEditor({
                         </button>
                       </td>
                       <td className="py-1.5 pr-2">
-                        <select
+                        <Select
                           aria-label={`Interval ${index + 1} type`}
                           value={segment.kind}
                           disabled={done}
-                          onChange={(e) => setSegment(index, changeKind(segment, e.target.value as SegmentKind))}
+                          onChange={(v) => setSegment(index, changeKind(segment, v as SegmentKind))}
                           className={`${input} h-8 px-2`}
                         >
                           {(Object.keys(KIND_LABELS) as SegmentKind[]).map((k) => (
@@ -277,7 +278,7 @@ export default function WorkoutEditor({
                               {KIND_LABELS[k]}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </td>
                       <td className="py-1.5 pr-2">
                         <DraftInput

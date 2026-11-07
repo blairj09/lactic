@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { button, input } from "@/components/ui";
 import type { LinkOption } from "@/lib/training";
 import { countRideFor } from "../actions";
+import Select from "@/components/select";
 
 const dayLabel = (iso: string) =>
   new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
@@ -59,14 +60,14 @@ export default function CountFor({
       )}
       <label className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="text-muted">Counts for</span>
-        <select className={`${input} max-w-full`} value={current} disabled={pending} onChange={(e) => choose(e.target.value)}>
+        <Select className={`${input} max-w-full`} value={current} disabled={pending} onChange={(v) => choose(v)}>
           {choices.map((o) => (
             <option key={o.date} value={o.date}>
               {dayLabel(o.date)}
               {o.date === ridden ? " (the day you rode)" : ""} · {o.label}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       {message && <p className={message.ok ? "text-muted" : "text-negative"}>{message.text}</p>}
     </div>

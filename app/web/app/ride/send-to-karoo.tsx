@@ -5,6 +5,7 @@ import { Panel, Result, button, input } from "@/components/ui";
 import { addDays } from "@/lib/engine/pmc";
 import type { Workout } from "@/lib/engine/workout";
 import { sendOutdoorWorkout, type ActionResult } from "../actions";
+import Select from "@/components/select";
 
 const DAYS_OFFERED = 7;
 
@@ -25,13 +26,13 @@ export default function SendToKaroo({ workout, today }: { workout: Workout; toda
           you hold power by feel.
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <select value={day} onChange={(e) => setDay(e.target.value)} aria-label="Day" className={input}>
+          <Select value={day} onChange={(v) => setDay(v)} aria-label="Day" className={input}>
             {days.map((d, i) => (
               <option key={d} value={d}>
                 {i === 0 ? "Today" : i === 1 ? "Tomorrow" : dayLabel(d)}
               </option>
             ))}
-          </select>
+          </Select>
           <button className={button.secondary} disabled={pending} onClick={() => start(async () => setResult(await sendOutdoorWorkout(day, workout)))}>
             {pending ? "Sending…" : "Send to bike computer"}
           </button>

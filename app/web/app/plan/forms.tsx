@@ -29,6 +29,7 @@ import type { ActionResult } from "../actions";
 import PhaseStrip from "./phase-strip";
 import { deleteBreak, deleteGoal, endPlan, pickWorkouts, previewPlan, saveAvailability, saveBreak, saveGoal, savePlan } from "./actions";
 import { AutoTextarea } from "@/components/auto-textarea";
+import Select from "@/components/select";
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** Add an event, or edit one when `goal` is given. Picking a kind fills in its typical duration and intensity. */
@@ -57,18 +58,18 @@ export function GoalForm({ today, goal, onDone }: { today: string; goal?: Goal; 
         <input name="start_time" type="time" aria-label="Start time" title="Start time (optional)" defaultValue={goal?.startTime ?? ""} className={`${input} tabular-nums`} />
       </div>
       <div className="flex flex-wrap gap-2">
-        <select name="kind" className={input} value={kind} onChange={(e) => pickKind(e.target.value as GoalKind)}>
+        <Select name="kind" className={input} value={kind} onChange={(v) => pickKind(v as GoalKind)}>
           {GOAL_KINDS.map((k) => (
             <option key={k} value={k}>
               {GOAL_KIND_LABELS[k]}
             </option>
           ))}
-        </select>
-        <select name="priority" className={input} defaultValue={goal?.priority ?? "A"}>
+        </Select>
+        <Select name="priority" className={input} defaultValue={goal?.priority ?? "A"}>
           <option value="A">A: peak for it</option>
           <option value="B">B: short taper</option>
           <option value="C">C: train through</option>
-        </select>
+        </Select>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <span>Duration</span>
@@ -94,13 +95,13 @@ export function GoalForm({ today, goal, onDone }: { today: string; goal?: Goal; 
         />
         min
       </div>
-      <select name="intensity" className={`${input} w-full`} value={intensity} onChange={(e) => setIntensity(e.target.value as Intensity)}>
+      <Select name="intensity" className={`${input} w-full`} value={intensity} onChange={(v) => setIntensity(v as Intensity)}>
         {INTENSITIES.map((i) => (
           <option key={i} value={i}>
             {INTENSITY_LABELS[i]}
           </option>
         ))}
-      </select>
+      </Select>
       <div className="flex gap-2">
         <button disabled={pending} className={button.primary}>
           {pending ? "Saving..." : goal ? "Save" : "Add event"}
@@ -186,11 +187,11 @@ export function AvailabilityForm({ availability, rampRate }: { availability: Ava
       <p className="num">{hours.toFixed(1)} hours a week</p>
       <label className="flex flex-wrap items-center gap-2">
         How fast to build
-        <select name="ramp_rate" defaultValue={String(rampRate)} className={input}>
+        <Select name="ramp_rate" defaultValue={String(rampRate)} className={input}>
           <option value="3">Gently (+3 fitness a week)</option>
           <option value="5">Steady (+5)</option>
           <option value="7">Aggressive (+7)</option>
-        </select>
+        </Select>
       </label>
       <button disabled={pending} className={button.primary}>
         {pending ? "Saving..." : "Save"}
@@ -212,13 +213,13 @@ export function PlanForm({ today, nextMonday, events, plan }: { today: string; n
       {plan && <input type="hidden" name="id" value={plan.id} />}
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="What it's for">
-          <select name="goal" value={goal} onChange={(e) => setGoal(e.target.value as PlanGoal)} className={`${input} w-full`}>
+          <Select name="goal" value={goal} onChange={(v) => setGoal(v as PlanGoal)} className={`${input} w-full`}>
             {PLAN_GOALS.map((g) => (
               <option key={g} value={g} disabled={g === "event" && upcoming.length === 0}>
                 {PLAN_GOAL_LABELS[g]}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label="Name" hint="Optional">
           <input name="name" defaultValue={plan?.name} placeholder="Winter build" className={`${input} w-full`} />
@@ -228,13 +229,13 @@ export function PlanForm({ today, nextMonday, events, plan }: { today: string; n
         </Field>
         {goal === "event" ? (
           <Field label="Peaks for" hint="The plan ends on the event day">
-            <select name="goal_id" defaultValue={plan?.goalId ?? firstA?.id} className={`${input} w-full`}>
+            <Select name="goal_id" defaultValue={plan?.goalId ?? firstA?.id} className={`${input} w-full`}>
               {upcoming.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name} ({e.priority}) · {e.date}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
         ) : (
           <Field label="Ends" hint={goal === "ftp" ? "The last week is easy, with a ramp test at the end" : undefined}>
@@ -317,22 +318,22 @@ export function BreakForm({ today }: { today: string }) {
       <div className="flex flex-wrap gap-2">
         <input name="start" type="date" min={today} aria-label="First day" className={input} required />
         <input name="end" type="date" min={today} aria-label="Last day" className={input} required />
-        <select name="kind" defaultValue="travel" className={input}>
+        <Select name="kind" defaultValue="travel" className={input}>
           {BREAK_KINDS.map((k) => (
             <option key={k} value={k}>
               {BREAK_KIND_LABELS[k]}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <select name="riding" value={riding} onChange={(e) => setRiding(e.target.value as BreakRiding)} className={input}>
+        <Select name="riding" value={riding} onChange={(v) => setRiding(v as BreakRiding)} className={input}>
           {BREAK_RIDING.map((r) => (
             <option key={r} value={r}>
               {BREAK_RIDING_LABELS[r]}
             </option>
           ))}
-        </select>
+        </Select>
         {riding === "limited" && (
           <label className="flex items-center gap-2">
             <input name="minutes" type="number" min={0} max={480} step={15} defaultValue={30} className={`${input} num w-20`} />

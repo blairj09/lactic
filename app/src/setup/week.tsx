@@ -5,6 +5,7 @@ import { saveAvailability, saveGoal, savePlan } from "@/app/plan/actions";
 import { Field, Result, Segmented, input } from "@/components/ui";
 import { DEFAULT_AVAILABILITY, GOAL_KIND_LABELS, GOAL_KINDS, type Availability, type GoalKind } from "@/lib/engine/plan";
 import { createClient } from "~/db/supabase-client";
+import Select from "@/components/select";
 
 export const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const CHOICES = [0, 30, 45, 60, 75, 90, 120, 150, 180, 240];
@@ -48,12 +49,12 @@ export function WeekForm({ values: v, onChange, error }: { values: WeekValues; o
           {WEEKDAYS.map((d, i) => (
             <label key={d} className="space-y-1.5 text-center">
               <span className="block text-xs font-medium text-muted">{d}</span>
-              <select
+              <Select
                 className={`${input} w-full px-1 text-center`}
                 value={v.availability[i]}
-                onChange={(e) => {
+                onChange={(choice) => {
                   const next = [...v.availability] as Availability;
-                  next[i] = Number(e.target.value);
+                  next[i] = Number(choice);
                   set("availability", next);
                 }}
               >
@@ -62,7 +63,7 @@ export function WeekForm({ values: v, onChange, error }: { values: WeekValues; o
                     {hours(m)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           ))}
         </div>
@@ -93,13 +94,13 @@ export function WeekForm({ values: v, onChange, error }: { values: WeekValues; o
               <input type="date" className={`${input} w-44`} min={iso(new Date(Date.now() + 14 * 86_400_000))} value={v.eventDate} onChange={(e) => set("eventDate", e.target.value)} />
             </Field>
             <Field label="Kind">
-              <select className={`${input} w-full`} value={v.eventKind} onChange={(e) => set("eventKind", e.target.value as GoalKind)}>
+              <Select className={`${input} w-full`} value={v.eventKind} onChange={(kind) => set("eventKind", kind as GoalKind)}>
                 {GOAL_KINDS.map((k) => (
                   <option key={k} value={k}>
                     {GOAL_KIND_LABELS[k]}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field label="How long will it take you?">
               <div className="relative w-28">

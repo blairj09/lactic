@@ -9,6 +9,7 @@ import type { Workout } from "@/lib/engine/workout";
 import type { ActionResult } from "../actions";
 import WorkoutEditor from "../ride/workout-editor";
 import { moveDay, resetPlanDay, saveDayWorkout } from "./actions";
+import Select from "@/components/select";
 
 const DRAG_TYPE = "application/x-mycoach-day";
 
@@ -219,14 +220,14 @@ function DayDialog({ day, ftp, moveTargets, onClose }: { day: EditableDayInfo; f
           )}
           {day.workout && moveTargets.length > 0 && (
             <span className="flex items-center gap-2 text-sm">
-              <select aria-label="Move to" value={moveTo} onChange={(e) => setMoveTo(e.target.value)} className={`${input} h-8 px-2`}>
+              <Select aria-label="Move to" value={moveTo} onChange={(v) => setMoveTo(v)} className={`${input} h-8 px-2`}>
                 <option value="">Move to…</option>
                 {moveTargets.map((t) => (
                   <option key={t.date} value={t.date}>
                     {t.label}
                   </option>
                 ))}
-              </select>
+              </Select>
               <button type="button" className={button.small} disabled={pending || !moveTo} onClick={() => run(() => moveDay(day.date, moveTo))}>
                 Move
               </button>
