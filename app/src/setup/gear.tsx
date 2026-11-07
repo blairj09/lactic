@@ -6,8 +6,7 @@ import { button, Notice, Pill } from "@/components/ui";
 import { DEVICES_CHANGED, remembered, rememberDevice, forgetDevice, type DeviceKey } from "@/lib/ble/devices";
 import { fullUuid } from "~/bluetooth/backend";
 import { useNearby } from "~/bluetooth/picker";
-import { ble, grant, scanning, simEnabled, SIM_SETTING, type Seen } from "~/bluetooth/web-bluetooth";
-import { setSetting } from "~/settings/store";
+import { ble, grant, scanning, simEnabled, type Seen } from "~/bluetooth/web-bluetooth";
 
 const SLOTS: { key: DeviceKey; label: string; service: number; wake: string; note?: string }[] = [
   { key: "trainer", label: "Smart trainer", service: 0x1826, wake: "Spin the pedals to wake it." },
@@ -36,7 +35,8 @@ export function GearSetup() {
   const nearby = useNearby();
   const mine = useRemembered();
   const [status, setStatus] = useState<{ available: boolean; reason: string | null } | null>(null);
-  const [sim, setSim] = useState(simEnabled());
+  // Simulated gear is a testing switch (Settings in development builds), not part of setup.
+  const sim = simEnabled();
 
   useEffect(() => {
     void ble().available().then(setStatus);
@@ -44,21 +44,12 @@ export function GearSetup() {
     return () => void scanning.release();
   }, []);
 
-  async function toggleSim(on: boolean) {
-    setSim(on);
-    await setSetting(SIM_SETTING, on);
-    // Restart the scan so the simulator joins or leaves it.
-    await scanning.release();
-    await scanning.hold();
-    if (!on) for (const s of SLOTS) if (mine[s.key]?.id.startsWith("sim:")) await forgetDevice(s.key);
-  }
-
   const use = (key: DeviceKey, d: Seen) => rememberDevice(key, grant(d.id, d.name));
   const visible = nearby.filter((d) => sim || !d.id.startsWith("sim:"));
 
   return (
     <div className="space-y-5">
-      {status && !status.available && !sim && <Notice>Lactic can&apos;t reach Bluetooth ({(status.reason ?? "it's off").replace(/\.$/, "")}). Turn it on in System Settings, or try the simulated gear below.</Notice>}
+      {status && !status.available && !sim && <Notice>Lactic can&apos;t reach Bluetooth ({(status.reason ?? "it's off").replace(/\.$/, "")}). Turn Bluetooth on in your computer's settings, then come back.</Notice>}
       <ul className="divide-y divide-line rounded-lg border border-line">
         {SLOTS.map((slot) => {
           const chosen = mine[slot.key];
@@ -102,13 +93,6 @@ export function GearSetup() {
           );
         })}
       </ul>
-      <label className="flex items-start gap-3 rounded-lg bg-raised p-4 text-sm">
-        <input type="checkbox" className="mt-0.5" checked={sim} onChange={(e) => void toggleSim(e.target.checked)} />
-        <span>
-          <span className="block font-medium">Show simulated gear</span>
-          <span className="text-muted">A virtual trainer, heart rate strap, power meter and scale, so you can try everything before your gear is set up. Turn it off in Settings → Bluetooth.</span>
-        </span>
-      </label>
       <p className="text-sm text-muted">Skip anything you don&apos;t have. You can add gear later in Settings → Bluetooth, or from the Ride page.</p>
     </div>
   );

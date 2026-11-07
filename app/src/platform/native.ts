@@ -25,6 +25,28 @@ export async function appInfo(): Promise<AppInfo> {
   return invoke<AppInfo>("app_info");
 }
 
+let currentOs = typeof navigator !== "undefined" && /Mac/.test(navigator.platform) ? "macos" : typeof navigator !== "undefined" && /Win/.test(navigator.platform) ? "windows" : "linux";
+
+/** Set once at boot from the Rust core; before that (and in a browser) it's a guess from the UA. */
+export function setOs(os: string) {
+  if (os && os !== "browser") currentOs = os;
+}
+
+/** "macos", "windows" or "linux". */
+export function os(): string {
+  return currentOs;
+}
+
+/** What the system calls its file browser. */
+export function fileManagerName(): string {
+  return currentOs === "macos" ? "Finder" : currentOs === "windows" ? "File Explorer" : "your file manager";
+}
+
+/** ⌘ on a Mac, Ctrl elsewhere. */
+export function modKey(): string {
+  return currentOs === "macos" ? "⌘" : "Ctrl+";
+}
+
 /** Opens a link in the system browser. */
 export async function openExternal(url: string) {
   if (!isDesktop) return void window.open(url, "_blank", "noreferrer");

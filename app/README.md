@@ -10,7 +10,7 @@ This folder is the app. `web/` holds the training engine, data code and screens,
   - `db.rs`: the SQLite database (one file in the app's data folder).
   - `secrets.rs`: API keys in the system keychain. The screens never read a key; requests carry a `keychain:<name>` placeholder that Rust swaps for the key on the way out (`net.rs`).
   - `net.rs`: HTTP without CORS, with streaming for AI replies.
-  - `ble.rs`: Bluetooth LE through the OS (CoreBluetooth on macOS), with one GATT operation at a time per device.
+  - `ble.rs`: Bluetooth LE through the OS (CoreBluetooth on macOS, WinRT on Windows, BlueZ on Linux), with one GATT operation at a time per device.
   - `mcp.rs`: the MCP server for external AI coaches (Claude Desktop, ChatGPT...), plus `lactic --mcp`, a stdio bridge.
   - `window.rs`: the always-on-top ride overlay, which floats over full-screen apps such as Zwift.
 - **The screens in `web/`, close to unchanged.** `src/db/supa.ts` speaks enough of supabase-js over SQLite that the web app's loaders, actions and coach run as they are, on the same schema (`src/db/schema.ts`). Next's server pages run in the window (`src/app/server-page.tsx` resolves their async components), API routes are served in-process (`src/platform/fetch.ts`), and a few modules are swapped for desktop versions through aliases in `vite.config.ts` (the OpenRouter client, the top bar, `next/*`). `web/lib/supabase/*` hands out the local client.
@@ -26,3 +26,13 @@ npx tauri build   # a release build in src-tauri/target/release/bundle
 ```
 
 Checks: `npm run typecheck && npm run lint && npm test`, and `cargo check` in `src-tauri`.
+
+## Downloads
+
+Every push to `main` builds the apps in GitHub Actions (the **App** workflow) and attaches them to the run: **Lactic-macOS** (.dmg, Apple silicon), **Lactic-Windows** (installer .exe) and **Lactic-Linux** (AppImage and .deb). They're unsigned for now:
+
+- **macOS:** drag Lactic to Applications, then run `xattr -cr /Applications/Lactic.app` once.
+- **Windows:** SmartScreen warns about an unknown publisher; choose More info → Run anyway.
+- **Linux:** `chmod +x Lactic_*.AppImage` and run it, or `sudo apt install ./Lactic_*.deb`. Bluetooth needs BlueZ; keys are stored through the Secret Service (GNOME Keyring or KWallet).
+
+Simulated gear (a virtual trainer, heart rate strap, power meter and scale) is a testing aid: it's on by default in `npm run dev` and switchable in Settings in development builds.

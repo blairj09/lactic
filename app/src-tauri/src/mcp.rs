@@ -199,7 +199,7 @@ pub struct McpSetup {
 #[tauri::command]
 pub async fn mcp_setup(mcp: State<'_, Arc<Mcp>>) -> Result<McpSetup, String> {
     let info = mcp.info.lock().await.clone();
-    let command = std::env::current_exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| "lactic".into());
+    let command = own_exe().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|_| "lactic".into());
     Ok(McpSetup {
         url: info.as_ref().map(|i| format!("http://127.0.0.1:{}/mcp", i.port)),
         token: info.map(|i| i.token),
@@ -208,14 +208,18 @@ pub async fn mcp_setup(mcp: State<'_, Arc<Mcp>>) -> Result<McpSetup, String> {
     })
 }
 
+/// The program an AI app should launch for `--mcp`. An AppImage runs from a temporary mount, so
+/// it's the AppImage file itself (Linux sets $APPIMAGE), not the binary inside it.
+fn own_exe() -> std::io::Result<PathBuf> {
+    if let Some(p) = std::env::var_os("APPIMAGE") {
+        return Ok(PathBuf::from(p));
+    }
+    std::env::current_exe()
+}
+
 fn claude_config_path() -> Option<PathBuf> {
-    let base = if cfg!(target_os = "macos") {
-        dirs::home_dir()?.join("Library/Application Support/Claude")
-    } else if cfg!(target_os = "windows") {
-        dirs::config_dir()?.join("Claude")
-    } else {
-        dirs::config_dir()?.join("Claude")
-    };
+    // Application Support on a Mac, %APPDATA% on Windows, ~/.config on Linux.
+    let base = dirs::config_dir()?.join("Claude");
     Some(base.join("claude_desktop_config.json"))
 }
 
@@ -225,7 +229,7 @@ fn claude_config_path() -> Option<PathBuf> {
 pub fn mcp_install_claude() -> Result<String, String> {
     let path = claude_config_path().ok_or("Couldn't find Claude Desktop's settings folder")?;
     let mut config: Value = std::fs::read_to_string(&path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_else(|| json!({}));
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let exe = own_exe().map_err(|e| e.to_string())?;
     if !config.is_object() {
         config = json!({});
     }

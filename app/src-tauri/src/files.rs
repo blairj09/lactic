@@ -79,10 +79,18 @@ pub fn file_move_into(path: String, folder: String) -> Result<String, String> {
     Ok(to.to_string_lossy().into_owned())
 }
 
-/// Where iCloud Drive lives on this Mac, if it's turned on.
+/// Where iCloud Drive lives on this computer, if it's turned on: the Mac's own, or iCloud for
+/// Windows. Linux has none; the rider picks a synced folder instead.
 #[tauri::command]
 pub fn icloud_drive() -> Option<String> {
-    let p = dirs::home_dir()?.join("Library/Mobile Documents/com~apple~CloudDocs");
+    let home = dirs::home_dir()?;
+    let p = if cfg!(target_os = "macos") {
+        home.join("Library/Mobile Documents/com~apple~CloudDocs")
+    } else if cfg!(target_os = "windows") {
+        home.join("iCloudDrive")
+    } else {
+        return None;
+    };
     p.is_dir().then(|| p.to_string_lossy().into_owned())
 }
 

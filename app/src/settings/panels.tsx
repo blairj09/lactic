@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { button, Result } from "@/components/ui";
 import { scanning, simEnabled, SIM_SETTING } from "~/bluetooth/web-bluetooth";
-import { appInfo, invoke, isDesktop, openExternal, type AppInfo } from "~/platform/native";
+import { appInfo, fileManagerName, invoke, isDesktop, openExternal, type AppInfo } from "~/platform/native";
 import { setSetting } from "~/settings/store";
 
 export function SimulatorSwitch() {
@@ -72,7 +72,7 @@ export function AboutPanel() {
             Back up…
           </button>
           <button type="button" className={button.small} onClick={() => void reveal()}>
-            Show in Finder
+            Show in {fileManagerName() === "your file manager" ? "folder" : fileManagerName()}
           </button>
         </div>
       )}

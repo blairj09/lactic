@@ -27,7 +27,7 @@ export default function WeighIn({ profile }: { profile: ScaleProfile }) {
 
   const run = async (choose = false) => {
     if (!isWebBluetoothAvailable()) {
-      setResult({ ok: false, message: "This browser has no Web Bluetooth. Use Chrome on your Mac, or Bluefy on iPhone." });
+      setResult({ ok: false, message: "This browser has no Web Bluetooth. Weigh in from the Lactic app." });
       return;
     }
     setBusy(true);
