@@ -68,6 +68,7 @@
   },
   "include": [
     "src",
+    "evals",
     "vite.config.ts"
   ]
 }
