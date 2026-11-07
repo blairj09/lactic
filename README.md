@@ -77,6 +77,8 @@ A morning recovery score from sleep, HRV and resting heart rate, plus weigh-ins 
 
 Whichever you pick, the coach reads engine numbers through tools and **proposes** changes you approve with a button. It can also look after the app: check your Bluetooth gear and connected services, try a reconnect or a test sync, and suggest a setting when something's off. API keys live in your OS keychain and never reach the screens or the AI.
 
+Not sure which model to use? [Choosing a coach model](docs/coach-models.md) lists good picks for each provider, which models to skip, rough monthly costs and what leaves your computer.
+
 ### Easy to start
 
 A five-minute setup finds your trainer and sensors, builds your first plan, brings in your history and picks your coach. A short tour shows you around each screen and the Ride screen.

@@ -48,7 +48,7 @@ export async function testModel(setup: CoachSetup, choice: ModelChoice): Promise
   const at = new Date().toISOString();
   const seconds = () => Math.round((performance.now() - started) / 100) / 10;
   try {
-    const ask = complete({ maxTokens: 200, job: "test", model: choice.model, setup: { ...setup, chat: choice } });
+    const ask = complete({ maxTokens: 1000, job: "test", model: choice.model, setup: { ...setup, chat: choice } });
     const reply = await ask(
       [
         { role: "system", content: "You are a cycling coach. Use the tools to look things up." },
