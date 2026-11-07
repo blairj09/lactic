@@ -15,7 +15,6 @@ export type GearKey = "trainer" | "powerMeter" | "heartRate" | "scale";
 /** A settings change the coach can propose. */
 export type AppSetting =
   | { setting: "power_source"; value: "trainer" | "powerMeter" }
-  | { setting: "simulated_gear"; value: boolean }
   | { setting: "forget_device"; device: GearKey }
   | { setting: "rename_device"; device: GearKey; name: string }
   | { setting: "upload_rides"; value: boolean };
@@ -40,8 +39,6 @@ export function checkAppSetting(raw: Record<string, unknown>): AppSetting {
     case "power_source":
       if (raw.value !== "trainer" && raw.value !== "powerMeter") throw new Error("value is trainer or powerMeter");
       return { setting, value: raw.value };
-    case "simulated_gear":
-      return { setting, value: bool() };
     case "upload_rides":
       return { setting, value: bool() };
     case "forget_device":
@@ -53,7 +50,7 @@ export function checkAppSetting(raw: Record<string, unknown>): AppSetting {
       return { setting, device: needDevice(), name };
     }
     default:
-      throw new Error("setting is one of power_source, simulated_gear, upload_rides, forget_device, rename_device");
+      throw new Error("setting is one of power_source, upload_rides, forget_device, rename_device");
   }
 }
 
@@ -62,8 +59,6 @@ export function describeAppSetting(s: AppSetting): string {
   switch (s.setting) {
     case "power_source":
       return `Power source: ${s.value === "powerMeter" ? "power meter" : "trainer"}`;
-    case "simulated_gear":
-      return `Simulated gear ${s.value ? "on" : "off"}`;
     case "upload_rides":
       return `${s.value ? "Send" : "Stop sending"} rides recorded in Lactic to intervals.icu`;
     case "forget_device":

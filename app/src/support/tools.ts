@@ -15,14 +15,14 @@ import { loadConnection, setUploadRides, testKey } from "@/lib/intervals/client"
 import { isRiding, liveRide } from "@/lib/live-ride";
 import { coachSetup } from "~/ai/settings";
 import { testModel } from "~/ai/test";
-import { recentAdverts, scanning, simEnabled, SIM_SETTING, ble } from "~/bluetooth/web-bluetooth";
+import { recentAdverts, scanning, simEnabled, ble } from "~/bluetooth/web-bluetooth";
 import { BODY_POD } from "@/lib/scale/bodypod";
 import { createClient } from "~/db/supabase-client";
 import { healthFolder } from "~/integrations/apple-health";
 import { syncNow, syncStatus } from "~/integrations/background";
 import { appInfo } from "~/platform/native";
 import { secretStatus } from "~/platform/secrets";
-import { getSetting, setSetting } from "~/settings/store";
+import { getSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { GUIDE } from "./guide";
 import { logEvent, recentEvents, type LogArea } from "./log";
@@ -51,10 +51,10 @@ export const SUPPORT_TOOLS: FnTool[] = [
   }),
   fn(
     "propose_app_change",
-    "Proposes a settings change, shown to the athlete with Apply and Dismiss; nothing changes until they apply it. setting is one of: power_source (value trainer or powerMeter: whose power is shown, recorded and steered by), simulated_gear (value true/false), upload_rides (value true/false: send rides recorded in Lactic to intervals.icu), forget_device (device), rename_device (device, name). Pairing new gear and API keys can't be proposed: point the athlete to Settings.",
+    "Proposes a settings change, shown to the athlete with Apply and Dismiss; nothing changes until they apply it. setting is one of: power_source (value trainer or powerMeter: whose power is shown, recorded and steered by), upload_rides (value true/false: send rides recorded in Lactic to intervals.icu), forget_device (device), rename_device (device, name). Pairing new gear and API keys can't be proposed: point the athlete to Settings.",
     {
-      setting: { type: "string", enum: ["power_source", "simulated_gear", "upload_rides", "forget_device", "rename_device"] },
-      value: { description: "For power_source: trainer or powerMeter. For simulated_gear and upload_rides: true or false." },
+      setting: { type: "string", enum: ["power_source", "upload_rides", "forget_device", "rename_device"] },
+      value: { description: "For power_source: trainer or powerMeter. For upload_rides: true or false." },
       device,
       name: { type: "string" },
       reason: { type: "string", description: "One sentence to the athlete on why" },
@@ -255,8 +255,6 @@ async function currentValue(s: AppSetting): Promise<string | null> {
   switch (s.setting) {
     case "power_source":
       return readPowerSource() === "powerMeter" ? "power meter" : "trainer";
-    case "simulated_gear":
-      return simEnabled() ? "on" : "off";
     case "upload_rides": {
       const c = await loadConnection(createClient()).catch(() => null);
       if (!c) throw new Error("intervals.icu isn't connected");
@@ -285,9 +283,6 @@ async function apply(setting: AppSetting): Promise<string> {
         localStorage.setItem(POWER_SOURCE_PREF, setting.value);
       } catch {}
       liveRide()?.hub.setPowerSource(setting.value);
-      break;
-    case "simulated_gear":
-      await setSetting(SIM_SETTING, setting.value);
       break;
     case "upload_rides": {
       const supabase = createClient();
