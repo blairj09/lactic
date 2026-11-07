@@ -26,6 +26,7 @@ export default function Nav({ current }: { current: string }) {
             <Link
               key={href}
               href={href}
+              data-tour={label.toLowerCase()}
               aria-current={current === href ? "page" : undefined}
               className="rounded-md px-3 py-1.5 text-sm text-muted transition-colors hover:text-ink aria-[current=page]:bg-active aria-[current=page]:text-ink"
             >
@@ -34,15 +35,20 @@ export default function Nav({ current }: { current: string }) {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          {mode === "builtin" && <CoachButton />}
+          {mode === "builtin" && (
+            <span data-tour="coach" className="contents">
+              <CoachButton />
+            </span>
+          )}
           {mode === "external" && (
-            <Link href="/settings?section=coach" className="inline-flex h-8 items-center gap-2 rounded-md border border-control px-3 text-sm text-muted hover:text-ink" title="Your AI app is the coach, through Lactic's MCP server">
+            <Link href="/settings?section=coach" data-tour="coach" className="inline-flex h-8 items-center gap-2 rounded-md border border-control px-3 text-sm text-muted hover:text-ink" title="Your AI app is the coach, through Lactic's MCP server">
               <span className="size-1.5 rounded-full bg-positive" aria-hidden />
               External coach
             </Link>
           )}
           <Link
             href="/ride"
+            data-tour="ride"
             aria-current={current === "/ride" ? "page" : undefined}
             className="inline-flex h-8 items-center rounded-md bg-primary px-3.5 text-sm font-medium text-on-primary transition-opacity hover:opacity-85 aria-[current=page]:hidden"
           >
@@ -52,6 +58,7 @@ export default function Nav({ current }: { current: string }) {
           <Link
             href="/settings"
             aria-label="Settings"
+            data-tour="settings"
             title="Settings"
             aria-current={current === "/settings" ? "page" : undefined}
             className="inline-flex size-8 items-center justify-center rounded-md text-muted transition-colors hover:text-ink aria-[current=page]:bg-active aria-[current=page]:text-ink"

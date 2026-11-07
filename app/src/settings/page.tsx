@@ -20,6 +20,7 @@ import { CoachSetupPanel } from "~/setup/coach";
 import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
 import { AboutPanel, SimulatorSwitch } from "./panels";
+import { TakeTour } from "~/tour/take-tour";
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
@@ -68,6 +69,9 @@ export default async function SettingsPage() {
         <div className="space-y-4 border-t border-line pt-8">
           <Section id="appearance" title="Appearance" description="Light, dark, or match the system. Applies everywhere, the ride overlay included.">
             <ThemeSetting />
+          </Section>
+          <Section id="tour" title="Getting started" description="A two-minute look at each screen, with a demo ride on a simulated trainer.">
+            <TakeTour />
           </Section>
         </div>
         <div id="coach-settings" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
