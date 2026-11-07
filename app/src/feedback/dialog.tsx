@@ -9,7 +9,28 @@ import { checkApp } from "~/support/tools";
 import { appInfo, openExternal } from "~/platform/native";
 import { buildIssue, diagnosticsText, githubBody, githubIssueUrl, KINDS, MAX_MESSAGE, MAX_SCREENSHOT_BYTES, MAX_SCREENSHOTS, RELAY_URL, relayPayload, systemLine, type FeedbackKind, type Screenshot, type SystemInfo } from "./report";
 
-type Shot = Screenshot & { preview: string };
+import { Annotate, drawMarks, type Mark } from "./annotate";
+
+/** `original` is the shrunk image before any marks, so marks stay editable. */
+type Shot = Screenshot & { preview: string; original: string; marks: Mark[] };
+
+/** Draws the marks onto the original and re-encodes it, staying under the size limit. */
+async function flatten(shot: Shot, marks: Mark[]): Promise<Shot> {
+  const img = new Image();
+  img.src = shot.original;
+  await img.decode();
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0);
+  drawMarks(ctx, marks, canvas.width);
+  for (let quality = 0.85; ; quality -= 0.1) {
+    const url = canvas.toDataURL("image/jpeg", quality);
+    const data = url.slice(url.indexOf(",") + 1);
+    if (data.length * 0.75 <= MAX_SCREENSHOT_BYTES || quality < 0.45) return { ...shot, data, preview: url, marks };
+  }
+}
 
 /** Shrinks an image to at most 1920 px wide and about 1 MB as a JPEG, so three fit in one request. */
 async function toShot(file: File): Promise<Shot> {
@@ -28,7 +49,7 @@ async function toShot(file: File): Promise<Shot> {
     if (data.length * 0.75 <= MAX_SCREENSHOT_BYTES || scale < 0.3) {
       bitmap.close();
       const name = `${file.name.replace(/\.[^.]+$/, "") || "screenshot"}.jpg`.replace(/[^\w.-]+/g, "-");
-      return { name, type: "image/jpeg", data, preview: url };
+      return { name, type: "image/jpeg", data, preview: url, original: url, marks: [] };
     }
     if (quality <= 0.55) scale *= 0.75;
   }
@@ -80,7 +101,7 @@ export function FeedbackSetting() {
   );
 }
 
-type Sent = { ok: true; url: string | null } | { ok: false; message: string };
+type Sent = { ok: true; url: string | null; duplicate: boolean } | { ok: false; message: string };
 
 function FeedbackDialog({ onClose }: { onClose: () => void }) {
   const [kind, setKind] = useState<FeedbackKind>("problem");
@@ -94,6 +115,7 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
   const [note, setNote] = useState<string | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
   const [shotError, setShotError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<number | null>(null);
   const picker = useRef<HTMLInputElement>(null);
 
   async function addFiles(files: Iterable<File>) {
@@ -137,9 +159,9 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
     setSent(null);
     try {
       const res = await fetch(RELAY_URL, { method: "POST", headers: { "content-type": "application/json", "x-lactic-client": system!.version }, body: JSON.stringify(relayPayload(input())) });
-      const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string; duplicate?: boolean };
       if (!res.ok) throw new Error(body.error ?? `The feedback service answered ${res.status}.`);
-      setSent({ ok: true, url: body.url ?? null });
+      setSent({ ok: true, url: body.url ?? null, duplicate: Boolean(body.duplicate) });
     } catch (e) {
       setSent({ ok: false, message: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -190,7 +212,7 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
 
         {sent?.ok ? (
           <div className="space-y-4">
-            <p className="text-sm">Thanks, it's sent.</p>
+            <p className="text-sm">{sent.duplicate ? "Thanks. Someone had already reported this, so yours was added to their report." : "Thanks, it's sent."}</p>
             {sent.url && (
               <button type="button" className={button.ghost} onClick={() => void openExternal(sent.url!)}>
                 See it on GitHub
@@ -219,7 +241,10 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
               <div className="flex flex-wrap items-center gap-2">
                 {shots.map((shot, i) => (
                   <div key={i} className="relative">
-                    <img src={shot.preview} alt={`Screenshot ${i + 1}`} className="h-16 w-24 rounded-md border border-line object-cover" />
+                    <button type="button" title="Mark it up" aria-label={`Mark up screenshot ${i + 1}`} onClick={() => setEditing(i)} className="group block">
+                      <img src={shot.preview} alt="" className="h-16 w-24 rounded-md border border-line object-cover group-hover:opacity-80" />
+                      <span className="absolute inset-x-0 bottom-1 text-center text-[11px] font-medium text-white opacity-0 drop-shadow group-hover:opacity-100">Mark up</span>
+                    </button>
                     <button
                       type="button"
                       aria-label={`Remove screenshot ${i + 1}`}
@@ -246,9 +271,21 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
                     e.target.value = "";
                   }}
                 />
-                {shots.length === 0 && <span className="text-muted">or paste one in</span>}
+                {shots.length === 0 ? <span className="text-muted">or paste one in</span> : <span className="text-muted">Click one to circle the problem.</span>}
               </div>
               {shotError && <Result ok={false}>{shotError}</Result>}
+              {editing !== null && shots[editing] && (
+                <Annotate
+                  src={shots[editing].original}
+                  initial={shots[editing].marks}
+                  onCancel={() => setEditing(null)}
+                  onDone={(marks) => {
+                    const i = editing;
+                    setEditing(null);
+                    void flatten(shots[i], marks).then((shot) => setShots((list) => list.map((s, j) => (j === i ? shot : s))));
+                  }}
+                />
+              )}
               <p className="text-muted">Sent with it: {system ? systemLine(system) : "…"}</p>
               <label className="flex items-start gap-3">
                 <input type="checkbox" className="mt-0.5" checked={attach} onChange={(e) => setAttach(e.target.checked)} />

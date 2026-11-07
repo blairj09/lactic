@@ -14,4 +14,6 @@ Environment variables on the lactic-site project:
 - `BLOB_READ_WRITE_TOKEN`: added when a Blob store is connected to the project. Without it, issues are filed without their screenshots.
 - `GITHUB_REPO` (optional): defaults to `blairj09/lactic`.
 
+Before filing, it compares the note with open `feedback` issues of the same kind (word overlap, kept strict). A clear match gets the report as a comment and a +1 instead of a new issue, and the app tells the rider.
+
 Without `GITHUB_TOKEN` it answers 503 and the app offers "Open on GitHub instead". Tests: `npm test` here.

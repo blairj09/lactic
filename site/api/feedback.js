@@ -3,6 +3,10 @@
 // they chose to, an app check and up to three screenshots. Nothing is stored here: screenshots go to
 // Vercel Blob so the issue can show them, and everything else goes into the issue.
 //
+// Triage: before filing, it compares the note with the open feedback issues of the same kind. When
+// one is clearly the same report, the note goes on that issue as a comment (with its screenshots and
+// system line) and gets a "+1" count, instead of a new issue.
+//
 // Environment (Vercel project lactic-site):
 //   GITHUB_TOKEN           fine-grained token with Issues: read and write on the repo, nothing else
 //   GITHUB_REPO            optional, defaults to blairj09/lactic
@@ -93,6 +97,67 @@ async function upload(screenshots) {
   return { images, skipped: screenshots.length - images.length };
 }
 
+const STOP = new Set(
+  "the and for with that this from have has had was were are not but you your when then than they them its it's into out about after before just like when what which while would could should there their here also only very more some any all can cant can't dont don't doesnt doesn't didnt didn't wont won't isnt isn't lactic app please thanks thank".split(" "),
+);
+
+/** The words that carry a note's meaning: lower case, no stop words, plural s dropped. */
+export function words(text) {
+  const out = new Set();
+  for (const w of text.toLowerCase().match(/[a-z0-9][a-z0-9'-]*/g) || []) {
+    if (w.length < 3 || STOP.has(w)) continue;
+    out.add(w.length > 4 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w);
+  }
+  return out;
+}
+
+/** How alike two notes are, 0 to 1 (Jaccard on their words). */
+export function similarity(a, b) {
+  const A = words(a);
+  const B = words(b);
+  if (!A.size || !B.size) return 0;
+  let shared = 0;
+  for (const w of A) if (B.has(w)) shared++;
+  return shared / (A.size + B.size - shared);
+}
+
+/** Only what the rider wrote in an issue: the title and the note above the screenshots and system line. */
+const issueText = (issue) => `${issue.title.replace(/^[A-Za-z]+:\s*/, "")}\n${(issue.body || "").split(/\n!\[Screenshot\]|\n---\n/)[0]}`;
+
+/** Kept high on purpose: a missed duplicate costs a minute of triage, a wrong merge loses a report. */
+export const DUPLICATE_AT = 0.5;
+
+/** The open feedback issue that is the same report, if one clearly is. */
+export function findDuplicate(issues, kind, message) {
+  let best = null;
+  for (const issue of issues) {
+    if (issue.pull_request || !(issue.labels || []).some((l) => (l.name ?? l) === kind)) continue;
+    const score = similarity(message, issueText(issue));
+    if (score >= DUPLICATE_AT && (!best || score > best.score)) best = { issue, score };
+  }
+  return best?.issue ?? null;
+}
+
+const github = (path, init = {}) =>
+  fetch(`https://api.github.com/repos/${REPO}${path}`, {
+    ...init,
+    headers: {
+      authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+      accept: "application/vnd.github+json",
+      "x-github-api-version": "2022-11-28",
+      "user-agent": "lactic-feedback",
+    },
+  });
+
+async function openFeedback() {
+  try {
+    const res = await github("/issues?labels=feedback&state=open&per_page=100&sort=updated");
+    return res.ok ? await res.json() : [];
+  } catch {
+    return [];
+  }
+}
+
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS });
 }
@@ -113,17 +178,20 @@ export async function POST(request) {
   }
   if (typeof input === "string") return json(400, { error: input });
 
-  const { images, skipped } = await upload(input.screenshots);
-  const res = await fetch(`https://api.github.com/repos/${REPO}/issues`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-      accept: "application/vnd.github+json",
-      "x-github-api-version": "2022-11-28",
-      "user-agent": "lactic-feedback",
-    },
-    body: JSON.stringify({ title: title(input.kind, input.message), body: body({ ...input, images, skipped }), labels: ["feedback", input.kind] }),
-  });
+  const [{ images, skipped }, open] = await Promise.all([upload(input.screenshots), openFeedback()]);
+  const text = body({ ...input, images, skipped });
+
+  const same = findDuplicate(open, input.kind, input.message);
+  if (same) {
+    const res = await github(`/issues/${same.number}/comments`, { method: "POST", body: JSON.stringify({ body: `**Another report of this, from the app:**\n\n${text}` }) });
+    if (res.ok) {
+      await github(`/issues/${same.number}/reactions`, { method: "POST", body: JSON.stringify({ content: "+1" }) }).catch(() => null);
+      return json(200, { url: same.html_url, number: same.number, duplicate: true });
+    }
+    console.error("GitHub comment", res.status, await res.text().catch(() => ""));
+  }
+
+  const res = await github("/issues", { method: "POST", body: JSON.stringify({ title: title(input.kind, input.message), body: text, labels: ["feedback", input.kind] }) });
   if (!res.ok) {
     console.error("GitHub", res.status, await res.text().catch(() => ""));
     return json(502, { error: "GitHub didn't take it. Try again in a minute." });
