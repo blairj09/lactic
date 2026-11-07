@@ -17,7 +17,7 @@ export default function OverlayWindow() {
     document.documentElement.classList.add("overflow-hidden");
     const stop = listen<OverlayPayload>(EV.data, setPayload);
     void import("@tauri-apps/api/event").then(({ emitTo }) => emitTo("main", EV.ready));
-    // This window stays visible over Zwift, so its timer keeps the ride clock honest.
+    // This window stays visible on top of other windows, so its timer keeps the ride clock honest.
     const tick = setInterval(() => void import("@tauri-apps/api/event").then(({ emitTo }) => emitTo("main", EV.tick)), 250);
     const closed = () => void import("@tauri-apps/api/event").then(({ emitTo }) => emitTo("main", EV.closed));
     window.addEventListener("beforeunload", closed);

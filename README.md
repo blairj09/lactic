@@ -36,7 +36,7 @@ Today's workout from your plan, last night's recovery, your weigh-in, your form 
 
 ### Rides that hold the watts
 
-Lactic drives your smart trainer in ERG for every interval, drops to road mode for sprints, and starts the workout with your first pedal stroke. Paired gear reconnects on its own. An always-on-top overlay floats over full-screen Zwift, so you see the next interval without switching windows.
+Lactic drives your smart trainer in ERG for every interval, drops to road mode for sprints, and starts the workout with your first pedal stroke. Paired gear reconnects on its own. An always-on-top overlay keeps the workout in view over whatever else you have open, whether that's Zwift, a video or a browser, full screen included, so you see the next interval without switching windows.
 
 ### Plans that adapt
 

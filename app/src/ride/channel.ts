@@ -1,4 +1,4 @@
-// The ride overlay is its own always-on-top window (it floats over Zwift in full screen), so the
+// The ride overlay is its own always-on-top window (it stays over other apps, full screen included), so the
 // Ride page and the overlay talk over app events: the page sends what to show, the overlay sends
 // back button presses and a steady tick that keeps the ride clock running while the page is hidden.
 
