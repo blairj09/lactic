@@ -18,6 +18,7 @@ import {
   type RideSetting,
 } from "@/lib/engine/ride-calendar";
 import { formatDuration, SOURCE_LABEL } from "@/lib/format";
+import Select from "@/components/select";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const sourceLabel = (s: string) => SOURCE_LABEL[s] ?? s;
@@ -70,29 +71,29 @@ export default function RideCalendar({ rides, timeZone, today }: { rides: Calend
           className={`${input} w-full lg:w-60`}
         />
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-          <select value={filters.source} onChange={(e) => set({ source: e.target.value })} aria-label="Source" className={input}>
+          <Select value={filters.source} onChange={(v) => set({ source: v })} aria-label="Source" className={input}>
             <option value="all">All sources</option>
             {sources.map((s) => (
               <option key={s} value={s}>
                 {sourceLabel(s)}
               </option>
             ))}
-          </select>
-          <select value={filters.setting} onChange={(e) => set({ setting: e.target.value as RideSetting | "all" })} aria-label="Indoor or outdoor" className={input}>
+          </Select>
+          <Select value={filters.setting} onChange={(v) => set({ setting: v as RideSetting | "all" })} aria-label="Indoor or outdoor" className={input}>
             <option value="all">Indoor/outdoor</option>
             <option value="indoor">Indoor</option>
             <option value="outdoor" disabled={!hasOutdoor}>
               Outdoor
             </option>
-          </select>
-          <select value={filters.zone} onChange={(e) => set({ zone: e.target.value as Zone | "all" })} aria-label="Workout type" className={input}>
+          </Select>
+          <Select value={filters.zone} onChange={(v) => set({ zone: v as Zone | "all" })} aria-label="Workout type" className={input}>
             <option value="all">All types</option>
             {zones.map((z) => (
               <option key={z} value={z}>
                 {ZONE_LABELS[z]}
               </option>
             ))}
-          </select>
+          </Select>
           <label className="flex h-9 items-center gap-2 px-1 text-sm text-muted">
             <input type="checkbox" checked={filters.copies} onChange={(e) => set({ copies: e.target.checked })} className="size-4 accent-[var(--accent)]" />
             Show copies
@@ -135,13 +136,13 @@ export default function RideCalendar({ rides, timeZone, today }: { rides: Calend
             <button type="button" aria-label="Next month" onClick={() => setMonth(shiftMonth(month, 1))} className={`${button.small} w-8 px-0`}>
               ›
             </button>
-            <select value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month" className={`${input} h-8 pr-8 pl-2.5 font-medium`}>
+            <Select value={month} onChange={(v) => setMonth(v)} aria-label="Month" className={`${input} h-8 px-2.5 font-medium`}>
               {months.map((m) => (
                 <option key={m} value={m}>
                   {monthName(m)}
                 </option>
               ))}
-            </select>
+            </Select>
             {month !== today.slice(0, 7) && (
               <button type="button" onClick={() => setMonth(today.slice(0, 7))} className={button.ghost}>
                 This month
