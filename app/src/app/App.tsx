@@ -10,6 +10,7 @@ import { setNavigator } from "~/shims/next-navigation";
 import { refreshCoachMode, useCoachMode } from "./coach-mode";
 import { getSetting } from "~/settings/store";
 import { startBackground } from "~/integrations/background";
+import "~/integrations/apple-health";
 import { BluetoothPicker } from "~/bluetooth/picker";
 import { startMcpBridge } from "~/mcp/bridge";
 import { ExternalSuggestions } from "~/mcp/suggestions";
@@ -78,7 +79,7 @@ function Shell() {
         <Route path="/health/:metric" element={<ServerPage load={metric} />} />
         <Route path="/ride" element={<ServerPage load={ride} />} />
         <Route path="/rides/:id" element={<ServerPage load={rideDetail} />} />
-        <Route path="/settings" element={<Lazy load={settings} />} />
+        <Route path="/settings" element={<ServerPage load={settings} />} />
         <Route path="/analysis" element={<Navigate to="/progress" replace />} />
         <Route path="/rides" element={<Navigate to="/progress" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />

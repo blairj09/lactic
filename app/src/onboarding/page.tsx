@@ -17,7 +17,7 @@ const STEPS = [
   { id: "you", title: "About you", line: "So zones, stress and the plan fit you." },
   { id: "week", title: "Your week and goal", line: "Lactic builds a plan around the time you have." },
   { id: "gear", title: "Your gear", line: "Wake up your trainer and sensors. Lactic finds them." },
-  { id: "rides", title: "Your rides so far", line: "Bring in your history so Lactic knows your fitness from day one." },
+  { id: "rides", title: "Your rides and health", line: "Bring in your history so Lactic knows your fitness from day one, and your sleep for a daily recovery score." },
   { id: "coach", title: "Your coach", line: "Choose how you'd like coaching, if at all." },
 ] as const;
 type StepId = (typeof STEPS)[number]["id"];

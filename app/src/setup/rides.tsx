@@ -10,6 +10,7 @@ import { createClient } from "~/db/supabase-client";
 import { openExternal } from "~/platform/native";
 import { placeholder, saveSecret } from "~/platform/secrets";
 import { notifyChanged } from "~/integrations/background";
+import { HealthSetup } from "./health";
 
 export const SECRET_INTERVALS = "intervals";
 
@@ -94,6 +95,7 @@ export function RidesSetup() {
         </div>
         <FitImport />
       </div>
+      <HealthSetup />
       <p className="text-sm text-muted">No history? That&apos;s fine. Lactic starts from your FTP and learns as you ride.</p>
     </div>
   );
