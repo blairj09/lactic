@@ -716,29 +716,33 @@ export default function RideScreen({
         {!supported && <Notice>This browser has no Web Bluetooth. Open the Lactic app to ride with your trainer.</Notice>}
         {error && <Notice tone="negative">{error}</Notice>}
 
-        <SensorPanel hub={hub} state={state} supported={supported} onError={setError} />
+        <div data-tour="ride-gear">
+          <SensorPanel hub={hub} state={state} supported={supported} onError={setError} />
+        </div>
 
         {elapsed === 0 && (
-          <RideNow
-            source={source}
-            planned={planned}
-            plannedLabel={plannedLabel}
-            library={library}
-            levels={levels}
-            saved={saved}
-            customId={customId}
-            canSave={canSave}
-            importing={importing}
-            onSource={pickSource}
-            onLibrary={pickLibrary}
-            onCustom={(entry) => ride("custom", entry.workout, entry.id)}
-            onNew={() => {
-              ride("custom", blankWorkout(), null);
-              setEditorOpen(true);
-            }}
-            onDelete={removeCustom}
-            onFile={importZwo}
-          />
+          <div data-tour="ride-pick">
+            <RideNow
+              source={source}
+              planned={planned}
+              plannedLabel={plannedLabel}
+              library={library}
+              levels={levels}
+              saved={saved}
+              customId={customId}
+              canSave={canSave}
+              importing={importing}
+              onSource={pickSource}
+              onLibrary={pickLibrary}
+              onCustom={(entry) => ride("custom", entry.workout, entry.id)}
+              onNew={() => {
+                ride("custom", blankWorkout(), null);
+                setEditorOpen(true);
+              }}
+              onDelete={removeCustom}
+              onFile={importZwo}
+            />
+          </div>
         )}
 
         {ended && (
@@ -771,170 +775,180 @@ export default function RideScreen({
           </div>
         )}
 
-        <PlayerView
-          data={data}
-          controls={controls}
-          extra={
-            <>
-              {/* Ride actions, quieter than the controls: End once a ride is under way, Save again if saving failed, Reset once one started. */}
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                {elapsed > 0 && !ended && !data.finished && (
-                  <button className={button.secondary} onClick={end}>
-                    End ride
-                  </button>
-                )}
-                {ended && canSave && elapsed >= 60 && saveState !== "saved" && (
-                  <button className={button.secondary} disabled={saveState !== "idle"} onClick={save}>
-                    {saveState === "saving" ? "Saving..." : "Save ride"}
-                  </button>
-                )}
-                {pip.supported && !ended && (
-                  <button className={button.ghost} onClick={() => (pip.pip ? pip.close() : openOverlay())}>
-                    {pip.pip ? "Close overlay" : "Open overlay"}
-                  </button>
-                )}
-                {elapsed > 0 && (
-                  <button
-                    className={button.ghost}
-                    onClick={() => {
-                      if (unsaved && !window.confirm("Reset this ride? It hasn't been saved.")) return;
-                      reset();
-                    }}
-                  >
-                    {ended ? "New ride" : "Reset"}
-                  </button>
-                )}
-              </div>
-              <p className="num text-sm text-muted">{/trainer/i.test(state.trainerStatus) ? state.trainerStatus : `Trainer: ${state.trainerStatus}`}</p>
-            </>
-          }
-        />
+        <div data-tour="ride-player">
+          <PlayerView
+            data={data}
+            controls={controls}
+            extra={
+              <>
+                {/* Ride actions, quieter than the controls: End once a ride is under way, Save again if saving failed, Reset once one started. */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                  {elapsed > 0 && !ended && !data.finished && (
+                    <button className={button.secondary} onClick={end}>
+                      End ride
+                    </button>
+                  )}
+                  {ended && canSave && elapsed >= 60 && saveState !== "saved" && (
+                    <button className={button.secondary} disabled={saveState !== "idle"} onClick={save}>
+                      {saveState === "saving" ? "Saving..." : "Save ride"}
+                    </button>
+                  )}
+                  {pip.supported && !ended && (
+                    <button className={button.ghost} onClick={() => (pip.pip ? pip.close() : openOverlay())}>
+                      {pip.pip ? "Close overlay" : "Open overlay"}
+                    </button>
+                  )}
+                  {elapsed > 0 && (
+                    <button
+                      className={button.ghost}
+                      onClick={() => {
+                        if (unsaved && !window.confirm("Reset this ride? It hasn't been saved.")) return;
+                        reset();
+                      }}
+                    >
+                      {ended ? "New ride" : "Reset"}
+                    </button>
+                  )}
+                </div>
+                <p className="num text-sm text-muted">{/trainer/i.test(state.trainerStatus) ? state.trainerStatus : `Trainer: ${state.trainerStatus}`}</p>
+              </>
+            }
+          />
+        </div>
 
         {!erg && (
-          <WorkoutEditor
-            key={loads}
-            workout={baseWorkout}
-            ftp={ftp}
-            intensity={intensity}
-            position={position}
-            edited={edited}
-            open={editorOpen}
-            onToggle={() => setEditorOpen((o) => !o)}
-            canSave={canSave}
-            savedId={customId}
-            onChange={editWorkout}
-            onSaved={setCustomId}
-          />
+          <div data-tour="ride-editor">
+            <WorkoutEditor
+              key={loads}
+              workout={baseWorkout}
+              ftp={ftp}
+              intensity={intensity}
+              position={position}
+              edited={edited}
+              open={editorOpen}
+              onToggle={() => setEditorOpen((o) => !o)}
+              canSave={canSave}
+              savedId={customId}
+              onChange={editWorkout}
+              onSaved={setCustomId}
+            />
+          </div>
         )}
 
-        {!erg && today && !running && elapsed === 0 && <SendToKaroo workout={workout} today={today} />}
+        {!erg && today && !running && elapsed === 0 && (
+          <div data-tour="ride-outside">
+            <SendToKaroo workout={workout} today={today} />
+          </div>
+        )}
 
-        <Panel
-          // Collapsed, the title row's bottom margin stands in for the padding.
-          className={setupOpen ? undefined : "pb-1"}
-          title={
-            <button type="button" onClick={() => setSetupOpen((o) => !o)} aria-expanded={setupOpen} className="flex items-center gap-2 hover:text-muted">
-              <span aria-hidden className={`inline-block text-xs transition-transform ${setupOpen ? "rotate-90" : ""}`}>
-                ▶
+        <div data-tour="ride-setup">
+          <Panel
+            // Collapsed, the title row's bottom margin stands in for the padding.
+            className={setupOpen ? undefined : "pb-1"}
+            title={
+              <button type="button" onClick={() => setSetupOpen((o) => !o)} aria-expanded={setupOpen} className="flex items-center gap-2 hover:text-muted">
+                <span aria-hidden className={`inline-block text-xs transition-transform ${setupOpen ? "rotate-90" : ""}`}>
+                  ▶
+                </span>
+                Setup
+              </button>
+            }
+            meta={
+              <span className="num">
+                {state.powerSource === "trainer" ? "Trainer power" : "Power meter"} · FTP {ftp} W{autoStartOn ? " · starts when you pedal" : ""}{pip.supported && overlayOnStart ? " · overlay opens on start" : ""}
               </span>
-              Setup
-            </button>
-          }
-          meta={
-            <span className="num">
-              {state.powerSource === "trainer" ? "Trainer power" : "Power meter"} · FTP {ftp} W{autoStartOn ? " · starts when you pedal" : ""}{pip.supported && overlayOnStart ? " · overlay opens on start" : ""}
-            </span>
-          }
-        >
-          {setupOpen && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-                <section className="space-y-3">
-                  <h3 className="text-sm font-medium">Start</h3>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={autoStartOn} onChange={(e) => toggleAutoStart(e.target.checked)} className="size-4 accent-[var(--ink)]" />
-                    Start when I pedal
-                  </label>
-                  <p className="text-sm text-muted">
-                    With a ride picked and the trainer connected, a few seconds of pedaling starts it. Stop pedaling and it pauses; pedal again and it
-                    picks up.
-                  </p>
-                </section>
+            }
+          >
+            {setupOpen && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-medium">Start</h3>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={autoStartOn} onChange={(e) => toggleAutoStart(e.target.checked)} className="size-4 accent-[var(--ink)]" />
+                      Start when I pedal
+                    </label>
+                    <p className="text-sm text-muted">
+                      With a ride picked and the trainer connected, a few seconds of pedaling starts it. Stop pedaling and it pauses; pedal again and it
+                      picks up.
+                    </p>
+                  </section>
 
-                <section className="space-y-3">
-                  <h3 className="text-sm font-medium">Overlay for Zwift</h3>
-                  {pip.supported ? (
-                    <>
-                      <p className="text-sm text-muted">
-                        An always-on-top strip with the interval, targets and what&apos;s next. Drag it bigger, or use its shrink and enlarge buttons.{" "}
-                        {pip.floatsOverFullScreen
-                          ? "It floats over Zwift, full screen included."
-                          : "It floats over Zwift when Zwift is a window filling the screen (Option-click its green button), not in macOS full screen."}
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-medium">Overlay for Zwift</h3>
+                    {pip.supported ? (
+                      <>
+                        <p className="text-sm text-muted">
+                          An always-on-top strip with the interval, targets and what&apos;s next. Drag it bigger, or use its shrink and enlarge buttons.{" "}
+                          {pip.floatsOverFullScreen
+                            ? "It floats over Zwift, full screen included."
+                            : "It floats over Zwift when Zwift is a window filling the screen (Option-click its green button), not in macOS full screen."}
+                        </p>
+                        <label className="flex items-center gap-2 text-sm">
+                          <input type="checkbox" checked={overlayOnStart} onChange={(e) => toggleOverlayOnStart(e.target.checked)} className="size-4 accent-[var(--ink)]" />
+                          Open it when I start
+                        </label>
+                        {overlayOnStart && autoStartOn && pip.needsClick && (
+                          <p className="text-sm text-muted">Chrome only opens it from a click, so it opens when you click Start; if pedaling starts the ride, open it with Open overlay.</p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted">The overlay needs Chrome 116 or later on a desktop.</p>
+                    )}
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-medium">Power source</h3>
+                    <Segmented
+                      label="Power source"
+                      options={[
+                        { value: "trainer" as const, label: "Trainer" },
+                        { value: "powerMeter" as const, label: "Power meter" },
+                      ]}
+                      value={state.powerSource}
+                      onChange={pickPowerSource}
+                    />
+                    <p className="text-sm text-muted">
+                      {state.powerSource === "trainer"
+                        ? "Power and cadence come from the trainer."
+                        : state.connected.powerMeter
+                          ? "Power and cadence come from the power meter, and ERG is power matched: the trainer is sent the target scaled so the power meter reads it."
+                          : "Connect the power meter to use it. Until then the trainer's power counts."}
+                    </p>
+                    {state.powerSource === "powerMeter" && state.connected.powerMeter && state.connected.trainer && (
+                      <p className="num text-sm text-muted">
+                        Trainer {state.trainerWatts ?? "–"} W · power meter {state.meterWatts ?? "–"} W
+                        {state.matchRatio !== undefined && state.matchRatio !== 1 && ` · trainer reads ${state.matchRatio > 1 ? "+" : ""}${Math.round((state.matchRatio - 1) * 1000) / 10}%`}
                       </p>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={overlayOnStart} onChange={(e) => toggleOverlayOnStart(e.target.checked)} className="size-4 accent-[var(--ink)]" />
-                        Open it when I start
-                      </label>
-                      {overlayOnStart && autoStartOn && pip.needsClick && (
-                        <p className="text-sm text-muted">Chrome only opens it from a click, so it opens when you click Start; if pedaling starts the ride, open it with Open overlay.</p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted">The overlay needs Chrome 116 or later on a desktop.</p>
-                  )}
-                </section>
+                    )}
+                  </section>
 
-                <section className="space-y-3">
-                  <h3 className="text-sm font-medium">Power source</h3>
-                  <Segmented
-                    label="Power source"
-                    options={[
-                      { value: "trainer" as const, label: "Trainer" },
-                      { value: "powerMeter" as const, label: "Power meter" },
-                    ]}
-                    value={state.powerSource}
-                    onChange={pickPowerSource}
-                  />
-                  <p className="text-sm text-muted">
-                    {state.powerSource === "trainer"
-                      ? "Power and cadence come from the trainer."
-                      : state.connected.powerMeter
-                        ? "Power and cadence come from the power meter, and ERG is power matched: the trainer is sent the target scaled so the power meter reads it."
-                        : "Connect the power meter to use it. Until then the trainer's power counts."}
-                  </p>
-                  {state.powerSource === "powerMeter" && state.connected.powerMeter && state.connected.trainer && (
-                    <p className="num text-sm text-muted">
-                      Trainer {state.trainerWatts ?? "–"} W · power meter {state.meterWatts ?? "–"} W
-                      {state.matchRatio !== undefined && state.matchRatio !== 1 && ` · trainer reads ${state.matchRatio > 1 ? "+" : ""}${Math.round((state.matchRatio - 1) * 1000) / 10}%`}
-                    </p>
-                  )}
-                </section>
-
-                <section className="space-y-3 text-sm">
-                  <h3 className="font-medium">FTP{initialFtp ? <span className="font-normal text-muted"> · from Settings</span> : null}</h3>
-                  <label className="flex items-center gap-2">
-                    <input type="number" value={ftp} onChange={(e) => setFtp(Number(e.target.value) || 0)} className={`${input} num w-24`} aria-label="FTP" />
-                    <span className="text-muted">W</span>
-                  </label>
-                  {initialFtp && ftp !== initialFtp ? (
-                    <p className="text-muted">
-                      This ride only; Settings keeps <span className="num text-ink">{initialFtp} W</span>.{" "}
-                      <button type="button" onClick={() => setFtp(initialFtp)} className="text-ink underline underline-offset-4">
-                        Reset
-                      </button>
-                    </p>
-                  ) : (
-                    <p className="text-muted">Changing it here sets this ride&apos;s targets only.</p>
-                  )}
-                </section>
+                  <section className="space-y-3 text-sm">
+                    <h3 className="font-medium">FTP{initialFtp ? <span className="font-normal text-muted"> · from Settings</span> : null}</h3>
+                    <label className="flex items-center gap-2">
+                      <input type="number" value={ftp} onChange={(e) => setFtp(Number(e.target.value) || 0)} className={`${input} num w-24`} aria-label="FTP" />
+                      <span className="text-muted">W</span>
+                    </label>
+                    {initialFtp && ftp !== initialFtp ? (
+                      <p className="text-muted">
+                        This ride only; Settings keeps <span className="num text-ink">{initialFtp} W</span>.{" "}
+                        <button type="button" onClick={() => setFtp(initialFtp)} className="text-ink underline underline-offset-4">
+                          Reset
+                        </button>
+                      </p>
+                    ) : (
+                      <p className="text-muted">Changing it here sets this ride&apos;s targets only.</p>
+                    )}
+                  </section>
+                </div>
+                <p className="text-sm text-muted">
+                  Riding with Zwift open: pair Zwift to the KICKR for power, cadence and heart rate only, and leave &quot;Controllable&quot; unpaired so
+                  this page keeps ERG control.
+                </p>
               </div>
-              <p className="text-sm text-muted">
-                Riding with Zwift open: pair Zwift to the KICKR for power, cadence and heart rate only, and leave &quot;Controllable&quot; unpaired so
-                this page keeps ERG control.
-              </p>
-            </div>
-          )}
-        </Panel>
+            )}
+          </Panel>
+        </div>
         {pip.pip && <OverlayPortal pip={pip.pip} data={data} controls={controls} onResize={resizeOverlay} />}
       </Page>
     </div>

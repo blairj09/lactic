@@ -81,7 +81,7 @@ function Done({ onFinish }: { onFinish: (tour: boolean) => void }) {
         </div>
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold tracking-tight">You&apos;re set</h1>
-          <p className="text-muted">Your plan is ready. Take a two-minute look around, with a demo ride on a simulated trainer, or go straight to Today.</p>
+          <p className="text-muted">Your plan is ready. Take a quick look around each screen and the Ride screen, or go straight to Today.</p>
         </div>
         <div className="space-y-3">
           <button type="button" className={`${button.primary} h-11 w-full text-base`} onClick={() => onFinish(true)}>

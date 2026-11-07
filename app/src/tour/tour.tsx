@@ -1,5 +1,5 @@
 // The first-run tour: a card that walks the top bar screen by screen, a short list of what setup
-// left undone, and a demo ride on the simulated trainer at the end.
+// left undone, and the parts of the Ride screen.
 
 import { useEffect, useLayoutEffect, useState } from "react";
 import { useNavigate } from "react-router";
@@ -7,7 +7,6 @@ import { button } from "@/components/ui";
 import { remembered } from "@/lib/ble/devices";
 import { useCoachMode } from "~/app/coach-mode";
 import { createClient } from "~/db/supabase-client";
-import { DemoRide } from "./demo-ride";
 import { stepsFor } from "./steps";
 import { getSetting } from "~/settings/store";
 import { endTour, goToStep, startTour, TOUR_DONE, useTourStep } from "./store";
@@ -38,32 +37,51 @@ function useSetupGaps(active: boolean, mode: string): Gap[] | null {
   return gaps;
 }
 
+const NAV_HEIGHT = 56;
+
+function find(target: string) {
+  const found = document.querySelector(`[data-tour="${target}"]`);
+  return found && getComputedStyle(found).display === "contents" ? found.firstElementChild : found;
+}
+
+/** Where the step's element is, scrolled into view once it shows up. */
 function useTarget(target: string | undefined, key: unknown) {
   const [rect, setRect] = useState<DOMRect | null>(null);
   useLayoutEffect(() => {
     setRect(null);
     if (!target) return;
     let frame = 0;
+    let scrolled = false;
     const measure = () => {
-      const found = document.querySelector(`[data-tour="${target}"]`);
-      const el = found && getComputedStyle(found).display === "contents" ? found.firstElementChild : found;
+      const el = find(target);
       const r = el?.getBoundingClientRect();
-      setRect(r && r.width > 0 ? r : null);
+      if (!el || !r || r.width === 0) return setRect(null);
+      if (!scrolled) {
+        scrolled = true;
+        // Bring it into view under the top bar; tall parts go to the top.
+        const room = window.innerHeight - NAV_HEIGHT;
+        const want = r.height > room * 0.6 ? r.top - NAV_HEIGHT - 16 : r.top - NAV_HEIGHT - (room - r.height) / 3;
+        if (r.top < NAV_HEIGHT || r.bottom > window.innerHeight || r.height > room * 0.6) window.scrollBy({ top: want });
+        return requestAnimationFrame(() => setRect(el.getBoundingClientRect()));
+      }
+      setRect(r);
     };
     // Screens load lazily, so keep looking for a moment.
     const poll = setInterval(measure, 200);
     const stop = setTimeout(() => clearInterval(poll), 3000);
-    const onResize = () => {
+    const onChange = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(measure);
     };
     measure();
-    window.addEventListener("resize", onResize);
+    window.addEventListener("resize", onChange);
+    window.addEventListener("scroll", onChange, true);
     return () => {
       clearInterval(poll);
       clearTimeout(stop);
       cancelAnimationFrame(frame);
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", onChange);
+      window.removeEventListener("scroll", onChange, true);
     };
   }, [target, key]);
   return rect;
@@ -71,6 +89,8 @@ function useTarget(target: string | undefined, key: unknown) {
 
 const CARD_WIDTH = 380;
 const PAD = 6;
+/** About the height of a card with a few lines of text. */
+const CARD_ROOM = 250;
 
 export function Tour() {
   const at = useTourStep();
@@ -78,7 +98,6 @@ export function Tour() {
   const navigate = useNavigate();
   const steps = stepsFor(mode);
   const step = at === null ? null : steps[Math.min(at, steps.length - 1)];
-  const [demo, setDemo] = useState(false);
   const rect = useTarget(step?.target, at);
   const gaps = useSetupGaps(step?.id === "settings", mode);
 
@@ -96,33 +115,31 @@ export function Tour() {
   useEffect(() => {
     if (at === null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (demo) return;
       if (e.key === "Escape") void endTour();
       if (e.key === "ArrowRight" && at < steps.length - 1) goToStep(at + 1);
       if (e.key === "ArrowLeft" && at > 0) goToStep(at - 1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [at, steps.length, demo]);
+  }, [at, steps.length]);
 
   if (at === null || !step) return null;
-  if (demo)
-    return (
-      <DemoRide
-        onClose={(finished) => {
-          setDemo(false);
-          if (finished) void endTour();
-        }}
-      />
-    );
 
   const index = steps.indexOf(step);
   const last = index === steps.length - 1;
   const first = index === 0;
   const vw = window.innerWidth;
-  const cardStyle: React.CSSProperties = rect
-    ? { top: rect.bottom + PAD + 12, left: Math.max(16, Math.min(rect.left + rect.width / 2 - CARD_WIDTH / 2, vw - CARD_WIDTH - 16)), width: Math.min(CARD_WIDTH, vw - 32) }
-    : { top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: Math.min(CARD_WIDTH + 40, vw - 32) };
+  const vh = window.innerHeight;
+  const width = Math.min(CARD_WIDTH, vw - 32);
+  const left = rect ? Math.max(16, Math.min(rect.left + rect.width / 2 - width / 2, vw - width - 16)) : 0;
+  // Below the part if there's room, else above it, else in the corner over it.
+  const cardStyle: React.CSSProperties = !rect
+    ? { top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: Math.min(CARD_WIDTH + 40, vw - 32) }
+    : vh - rect.bottom >= CARD_ROOM
+      ? { top: rect.bottom + PAD + 12, left, width }
+      : rect.top - NAV_HEIGHT >= CARD_ROOM
+        ? { bottom: vh - rect.top + PAD + 12, left, width }
+        : { bottom: 24, right: 24, width };
 
   const openSection = (section: string) => {
     void endTour();
@@ -155,7 +172,7 @@ export function Tour() {
         </div>
         {step.id === "settings" && gaps && gaps.length > 0 && (
           <div className="space-y-2">
-            <p className="text-sm font-medium">Still to set up</p>
+            <p className="text-sm font-medium">Not set up yet</p>
             <ul className="space-y-1">
               {gaps.map((g) => (
                 <li key={g.label}>
@@ -168,9 +185,13 @@ export function Tour() {
           </div>
         )}
         <div className="flex items-center justify-between gap-3 pt-1">
-          <button type="button" className={button.ghost} onClick={() => void endTour()}>
-            {last ? "Finish" : "Skip tour"}
-          </button>
+          {last ? (
+            <span />
+          ) : (
+            <button type="button" className={button.ghost} onClick={() => void endTour()}>
+              Skip tour
+            </button>
+          )}
           <div className="flex items-center gap-2">
             {!first && (
               <button type="button" className={button.small} onClick={() => goToStep(index - 1)}>
@@ -178,8 +199,8 @@ export function Tour() {
               </button>
             )}
             {last ? (
-              <button type="button" className={button.smallPrimary} onClick={() => setDemo(true)}>
-                Try a demo ride
+              <button type="button" className={button.smallPrimary} onClick={() => void endTour()} autoFocus>
+                Done
               </button>
             ) : (
               <button type="button" className={button.smallPrimary} onClick={() => goToStep(index + 1)} autoFocus>
