@@ -60,6 +60,22 @@ export function HealthSetup() {
           this is the way in for most watches.
         </p>
       </div>
+      <div className="space-y-2 rounded-lg border border-line p-4">
+        <p className="font-medium">Android: Samsung, Pixel Watch, Fitbit</p>
+        <p className="text-sm text-muted">These keep their data in Health Connect on your phone. Health Sync passes it on to intervals.icu, and Lactic reads it from there.</p>
+        <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
+          <li>
+            On your phone, install{" "}
+            <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal("https://play.google.com/store/apps/details?id=nl.appyhapps.healthsync")}>
+              Health Sync
+            </button>{" "}
+            from the Play Store.
+          </li>
+          <li>Choose Health Connect (or Samsung Health) as the source and intervals.icu as the destination, then turn on sleep, heart rate and weight.</li>
+          <li>Connect intervals.icu in Lactic. New nights arrive on the next sync.</li>
+        </ol>
+        <p className="text-sm text-faint">Samsung doesn&apos;t share HRV with other apps, so Galaxy Watch nights come in without it. The recovery score uses sleep and resting heart rate instead.</p>
+      </div>
       <div className="space-y-3 rounded-lg border border-line p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
