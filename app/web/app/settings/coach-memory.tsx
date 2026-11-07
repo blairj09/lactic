@@ -26,7 +26,7 @@ export default function CoachMemory({ memory }: { memory: MemoryFact[] }) {
   return (
     <div className="space-y-3 text-sm sm:col-span-2">
       {memory.length === 0 ? (
-        <p className="text-muted">Nothing yet. The coach saves lasting facts you tell it (an injury, a preference, a constraint), and you can add your own.</p>
+        <p className="text-muted">Nothing yet. The coach saves lasting facts you tell it, like an injury or a preference. You can add your own.</p>
       ) : (
         <ul className="space-y-2">
           {memory.map((m) => (

@@ -67,7 +67,7 @@ export function WeekForm({ values: v, onChange, error }: { values: WeekValues; o
             </label>
           ))}
         </div>
-        <p className="text-sm text-muted">The plan never schedules more than this. Change it any time on the Plan page.</p>
+        <p className="text-sm text-muted">The plan never goes over this. Change it any time on Plan.</p>
       </section>
 
       <section className="space-y-4">
@@ -117,7 +117,7 @@ export function WeekForm({ values: v, onChange, error }: { values: WeekValues; o
               onChange={(w) => set("weeks", w)}
               options={[8, 12, 16, 24].map((w) => ({ value: w, label: `${w} weeks` }))}
             />
-          <span className="block text-sm text-muted">Plans run in blocks with a recovery week every few weeks. You can extend it later.</span></div>
+          <span className="block text-sm text-muted">A recovery week comes every few weeks. You can extend the plan later.</span></div>
         )}
       </section>
       {error && <Result ok={false}>{error}</Result>}

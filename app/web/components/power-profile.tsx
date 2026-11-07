@@ -87,9 +87,8 @@ export default function PowerProfile({
         </tbody>
       </table>
       <p className="text-sm text-muted">
-        Rated on Allen and Coggan&apos;s power profile table ({sex === "female" ? "women's" : "men's"}), from {PROFILE_CATEGORIES[0].toLowerCase()} at
-        the center to {PROFILE_CATEGORIES.at(-1)!.toLowerCase()} at the edge. Threshold is 95% of your best 20 minutes and endurance your best hour,
-        both on the FTP column. W/kg uses your current weight, {weightKg.toFixed(1)} kg.
+        Rated on Allen and Coggan&apos;s {sex === "female" ? "women's" : "men's"} table, {PROFILE_CATEGORIES[0].toLowerCase()} at the center to{" "}
+        {PROFILE_CATEGORIES.at(-1)!.toLowerCase()} at the edge. Threshold is 95% of your best 20 minutes. W/kg uses {weightKg.toFixed(1)} kg.
       </p>
     </div>
   );

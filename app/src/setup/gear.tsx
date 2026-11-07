@@ -95,7 +95,7 @@ export function GearSetup() {
           );
         })}
       </ul>
-      <p className="text-sm text-muted">Skip anything you don&apos;t have. You can add gear later in Settings → Bluetooth, or from the Ride page.</p>
+      <p className="text-sm text-muted">Skip anything you don&apos;t have. Add it later in Settings or on the Ride screen.</p>
     </div>
   );
 }

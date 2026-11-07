@@ -68,7 +68,7 @@ export default function ProgressView({
         title="Progress"
         line={
           <>
-            Your training fitness. Pick a range, or drag across a chart to zoom in, and compare it with the period before or the same dates last year. Recovery, sleep and weight are on{" "}
+            Fitness and power over time. Drag across a chart to zoom in. Recovery and sleep are on{" "}
             <Link href="/health" className="text-ink underline underline-offset-4">
               Health
             </Link>
@@ -89,8 +89,8 @@ export default function ProgressView({
 
       {data.missingHistograms > 0 && (
         <p className="text-sm text-warning">
-          {data.missingHistograms} ride{data.missingHistograms === 1 ? "" : "s"} with power {data.missingHistograms === 1 ? "has" : "have"} no power
-          distribution yet. Re-import your history from intervals.icu in <Link href="/settings#connections" className="underline underline-offset-4">Settings</Link> to fill it in.
+          {data.missingHistograms} ride{data.missingHistograms === 1 ? "" : "s"} {data.missingHistograms === 1 ? "has" : "have"} no power distribution
+          yet. Re-import from intervals.icu in <Link href="/settings#connections" className="underline underline-offset-4">Settings</Link> to fill {data.missingHistograms === 1 ? "it" : "them"} in.
         </p>
       )}
 

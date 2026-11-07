@@ -912,8 +912,8 @@ export default function RideScreen({
                       {state.powerSource === "trainer"
                         ? "Power and cadence come from the trainer."
                         : state.connected.powerMeter
-                          ? "Power and cadence come from the power meter, and ERG is power matched: the trainer is sent the target scaled so the power meter reads it."
-                          : "Connect the power meter to use it. Until then the trainer's power counts."}
+                          ? "Power and cadence come from the power meter, and ERG targets are matched to it."
+                          : "Connect the power meter to use it. Until then, the trainer's power counts."}
                     </p>
                     {state.powerSource === "powerMeter" && state.connected.powerMeter && state.connected.trainer && (
                       <p className="num text-sm text-muted">
@@ -937,13 +937,13 @@ export default function RideScreen({
                         </button>
                       </p>
                     ) : (
-                      <p className="text-muted">Changing it here sets this ride&apos;s targets only.</p>
+                      <p className="text-muted">Changes here apply to this ride only.</p>
                     )}
                   </section>
                 </div>
                 <p className="text-sm text-muted">
-                  Riding with Zwift open: pair Zwift to the KICKR for power, cadence and heart rate only, and leave &quot;Controllable&quot; unpaired so
-                  this page keeps ERG control.
+                  Riding with Zwift open: in Zwift, pair your trainer for power, cadence and heart rate only, and leave &quot;Controllable&quot;
+                  unpaired so Lactic keeps ERG control.
                 </p>
               </div>
             )}

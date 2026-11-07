@@ -57,7 +57,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
             fitness={fitness && <FitnessPanel fitness={fitness} />}
             levels={state && <LevelsPanel state={state} />}
           />
-          <Panel title="Rides" meta={`${counted} counted, copies once`} className="min-w-0">
+          <Panel title="Rides" meta={`${counted} ride${counted === 1 ? "" : "s"}`} className="min-w-0">
             {rides.length > 0 ? (
               <RideCalendar rides={calendar} timeZone={athlete.timezone} today={localDate(new Date(), athlete.timezone)} />
             ) : (

@@ -1,10 +1,12 @@
 // Apple Health setup: where the iPhone drops its files, how to get it sending, and what came in.
 
 import { useEffect, useState } from "react";
-import { button, Pill, Result } from "@/components/ui";
+import { button, Pill, Result, Segmented } from "@/components/ui";
 import { healthFolder, importHealthFolder, setHealthFolder } from "~/integrations/apple-health";
 import { isDesktop, openExternal, os } from "~/platform/native";
 import { getSetting } from "~/settings/store";
+
+type Source = "apple" | "watch" | "android";
 
 interface LastImport {
   at: string;
@@ -14,7 +16,7 @@ interface LastImport {
   failed: string[];
 }
 
-export function HealthSetup() {
+export function HealthSetup({ heading = true }: { heading?: boolean }) {
   const [folder, setFolder] = useState<string | null | undefined>(undefined);
   const [last, setLast] = useState<LastImport | null>(null);
   const [busy, setBusy] = useState(false);
@@ -31,7 +33,7 @@ export function HealthSetup() {
     setBusy(true);
     setResult(null);
     const r = await importHealthFolder().catch((e) => ({ ok: false, message: String(e) }));
-    setResult(r ?? { ok: true, message: "No new files yet. They arrive after the Shortcut runs on your iPhone." });
+    setResult(r ?? { ok: true, message: "No new files yet. They arrive after your iPhone sends them." });
     setLast(await getSetting<LastImport | null>("health.lastImport", null));
     setBusy(false);
   }
@@ -47,45 +49,53 @@ export function HealthSetup() {
   const shortFolder = folder?.replace(/^.*com~apple~CloudDocs/, "iCloud Drive").replace(/^.*[\\/]iCloudDrive/, "iCloud Drive");
   const noCloud =
     os() === "macos"
-      ? "Turn on iCloud Drive on this Mac (System Settings → your name → iCloud) so your iPhone can hand Lactic its Health data, or choose another folder that syncs from your phone."
+      ? "Turn on iCloud Drive on this Mac (System Settings → your name → iCloud), or choose another folder your iPhone syncs to."
       : os() === "windows"
-        ? "Install iCloud for Windows and turn on iCloud Drive so your iPhone can hand Lactic its Health data, or choose another folder that syncs from your phone (Dropbox, Google Drive)."
-        : "Choose a folder that syncs from your phone, such as Dropbox, Nextcloud or Syncthing. Your iPhone saves its Health data there and Lactic picks it up.";
+        ? "Install iCloud for Windows and turn on iCloud Drive, or choose another folder your iPhone syncs to (Dropbox, Google Drive)."
+        : "Choose a folder your iPhone syncs to, such as Dropbox, Nextcloud or Syncthing.";
+  const receiving = Boolean(last && (last.nights > 0 || last.days > 0));
+  const [source, setSource] = useState<Source>(() => (os() === "macos" ? "apple" : "watch"));
+  useEffect(() => {
+    if (receiving) setSource("apple");
+  }, [receiving]);
+  const link = (href: string, text: string) => (
+    <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal(href)}>
+      {text}
+    </button>
+  );
+
   return (
-    <>
-      <div className="space-y-1 rounded-lg border border-line p-4">
-        <p className="font-medium">Garmin, Oura, WHOOP, Polar, Coros, Suunto</p>
-        <p className="text-sm text-muted">
-          Link your watch or ring to intervals.icu and connect intervals.icu here. Lactic reads the sleep, HRV, resting heart rate and weight it collects. On Android,
-          this is the way in for most watches.
-        </p>
-      </div>
-      <div className="space-y-2 rounded-lg border border-line p-4">
-        <p className="font-medium">Android: Samsung, Pixel Watch, Fitbit</p>
-        <p className="text-sm text-muted">These keep their data in Health Connect on your phone. Health Sync passes it on to intervals.icu, and Lactic reads it from there.</p>
-        <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
-          <li>
-            On your phone, install{" "}
-            <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal("https://play.google.com/store/apps/details?id=nl.appyhapps.healthsync")}>
-              Health Sync
-            </button>{" "}
-            from the Play Store.
-          </li>
-          <li>Choose Health Connect (or Samsung Health) as the source and intervals.icu as the destination, then turn on sleep, heart rate and weight.</li>
-          <li>Connect intervals.icu in Lactic. New nights arrive on the next sync.</li>
-        </ol>
-        <p className="text-sm text-faint">Samsung doesn&apos;t share HRV with other apps, so Galaxy Watch nights come in without it. The recovery score uses sleep and resting heart rate instead.</p>
-      </div>
-      <div className="space-y-3 rounded-lg border border-line p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="font-medium">Apple Health</p>
-          <p className="text-sm text-muted">Sleep, HRV and resting heart rate from your Apple Watch (or any app that writes to Health) for the morning recovery score.</p>
+    <div className={heading ? "space-y-3 rounded-lg border border-line p-4" : "space-y-3"}>
+      <div className={heading || receiving ? "flex items-center justify-between gap-3" : "hidden"}>
+        <div className={heading ? undefined : "hidden"}>
+          <p className="font-medium">Sleep and recovery</p>
+          <p className="text-sm text-muted">Sleep, HRV and resting heart rate for a daily recovery score.</p>
         </div>
-        {last && (last.nights > 0 || last.days > 0) && <Pill tone="positive">Receiving</Pill>}
+        {receiving && <Pill tone="positive">Receiving</Pill>}
       </div>
-      {!isDesktop ? (
-        <p className="text-sm text-muted">Needs the Lactic desktop app and iCloud Drive.</p>
+      <Segmented
+        label="Where your sleep is recorded"
+        value={source}
+        onChange={setSource}
+        options={[
+          { value: "apple", label: "Apple Watch" },
+          { value: "watch", label: "Garmin, Oura, WHOOP" },
+          { value: "android", label: "Android" },
+        ]}
+      />
+      {source === "watch" ? (
+        <p className="text-sm text-muted">Link your watch or ring to intervals.icu, then connect intervals.icu above. Works with Garmin, Oura, WHOOP, Polar, Coros and Suunto.</p>
+      ) : source === "android" ? (
+        <>
+          <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
+            <li>On your phone, install {link("https://play.google.com/store/apps/details?id=nl.appyhapps.healthsync", "Health Sync")}.</li>
+            <li>Sync Health Connect (or Samsung Health) to intervals.icu, with sleep, heart rate and weight on.</li>
+            <li>Connect intervals.icu above.</li>
+          </ol>
+          <p className="text-sm text-faint">Samsung doesn&apos;t share HRV, so Galaxy Watch recovery uses sleep and resting heart rate.</p>
+        </>
+      ) : !isDesktop ? (
+        <p className="text-sm text-muted">Needs the Lactic desktop app.</p>
       ) : folder === null ? (
         <div className="space-y-2">
           <p className="text-sm text-muted">{noCloud}</p>
@@ -97,15 +107,13 @@ export function HealthSetup() {
         <>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
             <li>
-              On your iPhone, install{" "}
-              <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal("https://www.healthyapps.dev")}>
-                Health Auto Export
-              </button>{" "}
-              (or the Lactic Shortcut) and set it to save JSON to <span className="text-ink">{shortFolder ?? "iCloud Drive/Lactic"}</span> each morning.
+              On your iPhone, install {link("https://www.healthyapps.dev", "Health Auto Export")} (or the Lactic Shortcut).
             </li>
-            <li>Lactic picks up each file when it arrives and files it under Imported.</li>
+            <li>
+              Set it to save JSON to <span className="text-ink">{shortFolder ?? "iCloud Drive/Lactic"}</span> each morning. Lactic picks it up from there.
+            </li>
           </ol>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button type="button" className={button.small} disabled={busy} onClick={() => void importNow()}>
               {busy ? "Looking…" : "Check now"}
             </button>
@@ -117,7 +125,6 @@ export function HealthSetup() {
           {result && <Result ok={result.ok}>{result.message}</Result>}
         </>
       )}
-      </div>
-    </>
+    </div>
   );
 }

@@ -22,8 +22,8 @@ export default function SendToKaroo({ workout, today }: { workout: Workout; toda
     <Panel title="Ride it outside">
       <div className="space-y-3">
         <p className="text-sm text-muted">
-          Sends this workout to your bike computer (Karoo, Garmin, Wahoo) through intervals.icu, in place of the day&apos;s planned one. Targets go as ranges and ramps as steps, since outside
-          you hold power by feel.
+          Sends this workout to your bike computer (Karoo, Garmin, Wahoo) through intervals.icu, in place of that day&apos;s plan. Targets become power
+          ranges to hold by feel.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <Select value={day} onChange={(v) => setDay(v)} aria-label="Day" className={input}>

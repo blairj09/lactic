@@ -27,7 +27,7 @@ export default function PairSheet({ kind, onFind, onClose }: { kind: DeviceKind 
         <div className="space-y-5 p-6">
           <div className="space-y-1.5">
             <h2 className="text-lg font-semibold tracking-tight">Pair {label}</h2>
-            <p className="text-sm text-muted">Once paired, the app remembers it and reconnects by itself, including when the signal drops mid-ride.</p>
+            <p className="text-sm text-muted">Once paired, Lactic reconnects it on its own, even if the signal drops mid-ride.</p>
           </div>
           <ol className="space-y-3 text-sm">
             <li className="flex gap-3">

@@ -12,7 +12,7 @@ export default function LevelsPanel({ state }: { state: TrainingState }) {
   const zones = ["endurance", ...INTERVAL_ZONES] as const;
   const before = levelsOn(state, addDays(state.today, -CHANGE_DAYS));
   return (
-    <Panel title="Progression levels" meta={`1 to ${MAX_LEVEL}, with the change over ${CHANGE_DAYS / 7} weeks; workouts are picked to match`}>
+    <Panel title="Progression levels" meta={`1 to ${MAX_LEVEL} · change over ${CHANGE_DAYS / 7} weeks`}>
       <dl className="num grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
         {zones.map((z) => {
           const change = Math.round((state.levels[z] - before[z]) * 10) / 10;

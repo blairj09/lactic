@@ -146,9 +146,9 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
           ) : (
             <p>
               <Link href="/settings#health" className="text-ink underline underline-offset-4">
-                Connect Apple Health
+                Connect your watch
               </Link>{" "}
-              to bring last night in, or skip it.
+              to bring in last night, or skip.
             </p>
           )}
           {!recoveryReady && (
