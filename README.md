@@ -9,11 +9,13 @@
 Structured cycling training that runs on your computer, rides your smart trainer in ERG,<br>
 and lets you bring your own AI coach. Or no coach at all.
 
-[**Download**](https://github.com/blairj09/lactic/releases/latest) · [lactic.fit](https://lactic.fit) · [Build from source](#build-from-source) · [Contributing](#contributing)
-
-![Lactic: today's workout, recovery and form](docs/images/today.png)
+[**Download**](https://github.com/blairj09/lactic/releases/latest) · [MIT licensed](LICENSE) · [lactic.fit](https://lactic.fit) · [Build from source](#build-from-source) · [Contributing](#contributing)
 
 </div>
+
+<p align="center">
+  <img src="docs/images/hero.png" width="100%" alt="Lactic running an ERG workout: power on target, heart rate, cadence and the intervals ahead">
+</p>
 
 ---
 
@@ -26,11 +28,15 @@ Your fitness shouldn't live on someone else's server, and your coach shouldn't b
 
 ## What it does
 
+### Every morning, one screen
+
+Today's workout from your plan, last night's recovery, your weigh-in, your form and what changed since yesterday, such as a new FTP estimate from your recent rides.
+
+![Today: recovery, weigh-in, today's workout, form and a new FTP estimate](docs/images/today.png)
+
 ### Rides that hold the watts
 
 Lactic drives your smart trainer in ERG for every interval, drops to road mode for sprints, and starts the workout with your first pedal stroke. Paired gear reconnects on its own. An always-on-top overlay floats over full-screen Zwift, so you see the next interval without switching windows.
-
-![The Ride screen in ERG mode](docs/images/ride.png)
 
 ### Plans that adapt
 
@@ -146,7 +152,7 @@ A few house rules keep Lactic trustworthy:
 
 ## License
 
-License to be decided. Until a license file is added, all rights are reserved.
+[MIT](LICENSE). Use it, fork it, ship it. Just keep the copyright notice.
 
 ---
 
