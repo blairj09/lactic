@@ -128,9 +128,11 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
     <Panel
       title="Morning"
       meta={
-        <button type="button" onClick={() => openCoach()} className="hover:text-ink">
-          Ask the coach
-        </button>
+        brief !== null ? (
+          <button type="button" onClick={() => openCoach()} className="hover:text-ink">
+            Ask the coach
+          </button>
+        ) : undefined
       }
     >
       <ol className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line sm:grid-cols-3">
@@ -144,9 +146,9 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
           ) : (
             <p>
               <Link href="/settings#health" className="text-ink underline underline-offset-4">
-                Set up the Apple Health shortcut
+                Connect Apple Health
               </Link>{" "}
-              to bring last night in.
+              to bring last night in, or skip it.
             </p>
           )}
           {!recoveryReady && (

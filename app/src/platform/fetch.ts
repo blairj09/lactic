@@ -135,8 +135,10 @@ export function base64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
-function isLocal(url: URL) {
-  return url.origin === location.origin || url.protocol === "data:" || url.protocol === "blob:" || url.protocol === "tauri:" || url.hostname === "tauri.localhost" || url.hostname === "asset.localhost";
+/** Requests the webview handles itself: the app's own files, and Tauri's IPC (ipc://localhost, or http://ipc.localhost on Windows), which must never loop back through the Rust core. */
+export function isLocal(url: URL) {
+  if (url.protocol !== "http:" && url.protocol !== "https:") return true;
+  return url.origin === location.origin || ["tauri.localhost", "asset.localhost", "ipc.localhost"].includes(url.hostname);
 }
 
 export async function lacticFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
