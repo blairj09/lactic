@@ -1,9 +1,10 @@
 // The models under test, on any provider the app supports. A model is written `provider:model`,
-// e.g. `openrouter:moonshotai/kimi-k2`, `anthropic:claude-haiku-4-5`, `ollama:qwen3:8b`. Calls go
-// to the provider's OpenAI-compatible chat completions with the same settings as the app's own
-// client (src/ai/client.ts), so a model scores here as it would behave in Lactic.
+// e.g. `openrouter:z-ai/glm-5.3`, `anthropic:claude-haiku-5-5`, `ollama:qwen3:8b`. Calls go to the
+// provider's OpenAI-compatible chat completions with the app's own settings (src/ai/sampling.ts),
+// so a model scores here as it would behave in Lactic.
 
-import { preset, PROVIDERS, type ProviderKind } from "~/ai/providers";
+import { knownPrice, preset, PROVIDERS, type ProviderKind } from "~/ai/providers";
+import { sampling } from "~/ai/sampling";
 import type { ChatMessage, Complete } from "@shared/coach/openrouter";
 
 export interface ModelSpec {
@@ -42,31 +43,11 @@ export function apiKey(spec: ModelSpec, env: Record<string, string | undefined> 
   return null;
 }
 
-/** Dollars per million tokens, input and output, where known. Approximate list prices; check the provider. */
-export const PRICES: Record<string, { input: number; output: number }> = {
-  "openrouter:moonshotai/kimi-k2": { input: 0.57, output: 2.3 },
-  "openrouter:moonshotai/kimi-k2-0905": { input: 0.4, output: 2 },
-  "openrouter:qwen/qwen3-235b-a22b-2507": { input: 0.12, output: 0.6 },
-  "openrouter:openai/gpt-oss-120b": { input: 0.1, output: 0.5 },
-  "openrouter:openai/gpt-oss-20b": { input: 0.05, output: 0.2 },
-  "openrouter:deepseek/deepseek-chat-v3.1": { input: 0.25, output: 1 },
-  "openrouter:google/gemini-2.5-flash": { input: 0.3, output: 2.5 },
-  "openrouter:anthropic/claude-haiku-4.5": { input: 1, output: 5 },
-  "openrouter:anthropic/claude-sonnet-4.5": { input: 3, output: 15 },
-  "openrouter:openai/gpt-5-mini": { input: 0.25, output: 2 },
-  "anthropic:claude-haiku-4-5": { input: 1, output: 5 },
-  "anthropic:claude-sonnet-4-5": { input: 3, output: 15 },
-  "openai:gpt-5-mini": { input: 0.25, output: 2 },
-  "openai:gpt-5": { input: 1.25, output: 10 },
-  "google:gemini-2.5-flash": { input: 0.3, output: 2.5 },
-  "google:gemini-2.5-pro": { input: 1.25, output: 10 },
-};
-
 export interface Usage {
   calls: number;
   inputTokens: number;
   outputTokens: number;
-  /** Dollars: what the provider reported, else from PRICES; null when neither is known. */
+  /** Dollars: what the provider reported, else Lactic's list price for the model; null when neither is known. */
   cost: number | null;
 }
 
@@ -82,7 +63,7 @@ export function addUsage(into: Usage, more: Usage) {
 export function priceOf(spec: ModelSpec, input: number, output: number, reported?: number): number | null {
   if (typeof reported === "number") return reported;
   if (spec.local) return 0;
-  const p = PRICES[spec.id];
+  const p = knownPrice(spec.provider, spec.model);
   return p ? (input * p.input + output * p.output) / 1_000_000 : null;
 }
 
@@ -90,13 +71,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * A Complete for the model, counting tokens and cost into `usage`. Retries rate limits and server
- * errors a few times. `maxTokens` matches the app's chat (800); the judge asks for more.
+ * errors a few times. Length and temperature are set as the app sets them (src/ai/sampling.ts);
+ * `maxTokens` matches the app's chat (800) and the judge asks for more.
  */
-export function completer(spec: ModelSpec, usage: Usage, { maxTokens = 800, temperature = 0.3, json = false, fetcher = fetch } = {}): Complete {
+export function completer(spec: ModelSpec, usage: Usage, { maxTokens = 800, json = false, fetcher = fetch } = {}): Complete {
   const key = apiKey(spec);
   if (!key && !spec.local) throw new Error(`No API key for ${spec.id}: set ${(KEY_ENV[spec.provider] ?? []).join(" or ")}`);
   return async (messages, tools) => {
-    const body: Record<string, unknown> = { model: spec.model, messages, temperature, max_tokens: maxTokens };
+    const body: Record<string, unknown> = { model: spec.model, messages, ...sampling(spec.provider, spec.model, maxTokens) };
     if (tools.length) Object.assign(body, { tools, tool_choice: "auto" });
     if (json && spec.provider !== "anthropic") body.response_format = { type: "json_object" };
     if (spec.provider === "openrouter") body.usage = { include: true };

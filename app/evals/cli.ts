@@ -1,10 +1,10 @@
-// npm run eval:coach -- --models openrouter:moonshotai/kimi-k2,anthropic:claude-haiku-4-5 --judge anthropic:claude-sonnet-4-5
+// npm run eval:coach -- --models openrouter:z-ai/glm-5.3,anthropic:claude-haiku-5-5 --judge anthropic:claude-sonnet-5-5
 // See evals/README.md for every option.
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { judge } from "./judge";
-import { addUsage, completer, emptyUsage, parseModel, PRICES, type ModelSpec, type Usage } from "./models";
+import { addUsage, completer, emptyUsage, parseModel, priceOf, type ModelSpec, type Usage } from "./models";
 import { markdown, summarize } from "./report";
 import { score, transcribe } from "./run";
 import { SCENARIOS } from "./scenarios";
@@ -69,7 +69,7 @@ async function main() {
   const maxCost = Number(a["max-cost"] ?? 1);
   const concurrency = Number(a.concurrency) || (models.every((m) => m.local) ? 1 : 3);
   for (const m of [...models, ...(judgeSpec ? [judgeSpec] : [])]) {
-    if (!m.local && !PRICES[m.id] && m.provider !== "openrouter") console.warn(`No price for ${m.id}: cost shows as unknown and the --max-cost guard can't count it.`);
+    if (priceOf(m, 1, 1) === null && m.provider !== "openrouter") console.warn(`No price for ${m.id}: cost shows as unknown and the --max-cost guard can't count it.`);
   }
   if (judgeSpec && models.some((m) => m.id === judgeSpec.id)) console.warn(`The judge (${judgeSpec.id}) is also under test; it may favour its own answers.`);
 
@@ -95,7 +95,7 @@ async function main() {
     if (judgeSpec && !t.error) {
       judgeUsage = emptyUsage();
       try {
-        verdict = await judge(completer(judgeSpec, judgeUsage, { maxTokens: 600, temperature: 0, json: true }), s, t);
+        verdict = await judge(completer(judgeSpec, judgeUsage, { maxTokens: 600, json: true }), s, t);
       } catch (e) {
         judgeError = e instanceof Error ? e.message : String(e);
       }

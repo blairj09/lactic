@@ -7,6 +7,9 @@
 import { StreamReader } from "@shared/coach/stream";
 import { coachSetup, SECRET_AI, type CoachSetup, type ModelChoice } from "./settings";
 import { knownPrice, preset, type ProviderKind } from "./providers";
+import { sampling } from "./sampling";
+
+export { sampling };
 import { sql } from "~/db/sql";
 import { uuid } from "~/db/supa";
 
@@ -103,18 +106,6 @@ function lastUsage(raw: string): { prompt_tokens?: number; completion_tokens?: n
   } catch {
     return null;
   }
-}
-
-/**
- * Length and temperature, in the form each provider takes. Current Claude and GPT models think
- * before answering (thinking counts toward the length, so they get room for it), turn down a
- * custom temperature, and OpenAI's want max_completion_tokens.
- */
-export function sampling(provider: string, model: string, maxTokens: number): Record<string, unknown> {
-  const thinking = provider === "anthropic" || provider === "openai" || /^(anthropic|openai)\//.test(model);
-  if (!thinking) return { max_tokens: maxTokens, temperature: 0.3 };
-  const room = maxTokens + 4000;
-  return provider === "openai" ? { max_completion_tokens: room } : { max_tokens: room };
 }
 
 /** One chat completion on the configured model (or `model` on the same provider). */

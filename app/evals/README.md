@@ -43,14 +43,16 @@ From `app/`, with the provider's key in the environment (never in a file in the 
 ```sh
 OPENROUTER_API_KEY=sk-or-... ANTHROPIC_API_KEY=sk-ant-... \
   npm run eval:coach -- \
-  --models openrouter:moonshotai/kimi-k2,openrouter:openai/gpt-oss-120b,anthropic:claude-haiku-4-5 \
-  --judge anthropic:claude-sonnet-4-5
+  --models openrouter:anthropic/claude-haiku-5.5,openrouter:z-ai/glm-5.3,openrouter:moonshotai/kimi-k2.6,openrouter:deepseek/deepseek-v4.1-flash \
+  --judge anthropic:claude-sonnet-5-5
 ```
 
 Models are `provider:model` with the providers Lactic offers: `openrouter`, `anthropic`, `openai`,
 `google`, `ollama`, `lmstudio`, `custom` (set `EVAL_BASE_URL`). Keys: `OPENROUTER_API_KEY`,
 `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `EVAL_API_KEY` (custom). Local models
-need no key: `--models ollama:qwen3:8b,ollama:gpt-oss:20b`.
+need no key: `--models ollama:qwen3:8b,ollama:qwen3:14b,ollama:gpt-oss:20b`. Calls use the app's own
+settings (`src/ai/sampling.ts`), and costs use the provider's reported cost or the list prices in
+`src/ai/providers.ts`. The suggested models and `docs/coach-models.md` should follow these results.
 
 | Option | |
 |---|---|
@@ -58,7 +60,7 @@ need no key: `--models ollama:qwen3:8b,ollama:gpt-oss:20b`.
 | `--judge m` | the judge model; leave out for scripted checks only. Use a strong model that isn't under test |
 | `--only x,y` | scenario ids, id prefixes (`safety-`) or groups (`troubleshooting`) |
 | `--repeat n` | run each scenario n times to see how steady a model is |
-| `--max-cost d` | stop starting runs once spend reaches $d (default 1). Counted from the provider's reported cost or the prices in `models.ts`; local models are free |
+| `--max-cost d` | stop starting runs once spend reaches $d (default 1). Counted from the provider's reported cost or Lactic's list prices (`src/ai/providers.ts`); local models are free |
 | `--concurrency n` | runs at once (default 3, or 1 when every model is local) |
 | `--out dir` | where results go (default `evals/results/<time>/`, not committed) |
 
@@ -66,9 +68,9 @@ Each run writes `results.json` (every transcript, check and verdict, plus a per-
 model recommendations) and `summary.md` (tables by model, group and scenario, and every failure).
 
 **Cost.** One scenario is about 5k tokens per model call and usually 2 to 4 calls, so a full pass is
-roughly 0.5 to 1M input tokens per model: well under a dollar for Kimi K2, gpt-oss or Gemini Flash,
-around $1 for Claude Haiku, a few dollars for Sonnet-class models. A Sonnet judge adds about $0.40 per
-model. Start with `--only` and the default `--max-cost 1`.
+roughly 0.5 to 1M input tokens per model: cents for Haiku 5.5, GLM or DeepSeek Flash, under a dollar
+for Kimi K2.6, a dollar or two for Sonnet-class models. A Sonnet judge adds about $0.30 per model.
+Start with `--only` and the default `--max-cost 1`.
 
 ## Adding a scenario
 
