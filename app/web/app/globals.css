@@ -1,0 +1,209 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Every colour in the app comes from here; components use the Tailwind names in
+ * @theme below (bg-surface, text-muted, border-line...), never raw neutrals.
+ *
+ * Colour goes on data, not chrome: the chrome is ink and greys, the one primary button is ink
+ * (inverted on dark), and --accent is the single data hue (royal blue) on the main series of a
+ * chart and on today's session. Surfaces separate by a lightness step; on light they also take a
+ * 1px line. Dark is true black, so it sits quietly next to Zwift and on an OLED phone.
+ */
+:root {
+  color-scheme: light;
+  --ground: #f5f6f8;
+  --surface: #ffffff;
+  --raised: #eef0f3;
+  --active: #e6e8ec;
+  --line: #e3e5e9;
+  --rule: #eef0f3;
+  --control: #cfd3da;
+  --ink: #0e1014;
+  --muted: #5b606a;
+  --faint: #686d77;
+  --primary: #13151a;
+  --on-primary: #ffffff;
+  --accent: #2b55d6;
+  --accent-soft: #e3e9fb;
+  --positive: #247b50;
+  --negative: #b8232a;
+  --warning: #8f3f0c;
+  --pill-positive-bg: #dcf5e6;
+  --pill-negative-bg: #fbe9e8;
+  --pill-warning-bg: #fdf3e2;
+  --grid: #e4e6ea;
+
+  /* Chart series, in fixed order: the main series in the accent, comparisons in greys. */
+  --series-1: var(--accent);
+  --series-2: #9a9ea6;
+  --series-3: #3a3d44;
+  /* Power zones 1-7 as one hue getting stronger, free ride, and the ridden-power trace. */
+  --zone-1: #d5dae6;
+  --zone-2: #b2c0ea;
+  --zone-3: #8aa2e6;
+  --zone-4: #6283e2;
+  --zone-5: #3f66db;
+  --zone-6: #2b55d6;
+  --zone-7: #1b3593;
+  --zone-free: #e1e2e6;
+  --trace: #0e1014;
+  /* Heart rate and cadence drawn over the workout, quieter than power. */
+  --trace-hr: #b8232a;
+  --trace-cadence: #8f3f0c;
+
+  /* Older names, kept for components that still use them. */
+  --background: var(--ground);
+  --foreground: var(--ink);
+}
+
+/*
+ * The dark set: follows the system unless Settings picked Light, or forced by Dark
+ * (html[data-theme="dark"], set before paint from src/lib/theme.ts) or the .theme-dark class.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #000000;
+    --surface: #111111;
+    --raised: #1b1b1b;
+    --active: #262626;
+    --line: #1c1c1c;
+    --rule: #1f1f1f;
+    --control: #444444;
+    --ink: #ffffff;
+    --muted: #b4b4b4;
+    --faint: #949494;
+    --primary: #ffffff;
+    --on-primary: #000000;
+    --accent: #4f7dff;
+    --accent-soft: #141c33;
+    --positive: #3fc07a;
+    --negative: #ec5f74;
+    --warning: #e5a93b;
+    --pill-positive-bg: #172a1d;
+    --pill-negative-bg: #2c1a1f;
+    --pill-warning-bg: #2b2414;
+    --grid: #232323;
+    --series-2: #8a8a8a;
+    --series-3: #d6d6d6;
+    --zone-1: #2c303b;
+    --zone-2: #2f3e69;
+    --zone-3: #34509a;
+    --zone-4: #3e66c9;
+    --zone-5: #4f7dff;
+    --zone-6: #86a5ff;
+    --zone-7: #c3d3ff;
+    --zone-free: #2a2a2a;
+    --trace: #ffffff;
+    --trace-hr: #ec5f74;
+    --trace-cadence: #e5a93b;
+  }
+}
+
+:root[data-theme="dark"],
+.theme-dark {
+  color-scheme: dark;
+  --ground: #000000;
+  --surface: #111111;
+  --raised: #1b1b1b;
+  --active: #262626;
+  --line: #1c1c1c;
+  --rule: #1f1f1f;
+  --control: #444444;
+  --ink: #ffffff;
+  --muted: #b4b4b4;
+  --faint: #949494;
+  --primary: #ffffff;
+  --on-primary: #000000;
+  --accent: #4f7dff;
+  --accent-soft: #141c33;
+  --positive: #3fc07a;
+  --negative: #ec5f74;
+  --warning: #e5a93b;
+  --pill-positive-bg: #172a1d;
+  --pill-negative-bg: #2c1a1f;
+  --pill-warning-bg: #2b2414;
+  --grid: #232323;
+  --series-1: var(--accent);
+  --series-2: #8a8a8a;
+  --series-3: #d6d6d6;
+  --zone-1: #2c303b;
+  --zone-2: #2f3e69;
+  --zone-3: #34509a;
+  --zone-4: #3e66c9;
+  --zone-5: #4f7dff;
+  --zone-6: #86a5ff;
+  --zone-7: #c3d3ff;
+  --zone-free: #2a2a2a;
+  --trace: #ffffff;
+  --trace-hr: #ec5f74;
+  --trace-cadence: #e5a93b;
+  --background: var(--ground);
+  --foreground: var(--ink);
+  background: var(--ground);
+  color: var(--ink);
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-active: var(--active);
+  --color-line: var(--line);
+  --color-rule: var(--rule);
+  --color-control: var(--control);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-warning: var(--warning);
+  --color-pill-positive: var(--pill-positive-bg);
+  --color-pill-negative: var(--pill-negative-bg);
+  --color-pill-warning: var(--pill-warning-bg);
+  --color-background: var(--ground);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+/* Every figure: digits that line up and don't jitter as they update. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--on-primary);
+}
+
+/* The coach drawer (app/coach/coach-drawer.tsx). Its button shows when the layout mounted it. */
+.coach-button {
+  display: none;
+}
+html[data-coach] .coach-button {
+  display: inline-flex;
+}
+/* On a wide screen the page moves over to make room for the open drawer rather than sit under it. */
+@media (min-width: 80rem) {
+  body {
+    transition: padding-right 200ms ease-out;
+  }
+  html[data-coach-open] body {
+    padding-right: 28rem;
+  }
+}
