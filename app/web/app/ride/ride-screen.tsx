@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
+import { setLiveRide } from "@/lib/live-ride";
 import { POWER_SOURCE_PREF, SensorHub, isWebBluetoothAvailable, type PowerSource } from "@/lib/ble/sensor-hub";
 import { rampTestFtp } from "@/lib/engine/ftp";
 import { isRampTest, type Levels, type Session } from "@/lib/engine/library";
@@ -269,6 +270,9 @@ export default function RideScreen({
   // No new-day refresh from the moment a ride starts until it's saved or thrown away.
   const midRide = running || (elapsed > 0 && saveState !== "saved");
   useEffect(() => (midRide ? holdNewDayRefresh() : undefined), [midRide]);
+  // The coach's app check reads the sensors from here, and only looks while a ride is under way.
+  useEffect(() => setLiveRide({ hub, riding: midRide }), [hub, midRide]);
+  useEffect(() => () => setLiveRide(null), []);
 
   // Keep the screen awake while riding.
   useEffect(() => {

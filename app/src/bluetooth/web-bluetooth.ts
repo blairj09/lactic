@@ -5,6 +5,7 @@
 import { combined, fullUuid, hasNativeBluetooth, nativeBackend, noBackend, type Advert, type BleBackend, type ServiceInfo } from "./backend";
 import { simBackend } from "./sim";
 import { getSetting } from "~/settings/store";
+import { logEvent } from "~/support/log";
 
 type Uuid = number | string;
 interface Filter {
@@ -156,7 +157,12 @@ class LServer {
       .then((infos) => {
         this.services = infos.map((i) => new LService(this.device, i));
         this.connected = true;
+        logEvent("bluetooth", "info", `Connected ${this.label()}`);
         return this;
+      })
+      .catch((e) => {
+        logEvent("bluetooth", "warn", `Couldn't connect ${this.label()}: ${e instanceof Error ? e.message : String(e)}`);
+        throw e;
       })
       .finally(() => (this.connecting = null));
     return this.connecting;
@@ -167,10 +173,17 @@ class LServer {
       return;
     }
     void ble().disconnect(this.device.id).catch(() => undefined);
+    this.leaving = true;
     this.dropped();
+  }
+  private leaving = false;
+  private label() {
+    return `${this.device.name ?? "a device"}${this.device.id.startsWith("sim:") ? " (simulated)" : ""}`;
   }
   dropped() {
     if (!this.connected) return;
+    logEvent("bluetooth", this.leaving ? "info" : "warn", this.leaving ? `Disconnected ${this.label()}` : `${this.label()} dropped the connection`);
+    this.leaving = false;
     this.connected = false;
     this.device.dispatchEvent(new Event("gattserverdisconnected"));
   }

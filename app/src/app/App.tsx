@@ -14,6 +14,10 @@ import "~/integrations/apple-health";
 import { BluetoothPicker } from "~/bluetooth/picker";
 import { startMcpBridge } from "~/mcp/bridge";
 import { ExternalSuggestions } from "~/mcp/suggestions";
+import { installSupportTools } from "~/support/tools";
+
+// The coach's tools for checking and fixing the app itself (gear, intervals.icu, its own setup).
+installSupportTools();
 
 const today = () => import("@/app/(today)/page");
 const plan = () => import("@/app/plan/page");

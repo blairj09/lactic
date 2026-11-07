@@ -277,3 +277,37 @@ describe("weekly workout picks", () => {
     expect(reply.message).toBe("350 of 400 TSS last week.");
   });
 });
+
+describe("app tools in the chat", () => {
+  it("runs the app's tools when the shell has registered them, and keeps their proposals", async () => {
+    const { registerAppTools } = await import("./app-tools");
+    const ran: string[] = [];
+    registerAppTools({
+      tools: [{ type: "function", function: { name: "check_app", description: "", parameters: { type: "object", properties: {} } } }],
+      status: { check_app: "Checking the app" },
+      apply: async () => "Done.",
+      run: async (name) => {
+        ran.push(name);
+        return {
+          content: "{}",
+          proposal: { change: { kind: "app", setting: { setting: "simulated_gear", value: false } }, summary: "Simulated gear off (now on)", reason: "", status: "pending" },
+        };
+      },
+    });
+    const offered: string[][] = [];
+    const replies = [call("check_app", {}), say("Turn simulated gear off.")];
+    const statuses: string[] = [];
+    const reply = await coachChat(
+      async (_m, tools) => (offered.push((tools as { function: { name: string } }[]).map((t) => t.function.name)), replies.shift()!),
+      data,
+      [{ role: "user", content: "My KICKR doesn't show up" }],
+      "",
+      { onStatus: (s) => statuses.push(s) },
+    );
+    registerAppTools(null);
+    expect(offered[0]).toContain("check_app");
+    expect(ran).toEqual(["check_app"]);
+    expect(statuses).toContain("Checking the app");
+    expect(reply.proposals[0].change).toEqual({ kind: "app", setting: { setting: "simulated_gear", value: false } });
+  });
+});

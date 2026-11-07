@@ -4,6 +4,7 @@ import { button as ui } from "@/components/ui";
 import { input } from "@/components/ui";
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
+import { AskCoach } from "@/app/coach/ask-coach";
 import { connectIntervals, disconnectIntervals, pushIntervalsPlan, setIntervalsUpload, syncIntervals } from "../actions";
 
 export interface IntervalsStatus {
@@ -20,23 +21,27 @@ export default function IntervalsPanel({ status }: { status: IntervalsStatus }) 
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [lines, setLines] = useState<string[]>([]);
+  const [failed, setFailed] = useState(false);
   const [connectState, connect, connecting] = useActionState(connectIntervals, null);
 
   const run = async (mode: "new" | "history" | "reimport") => {
     setBusy(true);
     const log: string[] = [];
+    setFailed(false);
     // Keep fetching batches until there's nothing more. A re-import restarts once, then continues as history.
     try {
       for (let next = mode; ; next = next === "reimport" ? "history" : next) {
         const result = await syncIntervals(next);
         log.push(result.message);
         setLines([...log]);
+        if (!result.ok) setFailed(true);
         if (!result.ok || !result.more) break;
       }
     } catch {
       // The call itself failed (timed out, or the connection dropped). Progress up to the last batch is saved.
       log.push("The import stopped partway. Press the button again to carry on from where it got to.");
       setLines([...log]);
+      setFailed(true);
     }
     setBusy(false);
     router.refresh();
@@ -64,7 +69,12 @@ export default function IntervalsPanel({ status }: { status: IntervalsStatus }) 
               {connecting ? "Checking..." : "Connect"}
             </button>
           </span>
-          {connectState && !connectState.ok && <p className="text-sm text-negative">{connectState.message}</p>}
+          {connectState && !connectState.ok && (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm text-negative">{connectState.message}</p>
+              <AskCoach prompt={`I can't connect intervals.icu. It said: "${connectState.message}" Can you help?`} />
+            </div>
+          )}
         </form>
       ) : (
         <>
@@ -148,6 +158,7 @@ export default function IntervalsPanel({ status }: { status: IntervalsStatus }) 
           ))}
         </ul>
       )}
+      {failed && !busy && <AskCoach prompt={`intervals.icu sync isn't working. It said: "${lines.at(-1) ?? ""}" Can you check what's wrong?`} />}
     </div>
   );
 }

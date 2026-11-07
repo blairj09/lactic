@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { appTools } from "@/lib/coach/app-tools";
 import { resolveChange, type PlanChange } from "@/lib/coach/changes";
 import { MAX_INSTRUCTIONS, toPersona, type Persona } from "@/lib/coach/persona";
 import { deleteConversation, loadMessage, newConversation, saveProposals } from "@/lib/coach/store";
@@ -21,6 +22,11 @@ async function attempt(work: () => Promise<string>): Promise<ActionResult> {
 
 /** Writes a proposed change, as the engine works it out from today's data. Returns what was done. */
 export async function applyChange(supabase: Awaited<ReturnType<typeof createClient>>, change: PlanChange): Promise<string> {
+  if (change.kind === "app") {
+    const tools = appTools();
+    if (!tools) throw new Error("App settings can only be changed in the Lactic desktop app");
+    return tools.apply(change.setting);
+  }
   const state = await loadTrainingState(supabase);
   const effect = resolveChange(state, change);
 
@@ -36,7 +42,7 @@ export async function applyChange(supabase: Awaited<ReturnType<typeof createClie
         { onConflict: "user_id" },
       );
     if (error) throw error;
-  } else {
+  } else if (effect.kind === "days") {
     await writeDays(supabase, state, effect.days);
   }
   const pushed = effect.kind === "days" ? await pushChangedPlan(supabase) : "";

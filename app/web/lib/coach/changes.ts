@@ -9,6 +9,7 @@ import { dayOptions, type DayOptionId } from "../engine/overrides";
 import { buildSession, MAX_LEVEL, MIN_LEVEL, type Session } from "../engine/library";
 import { checkTweaks, templateById, type Params } from "../engine/templates";
 import type { TrainingState } from "../training";
+import { describeAppSetting, type AppSetting } from "./app-tools";
 
 /** How far ahead single days can be changed. */
 export const CHANGE_WINDOW_DAYS = 27;
@@ -20,7 +21,9 @@ export type PlanChange =
   | { kind: "swap"; date: string; otherDate: string }
   | { kind: "reset"; date: string }
   | { kind: "availability"; availability?: Availability; rampRate?: number }
-  | { kind: "break"; break: Omit<Break, "id"> };
+  | { kind: "break"; break: Omit<Break, "id"> }
+  /** An app setting (power source, simulated gear, a paired device...), not the plan. */
+  | { kind: "app"; setting: AppSetting };
 
 export interface Proposal {
   change: PlanChange;
@@ -35,7 +38,8 @@ export interface Proposal {
 export type ChangeEffect =
   | { kind: "days"; days: { date: string; session: Session | null | "reset" }[]; summary: string }
   | { kind: "settings"; availability: Availability; rampRate: number; summary: string }
-  | { kind: "break"; break: Omit<Break, "id">; summary: string };
+  | { kind: "break"; break: Omit<Break, "id">; summary: string }
+  | { kind: "app"; setting: AppSetting; summary: string };
 
 type State = Pick<TrainingState, "today" | "plan" | "basePlan" | "levels" | "goals" | "athlete" | "fitness" | "fatigue" | "rides" | "activePlan" | "breaks">;
 
@@ -91,6 +95,8 @@ export function resolveChange(state: State, change: PlanChange): ChangeEffect {
       const b = checkBreak(state, change.break);
       return { kind: "break", break: b, summary: describeBreak(state, b) };
     }
+    case "app":
+      return { kind: "app", setting: change.setting, summary: describeAppSetting(change.setting) };
   }
 }
 
