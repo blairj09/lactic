@@ -1,0 +1,32 @@
+/* The web app's design system (tokens, Tailwind theme) with Lactic's additions. */
+@import "../web/app/globals.css";
+@source "../web";
+@source "./";
+
+:root {
+  --font-archivo: "Archivo Variable", "Archivo";
+}
+
+/* The window's title bar is drawn by the app (macOS overlay style): leave room for the traffic lights. */
+html[data-desktop="macos"] .lactic-titlebar {
+  padding-left: 78px;
+}
+
+.lactic-drag {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.lactic-drag a,
+.lactic-drag button,
+.lactic-drag summary,
+.lactic-drag input {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* Everything in the app is the app's own: no text selection on chrome, as in native apps. */
+header {
+  user-select: none;
+  -webkit-user-select: none;
+}
