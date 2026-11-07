@@ -290,7 +290,7 @@ describe("app tools in the chat", () => {
         ran.push(name);
         return {
           content: "{}",
-          proposal: { change: { kind: "app", setting: { setting: "simulated_gear", value: false } }, summary: "Simulated gear off (now on)", reason: "", status: "pending" },
+          proposal: { change: { kind: "app", setting: { setting: "power_source", value: "trainer" } }, summary: "Power source: trainer (now power meter)", reason: "", status: "pending" },
         };
       },
     });
@@ -308,6 +308,6 @@ describe("app tools in the chat", () => {
     expect(offered[0]).toContain("check_app");
     expect(ran).toEqual(["check_app"]);
     expect(statuses).toContain("Checking the app");
-    expect(reply.proposals[0].change).toEqual({ kind: "app", setting: { setting: "simulated_gear", value: false } });
+    expect(reply.proposals[0].change).toEqual({ kind: "app", setting: { setting: "power_source", value: "trainer" } });
   });
 });

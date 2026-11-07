@@ -12,7 +12,7 @@ export const GUIDE: Partial<Record<LogArea, string[]>> = {
     "A weak signal (RSSI below about -85 dBm) causes drops: move the computer closer to the trainer or out of the way of metal, USB 3 hubs and Wi-Fi routers.",
     "A power meter that drops often with a low battery report needs a new battery. Until then the trainer can be the power source so ERG stays steady.",
     "If a device was replaced or re-paired elsewhere and won't connect, forget it and pair it again from Settings → Bluetooth.",
-    "Simulated gear is for trying Lactic without real gear. If it's on, the simulated trainer can show up instead of the real one.",
+    "Simulated gear is a development-only testing switch, not something to suggest. If check_app shows it on, the simulated trainer can show up instead of the real one; it's turned off in Settings of a development build.",
   ],
   intervals: [
     "\"intervals.icu didn't accept the API key\" (401 or 403) means the key is wrong or was regenerated. Get the key from intervals.icu → Settings → Developer settings and paste it in Lactic's Settings → intervals.icu.",

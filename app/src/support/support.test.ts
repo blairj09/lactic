@@ -98,7 +98,7 @@ describe("app tools", () => {
   it("only look while a ride is under way", async () => {
     setLiveRide({ hub: { getState: () => ({ links: {}, trainerStatus: "ERG", powerSource: "trainer" }) } as never, riding: true });
     expect((await runSupportTool("sync_now", { service: "intervals" })).content).toMatch(/^Error: A ride is under way/);
-    expect((await runSupportTool("propose_app_change", { setting: "simulated_gear", value: true, reason: "x" })).content).toMatch(/^Error: A ride is under way/);
+    expect((await runSupportTool("propose_app_change", { setting: "upload_rides", value: true, reason: "x" })).content).toMatch(/^Error: A ride is under way/);
     const report = JSON.parse((await runSupportTool("check_app", { area: "bluetooth" })).content);
     expect(report.riding).toBe(true);
     expect(report.bluetooth.rideScreen.trainer).toBe("ERG");
@@ -108,5 +108,12 @@ describe("app tools", () => {
     const r = JSON.parse((await runSupportTool("reconnect_device", { device: "heartRate" })).content);
     expect(r).toMatchObject({ ok: false });
     expect(r.message).toContain("Settings → Bluetooth");
+  });
+});
+
+describe("simulated gear", () => {
+  it("is never offered as a change (it's a development switch)", async () => {
+    expect(() => checkAppSetting({ setting: "simulated_gear", value: true })).toThrow(/setting is one of/);
+    expect(JSON.stringify(mcpTools().find((t) => t.name === "propose_app_change"))).not.toContain("simulated");
   });
 });

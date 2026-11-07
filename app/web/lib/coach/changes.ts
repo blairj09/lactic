@@ -22,7 +22,7 @@ export type PlanChange =
   | { kind: "reset"; date: string }
   | { kind: "availability"; availability?: Availability; rampRate?: number }
   | { kind: "break"; break: Omit<Break, "id"> }
-  /** An app setting (power source, simulated gear, a paired device...), not the plan. */
+  /** An app setting (power source, a paired device...), not the plan. */
   | { kind: "app"; setting: AppSetting };
 
 export interface Proposal {
