@@ -14,6 +14,7 @@ import "~/integrations/apple-health";
 import { BluetoothPicker } from "~/bluetooth/picker";
 import { startMcpBridge } from "~/mcp/bridge";
 import { ExternalSuggestions } from "~/mcp/suggestions";
+import { Tour } from "~/tour/tour";
 import { installSupportTools } from "~/support/tools";
 
 // The coach's tools for checking and fixing the app itself (gear, intervals.icu, its own setup).
@@ -92,6 +93,7 @@ function Shell() {
       </Routes>
       <NewDayRefresh />
       <BluetoothPicker />
+      {onboarded && <Tour />}
       {onboarded && mode === "external" && <ExternalSuggestions />}
       {mode === "builtin" && (
         <DrawerBoundary>
