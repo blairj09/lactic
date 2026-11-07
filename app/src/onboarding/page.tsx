@@ -12,6 +12,7 @@ import { GearSetup } from "~/setup/gear";
 import { RidesSetup } from "~/setup/rides";
 import { CoachSetupPanel } from "~/setup/coach";
 import { revalidatePath } from "~/shims/next-cache";
+import { startTour } from "~/tour/store";
 
 const STEPS = [
   { id: "you", title: "About you", line: "So zones, stress and the plan fit you." },
@@ -71,7 +72,7 @@ function Welcome({ onStart }: { onStart: () => void }) {
   );
 }
 
-function Done({ onFinish }: { onFinish: () => void }) {
+function Done({ onFinish }: { onFinish: (tour: boolean) => void }) {
   return (
     <div className="lactic-drag grid min-h-screen place-items-center bg-ground px-6">
       <div className="max-w-md space-y-8 text-center">
@@ -80,11 +81,16 @@ function Done({ onFinish }: { onFinish: () => void }) {
         </div>
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold tracking-tight">You&apos;re set</h1>
-          <p className="text-muted">Your plan is ready. Today shows what to ride; press Ride when you&apos;re on the bike and Lactic takes control of the trainer.</p>
+          <p className="text-muted">Your plan is ready. Take a two-minute look around, with a demo ride on a simulated trainer, or go straight to Today.</p>
         </div>
-        <button type="button" className={`${button.primary} h-11 w-full text-base`} onClick={onFinish}>
-          Open Lactic
-        </button>
+        <div className="space-y-3">
+          <button type="button" className={`${button.primary} h-11 w-full text-base`} onClick={() => onFinish(true)}>
+            Show me around
+          </button>
+          <button type="button" className={`${button.ghost} mx-auto`} onClick={() => onFinish(false)}>
+            Skip the tour
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -113,13 +119,15 @@ export default function Onboarding() {
     else setError(r.message);
   }
 
-  async function finish() {
+  async function finish(tour: boolean) {
     await setSetting("onboarding.done", true);
+    if (!tour) await setSetting("tour.done", true);
     revalidatePath("/");
     navigate("/", { replace: true });
+    if (tour) startTour();
   }
 
-  if (at === "done") return <Done onFinish={() => void finish()} />;
+  if (at === "done") return <Done onFinish={(tour) => void finish(tour)} />;
   if (index < 0) return <Welcome onStart={() => go("you")} />;
 
   const footer = (primary: React.ReactNode, skip = true) => (

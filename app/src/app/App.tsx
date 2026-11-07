@@ -14,6 +14,7 @@ import "~/integrations/apple-health";
 import { BluetoothPicker } from "~/bluetooth/picker";
 import { startMcpBridge } from "~/mcp/bridge";
 import { ExternalSuggestions } from "~/mcp/suggestions";
+import { Tour } from "~/tour/tour";
 
 const today = () => import("@/app/(today)/page");
 const plan = () => import("@/app/plan/page");
@@ -88,6 +89,7 @@ function Shell() {
       </Routes>
       <NewDayRefresh />
       <BluetoothPicker />
+      {onboarded && <Tour />}
       {onboarded && mode === "external" && <ExternalSuggestions />}
       {mode === "builtin" && (
         <DrawerBoundary>
