@@ -39,7 +39,7 @@ jobs:
 
   macos:
     # The Mac app: an unsigned (ad-hoc signed) .dmg for Apple silicon, attached to the run.
-    runs-on: macos-14
+    runs-on: macos-latest
     needs: check
     steps:
       - uses: actions/checkout@v4
