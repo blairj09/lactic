@@ -15,8 +15,10 @@ import { loadConnection, setUploadRides, testKey } from "@/lib/intervals/client"
 import { isRiding, liveRide } from "@/lib/live-ride";
 import { coachSetup } from "~/ai/settings";
 import { testModel } from "~/ai/test";
+import type { Advert } from "~/bluetooth/backend";
 import { recentAdverts, scanning, simEnabled, ble } from "~/bluetooth/web-bluetooth";
 import { BODY_POD } from "@/lib/scale/bodypod";
+import { identifyScale, SCALE_UUID } from "@/lib/scale/models";
 import { createClient } from "~/db/supabase-client";
 import { healthFolder } from "~/integrations/apple-health";
 import { syncNow, syncStatus } from "~/integrations/background";
@@ -91,12 +93,18 @@ const SERVICE_KINDS: [string, string][] = [
   [uuid(GATT.service.cyclingPower), "power meter"],
   [uuid(GATT.service.heartRate), "heart rate"],
   [uuid(BODY_POD.service), "scale"],
+  [uuid(SCALE_UUID.weightScale), "scale"],
+  [uuid(SCALE_UUID.bodyComposition), "scale"],
 ];
 function uuid(u: number | string) {
   if (typeof u === "number") return `0000${u.toString(16).padStart(4, "0")}-0000-1000-8000-00805f9b34fb`;
   return u.toLowerCase();
 }
-const kindsOf = (services: string[]) => SERVICE_KINDS.filter(([u]) => services.map((s) => uuid(s)).includes(u)).map(([, k]) => k);
+const kindsOf = (ad: Advert) => {
+  const kinds = [...new Set(SERVICE_KINDS.filter(([u]) => ad.services.map((s) => uuid(s)).includes(u)).map(([, k]) => k))];
+  // Some scales advertise no service, or a vendor one: recognise them by name or broadcast data.
+  return identifyScale(ad) && !kinds.includes("scale") ? [...kinds, "scale"] : kinds;
+};
 
 async function bluetoothReport() {
   const heard = recentAdverts(120_000);
@@ -246,7 +254,7 @@ async function scan(seconds: number) {
   const pairedIds = new Map(DEVICE_KEYS.map((k) => [remembered(k)?.id, k] as const));
   const heard = recentAdverts(Date.now() - started + 500)
     .filter((a) => a.at >= started)
-    .map((a) => ({ name: a.name ?? "(no name)", is: kindsOf(a.services), signalDbm: a.rssi, simulated: a.id.startsWith("sim:"), pairedAs: pairedIds.get(a.id) ?? null }))
+    .map((a) => ({ name: a.name ?? "(no name)", is: kindsOf(a), signalDbm: a.rssi, simulated: a.id.startsWith("sim:"), pairedAs: pairedIds.get(a.id) ?? null }))
     .sort((a, b) => Number(b.is.length > 0) - Number(a.is.length > 0) || (b.signalDbm ?? -200) - (a.signalDbm ?? -200));
   return { listenedSeconds: seconds, heard: heard.slice(0, 25), note: heard.length ? undefined : "Nothing heard. Wake the gear (spin the pedals, put the strap on) and check Bluetooth is on." };
 }

@@ -55,7 +55,7 @@ A morning recovery score from sleep, HRV and resting heart rate, plus weigh-ins 
 | **Apple Watch / Apple Health** | An iPhone Shortcut saves your nights to iCloud Drive (or Dropbox, Nextcloud, Syncthing); Lactic picks each file up. |
 | **Garmin, Oura, WHOOP, Polar, Coros, Suunto** | Through [intervals.icu](https://intervals.icu) wellness: connect once, Lactic reads sleep, HRV, resting HR and weight. |
 | **Android: Samsung, Pixel Watch, Fitbit** | [Health Sync](https://play.google.com/store/apps/details?id=nl.appyhapps.healthsync) passes Health Connect data to intervals.icu; Lactic walks you through it. |
-| **Smart scales** | Hume Body Pod over Bluetooth, or type your weight in. |
+| **Smart scales** | Read over Bluetooth: Hume Body Pod, Xiaomi Mi scales, Renpho and other QN scales, Etekcity ESF-551, and scales with the standard Bluetooth weight profile (Omron, A&D, Beurer, Sanitas and others). Withings and Garmin Index come in through intervals.icu or Apple Health, or type your weight in. |
 
 **intervals.icu** also brings in your ride history from Zwift, Garmin, Wahoo, Hammerhead and most others, so Lactic knows your fitness from day one, and two-way sync sends rides and planned workouts back.
 

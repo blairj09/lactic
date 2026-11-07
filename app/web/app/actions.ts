@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { loadAthlete, recomputeStress, storeRides, type NewRide, type RideStream } from "@/lib/activities";
 import { localDate, SOURCE_PRIORITY, summarizeRide } from "@/lib/engine/activity";
-import { bodyComposition, type SegmentImpedance } from "@/lib/engine/body";
+import { bodyComposition, bodyCompositionFromReported, type SegmentImpedance } from "@/lib/engine/body";
 import * as intervals from "@/lib/intervals/client";
 import { WORKOUT_DAYS } from "@/lib/intervals/calendar";
 import { pushPlan } from "@/lib/intervals/push";
@@ -337,29 +337,49 @@ function checkSegments(z: unknown): SegmentImpedance | undefined {
   return Object.fromEntries(SEGMENT_KEYS.map((k) => [k, record[k]])) as unknown as SegmentImpedance;
 }
 
-/** A weigh-in from the Body Pod: stores it with body composition and makes it the current weight. */
-export async function saveWeighIn(input: { measuredAt: string; weightKg: number; impedance: { "50"?: unknown; "250"?: unknown } }): Promise<ActionResult> {
+const SCALE_SOURCES = ["body_pod", "ble_scale", "mi_scale", "qn_scale", "etekcity"];
+
+/**
+ * A weigh-in from a smart scale: stores it with body composition and makes it the current weight.
+ * Body fat comes from the Body Pod's segment impedance (the engine's equation) or, for standard
+ * body composition scales, the scale's own number. Foot-to-foot impedance is kept raw.
+ */
+export async function saveWeighIn(input: {
+  measuredAt: string;
+  weightKg: number;
+  impedance: { "50"?: unknown; "250"?: unknown };
+  source?: string;
+  bodyFatPercent?: number | null;
+  footImpedanceOhms?: number | null;
+}): Promise<ActionResult> {
   return attempt(async () => {
     const measuredAt = new Date(input?.measuredAt);
     const weightKg = Number(input?.weightKg);
     if (Number.isNaN(measuredAt.getTime()) || !(weightKg >= 20 && weightKg <= 300)) throw new Error("Bad weigh-in");
     const impedance = { "50": checkSegments(input.impedance?.["50"]), "250": checkSegments(input.impedance?.["250"]) };
+    const source = SCALE_SOURCES.includes(input.source ?? "body_pod") ? (input.source ?? "body_pod") : "ble_scale";
+    const reportedFat = typeof input.bodyFatPercent === "number" && Number.isFinite(input.bodyFatPercent) ? input.bodyFatPercent : null;
+    const feet = typeof input.footImpedanceOhms === "number" && input.footImpedanceOhms > 0 && input.footImpedanceOhms < 10_000 ? input.footImpedanceOhms : null;
 
     const supabase = await createClient();
     const athlete = await loadAthlete(supabase);
-    if (athlete.heightCm === null || athlete.sex === null) throw new Error("Add your height and sex in Settings first");
-    const body = bodyComposition({ weightKg, heightCm: athlete.heightCm, male: athlete.sex === "male", impedance50kHz: impedance["50"] });
+    const segments = Boolean(impedance["50"] || impedance["250"]);
+    if (segments && (athlete.heightCm === null || athlete.sex === null)) throw new Error("Add your height and sex in Settings first");
+    const body =
+      segments && athlete.heightCm !== null
+        ? bodyComposition({ weightKg, heightCm: athlete.heightCm, male: athlete.sex === "male", impedance50kHz: impedance["50"] })
+        : bodyCompositionFromReported({ weightKg, heightCm: athlete.heightCm, bodyFatPercent: reportedFat });
     const round = (v: number | null, places: number) => (v === null ? null : Math.round(v * 10 ** places) / 10 ** places);
     const { error } = await supabase.from("body_measurements").upsert(
       {
         user_id: athlete.userId,
         measured_at: measuredAt.toISOString(),
-        source: "body_pod",
+        source,
         weight_kg: round(weightKg, 2),
         bmi: round(body.bmi, 1),
         body_fat_pct: round(body.bodyFatPercent, 1),
         fat_free_mass_kg: round(body.fatFreeMassKg, 2),
-        impedance: impedance["50"] || impedance["250"] ? impedance : null,
+        impedance: segments ? impedance : feet !== null ? { feet50kHz: feet } : null,
       },
       { onConflict: "user_id,measured_at" },
     );
@@ -369,9 +389,10 @@ export async function saveWeighIn(input: { measuredAt: string; weightKg: number;
       .upsert({ user_id: athlete.userId, weight_kg: round(weightKg, 2), updated_at: new Date().toISOString() }, { onConflict: "user_id" });
     if (settingsError) throw settingsError;
     refresh();
-    return body.bodyFatPercent === null
+    if (body.bodyFatPercent !== null) return `Saved ${weightKg.toFixed(1)} kg, ${body.bodyFatPercent.toFixed(1)}% body fat.`;
+    return source === "body_pod"
       ? `Saved ${weightKg.toFixed(1)} kg. No body composition this time: the scale needs bare, slightly damp feet and both hands on the handle.`
-      : `Saved ${weightKg.toFixed(1)} kg, ${body.bodyFatPercent.toFixed(1)}% body fat.`;
+      : `Saved ${weightKg.toFixed(1)} kg.`;
   });
 }
 

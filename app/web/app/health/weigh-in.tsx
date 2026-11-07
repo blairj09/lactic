@@ -5,25 +5,34 @@ import { useEffect, useState } from "react";
 import { isPickerCancel, remembered } from "@/lib/ble/devices";
 import { isWebBluetoothAvailable } from "@/lib/ble/sensor-hub";
 import type { ScaleProfile } from "@/lib/scale/bodypod";
+import { identifyScale, SCALE_FAMILIES } from "@/lib/scale/models";
 import { weighIn, type WeighInUpdate } from "@/lib/scale/scale";
 import { saveWeighIn, type ActionResult } from "../actions";
 
 export const STAGE_TEXT: Record<WeighInUpdate["stage"], string> = {
-  picking: "Tap the scale with your foot to wake it, then choose your Body Pod in the list. It's remembered after this.",
-  waking: "Tap the scale with your foot to wake it.",
+  picking: "Step on or tap the scale to wake it, then choose it in the list. It's remembered after this.",
+  waking: "Step on or tap the scale to wake it.",
   connecting: "Connecting...",
-  waiting: "Connected. Step on the scale.",
+  waiting: "Ready. Step on the scale.",
   measuring: "Hold still...",
-  analyzing: "Weight locked. Keep holding the handle while it measures body composition...",
+  analyzing: "Weight locked. Stay on while it measures body composition...",
   done: "Done.",
 };
 
-export default function WeighIn({ profile }: { profile: ScaleProfile }) {
+/** The remembered scale and what to do before stepping on it. */
+function rememberedScale() {
+  const saved = remembered("scale");
+  if (!saved) return null;
+  const family = identifyScale({ name: saved.deviceName });
+  return { name: saved.name, hint: family ? SCALE_FAMILIES[family].hint : "Barefoot for body composition." };
+}
+
+export default function WeighIn({ profile }: { profile: ScaleProfile | null }) {
   const [busy, setBusy] = useState(false);
   const [update, setUpdate] = useState<WeighInUpdate | null>(null);
   const [result, setResult] = useState<ActionResult | null>(null);
-  const [scaleName, setScaleName] = useState<string | null>(null);
-  useEffect(() => setScaleName(remembered("scale")?.name ?? null), []);
+  const [scale, setScale] = useState<ReturnType<typeof rememberedScale>>(null);
+  useEffect(() => setScale(rememberedScale()), []);
 
   const run = async (choose = false) => {
     if (!isWebBluetoothAvailable()) {
@@ -34,7 +43,7 @@ export default function WeighIn({ profile }: { profile: ScaleProfile }) {
     setResult(null);
     try {
       const reading = await weighIn(profile, setUpdate, { choose });
-      setScaleName(remembered("scale")?.name ?? null);
+      setScale(rememberedScale());
       setUpdate({ stage: "done", liveKg: reading.weightKg });
       setResult(await saveWeighIn(reading));
     } catch (e) {
@@ -51,11 +60,11 @@ export default function WeighIn({ profile }: { profile: ScaleProfile }) {
         <div className="min-w-0 space-y-1">
           <h2 className="text-base font-medium">Weigh in</h2>
           <p className="text-sm text-muted">
-            Barefoot, holding the handle. Close the Hume app first.
-            {scaleName && !busy && (
+            {scale ? scale.hint : "Works with the Hume Body Pod, Xiaomi, Renpho and other QN scales, Etekcity and standard Bluetooth scales."}
+            {scale && !busy && (
               <>
                 {" "}
-                {scaleName} ·{" "}
+                {scale.name} ·{" "}
                 <button className="underline-offset-4 hover:text-ink hover:underline" onClick={() => run(true)}>
                   another scale
                 </button>
@@ -64,7 +73,7 @@ export default function WeighIn({ profile }: { profile: ScaleProfile }) {
           </p>
         </div>
         <button className={ui.primary} disabled={busy} onClick={() => run()}>
-          {busy ? "Weighing..." : scaleName ? "Weigh in" : "Pair scale"}
+          {busy ? "Weighing..." : scale ? "Weigh in" : "Pair scale"}
         </button>
       </div>
       {update && (
