@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
 import { POWER_SOURCE_PREF, SensorHub, isWebBluetoothAvailable, type PowerSource } from "@/lib/ble/sensor-hub";
 import { rampTestFtp } from "@/lib/engine/ftp";
 import { isRampTest, type Levels, type Session } from "@/lib/engine/library";
@@ -25,10 +24,11 @@ import { deleteCustomWorkout, saveCustomWorkout } from "./actions";
 import { holdCoachShortcut } from "../coach/open";
 import { holdNewDayRefresh } from "@/lib/new-day";
 import RideSurvey from "../ride-survey";
-import { MiniPlayer, OVERLAY_SIZES, PlayerView, formatTime, type PlayerControls, type PlayerData } from "./player";
+import { OVERLAY_SIZES, PlayerView, formatTime, type PlayerControls, type PlayerData } from "./player";
 import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type RideSource } from "./ride-now";
 import SensorPanel from "./sensor-panel";
 import { usePipWindow } from "./use-pip-window";
+import OverlayPortal from "./overlay-portal";
 import type { TracePoint } from "./workout-chart";
 import WorkoutEditor from "./workout-editor";
 import SendToKaroo from "./send-to-karoo";
@@ -312,9 +312,9 @@ export default function RideScreen({
       setSaveState("idle");
       setNotice(null);
     }
-    // Opening the overlay needs the click that started the ride, so it happens here (and can't when
-    // pedaling started it).
-    if (!auto && overlayOnStart && pip.supported && !pip.pip) openOverlay();
+    // In Chrome, opening the overlay needs the click that started the ride, so it happens here (and
+    // can't when pedaling started it). The desktop app's overlay opens either way.
+    if ((!auto || !pip.needsClick) && overlayOnStart && pip.supported && !pip.pip) openOverlay();
     resume();
   };
 
@@ -862,14 +862,16 @@ export default function RideScreen({
                   {pip.supported ? (
                     <>
                       <p className="text-sm text-muted">
-                        An always-on-top strip with the interval, targets and what&apos;s next. Drag it bigger, or use its shrink and enlarge buttons. It floats over
-                        Zwift when Zwift is a window filling the screen (Option-click its green button), not in macOS full screen.
+                        An always-on-top strip with the interval, targets and what&apos;s next. Drag it bigger, or use its shrink and enlarge buttons.{" "}
+                        {pip.floatsOverFullScreen
+                          ? "It floats over Zwift, full screen included."
+                          : "It floats over Zwift when Zwift is a window filling the screen (Option-click its green button), not in macOS full screen."}
                       </p>
                       <label className="flex items-center gap-2 text-sm">
                         <input type="checkbox" checked={overlayOnStart} onChange={(e) => toggleOverlayOnStart(e.target.checked)} className="size-4 accent-[var(--ink)]" />
                         Open it when I start
                       </label>
-                      {overlayOnStart && autoStartOn && (
+                      {overlayOnStart && autoStartOn && pip.needsClick && (
                         <p className="text-sm text-muted">Chrome only opens it from a click, so it opens when you click Start; if pedaling starts the ride, open it with Open overlay.</p>
                       )}
                     </>
@@ -929,7 +931,7 @@ export default function RideScreen({
             </div>
           )}
         </Panel>
-        {pip.pip && createPortal(<MiniPlayer data={data} controls={controls} onResize={resizeOverlay} />, pip.pip.document.body)}
+        {pip.pip && <OverlayPortal pip={pip.pip} data={data} controls={controls} onResize={resizeOverlay} />}
       </Page>
     </div>
   );

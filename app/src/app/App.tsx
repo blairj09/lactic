@@ -99,6 +99,8 @@ function Shell() {
 }
 
 export default function App() {
+  // The ride overlay window runs this app too, but shows only the overlay.
+  if (location.hash.startsWith("#/overlay")) return <Lazy load={overlay} />;
   return (
     <HashRouter>
       <Shell />

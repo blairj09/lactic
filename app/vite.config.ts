@@ -17,6 +17,8 @@ export default defineConfig({
       { find: /^@\/lib\/coach\/openrouter$/, replacement: here("./src/ai/client.ts") },
       { find: /^\.\/openrouter$/, replacement: here("./src/ai/client.ts") },
       { find: /^@\/components\/nav$/, replacement: here("./src/app/nav.tsx") },
+      { find: /^\.\/use-pip-window$/, replacement: here("./src/ride/use-pip-window.ts") },
+      { find: /^\.\/overlay-portal$/, replacement: here("./src/ride/overlay-portal.tsx") },
       { find: /^node:zlib$/, replacement: here("./src/shims/node-zlib.ts") },
       { find: /^next\/headers$/, replacement: here("./src/shims/next-headers.ts") },
       { find: /^next\/cache$/, replacement: here("./src/shims/next-cache.ts") },

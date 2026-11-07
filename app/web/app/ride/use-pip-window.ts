@@ -57,7 +57,7 @@ export function usePipWindow() {
   // Close the overlay with the page, so it doesn't linger with stale numbers.
   useEffect(() => close, [close]);
 
-  return { supported, pip, open, close };
+  return { supported, pip, open, close, needsClick: true, floatsOverFullScreen: false };
 }
 
 /** The PiP window starts blank, so it gets a copy of the page's styles (Tailwind included). */
