@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { DeviceKind } from "@/lib/ble/catalog";
 import { button } from "./ui";
+import { WatchHeartRateHelp } from "./watch-hr-help";
 
 /**
  * The app's own screen before Chrome's device list: how to wake the device and what to pick.
@@ -38,6 +39,7 @@ export default function PairSheet({ kind, onFind, onClose }: { kind: DeviceKind 
               <span className="pt-0.5">A list of nearby devices appears. Choose {kind.pick}.</span>
             </li>
           </ol>
+          {kind.key === "heartRate" && <WatchHeartRateHelp />}
           <div className="flex justify-end gap-2">
             <button className={button.secondary} onClick={onClose}>
               Not now

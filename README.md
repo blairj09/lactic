@@ -93,7 +93,7 @@ Get the latest version from [**GitHub Releases**](https://github.com/blairj09/la
 1. **Install** Lactic and open it.
 2. **Tell it about you:** FTP (or "I don't know"), weight and, optionally, max heart rate.
 3. **Set your week:** how long you can ride each day and what you're training for. Lactic builds the plan.
-4. **Wake your gear:** spin the trainer, put the HR strap on. Lactic finds them over Bluetooth.
+4. **Wake your gear:** spin the trainer, put the HR strap on (or turn on heart rate broadcast on your watch). Lactic finds them over Bluetooth.
 5. **Bring in your history and health** with an intervals.icu API key and, if you have an Apple Watch, the Health Shortcut.
 6. **Pick a coach,** or skip it. You can change every choice later in Settings.
 
