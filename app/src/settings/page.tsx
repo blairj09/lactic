@@ -21,6 +21,7 @@ import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
 import { AboutPanel, SimulatorSwitch } from "./panels";
 import { TakeTour } from "~/tour/take-tour";
+import { FeedbackSetting } from "~/feedback/dialog";
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
@@ -72,6 +73,9 @@ export default async function SettingsPage() {
           </Section>
           <Section id="tour" title="Getting started" description="A short walk through each screen.">
             <TakeTour />
+          </Section>
+          <Section id="feedback" title="Feedback" description="Found a problem or have an idea? No account needed.">
+            <FeedbackSetting />
           </Section>
         </div>
         <div id="coach-settings" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
