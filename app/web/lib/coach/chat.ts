@@ -14,6 +14,7 @@ import { DIFFICULTY_LABELS } from "../engine/feedback";
 import { ZONE_LABELS } from "../engine/library";
 import type { OptionId } from "../engine/checkin";
 import { attachmentNames, turnsForModel, type Attachment } from "./attachments";
+import { appTools } from "./app-tools";
 import { MEMORY_TOOLS, PICK_TOOLS, READ_TOOL_NAMES, runTool, status, TODAY_TOOLS, TOOLS, type CoachData, type MemoryOp } from "./tools";
 
 export interface ChatTurn {
@@ -54,6 +55,7 @@ ${RULES}
 - You can't edit the plan. To change it, call get_day_options and then propose_day_change, or propose_swap, propose_reset_day or propose_availability. For a different kind of workout (over-unders, surges, 30/30s, attacks, race starts and more) or specific targets in one, call get_workouts and then propose_workout. When they mention travel, a holiday, illness or time off the bike, use propose_break. Plans (dates and goal) are built on the Plan page; you can read the saved plan and breaks in the status and get_plan. The engine checks each proposal and builds the sessions, and the athlete applies it with a button. Only propose a change when they ask for one or clearly need one, and say in your reply what you proposed.
 - The athlete can attach files to a message. You get each as text after their words: an image as a vision model's description of it (you can't see it yourself, so go by the description and say if something seems missing or unclear), a PDF or text file as its text, a .fit ride file as the engine's summary, a GPX route as its distance and climbing. A ride file isn't saved by attaching it; rides arrive through intervals.icu.
 - Events, FTP and other settings are changed on the Plan and Settings pages; point the athlete there.
+- When the app has check_app, you can also help with the app itself: Bluetooth gear that won't connect or drops, intervals.icu or Apple Health not syncing, the coach's own setup. Call check_app first and go by what it says (the activity log and the guide included) rather than guessing. You can then try things that change no setting (test_connection, sync_now, reconnect_device, scan_for_devices) and say what you did and what happened. For a settings change (power source, simulated gear, sending rides to intervals.icu, forgetting or renaming a paired device) use propose_app_change; the athlete applies it with a button. You never see API keys: when a key is wrong, send them to the Settings page to paste a new one. Pairing new gear happens in Settings → Bluetooth. During a ride you can only look.
 - When they tell you something lasting about themselves (an injury, a preference, a constraint, how they respond to training), save it with remember, and forget facts that stop being true. Don't save numbers the app already tracks. They can see and edit what you save.`;
 
 const BRIEF = `You are the cycling coach inside My Coach, an app for one athlete. Write this morning's brief, which they read on the Today page before deciding how to ride. It's written as soon as they open the page and again when last night's recovery, a weigh-in or their check-in (how they feel) arrives, so any of these may not be in yet.
@@ -97,7 +99,7 @@ export async function coachChat(complete: Complete, data: CoachData, history: Ch
     { role: "system", content: system(CHAT, data, summary, page) },
     ...turnsForModel(history.slice(-HISTORY_MESSAGES)).map((m) => ({ role: m.role, content: m.content })),
   ];
-  return run(complete, data, messages, [...TOOLS, ...MEMORY_TOOLS], hooks);
+  return run(complete, data, messages, [...TOOLS, ...MEMORY_TOOLS, ...(appTools()?.tools ?? [])], hooks);
 }
 
 /** This morning's brief, from the status, the tools and the recent conversation, with any plan changes it proposes. */
@@ -214,8 +216,11 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
     }
     for (const call of reply.tool_calls) {
       const name = call.function.name;
-      hooks.onStatus?.(STATUS[name] ?? "Thinking");
-      const result = allowed.has(name) ? runTool(data, name, parseArgs(call.function.arguments)) : { content: `Unknown tool ${name}` };
+      const app = appTools();
+      const isApp = Boolean(app?.tools.some((t) => t.function.name === name));
+      hooks.onStatus?.(STATUS[name] ?? (isApp ? app!.status[name] : undefined) ?? "Thinking");
+      const args = parseArgs(call.function.arguments);
+      const result = !allowed.has(name) ? { content: `Unknown tool ${name}` } : isApp ? await app!.run(name, args) : runTool(data, name, args);
       if (result.proposal && !proposals.some((p) => JSON.stringify(p.change) === JSON.stringify(result.proposal!.change))) proposals.push(result.proposal);
       if (result.memory) memory.push(result.memory);
       if (result.today) today = result.today;

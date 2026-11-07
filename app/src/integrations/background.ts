@@ -5,6 +5,7 @@ import { syncIntervals } from "@/app/actions";
 import { loadConnection } from "@/lib/intervals/client";
 import { createClient } from "~/db/supabase-client";
 import { revalidatePath } from "~/shims/next-cache";
+import { logEvent } from "~/support/log";
 
 export type Job = "intervals" | "health";
 const EVERY_MS = 20 * 60_000;
@@ -38,9 +39,13 @@ function run(job: Job) {
     publish();
     try {
       const result = await work();
-      if (result) status.last[job] = { at: new Date().toISOString(), ...result };
+      if (result) {
+        status.last[job] = { at: new Date().toISOString(), ...result };
+        logEvent(job, result.ok ? "info" : "error", `Sync ${result.ok ? "done" : "failed"}: ${result.message}`);
+      }
     } catch (e) {
       status.last[job] = { at: new Date().toISOString(), ok: false, message: e instanceof Error ? e.message : String(e) };
+      logEvent(job, "error", `Sync failed: ${status.last[job]!.message}`);
     } finally {
       status.running = null;
       publish();
@@ -68,6 +73,20 @@ registerJob("intervals", async () => {
 /** Something changed (a service was connected): sync it now. */
 export function notifyChanged(job: Job) {
   void run(job);
+}
+
+/** Syncs one service now and resolves with how it went (null when it isn't set up). */
+export async function syncNow(job: Job): Promise<{ at: string; ok: boolean; message: string } | null> {
+  if (!jobs[job]) return null;
+  const before = status.last[job];
+  await run(job);
+  const after = status.last[job];
+  return after && after !== before ? after : null;
+}
+
+/** The latest status: what's running and how each job last went. */
+export function syncStatus(): SyncStatus {
+  return { ...status, last: { ...status.last } };
 }
 
 /** Starts the timers; returns a stop function. */

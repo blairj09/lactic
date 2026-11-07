@@ -15,6 +15,7 @@ import {
   type DeviceKey,
   type RememberedDevice,
 } from "@/lib/ble/devices";
+import { AskCoach } from "@/app/coach/ask-coach";
 import { POWER_SOURCE_PREF, isWebBluetoothAvailable, type PowerSource } from "@/lib/ble/sensor-hub";
 import PairSheet from "@/components/pair-sheet";
 import { Notice, Pill, Segmented, button, input } from "@/components/ui";
@@ -176,7 +177,12 @@ export default function BluetoothDevices() {
                 </div>
               </div>
 
-              {status?.state === "failed" && <p className="text-sm text-warning">{status.message}</p>}
+              {status?.state === "failed" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-warning">{status.message}</p>
+                  <AskCoach prompt={`My ${kind.label.toLowerCase()}${saved ? ` (${saved.name})` : ""} won't connect. Lactic said: "${status.message}" Can you check what's going on?`} />
+                </div>
+              )}
 
               {!editing && (
                 <div className="flex flex-wrap items-center gap-2">

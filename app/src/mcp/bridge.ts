@@ -3,6 +3,7 @@
 // built-in coach uses, so an external AI coach reads the engine's numbers and can only propose.
 // Proposals wait in coach_proposals until the rider applies them in Lactic.
 
+import { appTools } from "@/lib/coach/app-tools";
 import { applyMemory, loadCoachData } from "@/lib/coach/store";
 import { MEMORY_TOOLS, runTool, status, TOOLS } from "@/lib/coach/tools";
 import { createClient } from "~/db/supabase-client";
@@ -25,7 +26,7 @@ const OVERVIEW = {
 /** The tools in MCP's shape. */
 export function mcpTools() {
   const fromFn = (t: FnTool) => ({ name: t.function.name, description: t.function.description, inputSchema: t.function.parameters });
-  return [OVERVIEW, ...(TOOLS as FnTool[]).map(fromFn), ...(MEMORY_TOOLS as FnTool[]).map(fromFn)];
+  return [OVERVIEW, ...(TOOLS as FnTool[]).map(fromFn), ...(MEMORY_TOOLS as FnTool[]).map(fromFn), ...(appTools()?.tools ?? []).map(fromFn)];
 }
 
 const text = (s: string, isError = false) => ({ content: [{ type: "text", text: s }], ...(isError ? { isError: true } : {}) });
@@ -33,10 +34,12 @@ const text = (s: string, isError = false) => ({ content: [{ type: "text", text: 
 /** Runs one tool call. Never throws: errors go back to the model as text it can act on. */
 export async function callTool(name: string, args: Record<string, unknown>) {
   const supabase = createClient();
-  const data = await loadCoachData(supabase);
-  if (name === "get_overview") return text(JSON.stringify({ ...status(data), memory: data.memory }));
   if (!mcpTools().some((t) => t.name === name)) return text(`Unknown tool ${name}`, true);
-  const result = runTool(data, name, args ?? {});
+  const app = appTools();
+  const isApp = Boolean(app?.tools.some((t) => t.function.name === name));
+  const data = isApp ? null : await loadCoachData(supabase);
+  if (name === "get_overview") return text(JSON.stringify({ ...status(data!), memory: data!.memory }));
+  const result = isApp ? await app!.run(name, args ?? {}) : runTool(data!, name, args ?? {});
   if (result.proposal) {
     const { error } = await supabase.from("coach_proposals").insert({ source: "mcp", proposal: result.proposal });
     if (error) return text(`Couldn't save the proposal: ${error.message}`, true);

@@ -45,6 +45,12 @@ async function getJson<T>(apiKey: string, path: string): Promise<T> {
   return response.json();
 }
 
+/** Asks intervals.icu who the key belongs to: resolves with the athlete id, or throws why it failed. */
+export async function testKey(apiKey: string): Promise<{ athleteId: string }> {
+  const athlete = await getJson<{ id: string }>(apiKey, "/athlete/0");
+  return { athleteId: String(athlete.id) };
+}
+
 /** Checks the key and saves the connection. */
 export async function connect(supabase: Supabase, userId: string, apiKey: string) {
   const athlete = await getJson<{ id: string }>(apiKey, "/athlete/0");
