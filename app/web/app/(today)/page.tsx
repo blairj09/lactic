@@ -5,7 +5,6 @@ import { localDate } from "@/lib/engine/activity";
 import { estimateFtp } from "@/lib/engine/ftp";
 import { addDays } from "@/lib/engine/pmc";
 import { mergeCurves } from "@/lib/engine/power";
-import { authEnabled } from "@/lib/supabase/config";
 import { loadBodyMeasurements, weighInOn } from "@/lib/body-data";
 import { loadAthlete, loadStream } from "@/lib/activities";
 import { loadTrainingState } from "@/lib/training";
@@ -25,16 +24,6 @@ const coachEnabled = Boolean(process.env.OPENROUTER_API_KEY);
 const FTP_WINDOW_DAYS = 90;
 
 export default async function Today() {
-  if (!authEnabled) {
-    return (
-      <>
-        <Nav current="/" />
-        <Page>
-          <PageHeader title="Today" line="Running without Supabase, so there's no history. The Ride page works." />
-        </Page>
-      </>
-    );
-  }
 
   const supabase = await createClient();
   // The brief and last week's review only need today's date, so they load alongside the training state rather than

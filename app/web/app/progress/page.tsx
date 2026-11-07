@@ -6,7 +6,6 @@ import { loadBodyMeasurements } from "@/lib/body-data";
 import { mergeCurves } from "@/lib/engine/power";
 import { fitnessSummary } from "@/lib/health-summary";
 import { loadAnalysis } from "@/lib/analysis-data";
-import { authEnabled } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import LevelsPanel from "@/components/levels-panel";
@@ -22,16 +21,6 @@ export const maxDuration = 60;
 
 /** Where training history lives: the range charts on top, every ride below. Rides and Analysis used to be two pages. */
 export default async function ProgressPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  if (!authEnabled) {
-    return (
-      <>
-        <Nav current="/progress" />
-        <Page>
-          <PageHeader title="Progress" line="Progress needs Supabase." />
-        </Page>
-      </>
-    );
-  }
   const supabase = await createClient();
   const [data, athlete, rides, params, state] = await Promise.all([
     loadAnalysis(supabase),

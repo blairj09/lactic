@@ -8,7 +8,6 @@ import { ZONE_LABELS } from "@/lib/engine/library";
 import { addDays } from "@/lib/engine/pmc";
 import { signed } from "@/lib/format";
 import { BREAK_KIND_LABELS, BREAK_RIDING_LABELS, PHASE_LABELS, PLAN_GOAL_LABELS, weekStart, type Break, type PlanDay, type PlanWeek } from "@/lib/engine/plan";
-import { authEnabled } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { complianceDays, loadTrainingState, plannedOn, ridesFor, type TrainingState } from "@/lib/training";
 import { DAY_MARK_LABELS, markDays, weekProgress, type DayMark, type DayResult } from "@/lib/engine/compliance";
@@ -37,16 +36,6 @@ const TABS = [
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const tab = (await searchParams).tab === "setup" ? "setup" : "calendar";
-  if (!authEnabled) {
-    return (
-      <>
-        <Nav current="/plan" />
-        <Page>
-          <PageHeader title="Plan" line="Plans need Supabase." />
-        </Page>
-      </>
-    );
-  }
   const state = await loadTrainingState(await createClient());
   const { plan, today, goals, athlete, activePlan } = state;
   const coach = Boolean(process.env.OPENROUTER_API_KEY);
