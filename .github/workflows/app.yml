@@ -92,9 +92,10 @@ jobs:
           if-no-files-found: error
 
   release:
-    # On a version tag, or a manual run with "release" ticked: a GitHub release with the three
-    # apps attached, tagged v<version from tauri.conf.json>.
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release)
+    # A GitHub release with the three apps attached, tagged v<version from tauri.conf.json>:
+    # whenever main has a version with no release yet (bump the version, merge, and it ships),
+    # on a version tag, or on a manual run with "release" ticked.
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.release)
     needs: package
     runs-on: ubuntu-latest
     permissions:
@@ -112,8 +113,15 @@ jobs:
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME but tauri.conf.json says $version"; exit 1; }
+          elif gh release view "v$version" >/dev/null 2>&1; then
+            echo "v$version is already released; bump the version to ship a new one."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
       - uses: softprops/action-gh-release@v2
+        if: steps.version.outputs.skip != 'true'
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
