@@ -9,6 +9,7 @@ import {
   type CompareMode,
   type DateRange,
 } from "@/lib/engine/analysis";
+import Select from "@/components/select";
 
 /**
  * The date range every chart below it shows: presets, a custom from/to, zoom out and in, and
@@ -81,11 +82,11 @@ export default function RangePicker({
       {onCompareChange && (
         <label className="flex items-center gap-1.5 text-sm">
           <span className="text-muted">Compare to</span>
-          <select className={field} value={compare ?? ""} onChange={(e) => onCompareChange((e.target.value || null) as CompareMode | null)}>
+          <Select className={field} value={compare ?? ""} onChange={(v) => onCompareChange((v || null) as CompareMode | null)}>
             <option value="">Nothing</option>
             <option value="previous">Previous period</option>
             <option value="lastYear">Same dates last year</option>
-          </select>
+          </Select>
         </label>
       )}
       {compared && <span className="text-sm text-muted tabular-nums">{formatRange(compared)}</span>}
