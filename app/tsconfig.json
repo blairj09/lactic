@@ -1,0 +1,74 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": false,
+    "noFallthroughCasesInSwitch": true,
+    "types": [
+      "vite/client",
+      "web-bluetooth",
+      "node"
+    ],
+    "paths": {
+      "node:zlib": [
+        "./src/shims/node-zlib.ts"
+      ],
+      "@/lib/coach/openrouter": [
+        "./src/ai/client.ts"
+      ],
+      "@/components/nav": [
+        "./src/app/nav.tsx"
+      ],
+      "next/headers": [
+        "./src/shims/next-headers.ts"
+      ],
+      "next/cache": [
+        "./src/shims/next-cache.ts"
+      ],
+      "next/navigation": [
+        "./src/shims/next-navigation.ts"
+      ],
+      "next/link": [
+        "./src/shims/next-link.tsx"
+      ],
+      "react": [
+        "./node_modules/@types/react"
+      ],
+      "react/*": [
+        "./node_modules/@types/react/*"
+      ],
+      "react-dom": [
+        "./node_modules/@types/react-dom"
+      ],
+      "react-dom/*": [
+        "./node_modules/@types/react-dom/*"
+      ],
+      "@shared/*": [
+        "./web/lib/*"
+      ],
+      "@/*": [
+        "./web/*"
+      ],
+      "~/*": [
+        "./src/*"
+      ]
+    }
+  },
+  "include": [
+    "src",
+    "evals",
+    "vite.config.ts"
+  ]
+}

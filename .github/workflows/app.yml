@@ -1,0 +1,141 @@
+name: App
+
+on:
+  push:
+    branches: [main]
+    # A version tag (v0.2.0) also publishes the three apps as a GitHub release.
+    tags: ["v*"]
+    paths: ["app/**", ".github/workflows/app.yml"]
+  pull_request:
+    paths: ["app/**", ".github/workflows/app.yml"]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish a GitHub release for the version in tauri.conf.json (creates the v tag)"
+        type: boolean
+        default: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - run: npm run typecheck
+        working-directory: app
+      - run: npm run lint
+        working-directory: app
+      - run: npm test
+        working-directory: app
+      - run: npx vite build
+        working-directory: app
+      - name: Linux packages for Tauri
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev pkg-config
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+      - run: cargo check --locked
+        working-directory: app/src-tauri
+
+  package:
+    # The installable apps, unsigned for now, attached to the run:
+    # a .dmg for Apple silicon Macs, a Windows installer, and a Linux AppImage and .deb.
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: Lactic-macOS
+            bundles: dmg
+            files: app/src-tauri/target/release/bundle/dmg/*.dmg
+          - os: windows-latest
+            name: Lactic-Windows
+            bundles: nsis
+            files: app/src-tauri/target/release/bundle/nsis/*.exe
+          - os: ubuntu-22.04
+            name: Lactic-Linux
+            bundles: appimage,deb
+            files: |
+              app/src-tauri/target/release/bundle/appimage/*.AppImage
+              app/src-tauri/target/release/bundle/deb/*.deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Linux packages for Tauri
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev pkg-config patchelf
+      - run: npm ci
+        working-directory: app
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+      - run: npx tauri build --bundles ${{ matrix.bundles }}
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+
+  release:
+    # A GitHub release with the three apps attached, tagged v<version from tauri.conf.json>:
+    # whenever main has a version with no release yet (bump the version, merge, and it ships),
+    # on a version tag, or on a manual run with "release" ticked.
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.release)
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: The app's version, and the tag to match it
+        id: version
+        run: |
+          version=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME but tauri.conf.json says $version"; exit 1; }
+          elif gh release view "v$version" >/dev/null 2>&1; then
+            echo "v$version is already released; bump the version to ship a new one."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+      - uses: softprops/action-gh-release@v2
+        if: steps.version.outputs.skip != 'true'
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Lactic ${{ steps.version.outputs.tag }}
+          files: |
+            dist/**/*.dmg
+            dist/**/*.exe
+            dist/**/*.AppImage
+            dist/**/*.deb
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          body: |
+            ## Download
+
+            - **Mac (Apple silicon):** `Lactic_*_aarch64.dmg`. Drag Lactic to Applications, then run `xattr -cr /Applications/Lactic.app` once in Terminal (the app isn't signed yet).
+            - **Windows:** `Lactic_*_x64-setup.exe`. Windows warns about an unknown publisher; choose More info, then Run anyway.
+            - **Linux:** `Lactic_*_amd64.AppImage` (`chmod +x`, then run it) or `Lactic_*_amd64.deb` (`sudo apt install ./Lactic_*_amd64.deb`).
