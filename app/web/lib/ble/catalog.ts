@@ -31,8 +31,8 @@ export const DEVICE_KINDS: DeviceKind[] = [
   {
     key: "heartRate",
     label: "Heart rate",
-    pick: "your heart rate strap",
-    wake: "Put the strap on. Most straps only wake up on skin.",
+    pick: "your heart rate strap or watch",
+    wake: "Put the strap on (most only wake up on skin), or turn on heart rate broadcast on your watch.",
     request: { filters: [{ services: [GATT.service.heartRate] }] },
   },
   {

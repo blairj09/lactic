@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { button, Notice, Pill } from "@/components/ui";
+import { WatchHeartRateHelp } from "@/components/watch-hr-help";
 import { DEVICES_CHANGED, remembered, rememberDevice, forgetDevice, type DeviceKey } from "@/lib/ble/devices";
 import { fullUuid } from "~/bluetooth/backend";
 import { useNearby } from "~/bluetooth/picker";
@@ -11,7 +12,7 @@ import { ble, grant, scanning, simEnabled, type Seen } from "~/bluetooth/web-blu
 const SLOTS: { key: DeviceKey; label: string; service: number; wake: string; note?: string }[] = [
   { key: "trainer", label: "Smart trainer", service: 0x1826, wake: "Spin the pedals to wake it." },
   { key: "powerMeter", label: "Power meter", service: 0x1818, wake: "Turn the cranks a few times.", note: "Optional. Most smart trainers measure power themselves." },
-  { key: "heartRate", label: "Heart rate", service: 0x180d, wake: "Put the strap on (most wake on skin), or start a workout broadcast on your watch." },
+  { key: "heartRate", label: "Heart rate", service: 0x180d, wake: "Put the strap on (most wake on skin), or turn on heart rate broadcast on your watch." },
   { key: "scale", label: "Smart scale", service: 0xfff0, wake: "Tap the scale with your foot.", note: "Hume Body Pod for now. Others coming." },
 ];
 
@@ -89,6 +90,7 @@ export function GearSetup() {
                 </div>
               )}
               {!chosen && options.length === 0 && slot.note && <p className="text-sm text-faint">{slot.wake}</p>}
+              {!chosen && slot.key === "heartRate" && <WatchHeartRateHelp />}
             </li>
           );
         })}
