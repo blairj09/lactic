@@ -3,6 +3,7 @@
 // to the provider's OpenAI-compatible chat completions with the same settings as the app's own
 // client (src/ai/client.ts), so a model scores here as it would behave in Lactic.
 
+import { knownPrice } from "~/ai/prices";
 import { preset, PROVIDERS, type ProviderKind } from "~/ai/providers";
 import type { ChatMessage, Complete } from "@shared/coach/openrouter";
 
@@ -42,7 +43,7 @@ export function apiKey(spec: ModelSpec, env: Record<string, string | undefined> 
   return null;
 }
 
-/** Dollars per million tokens, input and output, where known. Approximate list prices; check the provider. */
+/** OpenRouter list prices (dollars per million tokens, approximate); other providers use the app's own table (src/ai/prices.ts). */
 export const PRICES: Record<string, { input: number; output: number }> = {
   "openrouter:moonshotai/kimi-k2": { input: 0.57, output: 2.3 },
   "openrouter:moonshotai/kimi-k2-0905": { input: 0.4, output: 2 },
@@ -54,12 +55,6 @@ export const PRICES: Record<string, { input: number; output: number }> = {
   "openrouter:anthropic/claude-haiku-4.5": { input: 1, output: 5 },
   "openrouter:anthropic/claude-sonnet-4.5": { input: 3, output: 15 },
   "openrouter:openai/gpt-5-mini": { input: 0.25, output: 2 },
-  "anthropic:claude-haiku-4-5": { input: 1, output: 5 },
-  "anthropic:claude-sonnet-4-5": { input: 3, output: 15 },
-  "openai:gpt-5-mini": { input: 0.25, output: 2 },
-  "openai:gpt-5": { input: 1.25, output: 10 },
-  "google:gemini-2.5-flash": { input: 0.3, output: 2.5 },
-  "google:gemini-2.5-pro": { input: 1.25, output: 10 },
 };
 
 export interface Usage {
@@ -82,7 +77,7 @@ export function addUsage(into: Usage, more: Usage) {
 export function priceOf(spec: ModelSpec, input: number, output: number, reported?: number): number | null {
   if (typeof reported === "number") return reported;
   if (spec.local) return 0;
-  const p = PRICES[spec.id];
+  const p = PRICES[spec.id] ?? knownPrice(spec.provider, spec.model);
   return p ? (input * p.input + output * p.output) / 1_000_000 : null;
 }
 

@@ -7,6 +7,7 @@
 import { StreamReader } from "@shared/coach/stream";
 import { coachSetup, SECRET_AI, type CoachSetup, type ModelChoice } from "./settings";
 import { preset } from "./providers";
+import { knownPrice } from "./prices";
 import { sql } from "~/db/sql";
 import { uuid } from "~/db/supa";
 
@@ -69,7 +70,9 @@ async function checkBudget(setup: CoachSetup, t: Target) {
 const estimateTokens = (text: string) => Math.ceil(text.length / 4);
 
 async function record(job: string, t: Target, choice: ModelChoice, input: number, output: number) {
-  const cost = choice.price ? (input * choice.price.input + output * choice.price.output) / 1_000_000 : t.local ? 0 : null;
+  // OpenRouter gives each model its price; other providers fall back to the list prices we know.
+  const price = choice.price ?? knownPrice(t.provider, choice.model);
+  const cost = t.local ? 0 : price ? (input * price.input + output * price.output) / 1_000_000 : null;
   try {
     const now = new Date().toISOString();
     await sql().execute(

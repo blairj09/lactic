@@ -4,7 +4,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { judge } from "./judge";
-import { addUsage, completer, emptyUsage, parseModel, PRICES, type ModelSpec, type Usage } from "./models";
+import { addUsage, completer, emptyUsage, parseModel, priceOf, type ModelSpec, type Usage } from "./models";
 import { markdown, summarize } from "./report";
 import { score, transcribe } from "./run";
 import { SCENARIOS } from "./scenarios";
@@ -69,7 +69,7 @@ async function main() {
   const maxCost = Number(a["max-cost"] ?? 1);
   const concurrency = Number(a.concurrency) || (models.every((m) => m.local) ? 1 : 3);
   for (const m of [...models, ...(judgeSpec ? [judgeSpec] : [])]) {
-    if (!m.local && !PRICES[m.id] && m.provider !== "openrouter") console.warn(`No price for ${m.id}: cost shows as unknown and the --max-cost guard can't count it.`);
+    if (priceOf(m, 1, 1) === null && m.provider !== "openrouter") console.warn(`No price for ${m.id}: cost shows as unknown and the --max-cost guard can't count it.`);
   }
   if (judgeSpec && models.some((m) => m.id === judgeSpec.id)) console.warn(`The judge (${judgeSpec.id}) is also under test; it may favour its own answers.`);
 
