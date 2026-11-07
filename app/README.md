@@ -27,6 +27,8 @@ npx tauri build   # a release build in src-tauri/target/release/bundle
 
 Checks: `npm run typecheck && npm run lint && npm test`, and `cargo check` in `src-tauri`.
 
+Coach evals: `npm run eval:coach` scores how well a model coaches inside Lactic, across providers. See [evals/README.md](evals/README.md).
+
 ## Downloads
 
 Releases are on the [Releases page](https://github.com/blairj09/lactic/releases). To ship one, bump the version in `app/package.json`, `app/src-tauri/tauri.conf.json` and `app/src-tauri/Cargo.toml` and merge: when `main` has a version with no release yet, the **App** workflow builds the apps and publishes the release under its v tag (pushing a `v*` tag works too). Every push to `main` also builds them and attaches them to the run: **Lactic-macOS** (.dmg, Apple silicon), **Lactic-Windows** (installer .exe) and **Lactic-Linux** (AppImage and .deb). They're unsigned for now:
