@@ -29,7 +29,7 @@ Checks: `npm run typecheck && npm run lint && npm test`, and `cargo check` in `s
 
 ## Downloads
 
-Releases are on the [Releases page](https://github.com/blairj09/lactic/releases). To cut one, bump the version in `app/package.json`, `app/src-tauri/tauri.conf.json` and `app/src-tauri/Cargo.toml`, merge, then either push a tag like `v0.2.0` or run the **App** workflow by hand with "release" ticked; it builds the apps and publishes the release under the v tag. Every push to `main` also builds them and attaches them to the run: **Lactic-macOS** (.dmg, Apple silicon), **Lactic-Windows** (installer .exe) and **Lactic-Linux** (AppImage and .deb). They're unsigned for now:
+Releases are on the [Releases page](https://github.com/blairj09/lactic/releases). To ship one, bump the version in `app/package.json`, `app/src-tauri/tauri.conf.json` and `app/src-tauri/Cargo.toml` and merge: when `main` has a version with no release yet, the **App** workflow builds the apps and publishes the release under its v tag (pushing a `v*` tag works too). Every push to `main` also builds them and attaches them to the run: **Lactic-macOS** (.dmg, Apple silicon), **Lactic-Windows** (installer .exe) and **Lactic-Linux** (AppImage and .deb). They're unsigned for now:
 
 - **macOS:** drag Lactic to Applications, then run `xattr -cr /Applications/Lactic.app` once.
 - **Windows:** SmartScreen warns about an unknown publisher; choose More info → Run anyway.
