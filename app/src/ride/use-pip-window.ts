@@ -1,7 +1,7 @@
 // The desktop app's ride overlay: a native always-on-top window in place of Chrome's Document
 // Picture-in-Picture. Shaped like the web hook, so the Ride page uses it unchanged. Its `pip` is a
 // stand-in Window with just what the page calls: setInterval (ticks from the overlay, which keeps
-// running while the page is behind Zwift) and resizeTo.
+// running while the page is behind other windows) and resizeTo.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePipWindow as useWebPip } from "@/app/ride/use-pip-window";

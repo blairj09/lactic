@@ -98,7 +98,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/ride",
     target: "ride-player",
     title: "The workout",
-    body: "Time left in the interval, your power against the target, heart rate and cadence, the workout chart and the ride so far. Lactic sets the trainer's resistance for each interval, so you just pedal. The controls pause, skip, make it easier or harder, and turn ERG off. Open overlay puts a small always-on-top version over Zwift.",
+    body: "Time left in the interval, your power against the target, heart rate and cadence, the workout chart and the ride so far. Lactic sets the trainer's resistance for each interval, so you just pedal. The controls pause, skip, make it easier or harder, and turn ERG off. Open overlay puts a small version in its own window that stays on top of everything else, like Zwift, a video or a browser.",
   },
   {
     id: "ride-editor",
