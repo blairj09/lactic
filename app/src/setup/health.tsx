@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { button, Pill, Result } from "@/components/ui";
-import { healthFolder, importHealthFolder } from "~/integrations/apple-health";
-import { isDesktop, openExternal } from "~/platform/native";
+import { healthFolder, importHealthFolder, setHealthFolder } from "~/integrations/apple-health";
+import { isDesktop, openExternal, os } from "~/platform/native";
 import { getSetting } from "~/settings/store";
 
 interface LastImport {
@@ -36,7 +36,21 @@ export function HealthSetup() {
     setBusy(false);
   }
 
-  const shortFolder = folder?.replace(/^.*com~apple~CloudDocs/, "iCloud Drive");
+  async function chooseFolder() {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const picked = await open({ directory: true, title: "Folder your phone saves Health files to" });
+    if (typeof picked !== "string") return;
+    await setHealthFolder(picked);
+    setFolder(await healthFolder().catch(() => null));
+  }
+
+  const shortFolder = folder?.replace(/^.*com~apple~CloudDocs/, "iCloud Drive").replace(/^.*[\\/]iCloudDrive/, "iCloud Drive");
+  const noCloud =
+    os() === "macos"
+      ? "Turn on iCloud Drive on this Mac (System Settings → your name → iCloud) so your iPhone can hand Lactic its Health data, or choose another folder that syncs from your phone."
+      : os() === "windows"
+        ? "Install iCloud for Windows and turn on iCloud Drive so your iPhone can hand Lactic its Health data, or choose another folder that syncs from your phone (Dropbox, Google Drive)."
+        : "Choose a folder that syncs from your phone, such as Dropbox, Nextcloud or Syncthing. Your iPhone saves its Health data there and Lactic picks it up.";
   return (
     <div className="space-y-3 rounded-lg border border-line p-4">
       <div className="flex items-center justify-between gap-3">
@@ -49,7 +63,12 @@ export function HealthSetup() {
       {!isDesktop ? (
         <p className="text-sm text-muted">Needs the Lactic desktop app and iCloud Drive.</p>
       ) : folder === null ? (
-        <p className="text-sm text-muted">Turn on iCloud Drive on this Mac (System Settings → your name → iCloud) so your iPhone can hand Lactic its Health data.</p>
+        <div className="space-y-2">
+          <p className="text-sm text-muted">{noCloud}</p>
+          <button type="button" className={button.small} onClick={() => void chooseFolder()}>
+            Choose folder…
+          </button>
+        </div>
       ) : (
         <>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
@@ -65,6 +84,9 @@ export function HealthSetup() {
           <div className="flex items-center gap-3">
             <button type="button" className={button.small} disabled={busy} onClick={() => void importNow()}>
               {busy ? "Looking…" : "Check now"}
+            </button>
+            <button type="button" className={button.ghost} onClick={() => void chooseFolder()}>
+              Change folder
             </button>
             {last && <span className="text-sm text-faint">Last import {new Date(last.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}{last.latest ? ` · ${last.latest}` : ""}</span>}
           </div>

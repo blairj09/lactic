@@ -1,6 +1,6 @@
 // Lactic's Settings: the web app's panels where they fit (profile, appearance, coach voice and
 // memory, intervals.icu, Bluetooth, FIT import) and Lactic's own (coach setup, Apple Health,
-// simulated gear, your data). Rendered like the other pages, as an async page.
+// your data; simulated gear in development builds). Rendered like the other pages, as an async page.
 
 import Nav from "@/components/nav";
 import { Page, PageHeader } from "@/components/ui";
@@ -107,7 +107,7 @@ export default async function SettingsPage() {
               )}
             </div>
           </Section>
-          <Section id="health" title="Apple Health" description="Recovery and sleep from your iPhone, through iCloud Drive.">
+          <Section id="health" title="Apple Health" description="Recovery and sleep from your iPhone, through iCloud Drive or another synced folder.">
             <div className="sm:col-span-2">
               <HealthSetup />
             </div>
@@ -122,9 +122,11 @@ export default async function SettingsPage() {
           <Section title="Bluetooth" description="Devices Lactic remembers. Pair once and they reconnect on their own.">
             <BluetoothDevices />
           </Section>
-          <Section title="Simulated gear" description="A virtual trainer, heart rate strap, power meter and scale, for trying Lactic without your gear.">
-            <SimulatorSwitch />
-          </Section>
+          {import.meta.env.DEV && (
+            <Section title="Simulated gear" description="Development builds only: a virtual trainer, heart rate strap, power meter and scale for testing without a bike.">
+              <SimulatorSwitch />
+            </Section>
+          )}
         </div>
         <div id="data" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
           <Section title="Your data" description="Everything Lactic knows is in one file on this computer. Back it up, or take it anywhere.">

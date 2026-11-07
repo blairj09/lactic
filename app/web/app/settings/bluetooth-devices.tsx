@@ -108,7 +108,7 @@ export default function BluetoothDevices() {
   if (!supported) {
     return (
       <div className="sm:col-span-2">
-        <Notice>This browser has no Web Bluetooth. Open Settings in Chrome on your Mac to manage devices.</Notice>
+        <Notice>This browser has no Web Bluetooth. Open Settings in the Lactic app to manage devices.</Notice>
       </div>
     );
   }

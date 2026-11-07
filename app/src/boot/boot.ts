@@ -6,7 +6,7 @@ import { createElement } from "react";
 import { readTheme, setTheme } from "@shared/theme";
 import { setSql } from "~/db/sql";
 import { migrate } from "~/db/migrate";
-import { isDesktop, appInfo } from "~/platform/native";
+import { isDesktop, appInfo, setOs } from "~/platform/native";
 import { tauriSql } from "~/platform/tauri-sql";
 import { installFetch } from "~/platform/fetch";
 import { installWebBluetooth } from "~/bluetooth/web-bluetooth";
@@ -16,6 +16,7 @@ import { applyEnv } from "./env";
 export async function boot() {
   setTheme(readTheme());
   const info = await appInfo().catch(() => null);
+  if (info) setOs(info.os);
   if (info?.os === "macos") document.documentElement.dataset.desktop = "macos";
   const root = createRoot(document.getElementById("root")!);
   try {

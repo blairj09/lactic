@@ -709,7 +709,7 @@ export default function RideScreen({
       <Nav current="/ride" />
       <Page>
         <h1 className="sr-only">Ride</h1>
-        {!supported && <Notice>This browser has no Web Bluetooth. Open this page in Chrome or Edge on your Mac.</Notice>}
+        {!supported && <Notice>This browser has no Web Bluetooth. Open the Lactic app to ride with your trainer.</Notice>}
         {error && <Notice tone="negative">{error}</Notice>}
 
         <SensorPanel hub={hub} state={state} supported={supported} onError={setError} />

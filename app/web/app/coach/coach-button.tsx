@@ -1,5 +1,6 @@
 "use client";
 
+import { modKey } from "~/platform/native";
 import { openCoach } from "./open";
 
 /**
@@ -11,11 +12,11 @@ export default function CoachButton() {
     <button
       type="button"
       onClick={() => openCoach()}
-      title="Talk to the coach (⌘K)"
+      title={`Talk to the coach (${modKey()}K)`}
       className="coach-button h-8 items-center gap-2 rounded-md border border-control px-3 text-sm text-ink transition-colors hover:bg-raised"
     >
       Coach
-      <kbd className="hidden font-sans text-xs text-faint lg:inline">⌘K</kbd>
+      <kbd className="hidden font-sans text-xs text-faint lg:inline">{modKey()}K</kbd>
     </button>
   );
 }

@@ -167,7 +167,7 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
           ) : device === null ? null : skips.weigh ? (
             <p>Skipped for today.</p>
           ) : !device.bluetooth ? (
-            <p>Weigh in from Chrome on the Mac.</p>
+            <p>Weigh in on your Body Pod from the Lactic app.</p>
           ) : !profile ? (
             <p>
               Add height, birth date and sex in{" "}

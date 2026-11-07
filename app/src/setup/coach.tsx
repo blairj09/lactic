@@ -206,7 +206,7 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
                 and open it.
               </li>
               <li>
-                In Terminal, run <code className="rounded bg-surface px-1.5 py-0.5 text-ink">ollama pull qwen3:8b</code> (about 5 GB).
+                In a terminal, run <code className="rounded bg-surface px-1.5 py-0.5 text-ink">ollama pull qwen3:8b</code> (about 5 GB).
               </li>
               <li>Come back here; Lactic finds it by itself.</li>
             </ol>
