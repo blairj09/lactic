@@ -3,7 +3,8 @@
 
 import { useEffect, useState } from "react";
 import { button, Field, input, Notice, Pill, Result } from "@/components/ui";
-import { PROVIDERS, preset, type ProviderKind } from "~/ai/providers";
+import { formatMonthly, monthlyEstimate } from "~/ai/cost";
+import { knownPrice, PROVIDERS, preset, type ProviderKind } from "~/ai/providers";
 import { coachSetup, saveCoachSetup, SECRET_AI, type CoachMode, type CoachSetup, type ModelChoice } from "~/ai/settings";
 import { listModels, testModel, type ModelInfo } from "~/ai/test";
 import { invoke, isDesktop, openExternal } from "~/platform/native";
@@ -114,7 +115,7 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
 
   const chooseModel = (id: string) => {
     const m = models?.find((x) => x.id === id);
-    const chat: ModelChoice = { model: id, price: m?.price };
+    const chat: ModelChoice = { model: id, price: m?.price ?? knownPrice(kind ?? undefined, id) };
     void update({ ...setup, chat });
   };
 
@@ -129,6 +130,8 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
   const suggested = info?.suggested ?? [];
   const localMissing = info?.local && modelsError;
   const installed = info?.local ? (models ?? []) : [];
+  const priceOf = (id: string) => models?.find((m) => m.id === id)?.price ?? knownPrice(kind ?? undefined, id);
+  const unpriced = Boolean(info && !info.local && setup.chat && !setup.chat.price && !priceOf(setup.chat.model));
 
   return (
     <div className="space-y-6 rounded-lg border border-line p-5">
@@ -216,22 +219,36 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
         </div>
       )}
 
+      {info?.local && installed.length > 0 && suggested.length > 0 && !installed.some((m) => suggested.some((s) => s.id === m.id)) && (
+        <Notice>
+          None of the models on this computer are ones we&apos;ve seen use tools reliably. Try{" "}
+          <code className="rounded bg-surface px-1.5 py-0.5 text-ink">ollama pull {suggested.find((s) => s.pick)?.id}</code>, or run &ldquo;Test this model&rdquo; on yours.
+        </Notice>
+      )}
+
       {ready && (
         <Group label="Model" hint={modelsError && !info?.local ? `Couldn't list models (${modelsError}); pick a suggestion or type a name.` : undefined}>
           <div className="space-y-2">
-            {(info?.local ? installed.map((m) => ({ id: m.id, label: m.id, note: suggested.find((s) => s.id === m.id)?.note })) : suggested).map((s) => (
-              <label key={s.id} className="flex cursor-pointer items-start gap-3 rounded-md border border-line px-3 py-2 text-sm hover:bg-raised">
-                <input type="radio" className="mt-1" name="model" checked={setup.chat?.model === s.id} onChange={() => chooseModel(s.id)} />
-                <span>
-                  <span className="font-medium">{s.label}</span>
-                  {s.note && <span className="block text-muted">{s.note}</span>}
-                  {(() => {
-                    const p = models?.find((m) => m.id === s.id)?.price;
-                    return p ? <span className="num block text-xs text-faint">${p.input.toFixed(2)} in · ${p.output.toFixed(2)} out per million tokens</span> : null;
-                  })()}
-                </span>
-              </label>
-            ))}
+            {(info?.local ? installed.map((m) => ({ ...suggested.find((s) => s.id === m.id), id: m.id, label: m.id })) : suggested).map((s) => {
+              const p = priceOf(s.id);
+              return (
+                <label key={s.id} className="flex cursor-pointer items-start gap-3 rounded-md border border-line px-3 py-2 text-sm hover:bg-raised">
+                  <input type="radio" className="mt-1" name="model" checked={setup.chat?.model === s.id} onChange={() => chooseModel(s.id)} />
+                  <span>
+                    <span className="flex items-center gap-2 font-medium">
+                      {s.label}
+                      {s.pick && <Pill tone="positive">Recommended</Pill>}
+                    </span>
+                    {s.note && <span className="block text-muted">{s.note}</span>}
+                    {p && (
+                      <span className="num block text-xs text-faint">
+                        {formatMonthly(monthlyEstimate(p))} a month for daily use · ${p.input.toFixed(2)} in · ${p.output.toFixed(2)} out per million tokens
+                      </span>
+                    )}
+                  </span>
+                </label>
+              );
+            })}
             {!info?.local && (
               <ModelSearch models={models ?? []} value={setup.chat?.model ?? ""} onPick={chooseModel} />
             )}
@@ -252,11 +269,19 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
             )}
           </div>
           {setup.chat.tested?.note && <Result ok={setup.chat.tested.ok}>{setup.chat.tested.note}</Result>}
+          {unpriced && (
+            <p className="text-sm text-muted">Lactic doesn&apos;t know this model&apos;s price, so the monthly limit can&apos;t count it. Set a spending limit with {info?.label} too.</p>
+          )}
         </div>
       )}
 
+      {info && <ModelGuide local={info.local} />}
+
       {info && !info.local && (
-        <Field label="Monthly limit" hint="The coach stops for the month when it reaches this. Typical use is a few dollars.">
+        <Field
+          label="Monthly limit"
+          hint="Lactic adds up what each coach reply costs and pauses the coach for the rest of the month when it reaches this. It's kept in Lactic, not with your provider, so also set a spending or credit limit on the key itself as a backstop."
+        >
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted">$</span>
             <input
@@ -273,6 +298,37 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
         </Field>
       )}
     </div>
+  );
+}
+
+/** What makes a good coach model, what to avoid, and what leaves the computer. */
+function ModelGuide({ local }: { local: boolean }) {
+  return (
+    <details className="text-sm">
+      <summary className="cursor-pointer font-medium">Which model should I use?</summary>
+      <div className="space-y-3 pt-3 text-muted">
+        <p>
+          The coach looks up your plan, rides and recovery with tools, then explains what it found. So the model has to be good at calling tools and following
+          instructions; raw size matters less. &ldquo;Test this model&rdquo; checks exactly that.
+        </p>
+        <p>
+          <span className="font-medium text-ink">Good picks.</span> Claude Haiku 5.5 is the best value: reliable with tools and under $1 a month for daily use.
+          Claude Sonnet 5.5 coaches most thoughtfully for about $14. Open models on OpenRouter (GLM 5.3, Kimi K2.6, DeepSeek V4.1 Flash) are cheap and solid.
+          On your own computer, Qwen 3 8B is the smallest that works; Qwen 3.8 27B is much better if you have 32 GB of memory.
+        </p>
+        <p>
+          <span className="font-medium text-ink">Skip these.</span> Models under about 7B (Llama 3.2 3B, Phi, Gemma 2B): they garble tool calls and make numbers up.
+          Models without tool support, and heavily shrunk downloads (Q3, Q2). Top-end models like Claude Opus or Fable, GPT Pro or Gemini Argon: they cost
+          several times more and a training coach won&apos;t notice the difference.
+        </p>
+        <p>
+          <span className="font-medium text-ink">Privacy.</span>{" "}
+          {local
+            ? "This model runs on your computer, so your training data never leaves it."
+            : "Each reply sends the parts of your training the coach looked up (plan, rides, recovery, weight) to the provider you chose. Your API key stays in your keychain. On OpenRouter you can limit routing to providers that don't keep or train on prompts in its privacy settings. For nothing to leave your computer, use Ollama or LM Studio."}
+        </p>
+      </div>
+    </details>
   );
 }
 
@@ -383,6 +439,10 @@ export function ExternalSetup() {
               </div>
             )}
             <p className="text-muted">ChatGPT only connects to servers on the internet, so it can&apos;t reach Lactic on your computer yet.</p>
+            <p className="text-muted">
+              Whichever app you use, pick a model that is good with tools: Claude Sonnet 5.5 or Opus 5.5 in Claude Desktop, or, in an app running a model on this
+              computer, something at least the size of Qwen 3 8B. Small local models garble tool calls.
+            </p>
           </div>
         </details>
       )}

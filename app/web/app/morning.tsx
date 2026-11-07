@@ -357,7 +357,7 @@ function Brief({
           </button>
         </p>
       )}
-      {error && <Result ok={false}>The coach couldn&apos;t write today&apos;s brief ({error}).</Result>}
+      {error && (/AI budget/.test(error) ? <p className="text-sm text-muted">{error}</p> : <Result ok={false}>The coach couldn&apos;t write today&apos;s brief ({error}).</Result>)}
       {!status && today && <TodayOptionsFor today={today} pick={stale ? null : (message?.meta.today as OptionId | undefined) ?? null} />}
       {!status && message && message.proposals.length > 0 && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
