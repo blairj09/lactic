@@ -68,9 +68,7 @@ export default function FitnessPanel({ fitness }: { fitness: FitnessSummary }) {
         />
       </StatStrip>
       <p className="text-sm text-muted">
-        VO2 max uses the ACSM cycling equation on your best 5-minute power per
-        kilo; fitness age is the age whose average VO2 max (HUNT fitness study)
-        matches yours.
+        VO2 max comes from your best 5-minute W/kg (ACSM cycling equation). Fitness age is the age whose average VO2 max matches yours (HUNT study).
       </p>
     </section>
   );

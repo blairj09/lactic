@@ -38,7 +38,7 @@ export function ExertionPanel({ exertion, activity, href }: { exertion: HealthSu
   const y = exertion.yesterday;
   const total = y ? y.bandMinutes.reduce((a, b) => a + b, 0) : 0;
   const most = y ? Math.max(...y.bandMinutes, 1) : 1;
-  const note = y ? `Exertion ${y.exertion.toFixed(1)}` : "No heart rate";
+  const note = y ? `${y.exertion.toFixed(1)} / 10` : "No heart rate";
   const body = y ? (
         <div className="grid gap-6 text-sm sm:grid-cols-2">
           <dl className="num grid grid-cols-2 gap-x-4 gap-y-1 self-start">
@@ -82,7 +82,7 @@ export function ExertionPanel({ exertion, activity, href }: { exertion: HealthSu
       );
   if (href)
     return (
-      <LinkPanel href={href} title="Yesterday" note={note}>
+      <LinkPanel href={href} title="Exertion" note={note}>
         {body}
       </LinkPanel>
     );

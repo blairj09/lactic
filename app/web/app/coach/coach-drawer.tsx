@@ -284,7 +284,7 @@ function History({
             {confirming === c.id ? (
               <div className="space-y-3 rounded-md border border-line bg-surface p-3" role="alertdialog" aria-label="Delete conversation">
                 <p className="truncate text-sm font-medium">{title(c)}</p>
-                <p className="text-sm">Delete this conversation? Its messages are gone for good; what the coach remembers about you stays.</p>
+                <p className="text-sm">Delete this conversation? What the coach remembers about you stays.</p>
                 <div className="flex gap-2">
                   <button
                     type="button"

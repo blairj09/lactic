@@ -10,6 +10,7 @@ import type { ActionResult } from "../actions";
 import WorkoutEditor from "../ride/workout-editor";
 import { moveDay, resetPlanDay, saveDayWorkout } from "./actions";
 import Select from "@/components/select";
+import OutdoorToggle from "@/components/outdoor-toggle";
 
 const DRAG_TYPE = "application/x-mycoach-day";
 
@@ -22,6 +23,8 @@ export interface EditableDayInfo {
   changed: boolean;
   /** The coach's reason for this day's workout, if it picked one. */
   why: string | null;
+  /** Set when the day can be ridden outside: whether it already is. */
+  outside?: boolean | null;
 }
 
 /**
@@ -215,9 +218,10 @@ function DayDialog({ day, ftp, moveTargets, onClose }: { day: EditableDayInfo; f
           )}
           {day.changed && (
             <button type="button" className={button.ghost} disabled={pending} onClick={() => run(() => resetPlanDay(day.date))}>
-              Put back the plan&apos;s session
+              Restore the plan&apos;s workout
             </button>
           )}
+          {day.workout && day.outside != null && !edited && <OutdoorToggle day={day.date} outside={day.outside} />}
           {day.workout && moveTargets.length > 0 && (
             <span className="flex items-center gap-2 text-sm">
               <Select aria-label="Move to" value={moveTo} onChange={(v) => setMoveTo(v)} className={`${input} h-8 px-2`}>
@@ -236,7 +240,7 @@ function DayDialog({ day, ftp, moveTargets, onClose }: { day: EditableDayInfo; f
         </div>
         {result && <Result ok={result.ok}>{result.message}</Result>}
         <p className="text-xs text-muted">
-          Changes stick through plan rebuilds and the coach&apos;s picks, and go to intervals.icu. Moving swaps the two days; you can also drag a workout.
+          Changes stay through plan rebuilds and sync to intervals.icu. You can also drag a day onto another to swap them.
         </p>
       </div>
     </div>

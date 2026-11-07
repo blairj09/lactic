@@ -71,7 +71,7 @@ export default function HealthView({
           title="Health"
           line={
             <>
-              Recovery, exertion and sleep from Apple Health, and weigh-ins. Training fitness (form, power and VO2 max) is on{" "}
+              Recovery, sleep and weight. Training fitness is on{" "}
               <Link href="/progress" className="text-ink underline underline-offset-4">
                 Progress
               </Link>
@@ -81,12 +81,12 @@ export default function HealthView({
         />
 
         <section className="space-y-3">
-          <SectionTitle meta={night ? "This morning, from Apple Health" : "No night recorded yet today"}>Today</SectionTitle>
+          <SectionTitle meta={night ? "This morning" : "No night recorded yet"}>Today</SectionTitle>
           <StatStrip cols={3} phone={2}>
             <RecoveryStat recovery={recovery} />
             <ExertionStat exertion={exertion} hasWatch={hasWatch} />
             <Stat
-              label="Sleep"
+              label="Sleep score"
               href={metricHref("sleep-score")}
               className="col-span-2 sm:col-span-1"
               value={sleep.score ? sleep.score.score : <Dash />}
@@ -99,7 +99,7 @@ export default function HealthView({
             />
           </StatStrip>
           {!hasWatch && (
-            <Notice>The full day&apos;s exertion needs daytime heart rate from Apple Health. Until the shortcut sends it, exertion counts rides only.</Notice>
+            <Notice>Exertion counts rides only. Send daytime heart rate from Apple Health to count the whole day.</Notice>
           )}
         </section>
 
@@ -240,7 +240,7 @@ export default function HealthView({
           </Panel>
           <Panel title={`Last ${WEIGHT_DAYS} days`} meta={recent.length ? `${recent.length} weigh-in${recent.length === 1 ? "" : "s"}` : undefined} className="min-w-0">
               <WeighInTable measurements={recent} timeZone={tz} />
-              <p className="mt-4 text-sm text-muted">Body fat is estimated from impedance (Sun et al., 2003) and moves with hydration, so watch the trend.</p>
+              <p className="mt-4 text-sm text-muted">Body fat is estimated (Sun et al., 2003) and moves with hydration, so watch the trend.</p>
             </Panel>
         </section>
       </Page>
@@ -258,7 +258,7 @@ function RecoveryStat({ recovery }: { recovery: RecoveryToday }) {
       className="col-span-2 sm:col-span-1"
       label="Recovery"
       value={<Dash />}
-      sub={today ? `A score once your baseline has ${MINIMUM_BASELINE_DAYS} nights (${baselineDays} so far).` : "Waiting for last night from Apple Health."}
+      sub={today ? `Score after ${MINIMUM_BASELINE_DAYS} nights (${baselineDays} so far)` : "Waiting for last night"}
     />
   );
 }
@@ -276,7 +276,7 @@ function ExertionStat({ exertion, hasWatch }: { exertion: HealthSummary["exertio
         exertion.normal
           ? `Normal ${exertion.normal.mean.toFixed(1)}`
           : hasWatch
-            ? `Your normal shows after ${MIN_EXERTION_BASELINE_DAYS} full days of heart rate (${exertion.baselineDays} so far)`
+            ? `Normal after ${MIN_EXERTION_BASELINE_DAYS} days (${exertion.baselineDays} so far)`
             : y
               ? "Rides only"
               : "No heart rate yesterday",

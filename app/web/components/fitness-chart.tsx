@@ -220,7 +220,7 @@ export default function FitnessChart({
 
       {!forecastFrom && (
         <details className="text-sm">
-          <summary className="cursor-pointer text-muted">Show the last 14 days as a table</summary>
+          <summary className="cursor-pointer text-muted">Last 14 days as a table</summary>
           <table className="mt-2 w-full max-w-md text-right tabular-nums">
             <thead className="text-muted">
               <tr>

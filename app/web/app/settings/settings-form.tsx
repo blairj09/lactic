@@ -9,16 +9,16 @@ type NumberField = "ftp_watts" | "threshold_hr" | "max_hr" | "weight_kg" | "heig
 type Values = Record<NumberField, number | null> & { timezone: string; birth_date: string | null; sex: "male" | "female" | null };
 
 const FIELDS: { name: NumberField; label: string; unit: string; hint?: string; step?: string }[] = [
-  { name: "ftp_watts", label: "FTP", unit: "W", hint: "Changing it applies from today; earlier rides keep the FTP they had." },
+  { name: "ftp_watts", label: "FTP", unit: "W", hint: "Applies from today. Earlier rides keep theirs." },
   { name: "threshold_hr", label: "Threshold", unit: "bpm" },
   { name: "max_hr", label: "Max", unit: "bpm" },
-  { name: "weight_kg", label: "Weight", unit: "kg", step: "0.1", hint: "The weigh-in page keeps this up to date." },
+  { name: "weight_kg", label: "Weight", unit: "kg", step: "0.1", hint: "Weigh-ins keep this up to date." },
   { name: "height_cm", label: "Height", unit: "cm", step: "0.5" },
   { name: "sleep_need_hours", label: "Sleep need", unit: "hours", step: "0.25" },
 ];
 
 const GROUPS: { title: string; description: string; fields: NumberField[] }[] = [
-  { title: "Body", description: "Height, birth date and sex are what the scale's body-composition estimate needs.", fields: ["weight_kg", "height_cm"] },
+  { title: "Body", description: "Height, birth date and sex are for body composition from a smart scale.", fields: ["weight_kg", "height_cm"] },
 ];
 
 /** One save for every setting; sections are a label column beside their fields. */
@@ -50,11 +50,11 @@ export default function SettingsForm({ values }: { values: Values }) {
   };
   return (
     <form id="profile" action={action} className="scroll-mt-16 space-y-4">
-      <Section title="Training" description="Workouts and training stress scale from these. Zones update as you type.">
+      <Section title="Training" description="Zones, workouts and training stress come from these.">
         <div className="space-y-4">
           <h3 className="text-xs font-medium uppercase tracking-wide text-faint">Power</h3>
           {numberField("ftp_watts", setFtp)}
-          <Zones title="Power zones" unit="W" zones={ftp && ftp > 0 ? powerZones(ftp) : null} empty="Set an FTP to see power zones." />
+          <Zones title="Power zones" unit="W" zones={ftp && ftp > 0 ? powerZones(ftp) : null} empty="Add an FTP to see zones." />
         </div>
         <div className="space-y-4">
           <h3 className="text-xs font-medium uppercase tracking-wide text-faint">Heart rate</h3>
@@ -62,12 +62,12 @@ export default function SettingsForm({ values }: { values: Values }) {
             {numberField("threshold_hr", setThresholdHr, "w-20")}
             {numberField("max_hr", setMaxHr, "w-20")}
           </div>
-          <p className="text-sm text-muted">Threshold sets the zones and training stress on rides without power.</p>
+          <p className="text-sm text-muted">Threshold sets zones, and stress on rides without power.</p>
           <Zones
             title="Heart rate zones"
             unit="bpm"
             zones={thresholdHr && thresholdHr > 0 ? hrZones(thresholdHr, maxHr && maxHr > 0 ? maxHr : null) : null}
-            empty="Set a threshold heart rate to see heart rate zones."
+            empty="Add a threshold to see zones."
           />
         </div>
       </Section>
@@ -95,7 +95,7 @@ export default function SettingsForm({ values }: { values: Values }) {
           )}
         </Section>
       ))}
-      <Section title="Sleep and time" description="Sleep need sets recovery's target; the time zone sets which day a ride counts toward.">
+      <Section title="Sleep and time" description="Sleep need is recovery's target. The time zone decides which day a ride counts for.">
         {numberField("sleep_need_hours")}
         <label className="block space-y-2">
           <span className="block text-sm font-medium">Time zone</span>

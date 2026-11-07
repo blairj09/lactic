@@ -45,7 +45,7 @@ export default function PowerDistributionChart({ series, ftp }: { series: Distri
   if (!series.some((s) => s.histogram.length)) {
     return (
       <p className="text-sm text-muted">
-        No power distribution for this range yet. Rides imported before it was kept need a re-import from the Rides page.
+        No power distribution for this range yet.
       </p>
     );
   }

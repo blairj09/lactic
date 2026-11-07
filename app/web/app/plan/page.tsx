@@ -127,15 +127,15 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
 
       {timeLimited && (
         <Notice>
-          Your time caps the load: load weeks reach about {Math.round(timeLimited.planned)} of the {Math.round(timeLimited.target)} TSS your ramp
-          rate needs. More time or a gentler rate closes the gap.
+          Your time limits harder weeks to about {Math.round(timeLimited.planned)} TSS, short of the {Math.round(timeLimited.target)} your ramp rate
+          calls for. Add time or choose a gentler ramp.
         </Notice>
       )}
 
       {activePlan && planEnd && activePlan.goal === "fitness" && activePlan.target && planEnd.fitness < activePlan.target - 2 && (
         <Notice>
-          Fitness reaches {Math.round(planEnd.fitness)} by {formatDate(activePlan.end)}, short of {activePlan.target}. More time, a faster ramp rate or a
-          later end closes the gap.
+          Fitness reaches {Math.round(planEnd.fitness)} by {formatDate(activePlan.end)}, short of {activePlan.target}. Add time, ramp faster or end
+          later.
         </Notice>
       )}
 
@@ -322,6 +322,7 @@ function WeekView({ week, state, moveTargets }: { week: PlanWeek; state: Trainin
               mark={marks.get(day.date) ?? null}
               plannedThen={past ? (plannedOn(state, day.date)?.session ?? null) : null}
               outdoor={day.date <= addDays(state.today, WORKOUT_DAYS - 1) ? { ride: state.outdoor.find((o) => o.date === day.date) ?? null } : null}
+              editable={!(day.role === "event" && day.goal) && moveTargets.some((t) => t.date === day.date)}
             />
           );
           if (day.role === "event" && day.goal && !past) {
@@ -335,7 +336,14 @@ function WeekView({ week, state, moveTargets }: { week: PlanWeek; state: Trainin
           return (
             <EditableDay
               key={day.date}
-              day={{ date: day.date, label: formatDate(day.date, true), workout: day.session?.workout ?? null, changed: state.changedDays.includes(day.date), why: day.why ?? null }}
+              day={{
+                date: day.date,
+                label: formatDate(day.date, true),
+                workout: day.session?.workout ?? null,
+                changed: state.changedDays.includes(day.date),
+                why: day.why ?? null,
+                outside: day.date <= addDays(state.today, WORKOUT_DAYS - 1) ? state.outdoor.some((o) => o.date === day.date) : null,
+              }}
               ftp={state.athlete.ftp ?? 0}
               moveTargets={moveTargets}
               className="group bg-surface"
@@ -398,6 +406,7 @@ function DayCell({
   mark,
   plannedThen,
   outdoor,
+  editable,
 }: {
   day: PlanDay;
   past: boolean;
@@ -412,6 +421,8 @@ function DayCell({
   plannedThen: PlanDay["session"];
   /** Whether the day is ridden outside; null when it's too far ahead to send to the Karoo. */
   outdoor: { ride: OutdoorRide | null } | null;
+  /** The day opens in the day editor, which has the Ride outside button. */
+  editable: boolean;
 }) {
   const outside = outdoor?.ride ?? null;
   const template = day.role === "key" ? templateById(day.session?.template) : null;
@@ -473,7 +484,7 @@ function DayCell({
             <WorkoutProfile workout={day.session.workout} height={28} />
           </div>
           {outside && <div className="text-xs font-medium">Outside, on your bike computer</div>}
-          {outdoor && <OutdoorToggle day={day.date} outside={Boolean(outside)} compact />}
+          {outdoor && (outside || !editable) && <OutdoorToggle day={day.date} outside={Boolean(outside)} compact />}
         </>
       ) : (
         <div className="text-muted">Rest</div>

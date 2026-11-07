@@ -231,7 +231,7 @@ async function RecoveryDetail(ctx: Ctx) {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted">{today ? `A score once your baseline has ${MINIMUM_BASELINE_DAYS} nights of HRV.` : "Waiting for last night from Apple Health."}</p>
+            <p className="text-sm text-muted">{today ? `Score after ${MINIMUM_BASELINE_DAYS} nights of HRV.` : "Waiting for last night."}</p>
           )}
           <h3 className="mt-5 mb-2 text-sm font-medium">What goes into it</h3>
           <Bars
@@ -305,7 +305,7 @@ async function ExertionDetail(ctx: Ctx) {
 
   return (
     <>
-      {!hasWatch && <Notice>The full day&apos;s exertion needs daytime heart rate from Apple Health. Until the shortcut sends it, exertion counts rides only.</Notice>}
+      {!hasWatch && <Notice>Exertion counts rides only. Send daytime heart rate from Apple Health to count the whole day.</Notice>}
       <StatStrip cols={4} phone={2}>
         <Stat lead label="Yesterday" value={y ? y.exertion.toFixed(1) : <Dash />} unit={y ? "/ 10" : undefined} sub={y ? `${Math.round(y.trimp)} TRIMP` : "No heart rate yesterday"} />
         <Stat label="Your normal" value={exertion.normal ? exertion.normal.mean.toFixed(1) : <Dash />} sub={exertion.normal ? `From ${exertion.normal.days} days` : "After a week of heart rate"} />
@@ -384,7 +384,7 @@ async function SleepScoreDetail(ctx: Ctx) {
             ]}
           />
         ) : (
-          <p className="text-sm text-muted">No night recorded yet today.</p>
+          <p className="text-sm text-muted">No night recorded yet.</p>
         )}
       </Panel>
       <DayTable

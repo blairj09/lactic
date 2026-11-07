@@ -15,11 +15,11 @@ import { revalidatePath } from "~/shims/next-cache";
 import { startTour } from "~/tour/store";
 
 const STEPS = [
-  { id: "you", title: "About you", line: "So zones, stress and the plan fit you." },
-  { id: "week", title: "Your week and goal", line: "Lactic builds a plan around the time you have." },
-  { id: "gear", title: "Your gear", line: "Wake up your trainer and sensors. Lactic finds them." },
-  { id: "rides", title: "Your rides and health", line: "Bring in your history so Lactic knows your fitness from day one, and your sleep for a daily recovery score." },
-  { id: "coach", title: "Your coach", line: "Choose how you'd like coaching, if at all." },
+  { id: "you", title: "About you", line: "So your zones and plan fit you." },
+  { id: "week", title: "Your week and goal", line: "Lactic plans around the time you have." },
+  { id: "gear", title: "Your gear", line: "Wake your trainer and sensors and Lactic finds them." },
+  { id: "rides", title: "Your rides and sleep", line: "Your history sets your fitness from day one. Sleep gives you a daily recovery score." },
+  { id: "coach", title: "Your coach", line: "Pick a coach, or go without." },
 ] as const;
 type StepId = (typeof STEPS)[number]["id"];
 
@@ -59,13 +59,13 @@ function Welcome({ onStart }: { onStart: () => void }) {
         </div>
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold tracking-tight">Welcome to Lactic</h1>
-          <p className="text-muted">Structured training that fits your week: a plan that adapts as you ride, ERG workouts on your smart trainer, and your recovery in one place. Free, and everything stays on this computer.</p>
+          <p className="text-muted">A training plan that fits your week, workouts on your smart trainer, and your recovery in one place. Free, and your data stays on this computer.</p>
         </div>
         <div className="space-y-3">
           <button type="button" className={`${button.primary} h-11 w-full text-base`} onClick={onStart}>
             Get started
           </button>
-          <p className="text-sm text-faint">About five minutes. You can change everything later.</p>
+          <p className="text-sm text-faint">About five minutes. Change anything later.</p>
         </div>
       </div>
     </div>
@@ -81,14 +81,14 @@ function Done({ onFinish }: { onFinish: (tour: boolean) => void }) {
         </div>
         <div className="space-y-3">
           <h1 className="text-3xl font-semibold tracking-tight">You&apos;re set</h1>
-          <p className="text-muted">Your plan is ready. Take a quick look around each screen and the Ride screen, or go straight to Today.</p>
+          <p className="text-muted">Your plan is ready. Take a quick tour, or go straight to Today.</p>
         </div>
         <div className="space-y-3">
           <button type="button" className={`${button.primary} h-11 w-full text-base`} onClick={() => onFinish(true)}>
             Show me around
           </button>
           <button type="button" className={`${button.ghost} mx-auto`} onClick={() => onFinish(false)}>
-            Skip the tour
+            Skip
           </button>
         </div>
       </div>
