@@ -3,7 +3,6 @@
 
 import { complete, target } from "./client";
 import type { CoachSetup, ModelChoice } from "./settings";
-import { knownPrice } from "./prices";
 
 export interface ModelInfo {
   id: string;
@@ -29,7 +28,6 @@ export async function listModels(setup: Pick<CoachSetup, "provider">): Promise<M
       const output = Number(m.pricing?.completion);
       const info: ModelInfo = { id: m.id.replace(/^models\//, ""), name: m.name, context: m.context_length };
       if (Number.isFinite(input) && Number.isFinite(output)) info.price = { input: input * 1e6, output: output * 1e6 };
-      else info.price = knownPrice(t.provider, info.id) ?? undefined;
       return info;
     })
     .filter((m): m is ModelInfo => m !== null);
