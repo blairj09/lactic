@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Nav from "@/components/nav";
-import { Page, PageHeader } from "@/components/ui";
-import { authEnabled } from "@/lib/supabase/config";
+import { Page } from "@/components/ui";
 import { METRICS, rangeFrom } from "../../health/metrics";
 import MetricDetail from "../../health/[metric]/metric-detail";
 
@@ -27,14 +26,7 @@ export default async function Vo2maxPage({
         >
           ← Progress
         </Link>
-        {authEnabled ? (
-          <MetricDetail metric="fitness" days={days} />
-        ) : (
-          <PageHeader
-            title={METRICS.fitness.title}
-            line="Progress needs Supabase."
-          />
-        )}
+        <MetricDetail metric="fitness" days={days} />
       </Page>
     </>
   );

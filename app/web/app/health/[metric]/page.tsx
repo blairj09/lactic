@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import Nav from "@/components/nav";
-import { Page, PageHeader } from "@/components/ui";
-import { authEnabled } from "@/lib/supabase/config";
+import { Page } from "@/components/ui";
 import { isMetric, metricHref, METRICS, rangeFrom } from "../metrics";
 import MetricDetail from "./metric-detail";
 
@@ -27,7 +26,7 @@ export default async function MetricPage({ params, searchParams }: { params: Pro
         <Link href="/health" className="inline-flex items-center gap-1 text-sm text-muted underline-offset-4 hover:text-ink hover:underline">
           ← Health
         </Link>
-        {authEnabled ? <MetricDetail metric={metric} days={days} /> : <PageHeader title={METRICS[metric].title} line="Health needs Supabase." />}
+        <MetricDetail metric={metric} days={days} />
       </Page>
     </>
   );

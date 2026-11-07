@@ -1,6 +1,6 @@
 [package]
 name = "lactic"
-version = "0.1.0"
+version = "0.1.1"
 description = "Lactic: an open-source cycling coach for your computer"
 authors = ["James Blair"]
 license = "MIT"
