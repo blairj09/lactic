@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { resolveChange } from "@/lib/coach/changes";
+import { resolveChange, type PlanChange } from "@/lib/coach/changes";
 import { MAX_INSTRUCTIONS, toPersona, type Persona } from "@/lib/coach/persona";
 import { deleteConversation, loadMessage, newConversation, saveProposals } from "@/lib/coach/store";
 import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
@@ -19,6 +19,30 @@ async function attempt(work: () => Promise<string>): Promise<ActionResult> {
   }
 }
 
+/** Writes a proposed change, as the engine works it out from today's data. Returns what was done. */
+export async function applyChange(supabase: Awaited<ReturnType<typeof createClient>>, change: PlanChange): Promise<string> {
+  const state = await loadTrainingState(supabase);
+  const effect = resolveChange(state, change);
+
+  if (effect.kind === "break") {
+    const b = effect.break;
+    const { error } = await supabase.from("plan_breaks").insert({ start_date: b.start, end_date: b.end, kind: b.kind, riding: b.riding, minutes: b.minutes ?? null, note: b.note ?? "" });
+    if (error) throw error;
+  } else if (effect.kind === "settings") {
+    const { error } = await supabase
+      .from("athlete_settings")
+      .upsert(
+        { user_id: state.athlete.userId, availability: effect.availability, ramp_rate: effect.rampRate, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
+    if (error) throw error;
+  } else {
+    await writeDays(supabase, state, effect.days);
+  }
+  const pushed = effect.kind === "days" ? await pushChangedPlan(supabase) : "";
+  return `Done: ${effect.summary}.${pushed}`;
+}
+
 /**
  * Applies a change the coach proposed. The engine works it out again from today's data, so what's
  * written is the engine's session, not anything the model wrote.
@@ -30,27 +54,9 @@ export async function applyProposal(messageId: string, index: number): Promise<A
     const proposal = message.proposals[index];
     if (!proposal) throw new Error("That change isn't there any more");
     if (proposal.status !== "pending") throw new Error(`Already ${proposal.status}`);
-    const state = await loadTrainingState(supabase);
-    const effect = resolveChange(state, proposal.change);
-
-    if (effect.kind === "break") {
-      const b = effect.break;
-      const { error } = await supabase.from("plan_breaks").insert({ start_date: b.start, end_date: b.end, kind: b.kind, riding: b.riding, minutes: b.minutes ?? null, note: b.note ?? "" });
-      if (error) throw error;
-    } else if (effect.kind === "settings") {
-      const { error } = await supabase
-        .from("athlete_settings")
-        .upsert(
-          { user_id: state.athlete.userId, availability: effect.availability, ramp_rate: effect.rampRate, updated_at: new Date().toISOString() },
-          { onConflict: "user_id" },
-        );
-      if (error) throw error;
-    } else {
-      await writeDays(supabase, state, effect.days);
-    }
-    const pushed = effect.kind === "days" ? await pushChangedPlan(supabase) : "";
+    const done = await applyChange(supabase, proposal.change);
     await saveProposals(supabase, messageId, message.proposals.map((p, i) => (i === index ? { ...p, status: "applied" } : p)));
-    return `Done: ${effect.summary}.${pushed}`;
+    return done;
   });
 }
 

@@ -11,6 +11,8 @@ import { refreshCoachMode, useCoachMode } from "./coach-mode";
 import { getSetting } from "~/settings/store";
 import { startBackground } from "~/integrations/background";
 import { BluetoothPicker } from "~/bluetooth/picker";
+import { startMcpBridge } from "~/mcp/bridge";
+import { ExternalSuggestions } from "~/mcp/suggestions";
 
 const today = () => import("@/app/(today)/page");
 const plan = () => import("@/app/plan/page");
@@ -55,6 +57,8 @@ function Shell() {
   useEffect(() => {
     if (onboarded) return startBackground();
   }, [onboarded]);
+  // The overlay window runs this app too; only the main window answers the MCP server.
+  useEffect(() => (location.hash.startsWith("#/overlay") ? undefined : startMcpBridge()), []);
   if (onboarded === null) return null;
   return (
     <>
@@ -83,6 +87,7 @@ function Shell() {
       </Routes>
       <NewDayRefresh />
       <BluetoothPicker />
+      {onboarded && mode === "external" && <ExternalSuggestions />}
       {mode === "builtin" && (
         <DrawerBoundary>
           <CoachDrawer />
