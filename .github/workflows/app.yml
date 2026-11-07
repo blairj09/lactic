@@ -9,6 +9,11 @@ on:
   pull_request:
     paths: ["app/**", ".github/workflows/app.yml"]
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish a GitHub release for the version in tauri.conf.json (creates the v tag)"
+        type: boolean
+        default: false
 
 jobs:
   check:
@@ -87,8 +92,9 @@ jobs:
           if-no-files-found: error
 
   release:
-    # On a version tag: a GitHub release with the three apps attached.
-    if: startsWith(github.ref, 'refs/tags/v')
+    # On a version tag, or a manual run with "release" ticked: a GitHub release with the three
+    # apps attached, tagged v<version from tauri.conf.json>.
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release)
     needs: package
     runs-on: ubuntu-latest
     permissions:
@@ -99,13 +105,19 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - name: Check the tag matches the app's version
+      - name: The app's version, and the tag to match it
+        id: version
         run: |
           version=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
-          test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME but tauri.conf.json says $version"; exit 1; }
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME but tauri.conf.json says $version"; exit 1; }
+          fi
       - uses: softprops/action-gh-release@v2
         with:
-          name: Lactic ${{ github.ref_name }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Lactic ${{ steps.version.outputs.tag }}
           files: |
             dist/**/*.dmg
             dist/**/*.exe
