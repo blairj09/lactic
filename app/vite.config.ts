@@ -38,6 +38,13 @@ export default defineConfig({
     
     watch: { ignored: ["**/src-tauri/**"] },
   },
+  // Vite's build swaps `process.env` for `{}`, which froze every setting the app writes at boot
+  // (src/boot/env.ts) to undefined in packaged builds. Point it at the live object globals.ts makes.
+  define: {
+    "process.env": "globalThis.process.env",
+    "global.process.env": "globalThis.process.env",
+    "globalThis.process.env": "globalThis.process.env",
+  },
   envPrefix: ["VITE_", "TAURI_ENV_*"],
   build: {
     target: "safari16",

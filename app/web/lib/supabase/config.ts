@@ -1,10 +1,7 @@
-// Supabase settings from the environment. Auth is off when they're missing, so `npm run dev`
-// works for trainer testing without any setup.
+// Lactic keeps everything in the local SQLite database (src/db), which always exists, so the
+// data-backed screens are always on. Nothing here talks to a hosted service.
 
-export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-export const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-export const authEnabled = Boolean(supabaseUrl && supabaseKey);
+export const authEnabled = true;
 
 /** The one email allowed to sign in. Server-only. */
 export function allowedEmail(): string | undefined {

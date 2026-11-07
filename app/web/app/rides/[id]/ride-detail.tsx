@@ -31,7 +31,6 @@ import {
 } from "@/lib/engine/ride-detail";
 import type { Workout } from "@/lib/engine/workout";
 import { formatDay, formatDuration, intervalsUrl, SOURCE_LABEL } from "@/lib/format";
-import { authEnabled } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import {
   complianceDays,
@@ -55,7 +54,7 @@ export default async function RideDetail({
   id: string;
   actions?: React.ReactNode;
 }) {
-  if (!authEnabled || !UUID.test(id)) notFound();
+  if (!UUID.test(id)) notFound();
   const supabase = await createClient();
   const [ride, stream, state, copyOnIntervals] = await Promise.all([
     loadRide(supabase, id),
