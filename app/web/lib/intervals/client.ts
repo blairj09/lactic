@@ -6,6 +6,7 @@ import { decodeFit, FIT_SPORT_CYCLING } from "../fit/decode";
 import { rideFromFit } from "../fit/ride";
 import type { createClient } from "../supabase/server";
 import { matchActivities, nextBatch, sameRide, stravaRides, type IntervalsActivity } from "./batch";
+import { mergeWellness, WELLNESS_SOURCE, wellnessDays, type IntervalsWellness, type RecoveryRow } from "../engine/wellness";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -340,4 +341,60 @@ export async function restartHistory(supabase: Supabase, connection: IntervalsCo
 export async function disconnect(supabase: Supabase, connection: IntervalsConnection) {
   const { error } = await supabase.from("intervals_connections").delete().eq("user_id", connection.userId);
   if (error) throw error;
+}
+
+/** Days of wellness read on each sync: enough for the recovery baseline, in one request. */
+const WELLNESS_DAYS = 90;
+
+export interface WellnessResult {
+  /** Mornings written or filled in. */
+  mornings: number;
+  /** Weigh-ins added. */
+  weighIns: number;
+}
+
+/**
+ * Reads intervals.icu's wellness (sleep, HRV, resting HR, breathing and weight from Garmin, Oura, WHOOP,
+ * Polar, Coros and others) into recovery_days and body_measurements. Other sources' numbers win;
+ * intervals.icu fills what they left empty.
+ */
+export async function syncWellness(supabase: Supabase, connection: IntervalsConnection): Promise<WellnessResult> {
+  const oldest = day(new Date(Date.now() - WELLNESS_DAYS * 86_400_000));
+  const newest = day(new Date(Date.now() + 86_400_000));
+  const records = await getJson<IntervalsWellness[]>(connection.apiKey, `/athlete/0/wellness?oldest=${oldest}&newest=${newest}`);
+  const days = wellnessDays(Array.isArray(records) ? records : []);
+  if (!days.length) return { mornings: 0, weighIns: 0 };
+
+  const { data: existing, error } = await supabase
+    .from("recovery_days")
+    .select("day, hrv_ms, hrv_kind, resting_hr, sleep_hours, respiratory_rate, source")
+    .in("day", days.map((d) => d.day));
+  if (error) throw error;
+  const prior = new Map(((existing ?? []) as RecoveryRow[]).map((r) => [String(r.day).slice(0, 10), r]));
+  const rows = days.flatMap((d) => mergeWellness(prior.get(d.day), d) ?? []);
+  if (rows.length) {
+    const { error: upsertError } = await supabase.from("recovery_days").upsert(rows, { onConflict: "user_id,day" });
+    if (upsertError) throw upsertError;
+  }
+
+  // Weight only on days with no weigh-in from anywhere else (the Body Pod, say), so a scale isn't counted twice.
+  const weights = days.filter((d) => d.weightKg !== null);
+  let weighIns = 0;
+  if (weights.length) {
+    const { data: measured, error: bodyError } = await supabase
+      .from("body_measurements")
+      .select("measured_at")
+      .gte("measured_at", `${weights[0].day}T00:00:00Z`);
+    if (bodyError) throw bodyError;
+    const weighed = new Set(((measured ?? []) as { measured_at: string }[]).map((m) => new Date(m.measured_at).toISOString().slice(0, 10)));
+    const fresh = weights
+      .filter((d) => !weighed.has(d.day))
+      .map((d) => ({ measured_at: `${d.day}T12:00:00Z`, weight_kg: d.weightKg, body_fat_pct: d.bodyFatPct, source: WELLNESS_SOURCE }));
+    if (fresh.length) {
+      const { error: insertError } = await supabase.from("body_measurements").insert(fresh);
+      if (insertError) throw insertError;
+      weighIns = fresh.length;
+    }
+  }
+  return { mornings: rows.length, weighIns };
 }
