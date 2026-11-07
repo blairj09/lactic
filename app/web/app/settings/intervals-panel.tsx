@@ -93,7 +93,7 @@ export default function IntervalsPanel({ status }: { status: IntervalsStatus }) 
             <span>
               Send rides recorded here to intervals.icu
               <span className="block text-muted">
-                Skipped when Zwift or the Karoo already sent the same ride.
+                Skipped when Zwift or your bike computer already sent the same ride.
               </span>
             </span>
           </label>

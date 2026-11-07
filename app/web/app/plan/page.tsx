@@ -447,7 +447,7 @@ function DayCell({
       ) : outside?.workout ? (
         <>
           <div className="font-medium">{outside.workout.name}</div>
-          <div className="text-xs text-muted">Outside, on the Karoo, in place of {day.session ? ZONE_LABELS[day.session.zone].toLowerCase() : "rest"}</div>
+          <div className="text-xs text-muted">Outside, on your bike computer, in place of {day.session ? ZONE_LABELS[day.session.zone].toLowerCase() : "rest"}</div>
           <div className="pt-1">
             <WorkoutProfile workout={outside.workout} height={28} />
           </div>
@@ -472,7 +472,7 @@ function DayCell({
           <div className="pt-1">
             <WorkoutProfile workout={day.session.workout} height={28} />
           </div>
-          {outside && <div className="text-xs font-medium">Outside, on the Karoo</div>}
+          {outside && <div className="text-xs font-medium">Outside, on your bike computer</div>}
           {outdoor && <OutdoorToggle day={day.date} outside={Boolean(outside)} compact />}
         </>
       ) : (

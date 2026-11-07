@@ -35,7 +35,7 @@ export default function PairSheet({ kind, onFind, onClose }: { kind: DeviceKind 
             </li>
             <li className="flex gap-3">
               <span className="num flex size-6 flex-none items-center justify-center rounded-full bg-raised text-xs">2</span>
-              <span className="pt-0.5">Chrome shows a list of nearby devices. Choose {kind.pick} and press Pair.</span>
+              <span className="pt-0.5">A list of nearby devices appears. Choose {kind.pick}.</span>
             </li>
           </ol>
           <div className="flex justify-end gap-2">

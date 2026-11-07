@@ -9,7 +9,7 @@ import { weighIn, type WeighInUpdate } from "@/lib/scale/scale";
 import { saveWeighIn, type ActionResult } from "../actions";
 
 export const STAGE_TEXT: Record<WeighInUpdate["stage"], string> = {
-  picking: "Tap the scale with your foot to wake it, then choose your Body Pod in Chrome's list. It's remembered after this.",
+  picking: "Tap the scale with your foot to wake it, then choose your Body Pod in the list. It's remembered after this.",
   waking: "Tap the scale with your foot to wake it.",
   connecting: "Connecting...",
   waiting: "Connected. Step on the scale.",

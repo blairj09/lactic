@@ -35,4 +35,6 @@ export async function coachSetup(): Promise<CoachSetup> {
 
 export async function saveCoachSetup(setup: CoachSetup) {
   await setSetting(KEY, setup);
+  const { applyEnv } = await import("~/boot/env");
+  await applyEnv();
 }

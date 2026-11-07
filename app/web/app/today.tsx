@@ -211,7 +211,7 @@ function TodayWorkout({ state, ridden, stream }: { state: TrainingState; ridden:
   } else if (outside?.workout) {
     body = (
       <div className="space-y-4">
-        <p className="text-[15px]">Riding outside today: this workout is on your Karoo, in place of the plan&apos;s.</p>
+        <p className="text-[15px]">Riding outside today: this workout is on your bike computer (through intervals.icu), in place of the plan&apos;s.</p>
         <WorkoutProfile workout={outside.workout} height={88} details ftp={athlete.ftp} />
         <OutdoorToggle day={today} outside />
       </div>
@@ -268,7 +268,7 @@ function TodayWorkout({ state, ridden, stream }: { state: TrainingState; ridden:
 }
 
 function OutsideLine() {
-  return <p className="text-[15px]">Riding outside today: the workout is on your Karoo, with power ranges to hold by feel.</p>;
+  return <p className="text-[15px]">Riding outside today: the workout is on your bike computer, with power ranges to hold by feel.</p>;
 }
 
 /** One line for the morning routine: the score if there is one, otherwise last night's numbers. */

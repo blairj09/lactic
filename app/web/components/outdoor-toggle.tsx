@@ -22,7 +22,7 @@ export default function OutdoorToggle({ day, outside, compact = false }: { day: 
         type="button"
         onClick={toggle}
         disabled={pending}
-        title={outside ? "Riding outside: on your Karoo. Click to ride indoors." : "Ride this outside and send it to the Karoo"}
+        title={outside ? "Riding outside: on your bike computer. Click to ride indoors." : "Ride this outside and send it to your bike computer through intervals.icu"}
         className="text-xs text-muted underline-offset-4 hover:text-ink hover:underline disabled:opacity-50"
       >
         {pending ? "Sending…" : outside ? "Ride indoors" : "Ride outside"}
@@ -32,7 +32,7 @@ export default function OutdoorToggle({ day, outside, compact = false }: { day: 
   return (
     <span className="flex flex-wrap items-center gap-3">
       <button type="button" className={button.secondary} onClick={toggle} disabled={pending}>
-        {pending ? "Sending…" : outside ? "Ride indoors instead" : "Ride outside on the Karoo"}
+        {pending ? "Sending…" : outside ? "Ride indoors instead" : "Ride outside"}
       </button>
       {result && <Result ok={result.ok}>{result.message}</Result>}
     </span>

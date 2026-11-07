@@ -10,6 +10,7 @@ import { setNavigator } from "~/shims/next-navigation";
 import { refreshCoachMode, useCoachMode } from "./coach-mode";
 import { getSetting } from "~/settings/store";
 import { startBackground } from "~/integrations/background";
+import { BluetoothPicker } from "~/bluetooth/picker";
 
 const today = () => import("@/app/(today)/page");
 const plan = () => import("@/app/plan/page");
@@ -81,6 +82,7 @@ function Shell() {
         )}
       </Routes>
       <NewDayRefresh />
+      <BluetoothPicker />
       {mode === "builtin" && (
         <DrawerBoundary>
           <CoachDrawer />

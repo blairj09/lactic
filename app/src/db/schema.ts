@@ -55,6 +55,11 @@ export const TABLES: Record<string, Table> = {
     },
     primaryKey: ["user_id"],
   },
+  // The web app's Apple Health shortcut token; unused here but read by shared loaders.
+  ingest_tokens: {
+    columns: { user_id: user, token_hash: { type: "text", notNull: true }, created_at: now, last_used_at: { type: "ts" }, updated_at: now },
+    primaryKey: ["user_id"],
+  },
   ftp_history: {
     columns: {
       id,

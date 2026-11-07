@@ -21,7 +21,7 @@ export default function SendToKaroo({ workout, today }: { workout: Workout; toda
     <Panel title="Ride it outside">
       <div className="space-y-3">
         <p className="text-sm text-muted">
-          Sends this workout to your Karoo through intervals.icu, in place of the day&apos;s planned one. Targets go as ranges and ramps as steps, since outside
+          Sends this workout to your bike computer (Karoo, Garmin, Wahoo) through intervals.icu, in place of the day&apos;s planned one. Targets go as ranges and ramps as steps, since outside
           you hold power by feel.
         </p>
         <div className="flex flex-wrap items-center gap-3">
@@ -33,7 +33,7 @@ export default function SendToKaroo({ workout, today }: { workout: Workout; toda
             ))}
           </select>
           <button className={button.secondary} disabled={pending} onClick={() => start(async () => setResult(await sendOutdoorWorkout(day, workout)))}>
-            {pending ? "Sending…" : "Send to Karoo"}
+            {pending ? "Sending…" : "Send to bike computer"}
           </button>
         </div>
         {result && <Result ok={result.ok}>{result.message}</Result>}

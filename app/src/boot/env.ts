@@ -4,6 +4,7 @@
 
 import { env } from "./globals";
 import { coachSetup } from "~/ai/settings";
+import { invoke, isDesktop } from "~/platform/native";
 
 export async function applyEnv() {
   const setup = await coachSetup();
@@ -16,4 +17,6 @@ export async function applyEnv() {
     delete env.OPENROUTER_MODEL;
     delete env.OPENROUTER_VISION_MODEL;
   }
+  // The MCP server answers only when the rider chose an external coach.
+  if (isDesktop) await invoke("mcp_set_enabled", { enabled: setup.mode === "external" }).catch(console.error);
 }
