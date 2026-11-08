@@ -56,14 +56,24 @@
       <div class="app" id="app-window">
         <div class="app-bar">
           <span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span>
-          <span class="app-live-note">Live demo with sample data<span class="more">. Click around, ask the coach, or ride with a simulated trainer.</span></span>
-          <p class="tour-caption" id="tour-caption" aria-live="polite"></p>
+          <span class="app-live-note">Live demo with sample data</span>
           <div class="tour-steps" id="tour-steps" aria-label="Demo screens"></div>
           <button type="button" class="app-release" id="app-release" hidden>Done</button>
         </div>
-        <div class="app-stage">
+        <div class="app-stage" id="app-stage">
           <iframe class="app-live" id="app-live" title="Lactic, running with sample data" src="/demo/" tabindex="-1"></iframe>
-          <button type="button" class="app-shield" id="app-shield" aria-label="Use the live demo"><span class="app-try"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 9 5 12 1.8-5.2L21 14Z"/><path d="M7.2 2.2 8 5.1"/><path d="m5.1 8-2.9-.8"/><path d="M14 4.1 12 6"/><path d="m6 12-1.9 2"/></svg><span class="try-click">Click to try the live demo</span><span class="try-tap">Tap to try the live demo</span></span></button>
+          <button type="button" class="app-shield" id="app-shield" aria-label="Use the live demo"></button>
+          <div class="tour-spot" id="tour-spot" aria-hidden="true"></div>
+          <div class="tour-card" id="tour-card" role="group" aria-labelledby="tour-title" aria-live="polite">
+            <p class="tour-count" id="tour-count"></p>
+            <h2 class="tour-title" id="tour-title"></h2>
+            <p class="tour-body" id="tour-body"></p>
+            <div class="tour-actions">
+              <button type="button" class="tour-try" id="tour-try">Try it yourself</button>
+              <span class="tour-nav"><button type="button" class="tour-btn" id="tour-back">Back</button><button type="button" class="tour-btn tour-btn-primary" id="tour-next">Next</button></span>
+            </div>
+            <p class="tour-hint" id="tour-hint"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m6 13 6 6 6-6"/></svg><span>Scroll for the next screen</span></p>
+          </div>
           <div class="app-loading" id="app-loading" role="status" aria-label="Loading the Lactic demo">
             <div class="boot-mark">
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="15" width="2.8" height="6" /><rect x="4.5" y="10.5" width="2.8" height="10.5" /><rect x="7" y="6.5" width="2.8" height="14.5" /><rect x="9.5" y="3" width="2.8" height="18" /><rect x="12" y="15" width="10" height="6" /></svg>
