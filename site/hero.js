@@ -10,10 +10,10 @@
   var STEPS = [
     { title: "Today", hash: "#/", target: '[data-tour="today"]', body: "Where each day starts: recovery, weigh-in, how you feel, and the session that fits. After a ride it shows how you did against the plan." },
     { title: "Plan", hash: "#/plan", target: '[data-tour="plan"]', body: "Your weeks laid out, recovery weeks built in, and where your fitness lands at the end. Click a day to change it, or drag it to another." },
-    { title: "Ride", hash: "#/ride", target: '[data-tour="ride-player"]', body: "Lactic sets the watts on your smart trainer, interval by interval. This demo has a simulated trainer, so you can ride it right here." },
-    { title: "Health", hash: "#/health", target: '[data-tour="health"]', body: "Recovery, sleep, HRV, resting heart rate and weight, from your watch or ring. Click any of them for its history." },
     { title: "Progress", hash: "#/progress", target: '[data-tour="progress"]', body: "Fitness, fatigue and form, your power curve and every ride. Every number comes from an open engine." },
+    { title: "Health", hash: "#/health", target: '[data-tour="health"]', body: "Recovery, sleep, HRV, resting heart rate and weight, from your watch or ring. Click any of them for its history." },
     { title: "Coach", hash: "#/", coach: true, target: "aside:not([inert])", body: "Ask why today is hard, or to move Saturday's ride. It reads your numbers and suggests changes for you to apply. Or ride without one." },
+    { title: "Ride", hash: "#/ride", target: '[data-tour="ride-player"]', corner: true, body: "Lactic sets the watts on your smart trainer, interval by interval. This demo has a simulated trainer, so you can ride it right here." },
   ];
   var win = document.getElementById("app-window");
   var stage = document.getElementById("app-stage");
@@ -67,7 +67,7 @@
     restart.hidden = false;
     spot.classList.remove("on");
     card.classList.remove("in");
-    if (current === STEPS.length - 1) closeCoach();
+    if (STEPS[current].coach) closeCoach();
   }
   function startTour() {
     deactivate();
@@ -127,8 +127,12 @@
     var was = current;
     current = i;
     mark(i);
+    // The last card goes at once; the new one fades in once its part has settled.
+    card.style.transition = spot.style.transition = "none";
     card.classList.remove("in");
-    place(null);
+    spot.classList.remove("on");
+    void card.offsetWidth;
+    card.style.transition = spot.style.transition = "";
     if (!ready) return;
     try {
       var w = frame.contentWindow;
@@ -184,13 +188,27 @@
     var run = ++following;
     var tries = 0;
     var last = "";
+    var shown = false;
+    // The card waits until the part has settled in place (two reads alike), so it doesn't land
+    // somewhere else first and then jump; after a second and a half it shows wherever it can.
     (function tick() {
       if (run !== following || current !== i || !touring) return;
       var r = targetRect(i);
       var key = r ? [r.top, r.left, r.width, r.height].map(Math.round).join() : "";
-      if (key !== last) { last = key; place(r); }
-      card.classList.add("in");
-      if (++tries < 24) setTimeout(tick, 100);
+      var settled = r && key === last;
+      if (!shown && (settled || tries >= 15)) {
+        // Straight to its spot, without sliding over from the last one.
+        card.style.transition = spot.style.transition = "none";
+        place(r);
+        void card.offsetWidth;
+        card.style.transition = spot.style.transition = "";
+        card.classList.add("in");
+        shown = true;
+      } else if (shown && key !== last) {
+        place(r);
+      }
+      last = key;
+      if (++tries < 30) setTimeout(tick, 100);
     })();
   }
 
@@ -211,7 +229,10 @@
     spot.style.height = r.height + PAD * 2 + "px";
     var centered = Math.max(16, Math.min(r.left + r.width / 2 - cw / 2, sw - cw - 16));
     var top, left;
-    if (sh - (r.top + r.height) - PAD - GAP >= ch + 16) { top = r.top + r.height + PAD + GAP; left = centered; }
+    // The Ride screen settles a moment after it opens (the gear panel shrinks once the sensors are
+    // connected), so its card sits in the top corner, clear of the part, and only the light follows.
+    if (STEPS[current].corner) { top = 16; left = sw - cw - 16; }
+    else if (sh - (r.top + r.height) - PAD - GAP >= ch + 16) { top = r.top + r.height + PAD + GAP; left = centered; }
     else if (r.top - PAD - GAP >= ch + 16) { top = r.top - PAD - GAP - ch; left = centered; }
     else if (r.left - PAD - GAP >= cw + 16) { top = Math.max(16, Math.min(r.top + r.height / 2 - ch / 2, sh - ch - 16)); left = r.left - PAD - GAP - cw; }
     else { top = sh - ch - 16; left = 16; }
