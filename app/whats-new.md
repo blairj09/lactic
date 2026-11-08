@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Race reports: open a race from its ride page, add other riders' GPX files from Strava and the results, and see where you lost time, corner by corner and lap by lap, what to work on, and a debrief from the coach.
 - Only ride and plan? Setup now asks whether you want sleep and recovery, weight, both or neither, and Lactic hides what you skip. Not ready? Set them up later in Settings → What you track, or ask the coach.
 - Today's Recovery step names where your sleep comes from, like Connect Apple Health or Connect intervals.icu, instead of asking for a watch.
 - Lactic is in beta: you'll see a Beta tag next to the name. Expect a few rough edges, and tell us what you find with Send feedback.

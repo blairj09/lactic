@@ -137,6 +137,25 @@ export async function planWeek(complete: Complete, data: CoachData, days: PlanDa
   return run(complete, data, messages, tools, hooks, Math.max(MAX_TURNS, days.length + 6));
 }
 
+const RACE_DEBRIEF = `You are the cycling coach inside Lactic, a training app for one athlete. Write their post-race debrief, which they read on the race's report page under the charts.
+
+${RULES}
+- The race report below is from the engine: lap times, the gap to the rider compared, seconds lost or gained by kind of section (corners, straights, climbs, descents, slow spots such as barriers, sand and run-ups), the stretches of the lap where time went, one-off losses, ranks in the field, and the engine's own advice. Quote its numbers exactly and name its sections ("Corner 7", "Climb 6") and laps, which the page shows on a map.
+- Other riders' files often have no power or heart rate, and some no times at all; the report says how the compared rider's times were found. Lean on section and lap times; treat their speeds as approximate when it says so.
+- Their own words come first: the race notes and post-ride answer explain what the numbers show (a crash, a bad line, a mechanical, a slow start). Connect them.
+- Use get_events for their next race and get_power or get_fitness when it helps the training suggestion. Don't propose plan changes here.
+- Write it like a coach's debrief: one short paragraph on how the race went (result, gap, its shape from the laps); one on where the time went and why, biggest first; then "Next race:" and three numbered priorities, each specific and doable and tied to a number from the report; then one or two sentences on what to train in the coming weeks, which they can ask you to add to the plan. 180 to 300 words. This message may use that numbered list.`;
+
+/** A post-race debrief from the engine's race report (`report`, from engine/race/brief.ts) and what the athlete said. */
+export async function raceDebrief(complete: Complete, data: CoachData, report: unknown, notes: string, summary = "", hooks: ChatHooks = {}): Promise<ChatReply> {
+  const messages: ChatMessage[] = [
+    { role: "system", content: system(RACE_DEBRIEF, data, summary) },
+    { role: "user", content: `Race report (from the engine):\n${JSON.stringify(report)}\n\nWhat I said about the race:\n${notes.trim() || "(nothing yet)"}\n\nWrite my race debrief.` },
+  ];
+  const tools = forFeatures(TOOLS, data.features).filter((t) => READ_TOOL_NAMES.includes(t.function.name));
+  return run(complete, data, messages, tools, hooks);
+}
+
 /** The review as the coach reads it: labelled, with hours rather than seconds. */
 export function reviewSummary(r: WeekReview) {
   return {

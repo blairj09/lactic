@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import WorkoutProfile from "@/components/workout-profile";
 import {
+  button,
   Dash,
   PageHeader,
   Panel,
@@ -153,7 +154,16 @@ export default async function RideDetail({
             )}
           </>
         }
-        actions={actions}
+        actions={
+          <>
+            {stream?.route && (
+              <Link href={`/rides/${ride.id}/race`} className={button.secondary}>
+                Race report
+              </Link>
+            )}
+            {actions}
+          </>
+        }
       />
 
       <StatStrip cols={5}>
