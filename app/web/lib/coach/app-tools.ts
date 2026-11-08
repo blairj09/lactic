@@ -5,7 +5,8 @@
 //
 // Three levels: looking is always allowed; trying (sync now, test a connection, reconnect, scan)
 // runs straight away but changes no saved setting; changing a setting is a proposal the rider
-// applies with a button. Nothing here reads or returns an API key, and while a ride is under way
+// applies with a button. The theme (set_appearance) is the exception: it's only how the app looks and
+// is changed back in one click, so it's set straight away. Nothing here reads or returns an API key, and while a ride is under way
 // only looking is allowed.
 
 import type { ToolResult } from "./tools";

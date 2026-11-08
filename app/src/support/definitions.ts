@@ -27,6 +27,12 @@ export const SUPPORT_TOOLS: FnTool[] = [
     seconds: { type: "integer", minimum: 3, maximum: 15, description: "Default 8" },
   }),
   fn(
+    "set_appearance",
+    "Sets Lactic's theme on this computer straight away: light, dark, or system (follow the computer's light or dark mode). Use it when the athlete asks for light mode, dark mode or to match their system. It's the same as Settings → Appearance and they can change it back there.",
+    { theme: { type: "string", enum: ["light", "dark", "system"] } },
+    ["theme"],
+  ),
+  fn(
     "propose_app_change",
     "Proposes a settings change, shown to the athlete with Apply and Dismiss; nothing changes until they apply it. setting is one of: power_source (value trainer or powerMeter: whose power is shown, recorded and steered by), upload_rides (value true/false: send rides recorded in Lactic to intervals.icu), forget_device (device), rename_device (device, name). Pairing new gear and API keys can't be proposed: point the athlete to Settings.",
     {

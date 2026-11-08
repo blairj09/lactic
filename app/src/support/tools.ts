@@ -24,7 +24,9 @@ import { appInfo } from "~/platform/native";
 import { secretStatus } from "~/platform/secrets";
 import { getSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
+import { parseTheme, readTheme, setTheme } from "@/lib/theme";
 import { GUIDE } from "./guide";
+import { APP_GUIDE } from "@/lib/coach/app-guide";
 import { AREAS, SUPPORT_TOOLS, type Area } from "./definitions";
 import { logEvent, recentEvents, type LogArea } from "./log";
 
@@ -37,6 +39,7 @@ const STATUS: Record<string, string> = {
   reconnect_device: "Reaching your gear",
   scan_for_devices: "Listening for gear nearby",
   propose_app_change: "Drafting a settings change",
+  set_appearance: "Changing the theme",
 };
 
 const out = (value: unknown): ToolResult => ({ content: JSON.stringify(value) });
@@ -148,6 +151,7 @@ export async function checkApp(area: Area | "all" = "all") {
   report.riding = isRiding();
   report.activityLog = recentEvents({ area: area === "all" ? undefined : (area as LogArea), limit: area === "all" ? 40 : 30 }).map((e) => `${e.at} ${e.area} ${e.level}: ${e.message}`);
   report.guide = Object.fromEntries(areas.map((a) => [a, GUIDE[a] ?? []]));
+  if (area === "all") report.howLacticWorks = APP_GUIDE;
   return report;
 }
 
@@ -269,6 +273,18 @@ async function apply(setting: AppSetting): Promise<string> {
   return `Done: ${done}.`;
 }
 
+const THEME_WORDS = { light: "Light", dark: "Dark", system: "System (follows the computer's light or dark mode)" } as const;
+
+/** The theme is how the app looks on this computer and is easy to change back, so it's set straight away. */
+export function setAppearance(raw: unknown) {
+  if (raw !== "light" && raw !== "dark" && raw !== "system") throw new Error("theme is light, dark or system");
+  const before = readTheme();
+  const theme = parseTheme(raw);
+  setTheme(theme);
+  logEvent("coach", "info", `Coach set the theme to ${theme}`);
+  return { ok: true, theme, was: before, message: `Theme is now ${THEME_WORDS[theme]}. It can be changed back in Settings → Appearance.` };
+}
+
 /** Runs one support tool. Never throws: errors come back as text starting "Error:". */
 export async function runSupportTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
   try {
@@ -301,6 +317,8 @@ export async function runSupportTool(name: string, args: Record<string, unknown>
       }
       case "propose_app_change":
         return await propose(args);
+      case "set_appearance":
+        return out(setAppearance(args.theme));
       default:
         return { content: `Unknown tool ${name}` };
     }

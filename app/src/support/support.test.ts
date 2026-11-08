@@ -81,7 +81,7 @@ describe("settings the coach can propose", () => {
 describe("app tools", () => {
   it("are offered over MCP", () => {
     const names = mcpTools().map((t) => t.name);
-    for (const n of ["check_app", "test_connection", "sync_now", "reconnect_device", "scan_for_devices", "propose_app_change"]) expect(names).toContain(n);
+    for (const n of ["check_app", "test_connection", "sync_now", "reconnect_device", "scan_for_devices", "propose_app_change", "set_appearance"]) expect(names).toContain(n);
   });
 
   it("report on the app without keys", async () => {
@@ -102,6 +102,24 @@ describe("app tools", () => {
     const report = JSON.parse((await runSupportTool("check_app", { area: "bluetooth" })).content);
     expect(report.riding).toBe(true);
     expect(report.bluetooth.rideScreen.trainer).toBe("ERG");
+  });
+
+  it("set the theme straight away, even mid-ride", async () => {
+    const applied: string[] = [];
+    Object.assign(window, { __applyTheme: (t: string) => applied.push(t) });
+    setLiveRide({ hub: { getState: () => ({ links: {}, trainerStatus: "ERG", powerSource: "trainer" }) } as never, riding: true });
+    const r = JSON.parse(textOf(await callTool("set_appearance", { theme: "light" })));
+    expect(r).toMatchObject({ ok: true, theme: "light", was: "system" });
+    expect(store.get("mycoach:theme")).toBe("light");
+    expect(applied).toEqual(["light"]);
+    await runSupportTool("set_appearance", { theme: "system" });
+    expect(store.has("mycoach:theme")).toBe(false);
+    expect((await runSupportTool("set_appearance", { theme: "pink" })).content).toMatch(/^Error: theme is light, dark or system/);
+  });
+
+  it("know how the app is laid out", async () => {
+    const report = JSON.parse(textOf(await callTool("check_app", {})));
+    expect(report.howLacticWorks).toContain("Appearance");
   });
 
   it("say when a device isn't paired", async () => {

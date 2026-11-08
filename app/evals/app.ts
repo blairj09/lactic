@@ -26,6 +26,8 @@ export interface AppState {
   results?: Record<string, unknown>;
   /** Current values for propose_app_change summaries. */
   powerSource?: "trainer" | "powerMeter";
+  /** The theme before set_appearance. */
+  theme?: "light" | "dark" | "system";
 }
 
 const HEALTHY = {
@@ -73,6 +75,11 @@ function run(state: AppState, name: string, args: Record<string, unknown>): Tool
         const summary = `${describeAppSetting(setting)} (now ${now})`;
         const proposal: Proposal = { change: { kind: "app", setting }, summary, reason: typeof args.reason === "string" ? args.reason : "", status: "pending" };
         return { content: JSON.stringify({ proposed: summary, note: "Shown to the athlete with an Apply button. Nothing changes until they press it." }), proposal };
+      }
+      case "set_appearance": {
+        const theme = args.theme;
+        if (theme !== "light" && theme !== "dark" && theme !== "system") throw new Error("theme is light, dark or system");
+        return out({ ok: true, theme, was: state.theme ?? "system", message: `Theme is now ${theme}.` });
       }
       case "test_connection":
       case "sync_now":
