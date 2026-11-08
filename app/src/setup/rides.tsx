@@ -8,11 +8,11 @@ import { connect, loadConnection } from "@/lib/intervals/client";
 import { LOCAL_USER } from "~/db/schema";
 import { createClient } from "~/db/supabase-client";
 import { openExternal } from "~/platform/native";
-import { placeholder, saveSecret } from "~/platform/secrets";
+import { deleteSecret, placeholder, saveSecret, SECRET_INTERVALS } from "~/platform/secrets";
 import { notifyChanged } from "~/integrations/background";
 import { HealthSetup } from "./health";
 
-export const SECRET_INTERVALS = "intervals";
+export { SECRET_INTERVALS };
 
 export function useIntervalsConnected() {
   const [on, setOn] = useState<boolean | null>(null);
@@ -35,7 +35,11 @@ export function IntervalsConnect({ onConnected, heading = true }: { onConnected?
     setError(null);
     try {
       await saveSecret(SECRET_INTERVALS, k);
-      await connect(createClient(), LOCAL_USER, placeholder(SECRET_INTERVALS));
+      // A key intervals.icu turns down isn't kept.
+      await connect(createClient(), LOCAL_USER, placeholder(SECRET_INTERVALS)).catch(async (e) => {
+        await deleteSecret(SECRET_INTERVALS).catch(() => {});
+        throw e;
+      });
       setConnected(true);
       setKey("");
       notifyChanged("intervals");

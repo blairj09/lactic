@@ -4,6 +4,8 @@
 import { syncIntervals } from "@/app/actions";
 import { loadConnection, syncWellness } from "@/lib/intervals/client";
 import { createClient } from "~/db/supabase-client";
+import { deleteSecret, placeholder, saveSecret, secretStatus, SECRET_INTERVALS } from "~/platform/secrets";
+import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { logEvent } from "~/support/log";
 
@@ -54,7 +56,23 @@ function run(job: Job) {
   return queue;
 }
 
+/** Settings used to keep a pasted intervals.icu key in the database. Moves it to the keychain. */
+export async function moveIntervalsKeyToKeychain() {
+  const db = createClient();
+  const connection = await loadConnection(db);
+  // Once, after onboarding: older builds' Disconnect left the key in the keychain with no connection.
+  if (!connection && (await getSetting("onboarding.done", false)) && !(await getSetting("secrets.intervalsSwept", false))) {
+    if (await secretStatus(SECRET_INTERVALS)) await deleteSecret(SECRET_INTERVALS);
+    await setSetting("secrets.intervalsSwept", true);
+  }
+  if (!connection || connection.apiKey.startsWith("keychain:")) return;
+  await saveSecret(SECRET_INTERVALS, connection.apiKey);
+  const { error } = await db.from("intervals_connections").update({ api_key: placeholder(SECRET_INTERVALS) }).eq("user_id", connection.userId);
+  if (error) throw error;
+}
+
 registerJob("intervals", async () => {
+  await moveIntervalsKeyToKeychain().catch((e) => logEvent("intervals", "error", `Couldn't move the API key to the keychain: ${e instanceof Error ? e.message : String(e)}`));
   const connection = await loadConnection(createClient());
   if (!connection) return;
   const fresh = await syncIntervals("new");

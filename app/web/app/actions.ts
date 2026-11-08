@@ -21,6 +21,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { allowedEmail, isAllowedEmail } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { formatWeight, readUnits } from "@/lib/units";
+import { deleteSecret, placeholder, saveSecret, SECRET_INTERVALS } from "~/platform/secrets";
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string };
 
@@ -292,7 +293,14 @@ export async function connectIntervals(_: ActionResult | null, form: FormData): 
     if (!/^[A-Za-z0-9]{10,100}$/.test(apiKey)) throw new Error("That doesn't look like an intervals.icu API key");
     const supabase = await createClient();
     const athlete = await loadAthlete(supabase);
-    await intervals.connect(supabase, athlete.userId, apiKey);
+    // The key goes in the system keychain; the database only holds a placeholder for it.
+    await saveSecret(SECRET_INTERVALS, apiKey);
+    try {
+      await intervals.connect(supabase, athlete.userId, placeholder(SECRET_INTERVALS));
+    } catch (e) {
+      await deleteSecret(SECRET_INTERVALS).catch(() => {});
+      throw e;
+    }
     refresh();
     return "intervals.icu connected. Import your history to fill in your fitness.";
   });
@@ -353,7 +361,9 @@ export async function disconnectIntervals(): Promise<ActionResult> {
     const connection = await intervals.loadConnection(supabase);
     if (connection) await intervals.disconnect(supabase, connection);
     refresh();
-    return "intervals.icu disconnected. Rides already imported stay.";
+    // Forget the API key too, so nothing of the connection is left behind.
+    await deleteSecret(SECRET_INTERVALS);
+    return "intervals.icu disconnected and its API key removed. Rides already imported stay.";
   });
 }
 
