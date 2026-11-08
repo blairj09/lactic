@@ -12,7 +12,11 @@ import { addDays } from "@/lib/engine/pmc";
 import { readWorkout } from "@/lib/engine/workout-edit";
 import { chartStream, MAX_ROUTE_POINTS, rideIntervals, type RoutePoint } from "@/lib/engine/ride-detail";
 import { createIngestToken } from "@/lib/recovery-data";
-import { loadTrainingState, sessionFor } from "@/lib/training";
+import { loadTrainingState, ridesFor, sessionFor } from "@/lib/training";
+import { retestDay } from "@/lib/engine/ftp-check";
+import { rampTest } from "@/lib/engine/library";
+import { dayMinutes } from "@/lib/engine/plan";
+import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { allowedEmail, isAllowedEmail } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -188,6 +192,43 @@ export async function setFtp(watts: number, method: "criticalPower" | "twentyMin
     const changed = await recomputeStress(supabase);
     refresh();
     return `FTP set to ${rounded} W from today${changed ? `; updated stress on ${changed} rides` : ""}.`;
+  });
+}
+
+/**
+ * Takes back an FTP set today (the "FTP looks higher" banner's Undo): removes today's change and goes back to the
+ * FTP before it, then recomputes stress.
+ */
+export async function undoFtp(previous: number): Promise<ActionResult> {
+  return attempt(async () => {
+    const supabase = await createClient();
+    const athlete = await loadAthlete(supabase);
+    const today = localDate(new Date(), athlete.timezone);
+    const { error } = await supabase.from("ftp_history").delete().eq("effective_date", today);
+    if (error) throw error;
+    const before = [...athlete.ftpHistory].filter((h) => h.effectiveDate < today).sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate))[0]?.watts ?? Math.round(previous);
+    const { error: settingsError } = await supabase
+      .from("athlete_settings")
+      .upsert({ user_id: athlete.userId, ftp_watts: before, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+    if (settingsError) throw settingsError;
+    await recomputeStress(supabase);
+    refresh();
+    return `FTP back to ${before} W.`;
+  });
+}
+
+/** Puts a ramp test on the next good day this week (ftp-check.ts retestDay), in place of what was planned. */
+export async function scheduleRampTest(): Promise<ActionResult> {
+  return attempt(async () => {
+    const supabase = await createClient();
+    const state = await loadTrainingState(supabase);
+    const date = retestDay(state.plan, state.today, (d) => dayMinutes(d, state.athlete.availability, state.breaks).minutes, ridesFor(state, state.today).length > 0);
+    if (!date) throw new Error("No good day for a test in the next week. Pick one on the Plan page and set it to a ramp test.");
+    await writeDays(supabase, state, [{ date, session: rampTest() }]);
+    const pushed = await pushChangedPlan(supabase);
+    refresh();
+    const label = new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
+    return `Ramp test planned for ${date === state.today ? "today" : label}.${pushed}`;
   });
 }
 

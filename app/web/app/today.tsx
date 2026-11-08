@@ -17,6 +17,8 @@ import { dayRides } from "@/lib/engine/ride-detail";
 import CompletedRide from "./completed-ride";
 import { todayOptions } from "@/lib/today-options";
 import UseEstimateButton from "./use-estimate-button";
+import FtpBanner from "./ftp-banner";
+import { checkFtp } from "@/lib/engine/ftp-check";
 import { ChosenSession, SessionLine } from "./checkin";
 import RideSurvey from "./ride-survey";
 import Morning, { type MorningProps } from "./morning";
@@ -87,6 +89,8 @@ export default function TodayView({
       />
 
       {review && <WeekReviewCard {...review} />}
+
+      {athlete.ftp && <FtpBanner ftp={athlete.ftp} check={checkFtp({ today, ftp: athlete.ftp, history: athlete.ftpHistory, estimate, plan: state.plan })} windowDays={ftpWindowDays} />}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} />
@@ -309,7 +313,8 @@ function FtpNudge({ ftp, estimate, windowDays, hasPowerRides }: { ftp: number | 
       />
     );
   }
-  if (!estimate || Math.round(estimate.watts) === ftp) return null;
+  // A higher estimate is the banner above (ftp-banner.tsx); a lower one is only a note here.
+  if (!estimate || Math.round(estimate.watts) >= ftp) return null;
   return (
     <Stat
       className="col-span-2 lg:col-span-1"
