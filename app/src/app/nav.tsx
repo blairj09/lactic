@@ -6,6 +6,7 @@ import CoachButton from "@/app/coach/coach-button";
 import { Wordmark } from "./brand";
 import { useCoachMode } from "./coach-mode";
 import { FeedbackButton } from "~/feedback/dialog";
+import { isDemo } from "~/demo/flag";
 
 const LINKS = [
   { href: "/", label: "Today" },
@@ -56,7 +57,8 @@ export default function Nav({ current }: { current: string }) {
             Ride
           </Link>
           <span aria-hidden className="mx-1 h-5 w-px bg-line" />
-          <FeedbackButton />
+          {/* The website demo has no feedback to send. */}
+          {!isDemo && <FeedbackButton />}
           <Link
             href="/settings"
             aria-label="Settings"

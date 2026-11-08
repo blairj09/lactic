@@ -205,3 +205,12 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .dl-choices a:hover { border-color: var(--accent); color: var(--ink); }
 .dl-choices span { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--muted); }
 .dl-links { font-size: 14px; color: var(--muted); }
+
+/* The live app in the hero window (the real app from /demo/, with sample data) */
+.app-live { display: block; width: 100%; height: clamp(560px, 76vh, 760px); border: 0; background: var(--ground); }
+.app-live[hidden], .app-still[hidden], .app-live-note[hidden] { display: none; }
+.app-live-note { margin-left: 10px; min-width: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 560px) {
+  .app-live { height: 540px; }
+  .app-live-note .more { display: none; }
+}

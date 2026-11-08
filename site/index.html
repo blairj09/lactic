@@ -50,8 +50,10 @@
         </div>
       </div>
 
-      <div class="app" role="img" aria-label="The Lactic app on Today: last night's recovery and this morning's weigh-in, today's sweet spot workout with Ride it, and the coach suggesting a schedule change to apply or dismiss">
-        <div class="app-bar" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+      <div class="app" id="app-window">
+        <div class="app-bar"><span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span><span class="app-live-note" id="app-live-note" hidden>Live demo with sample data<span class="more">. Click around, ask the coach, or ride with a simulated trainer.</span></span></div>
+        <iframe class="app-live" id="app-live" title="Lactic, running with sample data" src="/demo/" hidden></iframe>
+        <div class="app-still" id="app-still" role="img" aria-label="The Lactic app on Today: last night's recovery and this morning's weigh-in, today's sweet spot workout with Ride it, and the coach suggesting a schedule change to apply or dismiss">
         <div class="app-top" aria-hidden="true">
           <span class="app-brand"><span class="app-mark"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M2 21V15H4.5V10.5H7V6.5H9.5V3H12V15H22V21Z" fill="currentColor"/></svg></span>Lactic</span>
           <span class="app-tabs"><span class="on">Today</span><span>Plan</span><span>Progress</span><span>Health</span></span>
@@ -98,6 +100,7 @@
             </div>
             <div class="chat-input"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg><span>Message your coach</span><span class="send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></div>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -261,6 +264,15 @@
 </dialog>
 
 <script src="/download.js"></script>
+<script>
+  // The app window: the static picture shows until the real app (in /demo/, with sample data) is up.
+  addEventListener("message", function (e) {
+    if (e.origin !== location.origin || !e.data || e.data.lactic !== "ready") return;
+    document.getElementById("app-live").hidden = false;
+    document.getElementById("app-live-note").hidden = false;
+    document.getElementById("app-still").hidden = true;
+  });
+</script>
 <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>

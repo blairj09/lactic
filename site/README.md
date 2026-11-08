@@ -17,3 +17,7 @@ Environment variables on the lactic-site project:
 Before filing, it compares the note with open `feedback` issues of the same kind (word overlap, kept strict). A clear match gets the report as a comment and a +1 instead of a new issue, and the app tells the rider.
 
 Without `GITHUB_TOKEN` it answers 503 and the app offers "Open on GitHub instead". Tests: `npm test` here.
+
+## Live demo in the hero
+
+The app window on the homepage is the real Lactic app, built from `app/` in demo mode (`npm run build:demo` there, run by this folder's `npm run build` on Vercel) into `site/demo/` (not committed). It runs in the browser with an in-memory database that `app/src/demo/setup.ts` fills on every visit: a profile, a 12-week plan, twelve weeks of rides, sleep and weight, and the simulated trainer and heart rate strap paired. The coach is scripted (`app/src/demo/coach.ts`): it explains itself and proposes a weekend swap through the coach's real tool. The static picture shows until the demo says it's ready, and stays if it never loads.
