@@ -5,6 +5,9 @@ import { button } from "@/components/ui";
 import { isDesktop, openExternal } from "~/platform/native";
 import { checkForUpdate, installUpdate, releaseUrl, updatesSupported, useUpdates } from "./updates";
 
+/** Lactic's Ko-fi page: one-off or monthly tips, no account needed to give. */
+const SUPPORT_URL = "https://ko-fi.com/lactic";
+
 export function AboutSetting() {
   const state = useUpdates();
   const [version, setVersion] = useState<string | null>(null);
@@ -48,6 +51,12 @@ export function AboutSetting() {
         Lactic is free and open source.{" "}
         <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal("https://lactic.fit")}>
           lactic.fit
+        </button>
+      </p>
+      <p className="text-muted">
+        Enjoying it? Chip in to keep it going.{" "}
+        <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal(SUPPORT_URL)}>
+          Support Lactic
         </button>
       </p>
     </div>
