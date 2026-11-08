@@ -183,3 +183,25 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 
 /* Footer */
 .site-footer .wrap { padding-block: 32px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--muted); }
+
+/* Download popup */
+.dl-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); border: 0; border-radius: 16px; padding: 28px; background: var(--surface); color: var(--ink); box-shadow: 0 24px 64px rgba(13, 17, 23, 0.28); }
+.dl-dialog::backdrop { background: rgba(13, 17, 23, 0.5); }
+.dl-dialog[open] { display: grid; gap: 16px; }
+.dl-dialog [hidden] { display: none; }
+.dl-dialog h2 { font-size: 28px; letter-spacing: -0.02em; padding-right: 32px; }
+.dl-close { position: absolute; top: 16px; right: 16px; width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.dl-close:hover { background: var(--line-soft); color: var(--ink); }
+.dl-meta { font-size: 13px; color: var(--muted); font-family: var(--mono); margin-top: -8px; }
+.dl-meta:empty { display: none; }
+.dl-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 16px; line-height: 1.55; color: var(--body); }
+.dl-steps code { font-family: var(--mono); font-size: 13px; background: var(--line-soft); padding: 2px 6px; border-radius: 5px; overflow-wrap: anywhere; }
+.dl-phone { font-size: 16px; line-height: 1.55; color: var(--body); }
+.dl-again { font-size: 14px; color: var(--muted); }
+.dl-other { border-top: 1px solid var(--line-soft); padding-top: 16px; display: grid; gap: 10px; }
+.dl-other-title { font-size: 14px; font-weight: 600; color: var(--body); }
+.dl-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.dl-choices a { display: grid; gap: 2px; padding: 10px 14px; border: 1px solid #d6dbe4; border-radius: 10px; color: var(--ink); text-decoration: none; font-weight: 600; font-size: 15px; }
+.dl-choices a:hover { border-color: var(--accent); color: var(--ink); }
+.dl-choices span { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--muted); }
+.dl-links { font-size: 14px; color: var(--muted); }
