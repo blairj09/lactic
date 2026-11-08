@@ -158,6 +158,25 @@ ${RULES}
 - Use get_events for their next race and get_power or get_fitness when it helps the training suggestion. Don't propose plan changes here.
 - Write it like a coach's debrief: one short paragraph on how the race went (result, gap, its shape from the laps); one on where the time went and why, biggest first; then "Next race:" and three numbered priorities, each specific and doable and tied to a number from the report; then one or two sentences on what to train in the coming weeks, which they can ask you to add to the plan. 180 to 300 words. This message may use that numbered list.`;
 
+const SOLO_DEBRIEF = `You are the cycling coach inside Lactic, a training app for one athlete. Write their post-race debrief for a long race that isn't laps (a point-to-point road race, gran fondo or gravel race), which they read on the race's report page under the charts.
+
+${RULES}
+- The race report below is from the engine, read from the rider's own file: the course cut into climbs, descents and the roads between, with time, power, %FTP, heart rate and the work already done (kJ) arriving at each; pacing by quarter of riding time; heart-rate drift; durability (best 5 and 20 minutes in each 1,000 kJ of work against their fresh best); stops and the stretches between them; and, when there are any, their own past editions or other riders lined up along the route. Quote its numbers exactly and name its sections and places as it does.
+- There may be nobody to compare with. Then the race is read against the rider: how they paced it, where they faded and why, how the climbs held up in order, what stops cost, and what the stretches between stops asked of their fueling. Don't invent other riders' numbers.
+- Their own words come first: the race notes and post-ride answer explain what the numbers show (cramps, heat, gut trouble, a crash, a group they rode with). Connect them; fade with falling heart rate and big drift often goes with fueling, heat or under-training, which their notes may confirm.
+- Use get_events for their next race and get_power or get_fitness when it helps the training suggestion. Don't propose plan changes here.
+- Write it like a coach's debrief: one short paragraph on how the day went (time, its shape from the quarters and the climbs); one on where it was won or lost and why, biggest first; then "Next time:" and three numbered priorities (pacing, fueling and stops, and the training that fixes the fade), each specific and tied to a number from the report; then one or two sentences on what to train in the coming weeks, which they can ask you to add to the plan. 180 to 320 words. This message may use that numbered list.`;
+
+/** A debrief of a race that isn't laps, from the engine's solo report (engine/race/solo-brief.ts). */
+export async function soloRaceDebrief(complete: Complete, data: CoachData, report: unknown, notes: string, summary = "", hooks: ChatHooks = {}): Promise<ChatReply> {
+  const messages: ChatMessage[] = [
+    { role: "system", content: system(SOLO_DEBRIEF, data, summary) },
+    { role: "user", content: `Race report (from the engine):\n${JSON.stringify(report)}\n\nWhat I said about the race:\n${notes.trim() || "(nothing yet)"}\n\nWrite my race debrief.` },
+  ];
+  const tools = forFeatures(TOOLS, data.features).filter((t) => READ_TOOL_NAMES.includes(t.function.name));
+  return run(complete, data, messages, tools, hooks);
+}
+
 /** A post-race debrief from the engine's race report (`report`, from engine/race/brief.ts) and what the athlete said. */
 export async function raceDebrief(complete: Complete, data: CoachData, report: unknown, notes: string, summary = "", hooks: ChatHooks = {}): Promise<ChatReply> {
   const messages: ChatMessage[] = [

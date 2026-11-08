@@ -356,15 +356,18 @@ function TimingNote({ who, level, notes }: { who: string; level: "high" | "mediu
   );
 }
 
-function Debrief({
+export function Debrief({
   activityId,
   compareId,
   notes,
   debrief,
   coachOn,
+  solo = false,
 }: {
   activityId: string;
   compareId: string;
+  /** A race that isn't laps: the debrief reads the rider's own file (and any past editions). */
+  solo?: boolean;
   notes: string;
   debrief: { text: string; rival: string | null; at: string } | null;
   coachOn: boolean;
@@ -384,7 +387,7 @@ function Debrief({
   return (
     <Panel
       title="Coach's debrief"
-      meta={debrief ? `Against ${debrief.rival ?? "the field"} · ${new Date(debrief.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "Written from the numbers above and your notes"}
+      meta={debrief ? `${solo ? (debrief.rival ? `With ${debrief.rival}` : "From your file") : `Against ${debrief.rival ?? "the field"}`} · ${new Date(debrief.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "Written from the numbers above and your notes"}
     >
       <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
         <div>

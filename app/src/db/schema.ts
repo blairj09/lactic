@@ -447,6 +447,8 @@ export const TABLES: Record<string, Table> = {
       debrief: { type: "text" },
       debrief_rival: { type: "text" },
       debrief_at: { type: "ts" },
+      /** Named places on a race that isn't laps, one per line ("Montpelier 122"). */
+      places_text: { type: "text" },
       created_at: now,
       updated_at: now,
     },
@@ -462,6 +464,8 @@ export const TABLES: Record<string, Table> = {
       activity_id: { type: "uuid", notNull: true },
       name: { type: "text", notNull: true },
       track: { type: "json", notNull: true },
+      /** "past" for one of the rider's own earlier rides of the course; null for another rider. */
+      kind: { type: "text" },
       created_at: now,
       updated_at: now,
     },
