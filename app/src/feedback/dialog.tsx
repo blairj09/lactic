@@ -59,12 +59,20 @@ async function toShot(file: File): Promise<Shot> {
 }
 
 let open = false;
+/** What the form opens with, when the coach wrote it up. */
+let draft: { kind: FeedbackKind; message: string } | null = null;
 const listeners = new Set<() => void>();
 function setOpen(value: boolean) {
   open = value;
+  if (!value) draft = null;
   listeners.forEach((l) => l());
 }
-export const openFeedback = () => setOpen(true);
+/** Opens the feedback form, filled in with `prefill` when given (the coach's summary). */
+export function openFeedback(prefill?: { kind: FeedbackKind; message: string }) {
+  // A second offer while the form is open would be lost; the open form keeps what's in it.
+  if (!open && prefill) draft = { kind: prefill.kind, message: prefill.message.slice(0, MAX_MESSAGE) };
+  setOpen(true);
+}
 function useOpen() {
   return useSyncExternalStore(
     (l) => (listeners.add(l), () => listeners.delete(l)),
@@ -81,7 +89,7 @@ export function FeedbackButton() {
         aria-label="Send feedback"
         title="Send feedback"
         data-tour="feedback"
-        onClick={openFeedback}
+        onClick={() => openFeedback()}
         className="inline-flex size-8 items-center justify-center rounded-md text-muted transition-colors hover:text-ink"
       >
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -97,7 +105,7 @@ export function FeedbackButton() {
 export function FeedbackSetting() {
   return (
     <div className="sm:col-span-2">
-      <button type="button" className={button.secondary} onClick={openFeedback}>
+      <button type="button" className={button.secondary} onClick={() => openFeedback()}>
         Send feedback
       </button>
     </div>
@@ -107,8 +115,8 @@ export function FeedbackSetting() {
 type Sent = { ok: true; url: string | null; duplicate: boolean } | { ok: false; message: string };
 
 function FeedbackDialog({ onClose }: { onClose: () => void }) {
-  const [kind, setKind] = useState<FeedbackKind>("problem");
-  const [message, setMessage] = useState("");
+  const [kind, setKind] = useState<FeedbackKind>(() => draft?.kind ?? "problem");
+  const [message, setMessage] = useState(() => draft?.message ?? "");
   const [system, setSystem] = useState<SystemInfo | null>(null);
   const [attach, setAttach] = useState(false);
   const [diagnostics, setDiagnostics] = useState<string | null>(null);

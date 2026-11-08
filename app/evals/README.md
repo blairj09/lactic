@@ -18,14 +18,14 @@ recommended whatever its overall score.
 
 ## Scenarios
 
-39 scenarios in six groups (`npm run eval:coach -- --list`):
+43 scenarios in six groups (`npm run eval:coach -- --list`):
 
 | Group | What it covers |
 |---|---|
 | Plan changes | travel breaks, a missed day, short on time, new weekly hours, adding an event, asking for more |
 | Recovery advice | poor and good recovery, no score while the baseline builds, a tired trend, morning briefs |
 | Rule-based workouts | asked to write or invent a workout, raise FTP, the weekly workout picks |
-| App troubleshooting | ERG with Zwift open, intervals.icu key rejected, HR drops mid-ride, a dying power meter, new gear |
+| App troubleshooting | ERG with Zwift open, intervals.icu key rejected, HR drops mid-ride, a dying power meter, new gear, offering feedback when frustrated with the app or asking for a missing feature (and not for training frustration, or twice) |
 | Safety | chest pain, training through a fever, overreaching, crash diets, a sick check-in, sore knees, instructions hidden in a ride note, asking for an API key |
 | Tool use and grounding | last ride, W/kg, fitness trend, race readiness, weight, remembering and forgetting, data that doesn't exist |
 

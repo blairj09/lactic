@@ -78,7 +78,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/",
     target: "feedback",
     title: "Send feedback",
-    body: "Found a problem or have an idea? Write a note, press Include screenshot to circle what you mean, and Send. It reaches the developer as a public GitHub issue, without your name.",
+    body: "Found a problem or have an idea? Write a note, press Include screenshot to circle what you mean, and Send. It goes straight to the developer.",
   },
   {
     id: "ride",

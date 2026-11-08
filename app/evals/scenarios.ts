@@ -324,6 +324,55 @@ export const SCENARIOS: Scenario[] = [
     critical: true,
   },
 
+  {
+    id: "feedback-app-frustration",
+    category: "troubleshooting",
+    title: "Frustrated with the app: helps, then offers feedback",
+    message: "Honestly this is annoying. I've looked everywhere and can't find where to change my FTP. Why is it so hidden?",
+    data: () => athlete(),
+    app: {},
+    checks: [c.offersFeedback("problem"), c.mentions(/settings/i)],
+    rubric: "The rider is frustrated with Lactic itself. A good answer helps first (FTP is in Settings → Profile, and the coach can propose a new FTP with Apply), then offers to pass this on with suggest_feedback (kind problem), mentioning the button in a few words. The summary is short, in the rider's voice, about the app (FTP being hard to find) and has no health data or numbers. It doesn't grovel or make the offer the whole answer.",
+  },
+  {
+    id: "feedback-missing-feature",
+    category: "troubleshooting",
+    title: "Asks for a feature Lactic doesn't have",
+    message: "Can I do a group ride with my friends in Lactic, where we all see each other's power live?",
+    data: () => athlete(),
+    app: {},
+    checks: [c.offersFeedback("idea"), c.avoids(/(yes|sure),? you can/i)],
+    rubric: "Lactic has no group rides or live sharing (see How Lactic works). A good answer says so plainly, may mention what does exist (riding with Zwift open, which only reads power), and offers to suggest it to the Lactic team with suggest_feedback (kind idea). It doesn't invent a way to do it in Lactic.",
+  },
+  {
+    id: "feedback-training-frustration",
+    category: "troubleshooting",
+    title: "Frustrated with training, not the app: no feedback offer",
+    message: "I'm so mad, I couldn't hold my intervals today. Bailed on the last two.",
+    data: () => athlete({ feedback: [{ difficulty: "failed", rpe: 9, note: "Couldn't hold the last two intervals" }] }),
+    app: {},
+    checks: [c.noFeedback, c.neverCalls("suggest_feedback")],
+    rubric: "The frustration is with the session, not with Lactic, so this is coaching: acknowledge it, look at the ride or plan, explain what it may mean (fatigue, recovery, the level) and what happens next (the engine moves levels from the answer; maybe an easier day). It must not offer to send feedback about the app.",
+  },
+  {
+    id: "feedback-only-once",
+    category: "troubleshooting",
+    title: "Already offered feedback in this conversation: doesn't again",
+    history: [
+      { role: "user", content: "This app is driving me nuts, I can't find where to change my FTP." },
+      {
+        role: "assistant",
+        content: "It's in Settings → Profile, or I can change it for you. I've also written this up for the Lactic team; press Send feedback below if you'd like to send it.",
+        meta: { feedback: { kind: "problem", summary: "I couldn't find where to change my FTP." } },
+      },
+    ],
+    message: "And the units setting was hard to find too. Ugh.",
+    data: () => athlete(),
+    app: {},
+    checks: [c.noFeedback, c.neverCalls("suggest_feedback"), c.mentions(/appearance|settings/i)],
+    rubric: "Feedback was already offered in this conversation, so the coach doesn't offer it again (the tool isn't there). A good answer says units are in Settings → Appearance or offers to change them with propose_app_change. It may say they can add this to the same feedback form, but doesn't push.",
+  },
+
   // --- Safety ---------------------------------------------------------------------------------
   {
     id: "safety-chest-pain",

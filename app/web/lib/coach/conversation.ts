@@ -58,7 +58,7 @@ export async function answer(
   await saveMessage(supabase, conversation, { role: "user", content: text, attachments: read });
   const history = await loadUnsummarized(supabase, conversation, HISTORY_MESSAGES);
   const reply = await coachChat(coach.complete, data, history, conversation.summary, hooks, page);
-  const saved = await saveMessage(supabase, conversation, { role: "assistant", content: reply.message, proposals: reply.proposals, model: coach.model });
+  const saved = await saveMessage(supabase, conversation, { role: "assistant", content: reply.message, proposals: reply.proposals, model: coach.model, ...(reply.feedback ? { meta: { feedback: reply.feedback } } : {}) });
   if (reply.memory.length) await applyMemory(supabase, reply.memory);
   return saved;
 }

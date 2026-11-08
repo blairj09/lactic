@@ -69,6 +69,7 @@ export interface MemoryFact {
 export type MemoryOp = { op: "add"; fact: string } | { op: "remove"; id: string };
 
 const MAX_FACT = 300;
+const MAX_FEEDBACK = 600;
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const CURVE_LABELS: Record<number, string> = { 5: "5s", 15: "15s", 30: "30s", 60: "1min", 120: "2min", 300: "5min", 600: "10min", 1200: "20min", 1800: "30min", 3600: "60min" };
@@ -217,7 +218,26 @@ export const TODAY_TOOLS = [
   ),
 ];
 
-export type ToolResult = { content: string; proposal?: Proposal; memory?: MemoryOp; pick?: WorkoutPick; today?: OptionId };
+/** The chat's own tool: offering to send feedback about Lactic itself, once in a conversation. */
+export const FEEDBACK_TOOLS = [
+  fn(
+    "suggest_feedback",
+    "Offer the athlete a button that opens Lactic's feedback form, filled in with your summary for them to edit and send. Only for Lactic itself: frustration with the app (something broken, confusing or missing) or a feature it doesn't have. Never for frustration with training, a ride or their body. At most once in a conversation.",
+    {
+      kind: { type: "string", enum: ["problem", "idea"], description: "problem: something in Lactic is wrong or frustrating. idea: a feature Lactic doesn't have" },
+      summary: { type: "string", description: `What to tell the Lactic team, 1 to 3 sentences in the athlete's voice ("I'd like..."). It's posted publicly, so leave out health data, numbers and anything personal. At most ${MAX_FEEDBACK} characters` },
+    },
+    ["kind", "summary"],
+  ),
+];
+
+/** Feedback the coach offers to send: the form opens filled in with it, and the athlete sends it or not. */
+export interface FeedbackDraft {
+  kind: "problem" | "idea";
+  summary: string;
+}
+
+export type ToolResult = { content: string; proposal?: Proposal; memory?: MemoryOp; pick?: WorkoutPick; today?: OptionId; feedback?: FeedbackDraft };
 
 /** Runs one tool call. Errors come back as text so the coach can correct itself. */
 export function runTool(data: CoachData, name: string, args: Record<string, unknown>): ToolResult {
@@ -299,6 +319,17 @@ export function runTool(data: CoachData, name: string, args: Record<string, unkn
         const id = String(args.id ?? "");
         if (!data.memory.some((m) => m.id === id)) throw new Error("No saved fact with that id");
         return { content: JSON.stringify({ forgotten: id }), memory: { op: "remove", id } };
+      }
+      case "suggest_feedback": {
+        const kind = args.kind === "idea" ? "idea" : args.kind === "problem" ? "problem" : null;
+        if (!kind) throw new Error("kind is problem or idea");
+        const summary = typeof args.summary === "string" ? args.summary.trim() : "";
+        if (!summary) throw new Error("Give a summary of the feedback");
+        if (summary.length > MAX_FEEDBACK) throw new Error(`Keep the summary under ${MAX_FEEDBACK} characters`);
+        return {
+          content: JSON.stringify({ offered: summary, note: "Shown under your reply as a Send feedback button. The form opens with this filled in; nothing is sent unless they send it. Mention it in a few words and don't offer again." }),
+          feedback: { kind, summary },
+        };
       }
       default:
         return { content: `Unknown tool ${name}` };

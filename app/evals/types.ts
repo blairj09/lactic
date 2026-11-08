@@ -30,6 +30,8 @@ export interface Transcript {
   memory: ChatReply["memory"];
   picks: ChatReply["picks"];
   today?: OptionId;
+  /** Feedback about Lactic the coach offered to send. */
+  feedback?: ChatReply["feedback"];
   /** What the model was shown: system prompt, messages and tool results. */
   context: string;
   /** The run threw instead of answering. */
