@@ -25,6 +25,7 @@ import { TakeTour } from "~/tour/take-tour";
 import { FeedbackSetting } from "~/feedback/dialog";
 import { AboutSetting } from "~/updates/check-button";
 import { FeatureSetting } from "~/setup/features";
+import { ExperimentsSetting } from "./experiments";
 import { features } from "@/lib/features";
 import { ScrollToSection } from "./scroll-to-section";
 import { ftpSourceLine } from "@/lib/engine/provenance";
@@ -85,6 +86,9 @@ export default async function SettingsPage() {
           </Section>
           <Section id="tracking" title="What you track" description="Besides rides and your plan. Each one you turn off leaves Today, Health, setup and the coach.">
             <FeatureSetting />
+          </Section>
+          <Section id="experimental" title="Experimental features" description="New things we're still trying out. Off until you turn them on, and labelled wherever they show.">
+            <ExperimentsSetting />
           </Section>
           <Section id="tour" title="Getting started" description="A short walk through each screen.">
             <TakeTour />
