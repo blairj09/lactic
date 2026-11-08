@@ -136,6 +136,7 @@ describe("race report", () => {
     expect(report.sections.filter((s) => s.kind === "corner" && s.from < 240 && s.to > 195).length).toBeGreaterThan(0);
     const c = report.comparisons.find((x) => x.id === "r")!;
     expect(c.timing).toBe("recorded");
+    expect(c.confidence.level).toBe("high");
     // 45 m at 3 m/s instead of 6: about 7.5 s a lap.
     const around = c.sections.filter((r) => report.sections[r.id].from < 240 && report.sections[r.id].to > 195);
     expect(around.reduce((a, r) => a + r.total, 0)).toBeGreaterThan(15);
@@ -174,6 +175,9 @@ describe("race report", () => {
     const report = raceReport({ own, ownName: "Sam Self", rivals: [{ id: "w", name: "Wendy Winner", track: winner }], results });
     const c = report.comparisons.find((x) => x.id === "w")!;
     expect(c.timing).toBe("results");
+    // Evenly spaced points that fit the laps: a good estimate, with the late start noted.
+    expect(c.confidence.level).toBe("medium");
+    expect(c.confidence.notes.join(" ")).toMatch(/starts after the gun/);
     expect(c.place).toBe(1);
     expect(c.finishGap).toBeCloseTo(24, 0);
     expect(c.laps.map((l) => l.delta)).toEqual([8, 8, 8]);
@@ -181,6 +185,23 @@ describe("race report", () => {
     const worst = [...c.sections].sort((a, b) => b.total - a.total)[0];
     expect(report.sections[worst.id].kind).toBe("corner");
     expect(report.field?.laps[0]).toMatchObject({ rank: 2, of: 2 });
+  });
+
+  it("calls section times rough when a file without times skips ahead", () => {
+    const own = ride(3, slowHairpin);
+    const winner = ride(3, steady, 0, false, false);
+    // Dropped points: every tenth point missing on lap 2.
+    winner.points = winner.points.filter((_, i) => !(i > 120 && i < 200 && i % 3 === 0));
+    const lap = Math.round(LAP_LENGTH / 6);
+    const results = parseResults(`1 1 WINNER, Wendy ${formatClock(3 * lap)} ${formatClock(lap)} ${formatClock(lap)} ${formatClock(lap)}\n2 2 SELF, Sam ${formatClock(3 * lap + 24)} ${formatClock(lap + 8)} ${formatClock(lap + 8)} ${formatClock(lap + 8)}`);
+    const report = raceReport({ own, ownName: "Sam Self", rivals: [{ id: "w", name: "Wendy Winner", track: winner }], results });
+    const c = report.comparisons.find((x) => x.id === "w")!;
+    expect(c.confidence.level).toBe("low");
+  });
+
+  it("calls a file without times or results a rough estimate", () => {
+    const report = raceReport({ own: ride(3, slowHairpin), rivals: [{ id: "w", name: "Wendy", track: ride(3, steady, 0, false, false) }] });
+    expect(report.comparisons[0].confidence.level).toBe("low");
   });
 
   it("compares you with your own best lap", () => {

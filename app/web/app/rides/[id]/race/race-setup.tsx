@@ -147,14 +147,15 @@ export default function RaceSetup({
       </Step>
 
       <Step n={3} title="Riders to compare with" done={rivals.length > 0}>
-        <p className="text-sm text-muted">On Strava, open their race, then ⋯ → Export GPX. Files without power or heart rate are fine: the report compares time and speed, section by section.</p>
+        <p className="text-sm text-muted">Best: their original file from their device or intervals.icu, which keeps its times. Quickest: on Strava, open their race, then ⋯ → Export GPX. Strava leaves out the times, so add the results too and Lactic pins it to their lap times. No power or heart rate needed.</p>
         {rivals.length > 0 && (
           <ul className="divide-y divide-line rounded-md border border-line">
             {rivals.map((r) => (
               <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                 <span className="min-w-0">
                   <span className="font-medium">{r.name}</span>
-                  <span className="text-muted"> · {r.points.toLocaleString()} points{r.timed ? "" : ", no times in the file"}</span>
+                  <span className="text-muted"> · {r.points.toLocaleString()} points{r.timed ? ", with times" : ", no times in the file"}</span>
+                  {!r.timed && <span className="block text-xs text-muted">For exact section times, ask them for their original file (Garmin, Wahoo, Hammerhead or intervals.icu export) and add it in place of this one.</span>}
                 </span>
                 <button type="button" className={button.ghost} disabled={pending} onClick={() => run(() => deleteRival(r.id))}>
                   Remove

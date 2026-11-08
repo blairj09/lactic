@@ -2,7 +2,7 @@
 // section and lap by lap, with where time went and what to work on. Every number here is the
 // engine's; the coach writes the debrief from this report and never works numbers out itself.
 
-import { clockFromLaps, crossings, fitCourse, lapsOf, MIN_LAP_SECONDS, motionStart, project, type Course, type Laps, type Projected } from "./course";
+import { clockFromLaps, crossings, fitCourse, type Crossing, lapsOf, MIN_LAP_SECONDS, motionStart, project, type Course, type Laps, type Projected } from "./course";
 import { findRow, type ResultRow } from "./results";
 import { lapElevation, lapSections, speedAt, typicalSpeed, type Section, type SectionKind } from "./sections";
 import { isTimed, type Track } from "./track";
@@ -68,10 +68,26 @@ export interface KindTotal {
   meters: number;
 }
 
+/**
+ * How far to trust the section times against a rider. "high": their file's own times. "medium": no
+ * times, but its points fit their official laps evenly (about one a second), so sections are good to a
+ * second or two. "low": uneven or missing points, or no results to pin them to.
+ */
+export interface Confidence {
+  level: "high" | "medium" | "low";
+  /** Plain reasons, for the page and the coach. */
+  notes: string[];
+  /** Seconds per point on each full lap, from the official lap time (files without times). */
+  secondsPerPoint: number[];
+  /** Places where the file skips ahead (dropped points or a pause). */
+  gaps: number;
+}
+
 export interface Comparison {
   id: string;
   name: string;
   timing: Timing;
+  confidence: Confidence;
   place: number | null;
   /** Their race time, seconds, from results or their file. */
   total: number | null;
@@ -165,7 +181,15 @@ function medianSpeeds(list: (SectionSpeeds | null)[]): SectionSpeeds | null {
 }
 
 /** Where a rival's laps are, with their clock: from their results row, their file's times, or one point a second. */
-function rivalLaps(p: Projected, course: Course, lapCount: number, ownGunAbs: number, row: ResultRow | null): { laps: Laps; timing: Timing } {
+function rivalLaps(p: Projected, course: Course, lapCount: number, ownGunAbs: number, row: ResultRow | null): { laps: Laps; timing: Timing; confidence: Confidence } {
+  const { laps, timing, ends, onGrid } = rivalClock(p, course, lapCount, ownGunAbs, row);
+  const startsLate = !onGrid || Number.isNaN(laps.at[0][0]);
+  const last = laps.at[laps.at.length - 1];
+  const endsEarly = !last || Number.isNaN(last[last.length - 1]);
+  return { laps, timing, confidence: timingConfidence(p, timing, ends, row, startsLate, endsEarly) };
+}
+
+function rivalClock(p: Projected, course: Course, lapCount: number, ownGunAbs: number, row: ResultRow | null): { laps: Laps; timing: Timing; ends: Crossing[]; onGrid: boolean } {
   const start = motionStart(p);
   const all = crossings(p, course.gate);
   const startT = p.t[start];
@@ -176,14 +200,58 @@ function rivalLaps(p: Projected, course: Course, lapCount: number, ownGunAbs: nu
   if (row && row.laps.length) {
     const clock = clockFromLaps(ends, row.laps);
     // A file that starts on the grid: lap 1 starts at its first sustained movement.
-    return { laps: lapsOf(p, course, ends, row.laps.length, clock, start, onGrid && p.timed), timing: "results" };
+    return { laps: lapsOf(p, course, ends, row.laps.length, clock, start, onGrid && p.timed), timing: "results", ends, onGrid: onGrid && p.timed };
   }
   if (p.timed) {
     // Same start (a mass start, clocks within two minutes): one clock for both. Otherwise, their own gun.
     const gun = Math.abs(startT - ownGunAbs) < 120 ? ownGunAbs : startT;
-    return { laps: lapsOf(p, course, ends, lapCount, (t) => t - gun, start, onGrid), timing: "recorded" };
+    return { laps: lapsOf(p, course, ends, lapCount, (t) => t - gun, start, onGrid), timing: "recorded", ends, onGrid };
   }
-  return { laps: lapsOf(p, course, ends, lapCount, (t) => t - start, start, onGrid), timing: "estimated" };
+  return { laps: lapsOf(p, course, ends, lapCount, (t) => t - start, start, onGrid), timing: "estimated", ends, onGrid };
+}
+
+/** How well a rival's file pins down their time inside each lap (see Confidence). */
+export function timingConfidence(p: Projected, timing: Timing, ends: Crossing[], row: ResultRow | null, startsLate: boolean, endsEarly: boolean): Confidence {
+  const n = p.x.length;
+  const step: number[] = [];
+  for (let i = 1; i < n; i++) step.push(Math.hypot(p.x[i] - p.x[i - 1], p.y[i] - p.y[i - 1]));
+  const typical = median(step) || 1;
+  let gaps = 0;
+  for (let i = 1; i < n; i++) {
+    const jump = timing === "recorded" ? p.t[i] - p.t[i - 1] > 5 && step[i - 1] > 15 : step[i - 1] > Math.max(25, 4 * typical);
+    if (jump) gaps++;
+  }
+  const notes: string[] = [];
+  const secondsPerPoint: number[] = [];
+  let level: Confidence["level"];
+  if (timing === "recorded") {
+    level = gaps > 2 ? "medium" : "high";
+    notes.push("Their file has its own times.");
+  } else if (timing === "results" && row) {
+    for (let k = 1; k < Math.min(ends.length, row.laps.length); k++) {
+      const points = ends[k].index - ends[k - 1].index;
+      if (points > 0) secondsPerPoint.push(r2(row.laps[k] / points));
+    }
+    const off = secondsPerPoint.length ? Math.max(...secondsPerPoint.map((r) => Math.abs(r - 1))) : 1;
+    const spread = secondsPerPoint.length ? Math.max(...secondsPerPoint) - Math.min(...secondsPerPoint) : 1;
+    level = secondsPerPoint.length >= 2 && off <= 0.03 && spread <= 0.03 && gaps === 0 ? "medium" : "low";
+    notes.push("Their file has no times, so it's pinned to their official lap times: lap times and gaps at the line are exact, section times are estimates.");
+    if (secondsPerPoint.length) {
+      notes.push(
+        off <= 0.03 && spread <= 0.03
+          ? `Its points fit their laps evenly (${secondsPerPoint.map((r) => r.toFixed(2)).join(", ")} s a point on full laps), so sections should be right to a second or two.`
+          : `Its points don't fit their laps evenly (${secondsPerPoint.map((r) => r.toFixed(2)).join(", ")} s a point on full laps): treat section times as rough.`,
+      );
+    }
+  } else {
+    level = "low";
+    notes.push("Their file has no times and there are no results to pin it to, so it assumes one point a second. Add the results to fix the laps.");
+  }
+  if (gaps) notes.push(`It skips ahead in ${gaps} place${gaps === 1 ? "" : "s"} (dropped points or a pause), so time there is spread across the gap.`);
+  if (startsLate) notes.push("Their file starts after the gun, so the start of lap 1 isn't compared.");
+  if (endsEarly) notes.push("Their file stops before the finish, so the end of the last lap isn't compared.");
+  if (gaps > 3 && level === "medium") level = "low";
+  return { level, notes, secondsPerPoint, gaps };
 }
 
 /** Your own fastest lap, ridden every lap from the gun: where each lap lost time against your best. */
@@ -205,7 +273,7 @@ function bestLapGhost(own: Laps, length: number): { laps: Laps; best: number } {
   return { laps: { ...own, at, seconds: at.map((a) => a[length] - a[0]) }, best };
 }
 
-function compare(id: string, name: string, timing: Timing, row: ResultRow | null, own: Laps, rival: Laps, ownRow: ResultRow | null, sections: Section[], length: number, route: [number, number][]): Comparison {
+function compare(id: string, name: string, timing: Timing, confidence: Confidence, row: ResultRow | null, own: Laps, rival: Laps, ownRow: ResultRow | null, sections: Section[], length: number, route: [number, number][]): Comparison {
   const lapCount = own.at.length;
   const sectionRows: SectionRow[] = sections.map((s) => {
     const perLap: (number | null)[] = [];
@@ -274,7 +342,7 @@ function compare(id: string, name: string, timing: Timing, row: ResultRow | null
   const total = row?.total ?? (rival.seconds.every((s) => s !== null) ? r1((rival.seconds as number[]).reduce((a, b) => a + b, 0)) : null);
   const finishGap = ownTotal !== null && total !== null ? r1(ownTotal - total) : laps.every((l) => l.delta !== null) ? r1(laps.reduce((a, l) => a + (l.delta as number), 0)) : (gap[gap.length - 1]?.gap ?? null);
 
-  return { id, name, timing, place: row?.place ?? null, total, finishGap, laps, sections: sectionRows, kinds, incidents, gap, route };
+  return { id, name, timing, confidence, place: row?.place ?? null, total, finishGap, laps, sections: sectionRows, kinds, incidents, gap, route };
 }
 
 function thinLine(course: Course, every: number): [number, number][] {
@@ -336,13 +404,13 @@ export function raceReport(input: RaceInput): RaceReport {
   for (const r of input.rivals) {
     const p = project(r.track, course.proj);
     const row = results ? findRow(results, r.name) : null;
-    const { laps, timing } = rivalLaps(p, course, lapCount, gun, row);
+    const { laps, timing, confidence } = rivalLaps(p, course, lapCount, gun, row);
     const route: [number, number][] = [];
     for (let i = 0; i < p.x.length; i += 3) route.push([r6(r.track.points[i].lat), r6(r.track.points[i].lng)]);
-    comparisons.push(compare(r.id, row?.name ?? r.name, timing, row, ownLapsAt, laps, ownRow, sections, L, route));
+    comparisons.push(compare(r.id, row?.name ?? r.name, timing, confidence, row, ownLapsAt, laps, ownRow, sections, L, route));
   }
   const { laps: ghost, best: bestIdx } = bestLapGhost(ownLapsAt, L);
-  const ghostCompare = compare(BEST_LAP_ID, "Your best lap", "recorded", null, ownLapsAt, ghost, null, sections, L, []);
+  const ghostCompare = compare(BEST_LAP_ID, "Your best lap", "recorded", { level: "high", notes: ["Your own file, with its own times."], secondsPerPoint: [], gaps: 0 }, null, ownLapsAt, ghost, null, sections, L, []);
   // Against yourself, lap times are your own; the best lap is your fastest after lap 1 (lap 1 has the start in it).
   ghostCompare.laps = ownLaps.map((l, k) => ({ lap: l.lap, own: l.seconds, rival: ghost.seconds[k] === null ? null : r1(ghost.seconds[k] as number), delta: l.seconds !== null && ghost.seconds[k] !== null ? r1(l.seconds - (ghost.seconds[k] as number)) : null }));
   ghostCompare.name = `Your best lap (lap ${bestIdx + 1})`;

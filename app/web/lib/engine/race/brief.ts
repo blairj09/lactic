@@ -28,6 +28,7 @@ export function raceForCoach(report: RaceReport, c: Comparison, advice: Advice[]
           : c.timing === "recorded"
             ? "their file's own times"
             : "their file, assuming one point a second (no times and no results)",
+      howSureSectionTimesAre: vsSelf ? "exact" : { level: c.confidence.level, why: c.confidence.notes },
       finishGapSeconds: c.finishGap,
       laps: c.laps.map((l) => ({ lap: l.lap, you: l.own === null ? null : formatClock(l.own), them: l.rival === null ? null : formatClock(l.rival), secondsLost: l.delta })),
       secondsLostByKind: Object.fromEntries(c.kinds.map((k) => [k.kind, k.seconds])),

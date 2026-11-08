@@ -59,6 +59,8 @@ export default function RaceReview({
   const vsSelf = c.id === "best-lap";
   const who = vsSelf ? "your best lap" : c.name.split(" ")[0];
   const highlight = focus ? focus.sections : hovered !== null ? [hovered] : [];
+  // Section times against a file without its own times are estimates: say so on every figure.
+  const approx = !vsSelf && c.confidence.level !== "high" ? "≈" : "";
 
   const ownLaps = report.own.laps.filter((l) => l.seconds !== null);
   const bestOwn = ownLaps.reduce((a, l) => ((l.seconds as number) < (a?.seconds ?? Infinity) ? l : a), ownLaps[0]);
@@ -83,12 +85,8 @@ export default function RaceReview({
           }}
           options={report.comparisons.map((x) => ({ value: x.id, label: x.place ? `${x.name} (${ordinal(x.place)})` : x.name }))}
         />
-        {!vsSelf && c.timing !== "recorded" && (
-          <p className="text-sm text-muted">
-            {c.timing === "results" ? `${who}'s file has no times, so it's pinned to their official lap times.` : `${who}'s file has no times: assumed one point a second.`}
-          </p>
-        )}
       </div>
+      {!vsSelf && c.confidence.level !== "high" && <TimingNote who={who} level={c.confidence.level} notes={c.confidence.notes} />}
 
       <StatStrip cols={4} phone={2}>
         <Stat label="Your race" value={report.own.total !== null ? formatClock(report.own.total) : null} sub={report.own.place ? `${ordinal(report.own.place)} of ${field?.riders ?? "?"}` : `${report.lapCount} laps`} lead />
@@ -124,13 +122,13 @@ export default function RaceReview({
                     {describe(sel)} · {sel.to - sel.from} m, {sel.from}–{sel.to} m into the lap
                   </div>
                 </div>
-                <div className={cx("num text-lg font-medium", deltaClass(selRow.totalAll))}>{signedSeconds(selRow.totalAll)}</div>
+                <div className={cx("num text-lg font-medium", deltaClass(selRow.totalAll))}>{approx}{signedSeconds(selRow.totalAll)}</div>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {selRow.perLap.map((d, k) => (
                   <span key={k} className="num rounded bg-raised px-2 py-1 text-xs">
                     <span className="text-muted">Lap {k + 1} </span>
-                    <span className={deltaClass(d)}>{d === null ? "–" : signedSeconds(d)}</span>
+                    <span className={deltaClass(d)}>{d === null ? "–" : `${approx}${signedSeconds(d)}`}</span>
                   </span>
                 ))}
               </div>
@@ -236,7 +234,7 @@ export default function RaceReview({
           {!report.own.hasPower && <p className="px-4 py-3 text-sm text-muted sm:px-5">No power in your file for this race, so the report compares time and speed.</p>}
         </Panel>
 
-        <Panel title="Sections" meta={`Time lost to ${who}, all laps`} pad={false}>
+        <Panel title="Sections" meta={approx ? `Estimated time lost to ${who}, all laps` : `Time lost to ${who}, all laps`} pad={false}>
           <div className="overflow-x-auto">
             <table className="num w-full text-sm">
               <thead className="border-y border-line text-left text-muted">
@@ -270,7 +268,7 @@ export default function RaceReview({
                           {d === null ? "–" : d.toFixed(1)}
                         </td>
                       ))}
-                      <td className={cx("px-2 py-1.5 pr-4 text-right font-medium sm:pr-5", deltaClass(r.totalAll))}>{signedSeconds(r.totalAll)}</td>
+                      <td className={cx("px-2 py-1.5 pr-4 text-right font-medium whitespace-nowrap sm:pr-5", deltaClass(r.totalAll))}>{approx}{signedSeconds(r.totalAll)}</td>
                     </tr>
                   );
                 })}
@@ -294,7 +292,7 @@ export default function RaceReview({
             return (
               <div key={k.kind} className="space-y-0.5">
                 <div className="text-sm text-muted">{KIND_LABEL[k.kind]}s</div>
-                <div className={cx("num text-xl font-medium", deltaClass(k.seconds))}>{signedSeconds(k.seconds)}</div>
+                <div className={cx("num text-xl font-medium", deltaClass(k.seconds))}>{approx}{signedSeconds(k.seconds)}</div>
                 <div className="text-xs text-muted">
                   {Math.round(k.meters)} m a lap{own ? ` · you ${fmt.speed(own.speed)}` : ""}
                   {own?.watts ? ` · ${own.watts} W` : ""}
@@ -304,6 +302,38 @@ export default function RaceReview({
           })}
         </div>
       </Panel>
+    </div>
+  );
+}
+
+const LEVEL = { high: "Exact", medium: "Good estimate", low: "Rough estimate" } as const;
+
+/** How far to trust section times against this rider, and how to make them exact. */
+function TimingNote({ who, level, notes }: { who: string; level: "high" | "medium" | "low"; notes: string[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={cx("rounded-md px-3 py-2.5 text-sm", level === "low" ? "bg-pill-warning" : "bg-raised")}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Pill tone={level === "low" ? "warning" : "neutral"}>Section times: {LEVEL[level].toLowerCase()}</Pill>
+        <span className={level === "low" ? "text-warning" : "text-muted"}>
+          Lap times and the gap at the line are exact. Inside each lap, {who}&apos;s time is spread over their GPS points
+          {level === "medium" ? ", which fit evenly: good to a second or two a section." : ", which don't fit evenly: treat sections as rough."}
+        </span>
+        <button type="button" className={button.ghost} onClick={() => setOpen(!open)} aria-expanded={open}>
+          {open ? "Less" : "Why, and how to make it exact"}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2 space-y-1.5 text-muted">
+          {notes.map((n) => (
+            <p key={n}>{n}</p>
+          ))}
+          <p className="text-ink">
+            For exact section times, ask {who} for their original ride file: from Garmin Connect (⚙ → Export Original), Wahoo, Hammerhead or intervals.icu (Actions → Download original).
+            Strava strips the times from other people&apos;s rides, but the original keeps them. Add it under Riders to compare with, in place of this one.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
