@@ -1,6 +1,7 @@
 // The tour's stops: each one opens a screen and points at a part of it.
 
 import type { CoachMode } from "~/ai/settings";
+import { ALL_FEATURES, hasHealth, type Features } from "@/lib/features";
 
 export interface TourStep {
   id: string;
@@ -123,4 +124,10 @@ export const TOUR_STEPS: TourStep[] = [
   },
 ];
 
-export const stepsFor = (mode: CoachMode) => TOUR_STEPS.filter((s) => !s.coach || s.coach.includes(mode));
+/** The stops for this coach mode, without Health when the rider tracks neither recovery nor weight. */
+export const stepsFor = (mode: CoachMode, tracking: Features = ALL_FEATURES) =>
+  TOUR_STEPS.filter((s) => (!s.coach || s.coach.includes(mode)) && (s.id !== "health" || hasHealth(tracking))).map((s) =>
+    s.id === "health" && !(tracking.recovery && tracking.weight)
+      ? { ...s, body: tracking.recovery ? "Recovery, sleep, HRV and resting heart rate. Click any of them for its history." : "Your weight and body fat over time, and weighing in." }
+      : s,
+  );

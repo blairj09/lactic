@@ -17,6 +17,7 @@ import { mergeCurves } from "./engine/power";
 import { readWorkout } from "./engine/workout-edit";
 import type { OptionId } from "./engine/checkin";
 import { loadRecovery, type RecoveryToday } from "./recovery-data";
+import { features } from "./features";
 import { loadDaytime } from "./daytime-data";
 import { exertionNormal, type DayExertion, type ExertionNormal } from "./engine/exertion";
 import type { createClient } from "./supabase/server";
@@ -210,7 +211,9 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
   const daytime = loadDaytime(supabase, athlete, today).catch((e) => (console.error(e), null));
   const [[rides, goals, plans, breaks, feedbackRows], recovery, daytimeData, allDays, picks, outdoor] = await Promise.all([
     early,
-    loadRecovery(supabase, today, athlete.sleepNeedHours, daytime).catch((e) => (console.error(e), null)),
+    // Riders who don't track recovery get none, even if some sleep data arrived (intervals.icu wellness), so neither
+    // Today's options nor the coach go by a score they never see.
+    features().recovery ? loadRecovery(supabase, today, athlete.sleepNeedHours, daytime).catch((e) => (console.error(e), null)) : null,
     daytime,
     loadPlanDays(supabase, addDays(today, -LEVEL_WINDOW_DAYS), addDays(today, AHEAD_DAYS)),
     loadPicks(supabase, today),

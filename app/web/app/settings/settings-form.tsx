@@ -6,6 +6,7 @@ import { useActionState, useState } from "react";
 import { saveSettings } from "../actions";
 import { heightIn, heightToCm, heightUnit, weightIn, weightToKg, weightUnit, type UnitSystem } from "@/lib/units";
 import { useUnits } from "@/lib/use-units";
+import { useFeatures } from "@/lib/use-features";
 
 type NumberField = "ftp_watts" | "threshold_hr" | "max_hr" | "weight_kg" | "height_cm" | "sleep_need_hours";
 type Values = Record<NumberField, number | null> & { timezone: string; birth_date: string | null; sex: "male" | "female" | null };
@@ -38,6 +39,7 @@ export default function SettingsForm({ values }: { values: Values }) {
   const [maxHr, setMaxHr] = useState(values.max_hr);
   // Weight and height are typed in the rider's units and saved in kg and cm.
   const units = useUnits();
+  const tracking = useFeatures();
   const [body, setBody] = useState<Partial<Record<NumberField, number | null>>>({ weight_kg: values.weight_kg, height_cm: values.height_cm });
   const numberField = (name: NumberField, onValue?: (value: number | null) => void, width = "w-28") => {
     const f = FIELDS.find((x) => x.name === name)!;
@@ -128,8 +130,11 @@ export default function SettingsForm({ values }: { values: Values }) {
           )}
         </Section>
       ))}
-      <Section title="Sleep and time" description="Sleep need is recovery's target. The time zone decides which day a ride counts for.">
-        {numberField("sleep_need_hours")}
+      <Section
+        title={tracking.recovery ? "Sleep and time" : "Time"}
+        description={tracking.recovery ? "Sleep need is recovery's target. The time zone decides which day a ride counts for." : "The time zone decides which day a ride counts for."}
+      >
+        {tracking.recovery ? numberField("sleep_need_hours") : <input type="hidden" name="sleep_need_hours" value={values.sleep_need_hours ?? ""} />}
         <label className="block space-y-2">
           <span className="block text-sm font-medium">Time zone</span>
           <input name="timezone" defaultValue={values.timezone} className={`${input} w-64 max-w-full`} />

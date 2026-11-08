@@ -19,6 +19,7 @@ import { AskCoach } from "@/app/coach/ask-coach";
 import { POWER_SOURCE_PREF, isWebBluetoothAvailable, type PowerSource } from "@/lib/ble/sensor-hub";
 import PairSheet from "@/components/pair-sheet";
 import { Notice, Pill, Segmented, button, input } from "@/components/ui";
+import { useFeatures } from "@/lib/use-features";
 
 type Row = { saved?: RememberedDevice; silent: boolean };
 type Check = { state: "checking" } | { state: "ok" } | { state: "failed"; message: string };
@@ -38,6 +39,8 @@ export default function BluetoothDevices() {
   const [rows, setRows] = useState<Partial<Record<DeviceKey, Row>>>({});
   const [checks, setChecks] = useState<Partial<Record<DeviceKey, Check>>>({});
   const [pairing, setPairing] = useState<DeviceKind | null>(null);
+  // The scale row is for riders who track weight (or still have one paired, so they can forget it).
+  const tracking = useFeatures();
   const [renaming, setRenaming] = useState<{ key: DeviceKey; value: string } | null>(null);
   const [forgetting, setForgetting] = useState<DeviceKey | null>(null);
   const [powerSource, setPowerSource] = useState<PowerSource>("trainer");
@@ -124,7 +127,7 @@ export default function BluetoothDevices() {
       )}
 
       <ul className="divide-y divide-line">
-        {DEVICE_KINDS.map((kind) => {
+        {DEVICE_KINDS.filter((kind) => kind.key !== "scale" || tracking.weight || rows.scale?.saved).map((kind) => {
           const row = rows[kind.key];
           const saved = row?.saved;
           const status = checks[kind.key];

@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Only ride and plan? Setup now asks whether you want sleep and recovery, weight, both or neither, and Lactic hides what you skip. Change it any time in Settings → What you track, or ask the coach.
 - Like Lactic? Settings → About now has a Support Lactic link if you want to chip in.
 - A new startup screen: the Lactic logo builds one interval at a time while the app gets ready.
 - Weigh in on many more smart scales: Xiaomi Mi scales, Renpho and other QN scales, Etekcity ESF-551 and scales with the standard Bluetooth weight profile, as well as the Hume Body Pod.

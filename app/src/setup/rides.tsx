@@ -84,7 +84,7 @@ export function IntervalsConnect({ onConnected, heading = true }: { onConnected?
   );
 }
 
-export function RidesSetup() {
+export function RidesSetup({ sleep = true }: { sleep?: boolean }) {
   return (
     <div className="space-y-4">
       <IntervalsConnect />
@@ -95,7 +95,7 @@ export function RidesSetup() {
         </div>
         <FitImport />
       </div>
-      <HealthSetup />
+      {sleep && <HealthSetup />}
       <p className="text-sm text-muted">No history? Lactic starts from your FTP and learns as you ride.</p>
     </div>
   );

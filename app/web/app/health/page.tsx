@@ -8,11 +8,15 @@ import { loadRecovery, loadRecoveryTrend } from "@/lib/recovery-data";
 import { createClient } from "@/lib/supabase/server";
 import { Page, PageHeader } from "@/components/ui";
 import HealthView, { TREND_DAYS, WEIGHT_DAYS } from "./health-view";
+import { redirect } from "next/navigation";
+import { features, hasHealth } from "@/lib/features";
 
 export const metadata = { title: "Health · My Coach" };
 export const dynamic = "force-dynamic";
 
 export default async function HealthPage() {
+  const tracking = features();
+  if (!hasHealth(tracking)) redirect("/");
   const supabase = await createClient();
   const athlete = await loadAthlete(supabase);
   const tz = athlete.timezone;
@@ -41,6 +45,7 @@ export default async function HealthPage() {
       trend={trend}
       summary={summary}
       hasWatch={daytime?.hasWatch ?? false}
+      tracking={tracking}
     />
   );
 }

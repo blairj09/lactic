@@ -8,6 +8,7 @@ import { remembered } from "@/lib/ble/devices";
 import { useCoachMode } from "~/app/coach-mode";
 import { createClient } from "~/db/supabase-client";
 import { stepsFor } from "./steps";
+import { features } from "@/lib/features";
 import { getSetting } from "~/settings/store";
 import { endTour, goToStep, startTour, TOUR_DONE, useTourStep } from "./store";
 
@@ -96,7 +97,7 @@ export function Tour() {
   const at = useTourStep();
   const mode = useCoachMode();
   const navigate = useNavigate();
-  const steps = stepsFor(mode);
+  const steps = stepsFor(mode, features());
   const step = at === null ? null : steps[Math.min(at, steps.length - 1)];
   const rect = useTarget(step?.target, at);
   const gaps = useSetupGaps(step?.id === "settings", mode);

@@ -13,6 +13,7 @@ import type { HealthSummary } from "@/lib/health-summary";
 import type { RecoveryToday, SleepDetail, SleepNightRow, StageNight } from "@/lib/recovery-data";
 import { Dash, Notice, Page, PageHeader, Panel, SectionTitle, Stat, StatStrip } from "@/components/ui";
 import WeighIn from "./weigh-in";
+import { ALL_FEATURES, type Features } from "@/lib/features";
 import { metricHref } from "./metrics";
 import { ExertionPanel, hoursMinutes, LinkPanel, WeighInTable } from "./parts";
 import { formatWeight, readUnits, tempDeltaIn, temperatureUnit, weightIn, weightUnit } from "@/lib/units";
@@ -29,6 +30,7 @@ export default function HealthView({
   trend,
   summary,
   hasWatch,
+  tracking = ALL_FEATURES,
 }: {
   athlete: Athlete;
   today: string;
@@ -38,6 +40,8 @@ export default function HealthView({
   summary: HealthSummary;
   /** Daytime heart rate has arrived from Apple Health at least once. */
   hasWatch: boolean;
+  /** What the rider tracks: recovery and weight each show only when on. */
+  tracking?: Features;
 }) {
   const tz = athlete.timezone;
   const units = readUnits();
@@ -74,7 +78,7 @@ export default function HealthView({
           title="Health"
           line={
             <>
-              Recovery, sleep and weight. Training fitness is on{" "}
+              {tracking.recovery && tracking.weight ? "Recovery, sleep and weight" : tracking.recovery ? "Recovery and sleep" : "Weight and body"}. Training fitness is on{" "}
               <Link href="/progress" className="text-ink underline underline-offset-4">
                 Progress
               </Link>
@@ -83,6 +87,8 @@ export default function HealthView({
           }
         />
 
+        {tracking.recovery && (
+          <>
         <section className="space-y-3">
           <SectionTitle meta={night ? "This morning" : "No night recorded yet"}>Today</SectionTitle>
           <StatStrip cols={3} phone={2}>
@@ -193,12 +199,18 @@ export default function HealthView({
                 </TrendPanel>
               </div>
             )}
-            <TrendPanel href={metricHref("body")} title="Weight" note={`Last ${WEIGHT_DAYS} days, ${weightUnit(units)}`}>
-              <TrendChart label="Weight by day" days={weightDays} values={weights} unit={weightUnit(units)} decimals={1} bridge />
-            </TrendPanel>
+            {tracking.weight && (
+              <TrendPanel href={metricHref("body")} title="Weight" note={`Last ${WEIGHT_DAYS} days, ${weightUnit(units)}`}>
+                <TrendChart label="Weight by day" days={weightDays} values={weights} unit={weightUnit(units)} decimals={1} bridge />
+              </TrendPanel>
+            )}
           </div>
         </section>
 
+          </>
+        )}
+
+        {tracking.weight && (
         <section className="space-y-3">
           <SectionTitle>Body</SectionTitle>
           <StatStrip cols={3} phone={3}>
@@ -228,6 +240,12 @@ export default function HealthView({
               }
             />
           </StatStrip>
+          {/* Without recovery there's no Trends section, so the weight trend sits here. */}
+          {!tracking.recovery && (
+            <TrendPanel href={metricHref("body")} title="Weight" note={`Last ${WEIGHT_DAYS} days, ${weightUnit(units)}`}>
+              <TrendChart label="Weight by day" days={weightDays} values={weights} unit={weightUnit(units)} decimals={1} bridge />
+            </TrendPanel>
+          )}
           <Panel>
             <WeighIn profile={ready ? { male: athlete.sex === "male", heightCm: athlete.heightCm!, age: ageOn(athlete.birthDate!, today) } : null} />
             {!ready && (
@@ -245,6 +263,7 @@ export default function HealthView({
               <p className="mt-4 text-sm text-muted">Body fat is estimated (Sun et al., 2003) and moves with hydration, so watch the trend.</p>
             </Panel>
         </section>
+        )}
       </Page>
     </>
   );

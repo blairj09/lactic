@@ -56,7 +56,8 @@ function useRemembered() {
   return all;
 }
 
-export function GearSetup() {
+/** `scale` false leaves the smart scale out, for riders who don't track weight. */
+export function GearSetup({ scale = true }: { scale?: boolean }) {
   const nearby = useNearby();
   const mine = useRemembered();
   const [status, setStatus] = useState<{ available: boolean; reason: string | null } | null>(null);
@@ -76,7 +77,7 @@ export function GearSetup() {
     <div className="space-y-5">
       {status && !status.available && !sim && <Notice>Lactic can&apos;t reach Bluetooth ({(status.reason ?? "it's off").replace(/\.$/, "")}). Turn Bluetooth on in your computer's settings, then come back.</Notice>}
       <ul className="divide-y divide-line rounded-lg border border-line">
-        {SLOTS.map((slot) => {
+        {SLOTS.filter((slot) => scale || slot.key !== "scale").map((slot) => {
           const chosen = mine[slot.key];
           const taken = new Set(SLOTS.map((x) => mine[x.key]?.id));
           const ftms = fullUuid(0x1826);
