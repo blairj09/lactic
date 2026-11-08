@@ -141,7 +141,7 @@ site/               lactic.fit
 
 Lactic is built by riders, in the open. Issues and pull requests are welcome, whether that's a bug on your trainer, support for new gear or a health source, or a better workout.
 
-The quickest way to tell us something is the speech bubble at the top of the app: write a note, add a screenshot and circle the problem, and send. No GitHub account needed; it arrives here as an issue.
+The quickest way to tell us something is the speech bubble at the top of the app: it attaches a picture of the screen you're on, so write a note, circle the problem and send. No GitHub account needed; it arrives here as an issue.
 
 Before you open a pull request, run the checks in `app/`:
 
