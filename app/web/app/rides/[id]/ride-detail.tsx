@@ -19,6 +19,7 @@ import {
   type DayMark,
 } from "@/lib/engine/compliance";
 import { DIFFICULTY_LABELS, RPE_LABELS } from "@/lib/engine/feedback";
+import { BLOCK_CHECK_LABELS, EXECUTION_GRADE_LABELS, executionGrade, rideExecution, type BlockCheck, type Execution } from "@/lib/engine/execution";
 import { ZONE_LABELS } from "@/lib/engine/library";
 import { addDays } from "@/lib/engine/pmc";
 import { mergeCurves } from "@/lib/engine/power";
@@ -112,6 +113,7 @@ export default async function RideDetail({
     stream && !stream.target && planned?.session && ftp
       ? plannedTargets(planned.session.workout, ftp, stream)
       : null;
+  const execution = rideExecution(stream ? { workout: stream.workout ?? null, intervals: stream.intervals ?? null } : null, planned, counted ?? ride);
   const chartStream: ChartStream | null = stream
     ? { ...stream, target: stream.target ?? plannedTarget }
     : null;
@@ -219,6 +221,7 @@ export default async function RideDetail({
           ridden={ridden}
           mark={mark?.mark ?? null}
           moved={plannedDay !== day ? plannedDay : null}
+          execution={execution}
         >
           {counted && options.length > 0 && (
             <CountFor
@@ -256,10 +259,10 @@ export default async function RideDetail({
           stream.intervals.some((i) => i.ridden > 0) && (
             <Panel
               title="Intervals"
-              meta="Target against what you rode in each one"
+              meta={execution?.method === "blocks" ? `Execution ${execution.score} of 100, block by block` : "Target against what you rode in each one"}
               pad={false}
             >
-              <IntervalTable intervals={stream.intervals} />
+              <IntervalTable intervals={stream.intervals} execution={execution?.method === "blocks" ? execution : null} />
             </Panel>
           )
         }
@@ -318,9 +321,11 @@ function PlannedPanel({
   ridden,
   mark,
   moved,
+  execution,
   children,
 }: {
   children?: React.ReactNode;
+  execution: Execution | null;
   ride: StoredRide;
   planned: ReturnType<typeof plannedOn>;
   ridden: Workout | null;
@@ -397,6 +402,7 @@ function PlannedPanel({
               ` · ${Math.round(share * 100)}% of the plan${planned && planned.stress > 0 && ride.trainingStress !== null ? "'s stress" : "'s time"}`}
           </div>
           {ridden && <WorkoutProfile workout={ridden} height={36} />}
+          {execution && <ExecutionLine execution={execution} against={ridden && !sameWorkout ? "the workout you rode" : null} />}
         </div>
       </div>
       {children}
@@ -415,7 +421,37 @@ const HIT_CLASS = {
   over: "text-negative",
 } as const;
 
-function IntervalTable({ intervals }: { intervals: RideInterval[] }) {
+const GRADE_TONE = { nailed: "positive", solid: "positive", partial: "warning", off: "negative" } as const;
+
+/** The ride's execution score with its grade, and what it was scored on. */
+function ExecutionLine({ execution, against }: { execution: Execution; against: string | null }) {
+  const grade = executionGrade(execution.score);
+  return (
+    <div className="flex flex-wrap items-center gap-2 pt-1 text-sm">
+      <span className="num">
+        Execution <span className="font-semibold">{execution.score}</span>
+        <span className="text-muted"> / 100</span>
+      </span>
+      <Pill tone={GRADE_TONE[grade]}>{EXECUTION_GRADE_LABELS[grade]}</Pill>
+      <span className="text-xs text-muted">
+        {execution.method === "blocks"
+          ? `Each block's time and power${against ? `, against ${against}` : ""}; hard blocks count most.`
+          : "From time and stress against the plan. Rides on Lactic are scored block by block."}
+      </span>
+    </div>
+  );
+}
+
+const CHECK_CLASS: Record<BlockCheck, string> = {
+  on: "text-positive",
+  under: "text-warning",
+  over: "text-negative",
+  short: "text-warning",
+  skipped: "text-negative",
+  free: "text-muted",
+};
+
+function IntervalTable({ intervals, execution }: { intervals: RideInterval[]; execution: Execution | null }) {
   return (
     <div className="overflow-x-auto px-5 pb-4">
       <table className="num w-full text-sm">
@@ -427,7 +463,8 @@ function IntervalTable({ intervals }: { intervals: RideInterval[] }) {
             <th className="pb-2 pr-3 text-right font-normal">Target</th>
             <th className="pb-2 pr-3 text-right font-normal">Power</th>
             <th className="pb-2 pr-3 text-right font-normal">HR</th>
-            <th className="pb-2 text-right font-normal">Cadence</th>
+            <th className="pb-2 pr-3 text-right font-normal">Cadence</th>
+            {execution && <th className="pb-2 font-normal">Check</th>}
           </tr>
         </thead>
         <tbody>
@@ -443,7 +480,7 @@ function IntervalTable({ intervals }: { intervals: RideInterval[] }) {
               >
                 <td className="py-2 pr-3">{i.index + 1}</td>
                 <td className="py-2 pr-3 whitespace-nowrap">
-                  {KIND_LABEL[i.kind]} {clock(i.planned)}
+                  {execution?.blocks.find((b) => b.index === i.index)?.role || KIND_LABEL[i.kind]} {clock(i.planned)}
                 </td>
                 <td className="py-2 pr-3 text-right whitespace-nowrap">
                   {i.ridden === 0 ? "Skipped" : clock(i.ridden)}
@@ -459,13 +496,24 @@ function IntervalTable({ intervals }: { intervals: RideInterval[] }) {
                 <td className="py-2 pr-3 text-right">
                   {i.heartRate ?? <Dash />}
                 </td>
-                <td className="py-2 text-right">{i.cadence ?? <Dash />}</td>
+                <td className="py-2 pr-3 text-right">{i.cadence ?? <Dash />}</td>
+                {execution && <CheckCell block={execution.blocks.find((b) => b.index === i.index)} />}
               </tr>
             );
           })}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function CheckCell({ block }: { block: Execution["blocks"][number] | undefined }) {
+  if (!block) return <td className="py-2" />;
+  return (
+    <td className={`py-2 whitespace-nowrap ${CHECK_CLASS[block.check]}`}>
+      {BLOCK_CHECK_LABELS[block.check]}
+      {block.score !== null && block.check !== "on" && <span className="text-muted"> · {block.score}</span>}
+    </td>
   );
 }
 
