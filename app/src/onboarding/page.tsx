@@ -186,6 +186,7 @@ export default function Onboarding() {
       return (
         <Frame step={index} tracking={tracking} footer={footer(continueButton(() => void save(async () => (await saveFeatures(tracking), { ok: true, message: "" }))), false)}>
           <FeatureChoice values={tracking} onChange={setTracking} />
+          <p className="mt-4 text-sm text-muted">Not ready? Leave them off and turn them on any time in Settings → What you track.</p>
         </Frame>
       );
     case "gear":

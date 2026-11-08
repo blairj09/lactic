@@ -14,7 +14,7 @@ const SLOTS: { key: DeviceKey; label: string; service: number; wake: string; not
   { key: "trainer", label: "Smart trainer", service: 0x1826, wake: "Spin the pedals to wake it." },
   { key: "powerMeter", label: "Power meter", service: 0x1818, wake: "Turn the cranks a few times.", note: "Optional. Most smart trainers measure power themselves." },
   { key: "heartRate", label: "Heart rate", service: 0x180d, wake: "Put the strap on (most wake on skin), or turn on heart rate broadcast on your watch." },
-  { key: "scale", label: "Smart scale", service: 0xfff0, wake: "Step on the scale, or tap it with your foot, to wake it.", note: "Optional. Body Pod, Xiaomi, Renpho, Etekcity and standard Bluetooth scales." },
+  { key: "scale", label: "Smart scale", service: 0xfff0, wake: "Step on the scale, or tap it with your foot, to wake it.", note: "Optional, and you can pair it later in Settings. Body Pod, Xiaomi, Renpho, Etekcity and standard Bluetooth scales." },
 ];
 
 function fits(slot: (typeof SLOTS)[number], d: Seen) {

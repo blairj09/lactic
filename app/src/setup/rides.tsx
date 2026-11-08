@@ -95,7 +95,12 @@ export function RidesSetup({ sleep = true }: { sleep?: boolean }) {
         </div>
         <FitImport />
       </div>
-      {sleep && <HealthSetup />}
+      {sleep && (
+        <>
+          <HealthSetup />
+          <p className="text-sm text-muted">No time now? Skip it and connect your sleep later in Settings → Sleep and recovery.</p>
+        </>
+      )}
       <p className="text-sm text-muted">No history? Lactic starts from your FTP and learns as you ride.</p>
     </div>
   );
