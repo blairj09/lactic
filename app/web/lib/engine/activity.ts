@@ -129,6 +129,8 @@ export interface FtpChange {
   /** YYYY-MM-DD the value applies from. */
   effectiveDate: string;
   watts: number;
+  /** Where it came from: rampTest, manual, criticalPower or twentyMinute (an estimate from rides), synced. */
+  method?: string;
 }
 
 /** The FTP in effect on `date` (YYYY-MM-DD): the latest change on or before it, else the earliest known. */

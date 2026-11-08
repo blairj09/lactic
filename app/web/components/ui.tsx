@@ -74,11 +74,14 @@ export function Stat({
   lead,
   className,
   href,
+  source,
 }: {
   label: React.ReactNode;
   value: React.ReactNode;
   unit?: string;
   sub?: React.ReactNode;
+  /** Where the number came from (components/provenance.tsx), on its own line under it. */
+  source?: React.ReactNode;
   /** The screen's answer figure: larger than its siblings. */
   lead?: boolean;
   className?: string;
@@ -96,6 +99,7 @@ export function Stat({
         {unit && <span className="ml-1 text-sm font-normal tracking-normal text-muted">{unit}</span>}
       </div>
       {sub && <div className="text-sm text-muted">{sub}</div>}
+      {source && <div>{source}</div>}
     </>
   );
   const base = cx("min-w-0 space-y-1 bg-surface p-4 sm:p-5", className);

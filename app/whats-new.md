@@ -8,6 +8,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 - A starter workout library: 50 workouts for recovery, endurance, tempo, sweet spot, threshold, VO2 max, anaerobic and sprints, plus a ramp test and a 20-minute FTP test. Find it under Ride → Pick a workout → My workouts, or put one on any plan day.
 - Heart the workouts you like, in the library or after a ride, and find them under Favorites. When a favorite fits a key day, the plan picks it.
+- Numbers now say where they came from: measured (a test or your scale), estimated by Lactic from your rides, or synced from Apple Health or intervals.icu, with the date. Look under FTP in Settings and the tiles on Health and Progress.
+- When your rides say your FTP has gone up, Today offers to use the new number, with Undo if you change your mind. And when your last FTP test is over eight weeks old, one click puts a ramp test on the next good day.
 - Each ride now gets an execution score out of 100. Rides on Lactic are checked block by block, so you can see which interval you cut short or faded in. Rides from elsewhere are scored on time and stress against the plan.
 - Using Claude or another AI app as your coach? Click the coach button in the top bar (or press ⌘K) to see that you chat with it there, whether it's connected and what to ask. The built-in coach can now let AI apps connect too, in Settings → Coach.
 - Missed a key workout? Lactic moves it to the next open day that week, shortened if that day is shorter, and never right next to another hard day or just before a race. The Plan shows where it went.

@@ -98,6 +98,7 @@ export function athlete(o: AthleteOptions = {}): CoachData {
   const recovery: RecoveryToday | null = rec
     ? {
         today: { hrv: rec.hrv, restingHeartRate: rec.restingHr, sleepHours: rec.sleepHours, hrvKind: "sdnn" },
+        source: "apple_health",
         score: rec.score === null ? null : { score: rec.score, reasons: rec.reasons ?? [] },
         baselineDays: rec.baselineDays ?? 30,
         sleep: null,
@@ -119,6 +120,7 @@ export function athlete(o: AthleteOptions = {}): CoachData {
     bodyFatPercent: 14.2,
     bmi: null,
     fatFreeMassKg: null,
+    source: "body_pod",
   }));
 
   const checkin: CheckinRecord | null = o.checkin
