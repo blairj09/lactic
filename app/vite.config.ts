@@ -57,6 +57,6 @@ export default defineConfig(({ command }) => ({
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
   },
   test: {
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "web/**/*.test.ts", "evals/**/*.test.ts"],
+    include: ["scripts/**/*.test.ts", "src/**/*.test.ts", "src/**/*.test.tsx", "web/**/*.test.ts", "evals/**/*.test.ts"],
   },
 }));

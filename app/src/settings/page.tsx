@@ -20,9 +20,10 @@ import { createClient } from "~/db/supabase-client";
 import { CoachSetupPanel } from "~/setup/coach";
 import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
-import { AboutPanel, SimulatorSwitch } from "./panels";
+import { DataPanel, SimulatorSwitch } from "./panels";
 import { TakeTour } from "~/tour/take-tour";
 import { FeedbackSetting } from "~/feedback/dialog";
+import { AboutSetting } from "~/updates/check-button";
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
@@ -30,6 +31,7 @@ const SECTIONS = [
   { id: "connections", label: "Connections" },
   { id: "gear", label: "Gear" },
   { id: "data", label: "Your data" },
+  { id: "about", label: "About" },
 ];
 
 export default async function SettingsPage() {
@@ -140,7 +142,12 @@ export default async function SettingsPage() {
         </div>
         <div id="data" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
           <Section title="Your data" description="Everything is in one file on this computer. Back it up or take it anywhere.">
-            <AboutPanel />
+            <DataPanel />
+          </Section>
+        </div>
+        <div id="about" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
+          <Section title="About Lactic" description="Your version, and whether there's a newer one.">
+            <AboutSetting />
           </Section>
         </div>
       </Page>

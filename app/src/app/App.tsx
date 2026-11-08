@@ -16,6 +16,7 @@ import { startMcpBridge } from "~/mcp/bridge";
 import { ExternalSuggestions } from "~/mcp/suggestions";
 import { Tour } from "~/tour/tour";
 import { installSupportTools } from "~/support/tools";
+import { UpdatePrompt } from "~/updates/prompt";
 
 // The coach's tools for checking and fixing the app itself (gear, intervals.icu, its own setup).
 installSupportTools();
@@ -93,6 +94,7 @@ function Shell() {
       </Routes>
       <NewDayRefresh />
       <BluetoothPicker />
+      <UpdatePrompt />
       {onboarded && <Tour />}
       {onboarded && mode === "external" && <ExternalSuggestions />}
       {mode === "builtin" && (
