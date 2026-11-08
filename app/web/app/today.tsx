@@ -241,6 +241,11 @@ function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: Tr
     body = planned ? (
       <div className="space-y-3">
         <SessionLine session={planned} />
+        {todayPlan?.movedFrom && (
+          <p className="text-sm text-muted">
+            Moved from {weekdayName(todayPlan.movedFrom.date)}, which you missed{todayPlan.movedFrom.shortened ? ", and shortened to fit today" : ""}.
+          </p>
+        )}
         {todayPlan?.why && <p className="text-sm text-muted">Coach: {todayPlan.why}</p>}
         <WorkoutProfile workout={planned.workout} height={88} details ftp={athlete.ftp} />
         <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />
@@ -358,3 +363,5 @@ function LastRide({ ride, timeZone }: { ride: StoredRide | undefined; timeZone: 
     />
   );
 }
+
+const weekdayName = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });

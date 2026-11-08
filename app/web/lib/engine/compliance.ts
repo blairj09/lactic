@@ -24,6 +24,8 @@ export interface ComplianceDay {
   /** The session in force that day; null on a rest day. */
   planned: { duration: number; stress: number } | null;
   rides: ComplianceRide[];
+  /** A missed key session moved off this day (adapt.ts): the day it went to. */
+  movedTo?: string;
 }
 
 export interface DayResult {
@@ -39,7 +41,8 @@ export interface DayResult {
  * Marks days before `today` (and today, once ridden): a planned day ridden to at least
  * DONE_SHARE is done, ridden less is partly done, and one with no ride is missed unless a ride on the
  * rest day just before or after it made it up (moved). Rides on rest days that made nothing up are
- * unplanned. Rest days without a ride get no mark.
+ * unplanned. Rest days without a ride get no mark. A day whose missed session the plan moved later in the week
+ * (movedTo) is marked moved.
  */
 export function markDays(days: ComplianceDay[], today: string): Map<string, DayResult> {
   const byDate = new Map(days.map((d) => [d.date, d]));
@@ -51,6 +54,9 @@ export function markDays(days: ComplianceDay[], today: string): Map<string, DayR
   });
   const sorted = [...days].filter((d) => d.date <= today).sort((a, b) => a.date.localeCompare(b.date));
 
+  for (const day of sorted) {
+    if (day.movedTo && !day.rides.length) out.set(day.date, { mark: "moved", share: null, movedTo: day.movedTo });
+  }
   for (const day of sorted) {
     if (!day.planned || day.planned.stress <= 0 || !day.rides.length) continue;
     const share = completion(day.planned, total(day.rides));

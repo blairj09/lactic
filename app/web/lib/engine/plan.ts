@@ -228,6 +228,10 @@ export interface PlanDay {
   break?: Break;
   /** The coach's reason for this day's workout, when it picked it (picks.ts). */
   why?: string;
+  /** A key session missed earlier in the week and moved here (adapt.ts): the day it was planned for, and whether it was shortened to fit. */
+  movedFrom?: { date: string; shortened: boolean };
+  /** A missed key session that moved to a later day this week: that day, and the session as it was planned here. */
+  movedTo?: { date: string; session: Session };
 }
 
 export interface PlanWeek {
@@ -480,6 +484,13 @@ function weekAvailability(start: string, availability: Availability, breaks: Bre
   return result;
 }
 
+/** Minutes you have on a day once breaks are applied, and whether it's an outdoor-only day (no intervals). */
+export function dayMinutes(date: string, availability: Availability, breaks: Break[] = []): { minutes: number; easyOnly: boolean } {
+  const week = weekAvailability(weekStart(date), availability, breaks);
+  const i = daysBetween(weekStart(date), date);
+  return { minutes: week.availability[i], easyOnly: week.easyOnly[i] };
+}
+
 /**
  * True when this is the first week back after at least REENTRY_DAYS off the bike: the week of the
  * first day back when that's Monday to Thursday, else the week after.
@@ -665,8 +676,10 @@ const weekIndex = (monday: string) => Math.floor(daysBetween("1970-01-05", monda
 export function describeDay(day: PlanDay): string {
   if (day.role === "event" && day.goal) return `${day.goal.name} (${day.goal.priority} event)`;
   const away = day.break ? ` (${BREAK_KIND_LABELS[day.break.kind].toLowerCase()} break${day.break.note ? `: ${day.break.note}` : ""})` : "";
+  if (day.movedTo) return `Rest: the ${ZONE_LABELS[day.movedTo.session.zone].toLowerCase()} session planned here was missed and moved to ${day.movedTo.date}`;
   if (!day.session) return `Rest${away}`;
   const s = day.session;
   const level = s.zone === "recovery" || s.zone === "endurance" ? "" : ` · ${ZONE_LABELS[s.zone]} level ${s.level}`;
-  return `${s.workout.name} · ${Math.round(s.duration / 60)} min · ${Math.round(s.stress)} TSS${level}${away}`;
+  const moved = day.movedFrom ? ` (moved from ${day.movedFrom.date}, which was missed${day.movedFrom.shortened ? "; shortened to fit" : ""})` : "";
+  return `${s.workout.name} · ${Math.round(s.duration / 60)} min · ${Math.round(s.stress)} TSS${level}${away}${moved}`;
 }
