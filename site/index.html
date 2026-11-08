@@ -29,7 +29,7 @@
       <a class="nav-link" href="#coach">AI coach</a>
       <a class="nav-link" href="#gear">Gear</a>
       <a class="nav-link" href="https://github.com/blairj09/lactic">GitHub</a>
-      <a class="nav-cta" href="/download/">Download</a>
+      <a class="nav-cta" href="https://github.com/blairj09/lactic/releases/latest" data-download>Download</a>
     </nav>
   </div>
 </header>
@@ -45,7 +45,7 @@
         <div class="hero-side">
           <p class="lede">A plan that fits your week. Workouts on your head unit or smart trainer. Metric-based recovery. And a coach, if you want one.</p>
           <div class="buttons">
-            <a class="btn btn-primary" href="/download/"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Download free</a>
+            <a class="btn btn-primary" href="https://github.com/blairj09/lactic/releases/latest" data-download><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg><span data-download-label>Download free</span></a>
           </div>
         </div>
       </div>
@@ -201,7 +201,7 @@
       <h2>Free. Forever.</h2>
       <p>For Mac, Windows and Linux. Download it, fork it, make it better. Built by riders, in the open.</p>
       <div class="buttons">
-        <a class="btn btn-white" href="/download/">Download Lactic</a>
+        <a class="btn btn-white" href="https://github.com/blairj09/lactic/releases/latest" data-download>Download Lactic</a>
         <a class="btn btn-outline btn-icon" href="https://github.com/blairj09/lactic" aria-label="Lactic on GitHub" title="Lactic on GitHub"><svg viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
       </div>
     </div>
@@ -215,6 +215,52 @@
   </div>
 </footer>
 
+<dialog class="dl-dialog" id="download-dialog" aria-labelledby="dl-title">
+  <form method="dialog"><button class="dl-close" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>
+  <p class="eyebrow">Download</p>
+  <h2 id="dl-title">Download Lactic</h2>
+  <p class="dl-meta" id="dl-meta"></p>
+  <div class="dl-steps-wrap" data-os="mac" hidden>
+    <ol class="dl-steps">
+      <li>Open the .dmg and drag Lactic to Applications.</li>
+      <li>Lactic isn&apos;t signed by Apple yet, so run this once in Terminal: <code>xattr -cr /Applications/Lactic.app</code></li>
+      <li>Open Lactic.</li>
+    </ol>
+  </div>
+  <div class="dl-steps-wrap" data-os="windows" hidden>
+    <ol class="dl-steps">
+      <li>Run the installer.</li>
+      <li>Windows warns about an unknown publisher. Choose More info, then Run anyway.</li>
+      <li>Open Lactic from the Start menu.</li>
+    </ol>
+  </div>
+  <div class="dl-steps-wrap" data-os="appimage" hidden>
+    <ol class="dl-steps">
+      <li>Make it runnable: <code>chmod +x Lactic_*.AppImage</code></li>
+      <li>Run it.</li>
+    </ol>
+  </div>
+  <div class="dl-steps-wrap" data-os="deb" hidden>
+    <ol class="dl-steps">
+      <li>Install it: <code>sudo apt install ./Lactic_*_amd64.deb</code></li>
+      <li>Open Lactic from your apps.</li>
+    </ol>
+  </div>
+  <p class="dl-phone" data-os="phone" hidden>Open lactic.fit on your Mac or PC to download it, or pick a system here.</p>
+  <p class="dl-again" id="dl-again" hidden>Didn&apos;t start? <a id="dl-again-link" href="/api/release?get=mac">Download again</a></p>
+  <div class="dl-other">
+    <p class="dl-other-title" id="dl-other-title">Other systems</p>
+    <div class="dl-choices">
+      <a href="/api/release?get=mac" data-get="mac">Mac <span>Apple silicon</span></a>
+      <a href="/api/release?get=windows" data-get="windows">Windows <span>64-bit</span></a>
+      <a href="/api/release?get=appimage" data-get="appimage">Linux <span>AppImage</span></a>
+      <a href="/api/release?get=deb" data-get="deb">Linux <span>.deb</span></a>
+    </div>
+  </div>
+  <p class="dl-links"><a id="dl-notes" href="https://github.com/blairj09/lactic/releases/latest">What&apos;s new</a> · <a href="https://github.com/blairj09/lactic/releases">All releases</a></p>
+</dialog>
+
+<script src="/download.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
