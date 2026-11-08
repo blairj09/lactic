@@ -128,3 +128,153 @@ pub fn db_backup(db: State<Db>, to: String) -> Result<(), String> {
     let backup = rusqlite::backup::Backup::new(&conn, &mut dest).map_err(|e| e.to_string())?;
     backup.run_to_completion(256, std::time::Duration::from_millis(0), None).map_err(|e| e.to_string())
 }
+
+/// Where restoring keeps the data it replaced, next to the database.
+pub fn previous_path(live: &std::path::Path) -> PathBuf {
+    live.with_file_name("lactic-before-restore.db")
+}
+
+const NOT_A_BACKUP: &str = "That file isn't a Lactic backup. Pick the .db file you saved with Back up… on your other computer.";
+
+/// Replaces everything in `conn` (the database at `live`) with the backup at `from`. What was
+/// there first is kept at `previous_path(live)`. The backup is checked before anything changes.
+pub fn restore_into(conn: &mut Connection, live: &std::path::Path, from: &std::path::Path) -> Result<(), String> {
+    let same = match (std::fs::canonicalize(from), std::fs::canonicalize(live)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    };
+    if same {
+        return Err("That's the database Lactic is using now. Pick a backup you saved.".into());
+    }
+    // Work from a copy in the data folder, so a backup on a read-only drive or a cloud folder
+    // opens the same way and nothing is written next to the rider's file.
+    let staged = live.with_file_name("lactic-restoring.db");
+    let _ = std::fs::remove_file(&staged);
+    std::fs::copy(from, &staged).map_err(|e| format!("Couldn't read the backup: {e}"))?;
+    let result = (|| {
+        let src = Connection::open(&staged).map_err(|_| NOT_A_BACKUP.to_string())?;
+        let check: String = src.query_row("PRAGMA quick_check", [], |r| r.get(0)).map_err(|_| NOT_A_BACKUP.to_string())?;
+        if check != "ok" {
+            return Err("That backup is damaged, so nothing was changed. Try another copy.".into());
+        }
+        let tables: i64 = src
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name IN ('app_settings', 'activities', 'athlete_settings')",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(|_| NOT_A_BACKUP.to_string())?;
+        if tables < 3 {
+            return Err(NOT_A_BACKUP.into());
+        }
+
+        // Keep what's here now, in case the wrong file was picked.
+        let previous = previous_path(live);
+        let _ = std::fs::remove_file(&previous);
+        {
+            let mut dest = Connection::open(&previous).map_err(|e| e.to_string())?;
+            let copy = rusqlite::backup::Backup::new(conn, &mut dest).map_err(|e| e.to_string())?;
+            copy.run_to_completion(256, std::time::Duration::from_millis(0), None).map_err(|e| e.to_string())?;
+        }
+
+        // Out of WAL for the copy, so a backup with another page size still restores.
+        conn.execute_batch("PRAGMA journal_mode=DELETE;").map_err(|e| e.to_string())?;
+        let copied = (|| {
+            let copy = rusqlite::backup::Backup::new(&src, conn).map_err(|e| e.to_string())?;
+            copy.run_to_completion(256, std::time::Duration::from_millis(0), None).map_err(|e| e.to_string())
+        })();
+        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;").map_err(|e| e.to_string())?;
+        copied
+    })();
+    let _ = std::fs::remove_file(&staged);
+    for ext in ["-wal", "-shm", "-journal"] {
+        let mut p = staged.clone().into_os_string();
+        p.push(ext);
+        let _ = std::fs::remove_file(PathBuf::from(p));
+    }
+    result
+}
+
+/// Settings → Your data → Restore: swaps in a backup from another computer (or an earlier day).
+#[tauri::command]
+pub fn db_restore(db: State<Db>, from: String) -> Result<(), String> {
+    let mut conn = db.conn.lock().map_err(|e| e.to_string())?;
+    restore_into(&mut conn, &db.path, std::path::Path::new(&from))
+}
+
+/// Removes the copy restoring kept (delete-all-data leaves nothing behind).
+#[tauri::command]
+pub fn db_forget_previous(db: State<Db>) -> Result<(), String> {
+    match std::fs::remove_file(previous_path(&db.path)) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dir(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("lactic-test-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    fn lactic_db(path: &std::path::Path, ride: &str, page_size: Option<u32>) -> Connection {
+        let conn = Connection::open(path).unwrap();
+        if let Some(size) = page_size {
+            conn.execute_batch(&format!("PRAGMA page_size={size};")).unwrap();
+        }
+        conn.execute_batch(
+            "PRAGMA journal_mode=WAL;
+             CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT);
+             CREATE TABLE athlete_settings (id TEXT PRIMARY KEY);
+             CREATE TABLE activities (id TEXT PRIMARY KEY, name TEXT);",
+        )
+        .unwrap();
+        conn.execute("INSERT INTO activities (id, name) VALUES ('1', ?)", [ride]).unwrap();
+        conn
+    }
+
+    fn ride(conn: &Connection) -> String {
+        conn.query_row("SELECT name FROM activities", [], |r| r.get(0)).unwrap()
+    }
+
+    #[test]
+    fn restores_a_backup_and_keeps_what_was_there() {
+        let d = dir("restore");
+        let live_path = d.join("lactic.db");
+        let mut live = lactic_db(&live_path, "Here", None);
+        let backup_path = d.join("backup.db");
+        lactic_db(&backup_path, "From the old Mac", Some(8192));
+
+        restore_into(&mut live, &live_path, &backup_path).unwrap();
+        assert_eq!(ride(&live), "From the old Mac");
+        let mode: String = live.query_row("PRAGMA journal_mode", [], |r| r.get(0)).unwrap();
+        assert_eq!(mode, "wal");
+        let previous = Connection::open(previous_path(&live_path)).unwrap();
+        assert_eq!(ride(&previous), "Here");
+        assert!(!d.join("lactic-restoring.db").exists());
+    }
+
+    #[test]
+    fn refuses_files_that_arent_lactic_backups() {
+        let d = dir("refuse");
+        let live_path = d.join("lactic.db");
+        let mut live = lactic_db(&live_path, "Here", None);
+
+        let text = d.join("notes.db");
+        std::fs::write(&text, "not a database at all, just some words in a file").unwrap();
+        assert!(restore_into(&mut live, &live_path, &text).is_err());
+
+        let other = d.join("other.db");
+        Connection::open(&other).unwrap().execute_batch("CREATE TABLE things (x);").unwrap();
+        assert!(restore_into(&mut live, &live_path, &other).is_err());
+
+        assert!(restore_into(&mut live, &live_path, &live_path).is_err());
+        assert_eq!(ride(&live), "Here");
+    }
+}
