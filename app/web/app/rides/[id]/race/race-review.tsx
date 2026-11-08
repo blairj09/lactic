@@ -197,8 +197,20 @@ export default function RaceReview({
         </Panel>
       </div>
 
-      <Panel title="The gap, all race" meta={`Hover to see where. Up is behind ${who}.`}>
-        <GapChart comparison={c} sections={report.sections} lapMeters={report.lapMeters} lapCount={report.lapCount} onHover={setHovered} />
+      <Panel title="The gap, all race" meta={`Hover to see where. Above the line you're behind ${who}, below it you're ahead.`}>
+        <GapChart
+          comparison={c}
+          others={vsSelf || c.separateStart ? [] : report.comparisons.filter((x) => x.id !== c.id && x.id !== "best-lap" && !x.separateStart)}
+          onPick={(id) => {
+            setCompareId(id);
+            setFocus(null);
+            setSelected(null);
+          }}
+          sections={report.sections}
+          lapMeters={report.lapMeters}
+          lapCount={report.lapCount}
+          onHover={setHovered}
+        />
       </Panel>
 
       <Debrief activityId={activityId} compareId={c.id} notes={notes} debrief={debrief} coachOn={coachOn} />

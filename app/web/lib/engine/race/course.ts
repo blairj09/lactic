@@ -327,7 +327,14 @@ export function lapsOf(p: Projected, course: Course, ends: Crossing[], laps: num
       continue;
     }
     const endIdx = ends[k]?.index ?? n - 1;
-    const from = Math.ceil(startIdx);
+    let from = Math.ceil(startIdx);
+    if (k === 0 && !startsAtGun) {
+      // A file started on the grid, just behind the line, would match the end of the lap and stick there:
+      // skip those points until the rider is past the line (within the first two minutes of points).
+      let i = from;
+      while (i < Math.min(from + 120, n - 1) && (matchLap(p, course, i, i, [0, L])[0] ?? 0) > L - 150) i++;
+      if (i < Math.min(from + 120, n - 1)) from = i;
+    }
     const to = Math.min(n - 1, Math.floor(endIdx));
     const startAt = k === 0 ? (startsAtGun ? 0 : null) : clock(timeAtIndex(p, startIdx));
     const endAt = ends[k] ? clock(timeAtIndex(p, ends[k].index)) : null;
@@ -351,8 +358,10 @@ export function lapsOf(p: Projected, course: Course, ends: Crossing[], laps: num
  * pinned to its official time, with even spacing between, and before the first or after the last at
  * the rider's typical seconds per point (or per second of their own clock).
  */
-export function clockFromLaps(ends: Crossing[], officialLaps: number[]): (t: number) => number {
+export function clockFromLaps(ends: Crossing[], officialLaps: number[], gunAt?: number): (t: number) => number {
   const pins: [number, number][] = [];
+  // A file started on the grid: its first movement is the gun.
+  if (gunAt !== undefined && ends.length && gunAt < ends[0].at) pins.push([gunAt, 0]);
   let sum = 0;
   for (let k = 0; k < Math.min(ends.length, officialLaps.length); k++) {
     sum += officialLaps[k];
@@ -360,7 +369,7 @@ export function clockFromLaps(ends: Crossing[], officialLaps: number[]): (t: num
   }
   if (!pins.length) return (t) => t;
   const rates: number[] = [];
-  for (let k = 1; k < pins.length; k++) rates.push((pins[k][1] - pins[k - 1][1]) / (pins[k][0] - pins[k - 1][0]));
+  for (let k = pins[0][1] === 0 ? 2 : 1; k < pins.length; k++) rates.push((pins[k][1] - pins[k - 1][1]) / (pins[k][0] - pins[k - 1][0]));
   rates.sort((a, b) => a - b);
   const rate = rates.length ? rates[Math.floor(rates.length / 2)] : 1;
   return (t) => {

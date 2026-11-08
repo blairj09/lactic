@@ -88,6 +88,8 @@ export interface Comparison {
   name: string;
   timing: Timing;
   confidence: Confidence;
+  /** Started at a different time from you (another wave or category): the gap counts from their own start. */
+  separateStart: boolean;
   place: number | null;
   /** Their race time, seconds, from results or their file. */
   total: number | null;
@@ -181,12 +183,12 @@ function medianSpeeds(list: (SectionSpeeds | null)[]): SectionSpeeds | null {
 }
 
 /** Where a rival's laps are, with their clock: from their results row, their file's times, or one point a second. */
-function rivalLaps(p: Projected, course: Course, lapCount: number, ownGunAbs: number, row: ResultRow | null): { laps: Laps; timing: Timing; confidence: Confidence } {
+function rivalLaps(p: Projected, course: Course, lapCount: number, ownGunAbs: number, row: ResultRow | null): { laps: Laps; timing: Timing; confidence: Confidence; separate: boolean } {
   const { laps, timing, ends, onGrid, separate } = rivalClock(p, course, lapCount, ownGunAbs, row);
   const startsLate = !onGrid || Number.isNaN(laps.at[0][0]);
   const last = laps.at[laps.at.length - 1];
   const endsEarly = !last || Number.isNaN(last[last.length - 1]);
-  return { laps, timing, confidence: timingConfidence(p, timing, ends, row, startsLate, endsEarly, separate) };
+  return { laps, timing, confidence: timingConfidence(p, timing, ends, row, startsLate, endsEarly, separate), separate };
 }
 
 function rivalClock(p: Projected, course: Course, lapCount: number, ownGunAbs: number, row: ResultRow | null): { laps: Laps; timing: Timing; ends: Crossing[]; onGrid: boolean; separate: boolean } {
@@ -198,9 +200,9 @@ function rivalClock(p: Projected, course: Course, lapCount: number, ownGunAbs: n
   const startCrossing = all.find((c) => c.at >= startT && c.at <= startT + MIN_LAP_SECONDS);
   const onGrid = Boolean(startCrossing) || Math.hypot(p.x[start] - course.x[0], p.y[start] - course.y[0]) < 30;
   if (row && row.laps.length) {
-    const clock = clockFromLaps(ends, row.laps);
-    // A file that starts on the grid: lap 1 starts at its first sustained movement.
-    return { laps: lapsOf(p, course, ends, row.laps.length, clock, start, onGrid && p.timed), timing: "results", ends, onGrid: onGrid && p.timed, separate: false };
+    // A file that starts on the grid: lap 1 starts at its first sustained movement, which is the gun.
+    const clock = clockFromLaps(ends, row.laps, onGrid ? startT : undefined);
+    return { laps: lapsOf(p, course, ends, row.laps.length, clock, start, onGrid), timing: "results", ends, onGrid, separate: false };
   }
   if (p.timed) {
     // Same start (a mass start, clocks within two minutes): one clock for both. Otherwise, their own gun.
@@ -344,7 +346,7 @@ function compare(id: string, name: string, timing: Timing, confidence: Confidenc
   const total = row?.total ?? (rival.seconds.every((s) => s !== null) ? r1((rival.seconds as number[]).reduce((a, b) => a + b, 0)) : null);
   const finishGap = ownTotal !== null && total !== null ? r1(ownTotal - total) : laps.every((l) => l.delta !== null) ? r1(laps.reduce((a, l) => a + (l.delta as number), 0)) : (gap[gap.length - 1]?.gap ?? null);
 
-  return { id, name, timing, confidence, place: row?.place ?? null, total, finishGap, laps, sections: sectionRows, kinds, incidents, gap, route };
+  return { id, name, timing, confidence, separateStart: false, place: row?.place ?? null, total, finishGap, laps, sections: sectionRows, kinds, incidents, gap, route };
 }
 
 function thinLine(course: Course, every: number): [number, number][] {
@@ -406,10 +408,10 @@ export function raceReport(input: RaceInput): RaceReport {
   for (const r of input.rivals) {
     const p = project(r.track, course.proj);
     const row = results ? findRow(results, r.name) : null;
-    const { laps, timing, confidence } = rivalLaps(p, course, lapCount, gun, row);
+    const { laps, timing, confidence, separate } = rivalLaps(p, course, lapCount, gun, row);
     const route: [number, number][] = [];
     for (let i = 0; i < p.x.length; i += 3) route.push([r6(r.track.points[i].lat), r6(r.track.points[i].lng)]);
-    comparisons.push(compare(r.id, row?.name ?? r.name, timing, confidence, row, ownLapsAt, laps, ownRow, sections, L, route));
+    comparisons.push({ ...compare(r.id, row?.name ?? r.name, timing, confidence, row, ownLapsAt, laps, ownRow, sections, L, route), separateStart: separate });
   }
   const { laps: ghost, best: bestIdx } = bestLapGhost(ownLapsAt, L);
   const ghostCompare = compare(BEST_LAP_ID, "Your best lap", "recorded", { level: "high", notes: ["Your own file, with its own times."], secondsPerPoint: [], gaps: 0 }, null, ownLapsAt, ghost, null, sections, L, []);
