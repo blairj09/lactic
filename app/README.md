@@ -22,8 +22,11 @@ cd app
 npm ci
 npm run dev       # in a browser at http://localhost:1420 (SQLite in the browser, simulated sensors)
 npx tauri dev     # the desktop app (needs Rust: https://rustup.rs)
+npm run tauri:preview  # the desktop app as Lactic Preview, with its own data (Mac and Linux)
 npx tauri build   # a release build in src-tauri/target/release/bundle
 ```
+
+`npx tauri dev` uses the real app's data folder and keychain item; on a computer you also ride on, use `npm run tauri:preview` so a dev build never touches your rides.
 
 Checks: `npm run typecheck && npm run lint && npm test`, and `cargo check` in `src-tauri`.
 
@@ -31,11 +34,19 @@ Coach evals: `npm run eval:coach` scores how well a model coaches inside Lactic,
 
 ## Downloads
 
-Releases are on the [Releases page](https://github.com/blairj09/lactic/releases). To ship one, bump the version in `app/package.json`, `app/src-tauri/tauri.conf.json` and `app/src-tauri/Cargo.toml`, rename **Next** in `app/whats-new.md` to that version, and merge: when `main` has a version with no release yet, the **App** workflow builds the apps and publishes the release under its v tag (pushing a `v*` tag works too). Every push to `main` also builds them and attaches them to the run: **Lactic-macOS** (universal .dmg for Apple silicon and Intel), **Lactic-Windows** (installer .exe) and **Lactic-Linux** (AppImage and .deb). They're unsigned for now:
+Releases are on the [Releases page](https://github.com/blairj09/lactic/releases). To ship one, bump the version in `app/package.json`, `app/src-tauri/tauri.conf.json` and `app/src-tauri/Cargo.toml`, rename **Next** in `app/whats-new.md` to that version, and merge: when `main` has a version with no release yet, the **App** workflow builds the apps and publishes the release under its v tag (pushing a `v*` tag works too). A release run attaches the apps to the run as **Lactic-macOS** (universal .dmg for Apple silicon and Intel), **Lactic-Windows** (installer .exe) and **Lactic-Linux** (AppImage and .deb); every other run builds Lactic Preview (below). They're unsigned for now:
 
 - **macOS:** drag Lactic to Applications, then run `xattr -cr /Applications/Lactic.app` once.
 - **Windows:** SmartScreen warns about an unknown publisher; choose More info → Run anyway.
 - **Linux:** `chmod +x Lactic_*.AppImage` and run it, or `sudo apt install ./Lactic_*.deb`. Bluetooth needs BlueZ; keys are stored through the Secret Service (GNOME Keyring or KWallet).
+
+**Testing a change: Lactic Preview.** Pull requests and every push to `main` that isn't a release build **Lactic Preview** (`src-tauri/tauri.preview.conf.json`): the same app under its own name, bundle id (`fit.lactic.preview`), orange icon, data folder, keychain item, MCP port and Claude Desktop entry (`lactic-preview`), with Preview in place of Beta beside the name. It installs beside Lactic, so testing never touches real rides, and needs no version bump.
+
+- **Latest `main`:** each push to `main` replaces the rolling [`preview`](https://github.com/blairj09/lactic/releases/tag/preview) pre-release (version `<version>-preview.<run>`, notes from **Next** in `whats-new.md`). An installed Preview updates itself from it like the real app does from releases. It's a pre-release, never "latest", so the site and the release updater don't see it.
+- **A pull request before it's merged:** its run's artifacts are **Lactic-macOS-Preview**, **Lactic-Windows-Preview** and **Lactic-Linux-Preview**.
+- **On a Mac, one command** installs or refreshes `/Applications/Lactic Preview.app` and opens it: `app/scripts/try-preview.sh` for the latest `main`, `app/scripts/try-preview.sh 72` for pull request #72, or a branch name. Pull request builds need the GitHub CLI (`brew install gh && gh auth login`). Without a clone: `curl -fsSL https://raw.githubusercontent.com/blairj09/lactic/main/app/scripts/try-preview.sh | bash -s -- 72`.
+
+Preview builds come from this repository's workflows, so they're signed for updates (and, with the Apple secrets, signed and notarized) just like releases.
 
 **Updates.** Installed copies check `releases/latest/download/latest.json` on every start and every 6 hours (`src/updates/`, `tauri-plugin-updater`), show a card when there's a newer version listing what's new (the release's section of `app/whats-new.md`, carried in `latest.json`; not on the Ride screen), and on "Update and restart" download it, verify its signature against the public key in `tauri.conf.json`, install it and restart; after the restart an "Updated to X" card lists the changes once. Check for Updates… is in the Lactic menu on a Mac and in Settings → About everywhere. The release job signs each build with the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secrets and writes `latest.json` with `app/scripts/update-manifest.mjs`; without the key (forks), builds skip the update files. Losing the private key means installed copies can't update anymore, so keep a copy somewhere safe. On a Mac the updater replaces the app in place, and its download carries no quarantine flag, so the `xattr` step should only be needed for the first install.
 

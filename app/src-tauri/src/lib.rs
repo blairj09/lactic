@@ -10,8 +10,24 @@ pub mod net;
 pub mod secrets;
 pub mod window;
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tauri::Manager;
+
+/// The bundle identifier of the released app. Preview builds (tauri.preview.conf.json) are
+/// "fit.lactic.preview": their own app, data folder, keychain item and Claude Desktop entry, so
+/// testing a build never touches the rider's real Lactic.
+pub const RELEASE_IDENTIFIER: &str = "fit.lactic.app";
+static IDENTIFIER: OnceLock<String> = OnceLock::new();
+
+/// This build's bundle identifier (also the name of its data folder and keychain service).
+pub fn identifier() -> &'static str {
+    IDENTIFIER.get().map(String::as_str).unwrap_or(RELEASE_IDENTIFIER)
+}
+
+/// A Lactic Preview build (a testing build from a pull request or main), not a release.
+pub fn is_preview() -> bool {
+    identifier() != RELEASE_IDENTIFIER
+}
 
 #[tauri::command]
 fn app_info(app: tauri::AppHandle) -> serde_json::Value {
@@ -21,6 +37,7 @@ fn app_info(app: tauri::AppHandle) -> serde_json::Value {
         "arch": std::env::consts::ARCH,
         "osVersion": os_info::get().version().to_string(),
         "dataDir": app.path().app_data_dir().ok().map(|p| p.to_string_lossy().into_owned()),
+        "preview": is_preview(),
     })
 }
 
@@ -41,6 +58,14 @@ fn app_menu(app: &tauri::App) -> tauri::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let context = tauri::generate_context!();
+    let _ = IDENTIFIER.set(context.config().identifier.clone());
+    // `lactic --mcp` is the stdio bridge an AI app (Claude Desktop, ChatGPT...) launches to reach
+    // the coach tools of the running app. Anything else opens the app.
+    if std::env::args().any(|a| a == "--mcp") {
+        mcp::run_stdio_bridge();
+        return;
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(w) = app.get_webview_window("main") {
@@ -119,6 +144,6 @@ pub fn run() {
             mcp::mcp_setup,
             mcp::mcp_install_claude,
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running Lactic");
 }

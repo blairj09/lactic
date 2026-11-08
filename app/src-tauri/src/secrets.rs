@@ -16,7 +16,6 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::State;
 
-const SERVICE: &str = "fit.lactic.app";
 /// The keychain item (account) that holds every key.
 const BUNDLE: &str = "keys";
 /// Keys saved one item each by v0.1.4 and earlier, moved into the bundle on first read.
@@ -38,7 +37,8 @@ pub struct Secrets {
 }
 
 fn entry(account: &str) -> Option<keyring::Entry> {
-    keyring::Entry::new(SERVICE, account).ok()
+    // The service is the bundle identifier, so Lactic Preview keeps its own keys.
+    keyring::Entry::new(crate::identifier(), account).ok()
 }
 
 impl Secrets {

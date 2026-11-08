@@ -13,7 +13,8 @@
     "test": "vitest run",
     "lint": "eslint src evals",
     "eval:coach": "vite-node evals/cli.ts --",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:preview": "VITE_LACTIC_CHANNEL=preview tauri dev --config src-tauri/tauri.preview.conf.json"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
