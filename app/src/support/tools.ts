@@ -134,6 +134,7 @@ async function intervalsReport() {
     lastSync: last.last.intervals ?? null,
     historyImport: connection.backfillDone ? "done" : connection.backfillBeforeLocal ? `in progress, back to ${connection.backfillBeforeLocal.slice(0, 10)}` : "not started",
     sendRidesRecordedHere: connection.uploadRides,
+    ridesMissingFromStrava: connection.stravaMissing?.count ?? "not counted yet",
   };
 }
 
