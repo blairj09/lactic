@@ -25,7 +25,7 @@ import { ChosenSession, SessionLine } from "./checkin";
 import RideSurvey from "./ride-survey";
 import Morning, { type MorningProps } from "./morning";
 import RaceDayPlan from "./race-day";
-import { GOAL_KIND_LABELS, goalMinutes } from "@/lib/engine/plan";
+import { GOAL_KIND_LABELS, goalMinutes, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES } from "@/lib/engine/plan";
 import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
 import WeekReviewCard from "./week-review";
@@ -250,6 +250,11 @@ function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: Tr
         {todayPlan?.movedFrom && (
           <p className="text-sm text-muted">
             Moved from {weekdayName(todayPlan.movedFrom.date)}, which you missed{todayPlan.movedFrom.shortened ? ", and shortened to fit today" : ""}.
+          </p>
+        )}
+        {todayPlan?.rule && (
+          <p className="text-sm text-muted">
+            Eased: {SAFETY_RULE_LABELS[todayPlan.rule].toLowerCase()}. {SAFETY_RULE_NOTES[todayPlan.rule]}
           </p>
         )}
         {todayPlan?.why && <p className="text-sm text-muted">Coach: {todayPlan.why}</p>}
