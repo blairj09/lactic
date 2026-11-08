@@ -38,4 +38,29 @@ describe("FIT encoding", () => {
     expect(imported.summary.durationSeconds).toBe(seconds);
     expect(imported.summary.averagePower).toBe(200);
   });
+
+  it("writes a stored 5-second stream with its GPS track as an outdoor ride", () => {
+    const fit = decodeFit(
+      encodeRideFit({
+        startedAt,
+        stepSeconds: 5,
+        indoor: false,
+        watts: [200, 210, 220, 230],
+        heartRate: [130, 131, 132, 133],
+        cadence: [85, 86, 87, 88],
+        route: [
+          [45.5, -122.6, 0],
+          [45.501, -122.601, 10],
+        ],
+      }),
+    );
+    expect(fit.subSport).toBe(7);
+    expect(fit.totalTimerSeconds).toBe(20);
+    expect(fit.records).toHaveLength(4);
+    expect(fit.records[1].timestamp).toEqual(new Date(startedAt.getTime() + 5000));
+    expect(fit.records[0].lat).toBeCloseTo(45.5, 5);
+    expect(fit.records[0].lng).toBeCloseTo(-122.6, 5);
+    expect(fit.records[1].lat).toBeUndefined();
+    expect(fit.records[2].lat).toBeCloseTo(45.501, 5);
+  });
 });

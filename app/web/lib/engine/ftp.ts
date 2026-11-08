@@ -56,3 +56,15 @@ export function rampTestFtp(watts: number[]): { watts: number; bestMinute: numbe
   const ftp = Math.round(bestMinute * RAMP_TEST_FACTOR);
   return ftp > 50 && ftp < 700 ? { watts: ftp, bestMinute: Math.round(bestMinute) } : null;
 }
+
+/** 20-minute test FTP is this share of the best 20 minutes. */
+export const TWENTY_MINUTE_TEST_FACTOR = 0.95;
+
+/** FTP from a 20-minute test ride (1 Hz watts): 95% of its best 20 minutes, or null without 20 minutes ridden. */
+export function twentyMinuteTestFtp(watts: number[]): { watts: number; best: number } | null {
+  if (watts.length < 1200) return null;
+  const best = powerCurve(watts, [1200])[1200];
+  if (!best) return null;
+  const ftp = Math.round(best * TWENTY_MINUTE_TEST_FACTOR);
+  return ftp > 50 && ftp < 700 ? { watts: ftp, best: Math.round(best) } : null;
+}
