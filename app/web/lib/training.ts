@@ -7,9 +7,10 @@ import { DIFFICULTIES, type Difficulty } from "./engine/feedback";
 import { applyOutcomes, outcomeFromRides, seedLevels, type Outcome } from "./engine/levels";
 import { ZONE_LABELS, ZONES, type Levels, type Session } from "./engine/library";
 import { addDays, fitnessSeries, type FitnessDay } from "./engine/pmc";
-import { BREAK_KINDS, BREAK_RIDING, buildPlan, currentPlan, dayMinutes, GOAL_KINDS, goalMinutes, INTENSITIES, PLAN_GOALS, type Break, type Goal, type Plan, type PlanDay, type SavedPlan } from "./engine/plan";
+import { BREAK_KINDS, BREAK_RIDING, buildPlan, currentPlan, dayMinutes, weekStart, GOAL_KINDS, goalMinutes, INTENSITIES, PLAN_GOALS, type Break, type Goal, type Plan, type PlanDay, type SavedPlan } from "./engine/plan";
 import { applyOverrides, sameSession } from "./engine/overrides";
 import { applyMoves, refitMissed, type Move } from "./engine/adapt";
+import { inputsKey, keepWeek, weekDrift, type Drift, type KeptWeek } from "./engine/stability";
 import { LINK_WINDOW_DAYS, type ComplianceDay } from "./engine/compliance";
 import { applyPicks, type WorkoutPick } from "./engine/picks";
 import { weekReview, type SnapshotDay, type WeekReview } from "./engine/review";
@@ -97,6 +98,11 @@ export interface TrainingState {
   picks: WorkoutPick[];
   /** Days from today on ridden outside, so they go to the Karoo (outdoor.ts). */
   outdoor: OutdoorRide[];
+  /** How far the rebuilt week has moved from the one kept when the week began (stability.ts), and the rebuilt days, for a re-plan. */
+  weekDrift: Drift | null;
+  rebuiltWeek: PlanDay[] | null;
+  /** What the plan is built from, as kept with the week. */
+  planInputs: string;
   /** Missed key sessions moved to a later day of their week, stored and made this load. */
   moves: Move[];
   /** Days from today on whose session differs from the engine's plan. */
@@ -214,7 +220,7 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
   const tz = athlete.timezone;
   const today = localDate(new Date(), tz);
   const daytime = loadDaytime(supabase, athlete, today).catch((e) => (console.error(e), null));
-  const [[rides, goals, plans, breaks, feedbackRows], recovery, daytimeData, allDays, picks, outdoor] = await Promise.all([
+  const [[rides, goals, plans, breaks, feedbackRows], recovery, daytimeData, allDays, picks, outdoor, keptRow] = await Promise.all([
     early,
     // Riders who don't track recovery get none, even if some sleep data arrived (intervals.icu wellness), so neither
     // Today's options nor the coach go by a score they never see.
@@ -223,6 +229,7 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     loadPlanDays(supabase, addDays(today, -LEVEL_WINDOW_DAYS), addDays(today, AHEAD_DAYS)),
     loadPicks(supabase, today),
     loadOutdoor(supabase, today),
+    loadKeptWeek(supabase, weekStart(today)),
   ]);
   const feedback = feedbackFor(feedbackRows, rides, addDays(today, -LEVEL_WINDOW_DAYS), tz);
   const ahead = allDays.filter((d) => d.day >= today);
@@ -277,8 +284,19 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     levels,
     rampRate: athlete.rampRate,
   });
+  // This week's skeleton stays as it was when the week began; a rebuild that's moved past the drift limit is offered
+  // as a re-plan instead (stability.ts). Changing what the plan is built from re-plans the week at once.
+  const planInputs = inputsKey({ availability: athlete.availability, rampRate: athlete.rampRate, goals, breaks, plan: activePlan });
+  const rebuiltWeek = enginePlan.weeks[0]?.start === weekStart(today) ? enginePlan.weeks[0].days : null;
+  let kept: KeptWeek | null = keptRow && keptRow.inputs === planInputs ? keptRow : null;
+  if (!kept && rebuiltWeek) {
+    kept = { week: weekStart(today), days: rebuiltWeek, inputs: planInputs };
+    await saveKeptWeek(supabase, athlete.userId, kept);
+  }
+  const drift = kept && rebuiltWeek ? weekDrift(kept.days, rebuiltWeek, today) : null;
+  const stablePlan = keepWeek(enginePlan, kept, today, yesterday);
   // The coach's weekly picks choose the structure of key days; the engine keeps everything else.
-  const picked = applyPicks(enginePlan, picks, today, yesterday);
+  const picked = applyPicks(stablePlan, picks, today, yesterday);
   // Key sessions missed earlier this week move to a later day: moves made on earlier loads are stored with the day
   // they went to, so they stay put; new ones are made now and stored.
   const storedMoves: Move[] = allDays.filter((d) => d.movedFrom).map((d) => ({ from: d.movedFrom!, to: d.day, session: d.planned }));
@@ -326,6 +344,9 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     picks,
     outdoor,
     moves: [...storedMoves, ...refit.moves],
+    weekDrift: drift,
+    rebuiltWeek,
+    planInputs,
     changedDays,
     todayPlan,
     todayStored: storedDays.find((d) => d.day === today) ?? null,
@@ -334,6 +355,21 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     feedback,
     rideLinks,
   };
+}
+
+/** The week's skeleton as kept when it began. Null (and logged on error) when there's none yet. */
+async function loadKeptWeek(supabase: Supabase, monday: string): Promise<KeptWeek | null> {
+  const { data, error } = await supabase.from("plan_weeks").select("week, days, inputs").eq("week", monday).maybeSingle();
+  if (error) return (console.error(error), null);
+  return data && Array.isArray(data.days) ? { week: data.week, days: data.days, inputs: data.inputs ?? "" } : null;
+}
+
+/** Keeps a week's skeleton (the Re-plan button writes the rebuilt one through here too). A failure is logged: the week is just rebuilt again. */
+export async function saveKeptWeek(supabase: Supabase, userId: string, kept: KeptWeek) {
+  const { error } = await supabase
+    .from("plan_weeks")
+    .upsert({ user_id: userId, week: kept.week, days: kept.days, inputs: kept.inputs, updated_at: new Date().toISOString() }, { onConflict: "user_id,week" });
+  if (error) console.error("Couldn't keep this week's plan:", error);
 }
 
 /** Stores new moves on the days they went to, so they stay put. A failure is logged: the move is made again next load. */
