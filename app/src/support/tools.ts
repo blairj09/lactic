@@ -5,7 +5,7 @@
 // Never returned: API keys or tokens (only whether one is saved). Never done: deleting data,
 // raw Bluetooth writes, trainer control. While a ride is under way, only check_app runs.
 
-import { appTools, checkAppSetting, describeAppSetting, GEAR_LABELS, registerAppTools, type AppSetting, type AppTools, type GearKey } from "@/lib/coach/app-tools";
+import { appTools, checkAppSetting, COACH_MODE_LABELS, describeAppSetting, formatProfile, GEAR_LABELS, registerAppTools, type AppSetting, type AppTools, type GearKey } from "@/lib/coach/app-tools";
 import type { Proposal } from "@/lib/coach/changes";
 import type { ToolResult } from "@/lib/coach/tools";
 import { connectGatt, DEVICE_KEYS, forgetDevice, findRemembered, remembered, renameDevice, type DeviceKey } from "@/lib/ble/devices";
@@ -13,7 +13,10 @@ import { GATT } from "@/lib/ble/protocol";
 import { POWER_SOURCE_PREF, type SensorKind } from "@/lib/ble/sensor-hub";
 import { loadConnection, setUploadRides, testKey } from "@/lib/intervals/client";
 import { isRiding, liveRide } from "@/lib/live-ride";
-import { coachSetup } from "~/ai/settings";
+import { coachSetup, saveCoachSetup } from "~/ai/settings";
+import { knownPrice } from "~/ai/providers";
+import { loadPersona } from "@/lib/coach/store";
+import { DETAIL_LABELS, TONE_LABELS, toPersona } from "@/lib/coach/persona";
 import { testModel } from "~/ai/test";
 import { recentAdverts, scanning, simEnabled, ble } from "~/bluetooth/web-bluetooth";
 import { BODY_POD } from "@/lib/scale/bodypod";
@@ -24,6 +27,8 @@ import { appInfo } from "~/platform/native";
 import { secretStatus } from "~/platform/secrets";
 import { getSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
+import { loadAthlete, recomputeStress } from "@/lib/activities";
+import { setFtp } from "@/app/actions";
 import { parseTheme, readTheme, setTheme } from "@/lib/theme";
 import { GUIDE } from "./guide";
 import { APP_GUIDE } from "@/lib/coach/app-guide";
@@ -229,6 +234,36 @@ async function currentValue(s: AppSetting): Promise<string | null> {
       if (!c) throw new Error("intervals.icu isn't connected");
       return c.uploadRides ? "sending" : "not sending";
     }
+    case "profile": {
+      const a = await loadAthlete(createClient());
+      const now = {
+        ftp_watts: a.ftp,
+        threshold_hr: a.thresholdHr,
+        max_hr: a.maxHr,
+        weight_kg: a.weightKg,
+        height_cm: a.heightCm,
+        sleep_need_hours: a.sleepNeedHours,
+        birth_date: a.birthDate,
+        sex: a.sex,
+        timezone: a.timezone,
+      }[s.field];
+      return formatProfile(s.field, now);
+    }
+    case "coach_voice": {
+      const p = await loadPersona(createClient());
+      return `${p.name}, ${TONE_LABELS[p.tone]}, ${DETAIL_LABELS[p.detail]}${p.instructions ? ", with instructions" : ""}`;
+    }
+    case "coach_mode":
+      return COACH_MODE_LABELS[(await coachSetup()).mode];
+    case "coach_model": {
+      const setup = await coachSetup();
+      if (!setup.provider) throw new Error("No AI provider is set up yet. Choose one and add its key in Settings → Coach first.");
+      return setup.chat?.model ?? "none chosen";
+    }
+    case "ai_limit": {
+      const cap = (await coachSetup()).monthlyCapUsd;
+      return cap === null ? "no limit" : `$${cap}`;
+    }
     default: {
       const saved = remembered(s.device);
       if (!saved) throw new Error(`No ${GEAR_LABELS[s.device]} is paired`);
@@ -265,6 +300,44 @@ async function apply(setting: AppSetting): Promise<string> {
       break;
     case "rename_device":
       renameDevice(setting.device, setting.name);
+      break;
+    case "profile": {
+      // FTP goes through the same path as Settings (history from today, stress recomputed).
+      if (setting.field === "ftp_watts") {
+        const r = await setFtp(setting.value);
+        if (!r.ok) throw new Error(r.message);
+        break;
+      }
+      const supabase = createClient();
+      const athlete = await loadAthlete(supabase);
+      const { error } = await supabase.from("athlete_settings").upsert({ user_id: athlete.userId, [setting.field]: setting.value, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      if (error) throw error;
+      if (setting.field === "threshold_hr" || setting.field === "timezone") await recomputeStress(supabase);
+      break;
+    }
+    case "coach_voice": {
+      const supabase = createClient();
+      const next = toPersona({ ...(await loadPersona(supabase)), ...setting.voice });
+      const { error } = await supabase
+        .from("coach_persona")
+        .upsert({ name: next.name, tone: next.tone, detail: next.detail, instructions: next.instructions, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      if (error) throw error;
+      break;
+    }
+    case "coach_mode": {
+      const setup = await coachSetup();
+      if (setting.value === "builtin" && (!setup.provider || !setup.chat)) throw new Error("The built-in coach needs a provider and a model first: set them up in Settings → Coach.");
+      await saveCoachSetup({ ...setup, mode: setting.value });
+      break;
+    }
+    case "coach_model": {
+      const setup = await coachSetup();
+      if (!setup.provider) throw new Error("No AI provider is set up yet. Choose one and add its key in Settings → Coach first.");
+      await saveCoachSetup({ ...setup, chat: { model: setting.value, price: knownPrice(setup.provider.kind, setting.value) } });
+      break;
+    }
+    case "ai_limit":
+      await saveCoachSetup({ ...(await coachSetup()), monthlyCapUsd: setting.value });
       break;
   }
   const done = describeAppSetting(setting);

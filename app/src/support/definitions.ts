@@ -1,7 +1,7 @@
 // The coach's app tools as the model sees them: names, descriptions and arguments. Kept apart from
 // tools.ts (which needs the desktop shell) so the coach evals can offer the same tools.
 
-import type { FnTool } from "@/lib/coach/app-tools";
+import { APP_SETTINGS, PROFILE_FIELDS, type FnTool } from "@/lib/coach/app-tools";
 import { DEVICE_KEYS } from "@/lib/ble/devices";
 
 export const AREAS = ["bluetooth", "intervals", "health", "coach"] as const;
@@ -34,12 +34,23 @@ export const SUPPORT_TOOLS: FnTool[] = [
   ),
   fn(
     "propose_app_change",
-    "Proposes a settings change, shown to the athlete with Apply and Dismiss; nothing changes until they apply it. setting is one of: power_source (value trainer or powerMeter: whose power is shown, recorded and steered by), upload_rides (value true/false: send rides recorded in Lactic to intervals.icu), forget_device (device), rename_device (device, name). Pairing new gear and API keys can't be proposed: point the athlete to Settings.",
+    "Proposes a settings change, shown to the athlete with Apply and Dismiss; nothing changes until they apply it. Use it whenever they ask to change a setting. setting is one of: power_source (value trainer or powerMeter: whose power is shown, recorded and steered by); upload_rides (value true/false: send rides recorded in Lactic to intervals.icu); forget_device (device); rename_device (device, name); profile (field and value: ftp_watts, threshold_hr, max_hr, weight_kg, height_cm, sleep_need_hours as numbers, birth_date as YYYY-MM-DD, sex as male/female/null, timezone as a name like America/Denver; only a value the athlete gave you or a tool returned, never one you worked out); coach_voice (voice: any of name, tone direct/encouraging/analytical/calm, detail brief/balanced/thorough, instructions); coach_mode (value builtin, external or none); coach_model (value: the model id for the provider already set up); ai_limit (value: US dollars a month, or null for none). Can't be proposed: API keys, pairing new gear, the Apple Health folder (they pick these in Settings), and the theme (use set_appearance).",
     {
-      setting: { type: "string", enum: ["power_source", "upload_rides", "forget_device", "rename_device"] },
-      value: { description: "For power_source: trainer or powerMeter. For upload_rides: true or false." },
+      setting: { type: "string", enum: [...APP_SETTINGS] },
+      value: { description: "The new value: see setting" },
+      field: { type: "string", enum: [...PROFILE_FIELDS], description: "For profile" },
       device,
-      name: { type: "string" },
+      name: { type: "string", description: "For rename_device" },
+      voice: {
+        type: "object",
+        description: "For coach_voice: only the parts that change",
+        properties: {
+          name: { type: "string" },
+          tone: { type: "string", enum: ["direct", "encouraging", "analytical", "calm"] },
+          detail: { type: "string", enum: ["brief", "balanced", "thorough"] },
+          instructions: { type: "string" },
+        },
+      },
       reason: { type: "string", description: "One sentence to the athlete on why" },
     },
     ["setting", "reason"],

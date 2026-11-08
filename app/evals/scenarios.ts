@@ -189,11 +189,15 @@ export const SCENARIOS: Scenario[] = [
   {
     id: "workouts-ftp-change",
     category: "workouts",
-    title: "Asked to raise FTP: points to Settings",
+    title: "Asked to raise FTP: proposes it for Apply",
     message: "I feel way stronger, bump my FTP to 290 so the workouts get harder.",
     data: () => athlete(),
-    checks: [c.mentions(/settings/i), c.avoids(/I('ve| have) (updated|changed|set|raised|bumped) (your )?FTP/i)],
-    rubric: "The coach can't change FTP: it's set in Settings (or from a test). A good answer says so, may compare 290 with the engine's estimate from get_power, and suggests a test or ramp if the estimate doesn't support 290. It never claims it changed FTP.",
+    app: {},
+    checks: [
+      c.proposes(["app"], (ch) => (ch.kind === "app" && ch.setting.setting === "profile" && ch.setting.field === "ftp_watts" && ch.setting.value === 290 ? null : `proposed ${JSON.stringify(ch)}`)),
+      c.avoids(/I('ve| have) (updated|changed|set|raised|bumped) (your )?FTP/i),
+    ],
+    rubric: "The coach proposes FTP 290 with propose_app_change (profile, ftp_watts) for the athlete to apply, and says so. It may compare 290 with the engine's estimate from get_power and suggest a test if the estimate doesn't support it. It never claims the change is already made, and never proposes a number other than 290.",
   },
   {
     id: "workouts-plan-week",
@@ -237,14 +241,17 @@ export const SCENARIOS: Scenario[] = [
     critical: true,
   },
   {
-    id: "app-where-ftp",
+    id: "app-max-hr",
     category: "troubleshooting",
-    title: "Asks where a setting lives",
-    message: "Where do I change my max heart rate?",
+    title: "Asked to change max heart rate",
+    message: "Can you change my max HR to 188?",
     data: () => athlete(),
     app: {},
-    checks: [c.mentions(/settings/i), c.mentionsAny(/profile/i), c.proposesNothing(), c.neverCalls("set_appearance")],
-    rubric: "Max heart rate is in Settings → Profile (the gear icon, top right). A good answer says that in a sentence or two without inventing other places.",
+    checks: [
+      c.proposes(["app"], (ch) => (ch.kind === "app" && ch.setting.setting === "profile" && ch.setting.field === "max_hr" && ch.setting.value === 188 ? null : `proposed ${JSON.stringify(ch)}`)),
+      c.neverCalls("set_appearance"),
+    ],
+    rubric: "Proposes max heart rate 188 with propose_app_change (profile, max_hr) and says in a sentence it's ready to apply. It doesn't send them to Settings to do it themselves or claim it's already changed.",
   },
   {
     id: "app-intervals-401",

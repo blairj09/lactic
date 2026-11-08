@@ -18,6 +18,7 @@ const { migrate } = await import("~/db/migrate");
 const { localClient } = await import("~/db/supabase-client");
 const { applyChange } = await import("@/app/coach/actions");
 const { checkAppSetting, describeAppSetting } = await import("@/lib/coach/app-tools");
+const { coachSetup } = await import("~/ai/settings");
 const { setLiveRide } = await import("@/lib/live-ride");
 const { callTool, mcpTools } = await import("~/mcp/bridge");
 const { installSupportTools, runSupportTool } = await import("./tools");
@@ -75,6 +76,44 @@ describe("settings the coach can propose", () => {
     expect(await applyChange(localClient as never, row.proposal.change as never)).toBe("Done: Power source: power meter.");
     expect(store.get("ride.powerSource")).toBe("powerMeter");
     expect(recentEvents({ area: "coach" }).at(-1)?.message).toBe("Applied: Power source: power meter");
+  });
+
+  it("changes profile numbers through Apply, within Settings' limits", async () => {
+    expect(() => checkAppSetting({ setting: "profile", field: "max_hr", value: 300 })).toThrow(/between 100 and 240/);
+    expect(() => checkAppSetting({ setting: "profile", field: "birth_date", value: 1990 })).toThrow(/looks like 1990-05-31/);
+    expect(() => checkAppSetting({ setting: "profile", field: "resting_hr", value: 50 })).toThrow(/field is one of/);
+    expect(checkAppSetting({ setting: "profile", field: "weight_kg", value: "71.04" })).toEqual({ setting: "profile", field: "weight_kg", value: 71 });
+
+    const proposed = JSON.parse((await runSupportTool("propose_app_change", { setting: "profile", field: "max_hr", value: 188, reason: "From your race" })).content);
+    expect(proposed.proposed).toBe("Max heart rate: 188 bpm (now not set)");
+    const read = async () => (await localClient.from("athlete_settings").select("*").maybeSingle()).data as Record<string, unknown>;
+    expect((await read()).max_hr ?? null).toBeNull();
+    expect(await applyChange(localClient as never, { kind: "app", setting: { setting: "profile", field: "max_hr", value: 188 } })).toBe("Done: Max heart rate: 188 bpm.");
+    expect((await read()).max_hr).toBe(188);
+    expect((await read()).ftp_watts).toBe(250);
+
+    expect(() => checkAppSetting({ setting: "profile", field: "timezone", value: "Mars/Olympus" })).toThrow(/Unknown time zone/);
+    expect(() => checkAppSetting({ setting: "profile", field: "sex", value: "x" })).toThrow(/male, female/);
+    await applyChange(localClient as never, { kind: "app", setting: checkAppSetting({ setting: "profile", field: "timezone", value: "America/Denver" }) });
+    expect((await read()).timezone).toBe("America/Denver");
+  });
+
+  it("changes the coach's voice, mode and AI limit through Apply", async () => {
+    expect(() => checkAppSetting({ setting: "coach_voice", voice: { tone: "grumpy" } })).toThrow(/tone is one of/);
+    const voice = checkAppSetting({ setting: "coach_voice", voice: { tone: "calm", detail: "brief" } });
+    expect(describeAppSetting(voice)).toBe("How the coach talks: tone Calm, detail Brief");
+    await applyChange(localClient as never, { kind: "app", setting: voice });
+    const { data: persona } = await localClient.from("coach_persona").select("*").maybeSingle();
+    expect(persona).toMatchObject({ name: "Coach", tone: "calm", detail: "brief" });
+
+    await applyChange(localClient as never, { kind: "app", setting: checkAppSetting({ setting: "ai_limit", value: 25 }) });
+    expect((await coachSetup()).monthlyCapUsd).toBe(25);
+    await applyChange(localClient as never, { kind: "app", setting: checkAppSetting({ setting: "ai_limit", value: null }) });
+    expect((await coachSetup()).monthlyCapUsd).toBeNull();
+
+    await expect(applyChange(localClient as never, { kind: "app", setting: { setting: "coach_mode", value: "builtin" } })).rejects.toThrow(/provider and a model/);
+    expect((await runSupportTool("propose_app_change", { setting: "coach_model", value: "x/y", reason: "r" })).content).toMatch(/No AI provider/);
+    expect(() => checkAppSetting({ setting: "api_key", value: "sk-123" })).toThrow(/setting is one of/);
   });
 });
 
