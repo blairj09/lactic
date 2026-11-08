@@ -44,7 +44,7 @@ export default function FtpBanner({ ftp, check, windowDays }: { ftp: number; che
         <>
           <p>
             <span className="font-medium">Time for an FTP test?</span>{" "}
-            {stale.days === null ? "There's no test on record yet" : `Your last test was ${Math.round(stale.days / 7)} weeks ago`}, so your zones may be off. A ramp
+            {stale.guess ? "Your FTP is still the starting guess from setup" : stale.days === null ? "There's no test on record yet" : `Your last test was ${Math.round(stale.days / 7)} weeks ago`}, so your zones may be off. A ramp
             test takes about 25 minutes.
             {message && <span role="status" className="text-muted"> {message}</span>}
           </p>

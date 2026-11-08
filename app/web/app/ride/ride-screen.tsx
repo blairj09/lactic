@@ -68,8 +68,11 @@ export default function RideScreen({
   levels,
   saved = [],
   today,
+  ftpGuess = false,
 }: {
   initialFtp: number | null;
+  /** FTP is still setup's guess, so a ramp test sets it straight away (with Undo) instead of asking. */
+  ftpGuess?: boolean;
   canSave: boolean;
   /** The plan's session for the day, offered first. */
   planned?: Session | null;
@@ -768,7 +771,7 @@ export default function RideScreen({
                     </>
                   )}
                 </p>
-                {rampResult && <RampTestResult result={rampResult} current={initialFtp ?? ftp} onSet={setFtp} />}
+                {rampResult && <RampTestResult result={rampResult} current={initialFtp ?? ftp} guess={ftpGuess} onSet={setFtp} />}
                 {survey && <RideSurvey ride={{ appStartedAt: survey.appStartedAt }} name={survey.name} session={survey.session} />}
               </div>
             </Panel>
