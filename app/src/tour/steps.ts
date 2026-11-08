@@ -74,6 +74,13 @@ export const TOUR_STEPS: TourStep[] = [
     body: "Your profile and zones, the coach, connections, Bluetooth gear and backups.",
   },
   {
+    id: "feedback",
+    route: "/",
+    target: "feedback",
+    title: "Send feedback",
+    body: "Found a problem or have an idea? Write a note, press Include screenshot to circle what you mean, and Send. It reaches the developer as a public GitHub issue, without your name.",
+  },
+  {
     id: "ride",
     route: "/",
     target: "ride",
