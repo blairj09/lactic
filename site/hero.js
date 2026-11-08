@@ -1,13 +1,11 @@
 // The app window in the hero: the real app (/demo/) with sample data, shown as a short tour.
 //
 // - Each stop opens a screen of the demo, lights up the part it's about and explains it in a card,
-//   like the app's own first-run tour.
-// - On big screens the window stays in view while the page scrolls past it, and scrolling moves the
-//   tour along. The page scrolls at its normal speed; nothing is taken over. Elsewhere, Next and
-//   Back move it.
-// - The demo never takes the page's scroll: a see-through shield covers it until someone chooses to
-//   use it ("Try it yourself", or a click in the window). Done, moving the pointer out of the window
-//   or tapping outside it gives the page its scroll back and the tour picks up where it was.
+//   like the app's own first-run tour. Back, Next and the step strip move it along.
+// - Exit tour (or a click in the window) hands the demo over to explore; Take the tour brings it back.
+// - The demo never takes the page's scroll: while the tour shows, or once the pointer leaves the
+//   window (or someone taps outside it, or presses Done), a see-through shield covers it so the wheel
+//   and touch scroll the page. A click puts it back in use.
 (function () {
   var STEPS = [
     { title: "Today", hash: "#/", target: '[data-tour="today"]', body: "Where each day starts: recovery, weigh-in, how you feel, and the session that fits. After a ride it shows how you did against the plan." },
@@ -17,13 +15,12 @@
     { title: "Progress", hash: "#/progress", target: '[data-tour="progress"]', body: "Fitness, fatigue and form, your power curve and every ride. Every number comes from an open engine." },
     { title: "Coach", hash: "#/", coach: true, target: "aside:not([inert])", body: "Ask why today is hard, or to move Saturday's ride. It reads your numbers and suggests changes for you to apply. Or ride without one." },
   ];
-
-  var tour = document.getElementById("tour");
   var win = document.getElementById("app-window");
   var stage = document.getElementById("app-stage");
   var frame = document.getElementById("app-live");
   var shield = document.getElementById("app-shield");
   var release = document.getElementById("app-release");
+  var restart = document.getElementById("tour-restart");
   var stepsEl = document.getElementById("tour-steps");
   var loading = document.getElementById("app-loading");
   var spot = document.getElementById("tour-spot");
@@ -31,36 +28,22 @@
   var countEl = document.getElementById("tour-count");
   var titleEl = document.getElementById("tour-title");
   var bodyEl = document.getElementById("tour-body");
-  var hintEl = document.getElementById("tour-hint");
   var backBtn = document.getElementById("tour-back");
   var nextBtn = document.getElementById("tour-next");
-  var tryBtn = document.getElementById("tour-try");
+  var exitBtn = document.getElementById("tour-exit");
 
   var ready = false;
-  var active = false;
-  var current = -1;
-  var big = matchMedia("(min-width: 900px) and (min-height: 640px)");
-  var reduced = matchMedia("(prefers-reduced-motion: reduce)");
-  var scrolling = function () { return tour.classList.contains("is-tour"); };
+  var touring = true; // the tour is showing
+  var active = false; // someone is using the demo
+  var current = 0;
 
-  // Loader: covers the demo until its page is up; from there the app shows the same loader until it has drawn.
-  var done = function () {
-    loading.hidden = true;
-    if (ready) return;
-    ready = true;
-    if (current >= 0) show(current, true);
-  };
-  frame.addEventListener("load", done);
-  addEventListener("message", function (e) {
-    if (e.origin === location.origin && e.data && e.data.lactic === "ready") done();
-  });
-  try {
-    // It may have loaded before this script ran.
-    if (frame.contentDocument && frame.contentDocument.readyState === "complete" && frame.contentWindow.location.href !== "about:blank") done();
-  } catch (e) {}
+  function blurDemo() {
+    try { var el = frame.contentDocument.activeElement; if (el && el.blur) el.blur(); } catch (e) {}
+  }
 
-  // Using the demo: the tour steps aside.
+  // Exploring: the tour steps aside and the demo takes clicks, keys and its own scroll.
   function activate() {
+    if (touring) endTour();
     if (active) return;
     active = true;
     win.classList.add("is-active");
@@ -68,6 +51,7 @@
     frame.removeAttribute("tabindex");
     try { frame.contentWindow.focus(); } catch (e) {}
   }
+  // Back to the page: the shield covers the demo again, so the wheel scrolls the page.
   function deactivate() {
     if (!active) return;
     active = false;
@@ -75,16 +59,36 @@
     release.hidden = true;
     frame.setAttribute("tabindex", "-1");
     blurDemo();
-    if (current >= 0) show(current, true);
   }
-  function blurDemo() {
-    try { var el = frame.contentDocument.activeElement; if (el && el.blur) el.blur(); } catch (e) {}
+
+  function endTour() {
+    touring = false;
+    win.classList.remove("is-touring");
+    restart.hidden = false;
+    spot.classList.remove("on");
+    card.classList.remove("in");
+    if (current === STEPS.length - 1) closeCoach();
   }
+  function startTour() {
+    deactivate();
+    touring = true;
+    win.classList.add("is-touring");
+    restart.hidden = true;
+    show(0, true);
+    nextBtn.focus({ preventScroll: true });
+  }
+
   shield.addEventListener("click", activate);
-  tryBtn.addEventListener("click", activate);
-  release.addEventListener("click", function () { deactivate(); nextBtn.focus(); });
+  exitBtn.addEventListener("click", activate);
+  restart.addEventListener("click", startTour);
+  release.addEventListener("click", function () { deactivate(); restart.focus(); });
   win.addEventListener("pointerleave", function (e) { if (e.pointerType === "mouse") deactivate(); });
   document.addEventListener("pointerdown", function (e) { if (!win.contains(e.target)) deactivate(); });
+  card.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowRight") go(current + 1);
+    if (e.key === "ArrowLeft") go(current - 1);
+    if (e.key === "Escape") { endTour(); restart.focus(); }
+  });
 
   // The step strip in the title bar.
   STEPS.forEach(function (s, i) {
@@ -109,9 +113,12 @@
     bodyEl.textContent = STEPS[i].body;
     var last = i === STEPS.length - 1;
     backBtn.hidden = i === 0;
-    nextBtn.textContent = last ? "Try it yourself" : "Next";
-    tryBtn.hidden = last;
-    hintEl.hidden = !scrolling() || last;
+    nextBtn.textContent = last ? "Explore the demo" : "Next";
+    exitBtn.hidden = last;
+  }
+
+  function closeCoach() {
+    try { var w = frame.contentWindow; w.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape" })); } catch (e) {}
   }
 
   // Shows step i in the demo and the card.
@@ -120,27 +127,38 @@
     var was = current;
     current = i;
     mark(i);
-    if (!force) card.classList.remove("in");
+    card.classList.remove("in");
     place(null);
     if (!ready) return;
     try {
       var w = frame.contentWindow;
-      if (was >= 0 && was !== i && STEPS[was].coach) w.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape" }));
+      if (was !== i && STEPS[was].coach) closeCoach();
       var moved = w.location.hash !== STEPS[i].hash && !(STEPS[i].hash === "#/" && w.location.hash === "");
       if (moved) w.location.hash = STEPS[i].hash;
       w.scrollTo(0, 0);
       if (STEPS[i].coach) {
         // After a move, the screen redraws first; the drawer opens once it's there.
         setTimeout(function () {
-          if (current !== i) return;
+          if (current !== i || !touring) return;
           w.dispatchEvent(new w.CustomEvent("coach:open", { detail: {} }));
-          // The drawer puts the cursor in its message box; keep the page's keys on the page until someone clicks in.
-          setTimeout(function () { if (!active) blurDemo(); }, 150);
+          // The drawer puts the cursor in its message box; keep the keys on the tour card.
+          setTimeout(function () { if (!active) { blurDemo(); nextBtn.focus({ preventScroll: true }); } }, 150);
         }, moved ? 350 : 0);
       }
     } catch (e) {}
     follow(i);
   }
+
+  function go(i) {
+    if (i < 0 || i >= STEPS.length) return;
+    if (!touring) startTour();
+    show(i);
+  }
+  backBtn.addEventListener("click", function () { go(current - 1); });
+  nextBtn.addEventListener("click", function () {
+    if (current === STEPS.length - 1) activate();
+    else go(current + 1);
+  });
 
   // The part a step is about, in the stage's coordinates (null when it isn't on screen).
   function targetRect(i) {
@@ -167,7 +185,7 @@
     var tries = 0;
     var last = "";
     (function tick() {
-      if (run !== following || current !== i) return;
+      if (run !== following || current !== i || !touring) return;
       var r = targetRect(i);
       var key = r ? [r.top, r.left, r.width, r.height].map(Math.round).join() : "";
       if (key !== last) { last = key; place(r); }
@@ -180,7 +198,7 @@
   function place(r) {
     var sw = stage.clientWidth, sh = stage.clientHeight;
     var cw = card.offsetWidth, ch = card.offsetHeight;
-    if (!r || active) {
+    if (!r) {
       spot.classList.remove("on");
       card.style.top = Math.max(16, sh - ch - 20) + "px";
       card.style.left = Math.max(16, (sw - cw) / 2) + "px";
@@ -201,47 +219,23 @@
     card.style.left = left + "px";
   }
 
-  // The scroll walk, on screens big enough to hold the whole window.
-  var STICK = 16;
-  function stepLength() { return Math.max(260, innerHeight * 0.45); }
+  addEventListener("resize", function () { if (touring) place(targetRect(current)); });
+  win.classList.add("is-touring");
+  mark(0);
 
-  function onScroll() {
-    if (!scrolling()) return;
-    var into = STICK - tour.getBoundingClientRect().top;
-    show(Math.min(STEPS.length - 1, Math.max(0, Math.floor(into / stepLength()))));
-  }
-
-  function go(i) {
-    if (i < 0 || i >= STEPS.length) return;
-    deactivate();
-    if (scrolling()) {
-      var top = tour.getBoundingClientRect().top + scrollY - STICK + i * stepLength() + 2;
-      scrollTo({ top: top, behavior: reduced.matches ? "auto" : "smooth" });
-    } else {
-      show(i);
-    }
-  }
-  backBtn.addEventListener("click", function () { go(current - 1); });
-  nextBtn.addEventListener("click", function () {
-    if (current === STEPS.length - 1) activate();
-    else go(current + 1);
+  // Loader: covers the demo until its page is up; from there the app shows the same loader until it has drawn.
+  var done = function () {
+    loading.hidden = true;
+    if (ready) return;
+    ready = true;
+    if (touring) show(current, true);
+  };
+  frame.addEventListener("load", done);
+  addEventListener("message", function (e) {
+    if (e.origin === location.origin && e.data && e.data.lactic === "ready") done();
   });
-
-  function layout() {
-    tour.classList.toggle("is-tour", big.matches);
-    tour.style.setProperty("--tour-steps", String(STEPS.length - 1));
-    if (scrolling()) onScroll();
-    if (current < 0) show(0);
-    else show(current, true);
-  }
-
-  var queued = false;
-  addEventListener("scroll", function () {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(function () { queued = false; onScroll(); });
-  }, { passive: true });
-  if (big.addEventListener) big.addEventListener("change", layout);
-  addEventListener("resize", function () { onScroll(); if (current >= 0) place(targetRect(current)); });
-  layout();
+  try {
+    // It may have loaded before this script ran.
+    if (frame.contentDocument && frame.contentDocument.readyState === "complete" && frame.contentWindow.location.href !== "about:blank") done();
+  } catch (e) {}
 })();
