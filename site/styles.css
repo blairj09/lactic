@@ -58,6 +58,7 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover { background: var(--accent-hover); color: #fff; }
 .btn-secondary { background: var(--surface); color: var(--ink); border: 1px solid #d6dbe4; font-weight: 600; }
+.btn-icon { padding: 13px 15px; }
 .btn-secondary:hover { color: var(--ink); border-color: #b9c1ce; }
 
 /* Hero */
