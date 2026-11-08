@@ -18,7 +18,7 @@ recommended whatever its overall score.
 
 ## Scenarios
 
-37 scenarios in six groups (`npm run eval:coach -- --list`):
+39 scenarios in six groups (`npm run eval:coach -- --list`):
 
 | Group | What it covers |
 |---|---|
