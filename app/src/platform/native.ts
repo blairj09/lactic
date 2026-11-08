@@ -17,6 +17,8 @@ export interface AppInfo {
   version: string;
   os: string;
   arch: string;
+  /** e.g. "15.1.0" on macOS; missing from builds before 0.1.2. */
+  osVersion?: string;
   dataDir: string | null;
 }
 

@@ -19,6 +19,7 @@ fn app_info(app: tauri::AppHandle) -> serde_json::Value {
         "version": env!("CARGO_PKG_VERSION"),
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
+        "osVersion": os_info::get().version().to_string(),
         "dataDir": app.path().app_data_dir().ok().map(|p| p.to_string_lossy().into_owned()),
     })
 }

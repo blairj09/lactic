@@ -1,0 +1,11 @@
+{
+  "name": "lactic-site",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@vercel/blob": "^2.8.2"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
