@@ -27,6 +27,8 @@ import { AboutSetting } from "~/updates/check-button";
 import { FeatureSetting } from "~/setup/features";
 import { features } from "@/lib/features";
 import { ScrollToSection } from "./scroll-to-section";
+import { ftpSourceLine } from "@/lib/engine/provenance";
+import { localDate } from "@/lib/engine/activity";
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
@@ -63,6 +65,7 @@ export default async function SettingsPage() {
           ))}
         </nav>
         <SettingsForm
+          ftpSource={ftpSourceLine(athlete.ftpHistory, localDate(new Date(), athlete.timezone))}
           values={{
             ftp_watts: athlete.ftp,
             threshold_hr: athlete.thresholdHr,

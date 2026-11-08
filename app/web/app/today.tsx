@@ -18,6 +18,8 @@ import CompletedRide from "./completed-ride";
 import { todayOptions } from "@/lib/today-options";
 import UseEstimateButton from "./use-estimate-button";
 import FtpBanner from "./ftp-banner";
+import ProvenanceTag from "@/components/provenance";
+import { fromRides } from "@/lib/engine/provenance";
 import { checkFtp } from "@/lib/engine/ftp-check";
 import { ChosenSession, SessionLine } from "./checkin";
 import RideSurvey from "./ride-survey";
@@ -113,7 +115,7 @@ export default function TodayView({
           />
           {/* Once today's ride is in, the card beside this is the last ride. */}
           {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} />}
-          <FtpNudge ftp={athlete.ftp} estimate={estimate} windowDays={ftpWindowDays} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} />
+          <FtpNudge ftp={athlete.ftp} estimate={estimate} windowDays={ftpWindowDays} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} today={today} />
         </section>
       </div>
     </>
@@ -295,7 +297,7 @@ function nightValues(today: NonNullable<RecoveryToday["today"]>) {
 }
 
 /** FTP lives in Settings; Today only speaks up when there's none, or a recent estimate differs from it. */
-function FtpNudge({ ftp, estimate, windowDays, hasPowerRides }: { ftp: number | null; estimate: FtpEstimate | null; windowDays: number; hasPowerRides: boolean }) {
+function FtpNudge({ ftp, estimate, windowDays, hasPowerRides, today }: { ftp: number | null; estimate: FtpEstimate | null; windowDays: number; hasPowerRides: boolean; today: string }) {
   if (!ftp) {
     return (
       <Stat
@@ -321,6 +323,7 @@ function FtpNudge({ ftp, estimate, windowDays, hasPowerRides }: { ftp: number | 
       label="New FTP estimate"
       value={Math.round(estimate.watts)}
       unit="W"
+      source={<ProvenanceTag source={fromRides(today)} today={today} />}
       sub={
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span>
