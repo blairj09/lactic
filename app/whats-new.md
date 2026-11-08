@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Missed a key workout? Lactic moves it to the next open day that week, shortened if that day is shorter, and never right next to another hard day or just before a race. The Plan shows where it went.
 - When something in Lactic frustrates you or you ask for a feature it doesn't have, the coach offers a Send feedback button with your note already written up. Check it, change it, and send it if you like.
 - The tour now shows the Send feedback button and how to include a marked-up screenshot.
 - Only ride and plan? Setup now asks whether you want sleep and recovery, weight, both or neither, and Lactic hides what you skip. Not ready? Set them up later in Settings → What you track, or ask the coach.

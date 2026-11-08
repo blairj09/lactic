@@ -740,7 +740,12 @@ function checkinSummary(s: StoredPlanDay) {
 
 function describePlanDay(day: PlanDay | undefined) {
   if (!day) return null;
-  return day.role === "event" || !day.session ? describeDay(day) : { ...sessionInfo(day.session), role: day.role, whyThisWorkout: day.why };
+  return day.role === "event" || !day.session ? describeDay(day) : {
+        ...sessionInfo(day.session),
+        role: day.role,
+        whyThisWorkout: day.why,
+        movedFrom: day.movedFrom ? `${day.movedFrom.date} (missed there, moved here by the plan${day.movedFrom.shortened ? ", shortened to fit" : ""})` : undefined,
+      };
 }
 
 const describeSession = (session: Session | null) => (session ? sessionInfo(session) : "Rest");
