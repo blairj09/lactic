@@ -417,9 +417,18 @@ export async function pushIntervalsPlan(): Promise<ActionResult> {
 const DAY = /^\d{4}-\d\d-\d\d$/;
 
 /** Writes an outdoor-day change, then sends the calendar so the Karoo gets it on its next sync. */
-async function changeOutdoor(day: string, write: (supabase: Awaited<ReturnType<typeof createClient>>) => Promise<{ error: { message: string } | null }>, done: string): Promise<ActionResult> {
+async function changeOutdoor(
+  day: string,
+  write: (supabase: Awaited<ReturnType<typeof createClient>>) => Promise<{ error: { message: string } | null }>,
+  done: string,
+  toOutside = true,
+): Promise<ActionResult> {
   try {
     const supabase = await createClient();
+    // intervals.icu is the only way to the bike computer, so don't mark a day outside without it.
+    if (toOutside && !(await intervals.loadConnection(supabase))) {
+      return { ok: false, message: "Connect intervals.icu in Settings first. It's how the workout reaches your bike computer." };
+    }
     const state = await loadTrainingState(supabase);
     if (!DAY.test(day) || day < state.today || day > addDays(state.today, WORKOUT_DAYS - 1)) {
       throw new Error(`Pick a day in the next ${WORKOUT_DAYS} days.`);
@@ -428,10 +437,10 @@ async function changeOutdoor(day: string, write: (supabase: Awaited<ReturnType<t
     if (error) throw new Error(error.message);
     refresh();
     const connection = await intervals.loadConnection(supabase);
-    if (!connection) return { ok: true, message: `${done} Connect intervals.icu in Settings to get it onto the Karoo.` };
+    if (!connection) return { ok: true, message: done };
     const after = await loadTrainingState(supabase);
     await pushPlan(connection.apiKey, after.plan, after.goals, after.today, after.outdoor);
-    return { ok: true, message: `${done} It's on your intervals.icu calendar; the Karoo picks it up when it next syncs.` };
+    return { ok: true, message: `${done} It's on your intervals.icu calendar; your bike computer gets it on its next sync.` };
   } catch (e) {
     console.error("outdoor ride change failed:", e);
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
@@ -447,6 +456,7 @@ export async function setOutdoor(day: string, outside: boolean): Promise<ActionR
         ? await supabase.from("outdoor_rides").upsert({ day, workout: null }, { onConflict: "user_id,day" })
         : await supabase.from("outdoor_rides").delete().eq("day", day),
     outside ? "Riding outside." : "Back indoors.",
+    outside,
   );
 }
 
