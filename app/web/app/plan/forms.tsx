@@ -27,7 +27,7 @@ import {
 import { Field, Result, button, input } from "@/components/ui";
 import type { ActionResult } from "../actions";
 import PhaseStrip from "./phase-strip";
-import { deleteBreak, deleteGoal, endPlan, pickWorkouts, previewPlan, saveAvailability, saveBreak, saveGoal, savePlan } from "./actions";
+import { deleteBreak, deleteGoal, endPlan, pickWorkouts, replanWeek, previewPlan, saveAvailability, saveBreak, saveGoal, savePlan } from "./actions";
 import { AutoTextarea } from "@/components/auto-textarea";
 import Select from "@/components/select";
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -307,6 +307,33 @@ export function PickWorkoutsButton() {
         {pending ? "Coach is picking…" : "Re-pick workouts"}
       </button>
     </span>
+  );
+}
+
+/**
+ * Offered when the rebuilt week has moved more than the drift limit from the week as it began: say how,
+ * and re-plan on a click. The plan never rewrites the week on its own.
+ */
+export function ReplanChip({ drift }: { drift: { share: number; kept: number; rebuilt: number } }) {
+  const [pending, start] = useTransition();
+  const [result, setResult] = useState<ActionResult | null>(null);
+  const percent = Math.round(Math.abs(drift.share) * 100);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border border-line bg-raised/60 px-3 py-2 text-sm">
+      <span>
+        Your fitness has moved since this week was planned: a fresh plan would be {percent}% {drift.share > 0 ? "harder" : "easier"} for the days left (
+        <span className="num">
+          {drift.rebuilt} TSS, not {drift.kept}
+        </span>
+        ). The week stays as it is unless you re-plan.
+      </span>
+      <span className="flex items-center gap-3">
+        {result && <Result ok={result.ok}>{result.message}</Result>}
+        <button className={button.small} disabled={pending || result?.ok} onClick={() => start(async () => setResult(await replanWeek()))}>
+          {pending ? "Re-planning…" : "Re-plan this week"}
+        </button>
+      </span>
+    </div>
   );
 }
 
