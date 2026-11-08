@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- On Windows and Linux, the ride overlay now keeps itself on top when a game or video goes full screen. If a game in exclusive full screen still covers it, the Ride page's Overlay settings explain how to switch the game to borderless or windowed (and how to pin the overlay on Wayland).
 - Experimental features in Settings: new things we're still trying out, off until you turn them on. The first is Race reports: open a race from its ride page, add other riders' files and the results, and see where you lost time, corner by corner and lap by lap, what to work on, and a debrief from the coach.
 - Don't know your FTP? Tick "I don't know" in setup and your plan starts with a ramp test on your first good day. When you finish it, Lactic sets your FTP from the result (with Undo), so every workout after it fits you.
 - No smart scale? Today no longer shows a Weigh in step. It appears once you pair a scale in Settings → Bluetooth or on Health.

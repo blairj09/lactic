@@ -4,6 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 
 // Chrome's Document Picture-in-Picture: an always-on-top window that can hold any HTML. It floats
 // over other apps on the same Space, but not over an app in macOS full screen (its own Space).
+/**
+ * How far the overlay floats over full-screen apps, so the Ride page can say what to expect:
+ * "floats" over full-screen apps too (the Mac app), "browser" (Chrome's picture-in-picture, not
+ * over macOS full screen), "windows", "x11" or "wayland" (the desktop app there).
+ */
+export type OverlayFullScreen = "floats" | "browser" | "windows" | "x11" | "wayland";
+
 interface DocumentPictureInPicture {
   requestWindow(options?: { width?: number; height?: number }): Promise<Window>;
   readonly window: Window | null;
@@ -57,7 +64,7 @@ export function usePipWindow() {
   // Close the overlay with the page, so it doesn't linger with stale numbers.
   useEffect(() => close, [close]);
 
-  return { supported, pip, open, close, needsClick: true, floatsOverFullScreen: false };
+  return { supported, pip, open, close, needsClick: true, fullScreen: "browser" as OverlayFullScreen };
 }
 
 /** The PiP window starts blank, so it gets a copy of the page's styles (Tailwind included). */
