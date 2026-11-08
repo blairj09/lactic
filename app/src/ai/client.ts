@@ -6,7 +6,10 @@
 
 import { StreamReader } from "@shared/coach/stream";
 import { coachSetup, SECRET_AI, type CoachSetup, type ModelChoice } from "./settings";
-import { preset } from "./providers";
+import { knownPrice, preset, type ProviderKind } from "./providers";
+import { sampling } from "./sampling";
+
+export { sampling };
 import { sql } from "~/db/sql";
 import { uuid } from "~/db/supa";
 
@@ -25,8 +28,11 @@ export type ContentPart =
   | { type: "file"; file: { filename: string; file_data: string } };
 
 export class BudgetReached extends Error {
-  constructor(cap: number) {
-    super(`This month's AI budget ($${cap.toFixed(2)}) is used up. Raise it in Settings → Coach, or switch to a local model.`);
+  constructor(cap: number, now = new Date()) {
+    const resets = new Date(now.getFullYear(), now.getMonth() + 1, 1).toLocaleDateString("en-US", { month: "long", day: "numeric" });
+    super(
+      `This month's AI budget ($${cap.toFixed(2)}) is used up, so the coach is paused until ${resets}. Your plan and workouts carry on as usual. To keep chatting, raise the limit in Settings → Coach or switch to a model on this computer.`,
+    );
   }
 }
 
@@ -69,7 +75,10 @@ async function checkBudget(setup: CoachSetup, t: Target) {
 const estimateTokens = (text: string) => Math.ceil(text.length / 4);
 
 async function record(job: string, t: Target, choice: ModelChoice, input: number, output: number) {
-  const cost = choice.price ? (input * choice.price.input + output * choice.price.output) / 1_000_000 : t.local ? 0 : null;
+  // The provider's own price when its model list has one (OpenRouter), else the list price Lactic
+  // ships for suggested models, so the monthly limit counts direct Anthropic, OpenAI and Gemini keys.
+  const price = choice.price ?? knownPrice(t.provider as ProviderKind, choice.model);
+  const cost = price ? (input * price.input + output * price.output) / 1_000_000 : t.local ? 0 : null;
   try {
     const now = new Date().toISOString();
     await sql().execute(
@@ -108,7 +117,7 @@ export function complete({ maxTokens = 800, job = "chat", model, setup: given }:
     const t = target(setup);
     await checkBudget(setup, t);
     const stream = Boolean(onText);
-    const body: Record<string, unknown> = { model: choice.model, messages, temperature: 0.3, max_tokens: maxTokens, stream };
+    const body: Record<string, unknown> = { model: choice.model, messages, stream, ...sampling(t.provider, choice.model, maxTokens) };
     if (tools.length) Object.assign(body, { tools, tool_choice: "auto" });
     if (stream && (t.provider === "openrouter" || t.provider === "openai")) body.stream_options = { include_usage: true };
     const payload = JSON.stringify(body);

@@ -1,0 +1,87 @@
+name: Coach evals
+
+# Runs the coach evals (app/evals) against real models. Manual only, since it spends API credit:
+# Actions → Coach evals → Run workflow. Keys come from repository secrets (Settings → Secrets and
+# variables → Actions): OPENROUTER_API_KEY, and ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY
+# for models on those providers. The summary shows on the run page; full results are an artifact.
+
+on:
+  workflow_dispatch:
+    inputs:
+      models:
+        description: "Models to test, provider:model, comma-separated"
+        default: "openrouter:anthropic/claude-haiku-5.5,openrouter:z-ai/glm-5.3,openrouter:moonshotai/kimi-k2.6,openrouter:deepseek/deepseek-v4.1-flash"
+      judge:
+        description: "Judge model (blank for scripted checks only)"
+        default: "openrouter:anthropic/claude-sonnet-5.5"
+      only:
+        description: "Scenarios: ids, id prefixes or groups (blank for all)"
+        default: ""
+      repeat:
+        description: "Runs per scenario"
+        default: "1"
+      max_cost:
+        description: "Stop starting runs once spend reaches this many dollars"
+        default: "3"
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - name: Check the API keys
+        env:
+          HAS_OPENROUTER: ${{ secrets.OPENROUTER_API_KEY != '' }}
+          HAS_ANTHROPIC: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          HAS_OPENAI: ${{ secrets.OPENAI_API_KEY != '' }}
+          HAS_GEMINI: ${{ secrets.GEMINI_API_KEY != '' }}
+          MODELS: ${{ inputs.models }},${{ inputs.judge }}
+        run: |
+          missing=""
+          for p in openrouter:OPENROUTER anthropic:ANTHROPIC openai:OPENAI google:GEMINI; do
+            kind=${p%%:*}; name=${p#*:}; has="HAS_$name"
+            if echo "$MODELS" | grep -q "\b$kind:" && [ "${!has}" != "true" ]; then missing="$missing ${name}_API_KEY"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Add$missing in Settings → Secrets and variables → Actions, then run this again." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+      - name: Run the evals
+        working-directory: app
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MODELS: ${{ inputs.models }}
+          JUDGE: ${{ inputs.judge }}
+          ONLY: ${{ inputs.only }}
+          REPEAT: ${{ inputs.repeat }}
+          MAX_COST: ${{ inputs.max_cost }}
+        run: |
+          args=(--models "$MODELS" --repeat "$REPEAT" --max-cost "$MAX_COST" --out evals/results/run)
+          [ -n "$JUDGE" ] && args+=(--judge "$JUDGE")
+          [ -n "$ONLY" ] && args+=(--only "$ONLY")
+          npm run eval:coach -- "${args[@]}"
+      - name: Summary
+        if: always()
+        working-directory: app
+        run: |
+          if [ -f evals/results/run/summary.md ]; then cat evals/results/run/summary.md >> "$GITHUB_STEP_SUMMARY"; else echo "No results: see the Run the evals step." >> "$GITHUB_STEP_SUMMARY"; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coach-evals
+          path: app/evals/results/run/
+          if-no-files-found: ignore

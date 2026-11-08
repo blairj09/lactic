@@ -8,7 +8,7 @@ const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 // `@shared` is the web app's pure TypeScript (engine, FIT, BLE protocol, ride logic), shared so the
 // two apps never have two training engines. `~` is the desktop app's own code.
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react(), tailwindcss()],
   clearScreen: false,
   resolve: {
@@ -38,6 +38,18 @@ export default defineConfig({
     
     watch: { ignored: ["**/src-tauri/**"] },
   },
+  // Vite's build swaps `process.env` for `{}`, which froze every setting the app writes at boot
+  // (src/boot/env.ts) to undefined in packaged builds. Point it at the live object globals.ts makes.
+  // Build only: in dev, Vite's client writes each define onto globalThis before globals.ts has made
+  // `process`, which throws and stops the page loading.
+  define:
+    command === "build"
+      ? {
+          "process.env": "globalThis.process.env",
+          "global.process.env": "globalThis.process.env",
+          "globalThis.process.env": "globalThis.process.env",
+        }
+      : {},
   envPrefix: ["VITE_", "TAURI_ENV_*"],
   build: {
     target: "safari16",
@@ -45,6 +57,6 @@ export default defineConfig({
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
   },
   test: {
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "web/**/*.test.ts"],
+    include: ["scripts/**/*.test.ts", "src/**/*.test.ts", "src/**/*.test.tsx", "web/**/*.test.ts", "evals/**/*.test.ts"],
   },
-});
+}));

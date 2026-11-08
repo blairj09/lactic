@@ -238,8 +238,8 @@ export default function BluetoothDevices() {
         <p className="text-sm text-muted">
           {powerSource === "trainer"
             ? "Rides use the trainer's power and cadence."
-            : "Rides use the power meter when it's connected, and ERG is power matched to it. Until it connects, the trainer's power counts."}{" "}
-          The Ride page starts with this, and you can switch it there mid-ride.
+            : "Rides use the power meter when it's connected, with ERG matched to it. Until then, the trainer's power counts."}{" "}
+          You can switch it mid-ride.
         </p>
       </div>
 

@@ -18,6 +18,8 @@ import { Prose } from "./coach/prose";
 import { ProposalCard } from "./coach/proposal-card";
 import { STAGE_TEXT } from "./health/weigh-in";
 import { FeelStep, TodayOptions, type CheckinAnswers } from "./checkin";
+import { formatWeight } from "@/lib/units";
+import { useUnits } from "@/lib/use-units";
 
 export interface MorningProps {
   day: string;
@@ -57,6 +59,7 @@ type Skips = { recovery?: boolean; weigh?: boolean };
 export default function Morning({ day, recovery, weighIn: weighed, profile, brief, today }: MorningProps) {
   const router = useRouter();
   // Bluetooth and remembered devices are only known in the browser.
+  const units = useUnits();
   const [device, setDevice] = useState<{ bluetooth: boolean; scale: boolean; silent: boolean } | null>(null);
   const [skips, setSkips] = useState<Skips>({});
   const [weigh, setWeigh] = useState<Weigh>({ phase: "idle" });
@@ -146,9 +149,9 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
           ) : (
             <p>
               <Link href="/settings#health" className="text-ink underline underline-offset-4">
-                Connect Apple Health
+                Connect your watch
               </Link>{" "}
-              to bring last night in, or skip it.
+              to bring in last night, or skip.
             </p>
           )}
           {!recoveryReady && (
@@ -161,7 +164,7 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
         <Step n={2} title="Weigh in" state={weighDone ? "done" : weighReady ? (skips.weigh ? "skipped" : "settled") : "active"}>
           {weighDone ? (
             <p>
-              <span className="num text-ink">{weighedKg!.toFixed(1)} kg</span>
+              <span className="num text-ink">{formatWeight(weighedKg!, units)}</span>
               {weighed?.bodyFatPercent != null && <span className="num"> · {weighed.bodyFatPercent.toFixed(1)}% fat</span>}
             </p>
           ) : device === null ? null : skips.weigh ? (
@@ -178,7 +181,7 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
             </p>
           ) : weigh.phase === "running" ? (
             <div aria-live="polite">
-              {weigh.update?.liveKg != null && <p className="num text-2xl font-medium tracking-tight text-ink">{weigh.update.liveKg.toFixed(1)} kg</p>}
+              {weigh.update?.liveKg != null && <p className="num text-2xl font-medium tracking-tight text-ink">{formatWeight(weigh.update.liveKg, units)}</p>}
               <p>{STAGE_TEXT[weigh.update?.stage ?? "waking"]}</p>
             </div>
           ) : weigh.phase === "failed" ? (
@@ -357,7 +360,7 @@ function Brief({
           </button>
         </p>
       )}
-      {error && <Result ok={false}>The coach couldn&apos;t write today&apos;s brief ({error}).</Result>}
+      {error && (/AI budget/.test(error) ? <p className="text-sm text-muted">{error}</p> : <Result ok={false}>The coach couldn&apos;t write today&apos;s brief ({error}).</Result>)}
       {!status && today && <TodayOptionsFor today={today} pick={stale ? null : (message?.meta.today as OptionId | undefined) ?? null} />}
       {!status && message && message.proposals.length > 0 && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

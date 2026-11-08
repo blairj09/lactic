@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { button, Result } from "@/components/ui";
 import { scanning, simEnabled, SIM_SETTING } from "~/bluetooth/web-bluetooth";
-import { appInfo, fileManagerName, invoke, isDesktop, openExternal, type AppInfo } from "~/platform/native";
+import { fileManagerName, invoke, isDesktop } from "~/platform/native";
 import { setSetting } from "~/settings/store";
 
 export function SimulatorSwitch() {
@@ -30,12 +30,10 @@ export function SimulatorSwitch() {
   );
 }
 
-export function AboutPanel() {
-  const [info, setInfo] = useState<AppInfo | null>(null);
+export function DataPanel() {
   const [path, setPath] = useState<string | null>(null);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   useEffect(() => {
-    void appInfo().then(setInfo);
     if (isDesktop) void invoke<string>("db_path").then(setPath);
   }, []);
 
@@ -61,8 +59,6 @@ export function AboutPanel() {
   return (
     <div className="space-y-4 text-sm sm:col-span-2">
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5">
-        <dt className="text-muted">Version</dt>
-        <dd className="num">{info?.version ?? "…"}</dd>
         <dt className="text-muted">Database</dt>
         <dd className="truncate">{path ?? (isDesktop ? "…" : "In this browser (development)")}</dd>
       </dl>
@@ -77,12 +73,6 @@ export function AboutPanel() {
         </div>
       )}
       {result && <Result ok={result.ok}>{result.message}</Result>}
-      <p className="text-muted">
-        Lactic is free and open source.{" "}
-        <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal("https://lactic.fit")}>
-          lactic.fit
-        </button>
-      </p>
     </div>
   );
 }

@@ -680,7 +680,7 @@ const MINI_ICON = "size-[clamp(14px,7vh,28px)]";
 const MINI_TEXT = "text-[clamp(12px,6vh,22px)]";
 
 /**
- * The compact strip that floats over Zwift in a Picture-in-Picture window. Always dark. This
+ * The compact strip that stays on top of other windows in a Picture-in-Picture window. Always dark. This
  * interval on the left, the workout in the middle, the ride so far on the right; the controls
  * live in a panel that a button at the right edge opens over the strip.
  */
@@ -694,7 +694,7 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
   /** Bumped on each touch inside the drawer, restarting its idle timer. */
   const [touched, setTouched] = useState(0);
 
-  // The overlay's own timers: its window stays visible over Zwift, so Chrome doesn't throttle them.
+  // The overlay's own timers: its window stays visible on top, so Chrome doesn't throttle them.
   useEffect(() => {
     const win = root.current?.ownerDocument.defaultView;
     if (!drawer || !win) return;

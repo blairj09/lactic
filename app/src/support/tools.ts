@@ -5,7 +5,8 @@
 // Never returned: API keys or tokens (only whether one is saved). Never done: deleting data,
 // raw Bluetooth writes, trainer control. While a ride is under way, only check_app runs.
 
-import { appTools, checkAppSetting, describeAppSetting, GEAR_LABELS, registerAppTools, type AppSetting, type AppTools, type FnTool, type GearKey } from "@/lib/coach/app-tools";
+import { readUnits, setUnits } from "@/lib/units";
+import { appTools, checkAppSetting, COACH_MODE_LABELS, describeAppSetting, formatProfile, GEAR_LABELS, registerAppTools, type AppSetting, type AppTools, type GearKey } from "@/lib/coach/app-tools";
 import type { Proposal } from "@/lib/coach/changes";
 import type { ToolResult } from "@/lib/coach/tools";
 import { connectGatt, DEVICE_KEYS, forgetDevice, findRemembered, remembered, renameDevice, type DeviceKey } from "@/lib/ble/devices";
@@ -13,7 +14,10 @@ import { GATT } from "@/lib/ble/protocol";
 import { POWER_SOURCE_PREF, type SensorKind } from "@/lib/ble/sensor-hub";
 import { loadConnection, setUploadRides, testKey } from "@/lib/intervals/client";
 import { isRiding, liveRide } from "@/lib/live-ride";
-import { coachSetup } from "~/ai/settings";
+import { coachSetup, saveCoachSetup } from "~/ai/settings";
+import { knownPrice } from "~/ai/providers";
+import { loadPersona } from "@/lib/coach/store";
+import { DETAIL_LABELS, TONE_LABELS, toPersona } from "@/lib/coach/persona";
 import { testModel } from "~/ai/test";
 import type { Advert } from "~/bluetooth/backend";
 import { recentAdverts, scanning, simEnabled, ble } from "~/bluetooth/web-bluetooth";
@@ -26,44 +30,13 @@ import { appInfo } from "~/platform/native";
 import { secretStatus } from "~/platform/secrets";
 import { getSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
+import { loadAthlete, recomputeStress } from "@/lib/activities";
+import { setFtp } from "@/app/actions";
+import { parseTheme, readTheme, setTheme } from "@/lib/theme";
 import { GUIDE } from "./guide";
+import { APP_GUIDE } from "@/lib/coach/app-guide";
+import { AREAS, SUPPORT_TOOLS, type Area } from "./definitions";
 import { logEvent, recentEvents, type LogArea } from "./log";
-
-const AREAS = ["bluetooth", "intervals", "health", "coach"] as const;
-type Area = (typeof AREAS)[number];
-
-const fn = (name: string, description: string, properties: Record<string, unknown> = {}, required: string[] = []): FnTool => ({
-  type: "function",
-  function: { name, description, parameters: { type: "object", properties, required } },
-});
-
-const device = { type: "string", enum: DEVICE_KEYS, description: "trainer, powerMeter, heartRate or scale" };
-
-export const SUPPORT_TOOLS: FnTool[] = [
-  fn(
-    "check_app",
-    "How the app itself is running, for troubleshooting: Bluetooth (on and allowed, each paired device, when it was last seen, signal, live connection state and power source while the Ride screen is open), intervals.icu (connected, key saved, last sync and its error), Apple Health import, the coach's AI setup and MCP server, the recent activity log (connects, drops, syncs, errors), and a troubleshooting guide. Read only. Call it before giving advice about gear or a connected service.",
-    { area: { type: "string", enum: [...AREAS, "all"], description: "Default all" } },
-  ),
-  fn("test_connection", "Tries a connected service once and says whether it answered: intervals.icu (checks the API key) or ai (the built-in coach's model). Changes nothing.", { service: { type: "string", enum: ["intervals", "ai"] } }, ["service"]),
-  fn("sync_now", "Runs a sync now and returns how it went: intervals.icu (new rides and wellness, plus history still to import) or health (the Apple Health folder).", { service: { type: "string", enum: ["intervals", "health"] } }, ["service"]),
-  fn("reconnect_device", "Tries to reach a paired device. With the Ride screen open it reconnects it for riding; otherwise it connects once to show it answers, then lets go. Changes no setting.", { device }, ["device"]),
-  fn("scan_for_devices", "Listens for Bluetooth gear nearby for a few seconds and lists what it hears: name, what it is (trainer, power meter, heart rate, scale), signal strength and whether it's the paired one. Changes nothing.", {
-    seconds: { type: "integer", minimum: 3, maximum: 15, description: "Default 8" },
-  }),
-  fn(
-    "propose_app_change",
-    "Proposes a settings change, shown to the athlete with Apply and Dismiss; nothing changes until they apply it. setting is one of: power_source (value trainer or powerMeter: whose power is shown, recorded and steered by), upload_rides (value true/false: send rides recorded in Lactic to intervals.icu), forget_device (device), rename_device (device, name). Pairing new gear and API keys can't be proposed: point the athlete to Settings.",
-    {
-      setting: { type: "string", enum: ["power_source", "upload_rides", "forget_device", "rename_device"] },
-      value: { description: "For power_source: trainer or powerMeter. For upload_rides: true or false." },
-      device,
-      name: { type: "string" },
-      reason: { type: "string", description: "One sentence to the athlete on why" },
-    },
-    ["setting", "reason"],
-  ),
-];
 
 const TRY_TOOLS = new Set(["test_connection", "sync_now", "reconnect_device", "scan_for_devices", "propose_app_change"]);
 
@@ -74,6 +47,7 @@ const STATUS: Record<string, string> = {
   reconnect_device: "Reaching your gear",
   scan_for_devices: "Listening for gear nearby",
   propose_app_change: "Drafting a settings change",
+  set_appearance: "Changing the theme",
 };
 
 const out = (value: unknown): ToolResult => ({ content: JSON.stringify(value) });
@@ -191,6 +165,7 @@ export async function checkApp(area: Area | "all" = "all") {
   report.riding = isRiding();
   report.activityLog = recentEvents({ area: area === "all" ? undefined : (area as LogArea), limit: area === "all" ? 40 : 30 }).map((e) => `${e.at} ${e.area} ${e.level}: ${e.message}`);
   report.guide = Object.fromEntries(areas.map((a) => [a, GUIDE[a] ?? []]));
+  if (area === "all") report.howLacticWorks = APP_GUIDE;
   return report;
 }
 
@@ -268,6 +243,38 @@ async function currentValue(s: AppSetting): Promise<string | null> {
       if (!c) throw new Error("intervals.icu isn't connected");
       return c.uploadRides ? "sending" : "not sending";
     }
+    case "profile": {
+      const a = await loadAthlete(createClient());
+      const now = {
+        ftp_watts: a.ftp,
+        threshold_hr: a.thresholdHr,
+        max_hr: a.maxHr,
+        weight_kg: a.weightKg,
+        height_cm: a.heightCm,
+        sleep_need_hours: a.sleepNeedHours,
+        birth_date: a.birthDate,
+        sex: a.sex,
+        timezone: a.timezone,
+      }[s.field];
+      return formatProfile(s.field, now);
+    }
+    case "coach_voice": {
+      const p = await loadPersona(createClient());
+      return `${p.name}, ${TONE_LABELS[p.tone]}, ${DETAIL_LABELS[p.detail]}${p.instructions ? ", with instructions" : ""}`;
+    }
+    case "coach_mode":
+      return COACH_MODE_LABELS[(await coachSetup()).mode];
+    case "coach_model": {
+      const setup = await coachSetup();
+      if (!setup.provider) throw new Error("No AI provider is set up yet. Choose one and add its key in Settings → Coach first.");
+      return setup.chat?.model ?? "none chosen";
+    }
+    case "ai_limit": {
+      const cap = (await coachSetup()).monthlyCapUsd;
+      return cap === null ? "no limit" : `$${cap}`;
+    }
+    case "units":
+      return readUnits();
     default: {
       const saved = remembered(s.device);
       if (!saved) throw new Error(`No ${GEAR_LABELS[s.device]} is paired`);
@@ -299,17 +306,70 @@ async function apply(setting: AppSetting): Promise<string> {
       await setUploadRides(supabase, c, setting.value);
       break;
     }
+    case "units":
+      setUnits(setting.value);
+      break;
     case "forget_device":
       await forgetDevice(setting.device);
       break;
     case "rename_device":
       renameDevice(setting.device, setting.name);
       break;
+    case "profile": {
+      // FTP goes through the same path as Settings (history from today, stress recomputed).
+      if (setting.field === "ftp_watts") {
+        const r = await setFtp(setting.value);
+        if (!r.ok) throw new Error(r.message);
+        break;
+      }
+      const supabase = createClient();
+      const athlete = await loadAthlete(supabase);
+      const { error } = await supabase.from("athlete_settings").upsert({ user_id: athlete.userId, [setting.field]: setting.value, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      if (error) throw error;
+      if (setting.field === "threshold_hr" || setting.field === "timezone") await recomputeStress(supabase);
+      break;
+    }
+    case "coach_voice": {
+      const supabase = createClient();
+      const next = toPersona({ ...(await loadPersona(supabase)), ...setting.voice });
+      const { error } = await supabase
+        .from("coach_persona")
+        .upsert({ name: next.name, tone: next.tone, detail: next.detail, instructions: next.instructions, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      if (error) throw error;
+      break;
+    }
+    case "coach_mode": {
+      const setup = await coachSetup();
+      if (setting.value === "builtin" && (!setup.provider || !setup.chat)) throw new Error("The built-in coach needs a provider and a model first: set them up in Settings → Coach.");
+      await saveCoachSetup({ ...setup, mode: setting.value });
+      break;
+    }
+    case "coach_model": {
+      const setup = await coachSetup();
+      if (!setup.provider) throw new Error("No AI provider is set up yet. Choose one and add its key in Settings → Coach first.");
+      await saveCoachSetup({ ...setup, chat: { model: setting.value, price: knownPrice(setup.provider.kind, setting.value) } });
+      break;
+    }
+    case "ai_limit":
+      await saveCoachSetup({ ...(await coachSetup()), monthlyCapUsd: setting.value });
+      break;
   }
   const done = describeAppSetting(setting);
   logEvent("coach", "info", `Applied: ${done}`);
   revalidatePath("/");
   return `Done: ${done}.`;
+}
+
+const THEME_WORDS = { light: "Light", dark: "Dark", system: "System (follows the computer's light or dark mode)" } as const;
+
+/** The theme is how the app looks on this computer and is easy to change back, so it's set straight away. */
+export function setAppearance(raw: unknown) {
+  if (raw !== "light" && raw !== "dark" && raw !== "system") throw new Error("theme is light, dark or system");
+  const before = readTheme();
+  const theme = parseTheme(raw);
+  setTheme(theme);
+  logEvent("coach", "info", `Coach set the theme to ${theme}`);
+  return { ok: true, theme, was: before, message: `Theme is now ${THEME_WORDS[theme]}. It can be changed back in Settings → Appearance.` };
 }
 
 /** Runs one support tool. Never throws: errors come back as text starting "Error:". */
@@ -344,6 +404,8 @@ export async function runSupportTool(name: string, args: Record<string, unknown>
       }
       case "propose_app_change":
         return await propose(args);
+      case "set_appearance":
+        return out(setAppearance(args.theme));
       default:
         return { content: `Unknown tool ${name}` };
     }

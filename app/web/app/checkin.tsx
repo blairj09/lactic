@@ -165,7 +165,8 @@ export function SessionLine({ session }: { session: Session | null }) {
   const level = session.zone === "endurance" || session.zone === "recovery" ? "" : ` · ${ZONE_LABELS[session.zone]} level ${session.level}`;
   return (
     <p className="num text-sm text-muted">
-      {session.workout.name} · {Math.round(session.duration / 60)} min · {Math.round(session.stress)} TSS{level}
+      {session.workout.name}
+      {!session.workout.name.includes(`${Math.round(session.duration / 60)} min`) && ` · ${Math.round(session.duration / 60)} min`} · {Math.round(session.stress)} TSS{level}
     </p>
   );
 }

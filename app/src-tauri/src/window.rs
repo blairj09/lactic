@@ -1,4 +1,5 @@
-// The ride overlay: a small always-on-top window for riding with Zwift (or anything) full screen.
+// The ride overlay: a small always-on-top window with the workout, over whatever else is open
+// (Zwift, a video, a browser).
 // It floats over other apps, on every Space, and over full-screen apps on macOS, which Chrome's
 // Picture-in-Picture couldn't do.
 

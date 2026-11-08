@@ -174,7 +174,7 @@ export default function RideScreen({
 
   useEffect(() => setSupported(isWebBluetoothAvailable()), []);
   useEffect(() => {
-    // On unless turned off: clicking Start opens the overlay over Zwift.
+    // On unless turned off: clicking Start opens the overlay on top of other windows.
     setOverlayOnStart(readPref(OVERLAY_PREF) !== "0");
     const size = Number(readPref(OVERLAY_SIZE_PREF));
     if (Number.isInteger(size) && size >= 0 && size < OVERLAY_SIZES.length) setOverlaySize(size);
@@ -241,7 +241,7 @@ export default function RideScreen({
     }
   };
 
-  // Three tick sources, since Chrome throttles timers in a tab hidden behind Zwift: this page's
+  // Three tick sources, since Chrome throttles timers in a tab hidden behind other windows: this page's
   // timer, the overlay's timer (its window stays visible, so it isn't throttled), and every sensor
   // reading (Bluetooth notifications arrive several times a second regardless).
   useEffect(() => {
@@ -875,14 +875,14 @@ export default function RideScreen({
                   </section>
 
                   <section className="space-y-3">
-                    <h3 className="text-sm font-medium">Overlay for Zwift</h3>
+                    <h3 className="text-sm font-medium">Overlay</h3>
                     {pip.supported ? (
                       <>
                         <p className="text-sm text-muted">
-                          An always-on-top strip with the interval, targets and what&apos;s next. Drag it bigger, or use its shrink and enlarge buttons.{" "}
+                          A small window with the interval, targets and what&apos;s next that stays on top of whatever else you have open: Zwift, a video, a browser. Drag it bigger, or use its shrink and enlarge buttons.{" "}
                           {pip.floatsOverFullScreen
-                            ? "It floats over Zwift, full screen included."
-                            : "It floats over Zwift when Zwift is a window filling the screen (Option-click its green button), not in macOS full screen."}
+                            ? "It stays on top of full-screen apps too."
+                            : "It stays on top of other windows, but not over an app in macOS full screen: make that app a window filling the screen instead (Option-click its green button)."}
                         </p>
                         <label className="flex items-center gap-2 text-sm">
                           <input type="checkbox" checked={overlayOnStart} onChange={(e) => toggleOverlayOnStart(e.target.checked)} className="size-4 accent-[var(--ink)]" />
@@ -912,8 +912,8 @@ export default function RideScreen({
                       {state.powerSource === "trainer"
                         ? "Power and cadence come from the trainer."
                         : state.connected.powerMeter
-                          ? "Power and cadence come from the power meter, and ERG is power matched: the trainer is sent the target scaled so the power meter reads it."
-                          : "Connect the power meter to use it. Until then the trainer's power counts."}
+                          ? "Power and cadence come from the power meter, and ERG targets are matched to it."
+                          : "Connect the power meter to use it. Until then, the trainer's power counts."}
                     </p>
                     {state.powerSource === "powerMeter" && state.connected.powerMeter && state.connected.trainer && (
                       <p className="num text-sm text-muted">
@@ -937,13 +937,13 @@ export default function RideScreen({
                         </button>
                       </p>
                     ) : (
-                      <p className="text-muted">Changing it here sets this ride&apos;s targets only.</p>
+                      <p className="text-muted">Changes here apply to this ride only.</p>
                     )}
                   </section>
                 </div>
                 <p className="text-sm text-muted">
-                  Riding with Zwift open: pair Zwift to the KICKR for power, cadence and heart rate only, and leave &quot;Controllable&quot; unpaired so
-                  this page keeps ERG control.
+                  Riding with Zwift open: in Zwift, pair your trainer for power, cadence and heart rate only, and leave &quot;Controllable&quot;
+                  unpaired so Lactic keeps ERG control.
                 </p>
               </div>
             )}

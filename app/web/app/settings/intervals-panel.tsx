@@ -86,7 +86,7 @@ export default function IntervalsPanel({ status }: { status: IntervalsStatus }) 
               : reachedBack
                 ? `History imported back to ${new Date(reachedBack.slice(0, 10)).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })}.`
                 : "History not imported yet."}{" "}
-            Each sync sends the next 4 weeks and your goals to its calendar.
+            Each sync puts your next 4 weeks on its calendar.
           </p>
           <label className="flex items-start gap-2 text-sm">
             <input
@@ -101,9 +101,9 @@ export default function IntervalsPanel({ status }: { status: IntervalsStatus }) 
               }}
             />
             <span>
-              Send rides recorded here to intervals.icu
+              Send Lactic rides to intervals.icu
               <span className="block text-muted">
-                Skipped when Zwift or your bike computer already sent the same ride.
+                Skipped if Zwift or your bike computer already sent it.
               </span>
             </span>
           </label>

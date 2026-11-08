@@ -19,8 +19,24 @@ fn app_info(app: tauri::AppHandle) -> serde_json::Value {
         "version": env!("CARGO_PKG_VERSION"),
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
+        "osVersion": os_info::get().version().to_string(),
         "dataDir": app.path().app_data_dir().ok().map(|p| p.to_string_lossy().into_owned()),
     })
+}
+
+/// The Mac's standard menus, plus Lactic → Check for Updates… under About (src/updates/).
+/// Windows and Linux have no menu bar; there it's in Settings → About.
+#[cfg(target_os = "macos")]
+fn app_menu(app: &tauri::App) -> tauri::Result<()> {
+    use tauri::menu::{Menu, MenuItem};
+    let handle = app.handle();
+    let menu = Menu::default(handle)?;
+    if let Some(app_submenu) = menu.items()?.first().and_then(|item| item.as_submenu().cloned()) {
+        let check = MenuItem::with_id(handle, "check-updates", "Check for Updates…", true, None::<&str>)?;
+        app_submenu.insert(&check, 1)?;
+    }
+    app.set_menu(menu)?;
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -34,7 +50,20 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        // Updates: the app checks GitHub Releases' latest.json, downloads the signed build for
+        // this computer, installs it and restarts (src/updates/). Signed with the release key;
+        // the public half is in tauri.conf.json.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
+        .on_menu_event(|app, event| {
+            if event.id() == "check-updates" {
+                use tauri::Emitter;
+                let _ = app.emit_to("main", "lactic:check-updates", ());
+            }
+        })
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            app_menu(app)?;
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             let db = db::Db::open(data_dir.join("lactic.db")).map_err(|e| e.to_string())?;

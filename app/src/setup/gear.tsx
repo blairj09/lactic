@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { button, Notice, Pill } from "@/components/ui";
+import { WatchHeartRateHelp } from "@/components/watch-hr-help";
 import { DEVICES_CHANGED, remembered, rememberDevice, forgetDevice, type DeviceKey } from "@/lib/ble/devices";
 import { identifyScale, SCALE_FAMILIES, SCALE_FAMILY_ORDER } from "@/lib/scale/models";
 import { fullUuid } from "~/bluetooth/backend";
@@ -12,7 +13,7 @@ import { ble, grant, scanning, simEnabled, type Seen } from "~/bluetooth/web-blu
 const SLOTS: { key: DeviceKey; label: string; service: number; wake: string; note?: string }[] = [
   { key: "trainer", label: "Smart trainer", service: 0x1826, wake: "Spin the pedals to wake it." },
   { key: "powerMeter", label: "Power meter", service: 0x1818, wake: "Turn the cranks a few times.", note: "Optional. Most smart trainers measure power themselves." },
-  { key: "heartRate", label: "Heart rate", service: 0x180d, wake: "Put the strap on (most wake on skin), or start a workout broadcast on your watch." },
+  { key: "heartRate", label: "Heart rate", service: 0x180d, wake: "Put the strap on (most wake on skin), or turn on heart rate broadcast on your watch." },
   { key: "scale", label: "Smart scale", service: 0xfff0, wake: "Step on the scale, or tap it with your foot, to wake it.", note: "Optional. Body Pod, Xiaomi, Renpho, Etekcity and standard Bluetooth scales." },
 ];
 
@@ -113,12 +114,13 @@ export function GearSetup() {
                 </div>
               )}
               {!chosen && options.length === 0 && slot.note && <p className="text-sm text-faint">{slot.wake}</p>}
+              {!chosen && slot.key === "heartRate" && <WatchHeartRateHelp />}
               {slot.key === "scale" && !chosen && <ScaleList />}
             </li>
           );
         })}
       </ul>
-      <p className="text-sm text-muted">Skip anything you don&apos;t have. You can add gear later in Settings → Bluetooth, or from the Ride page.</p>
+      <p className="text-sm text-muted">Skip anything you don&apos;t have. Add it later in Settings or on the Ride screen.</p>
     </div>
   );
 }

@@ -5,7 +5,7 @@ export default tseslint.config(
   { ignores: ["dist", "src-tauri", "node_modules"] },
   ...tseslint.configs.recommended,
   {
-    files: ["src/**/*.{ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}", "evals/**/*.ts"],
     plugins: { "react-hooks": reactHooks },
     rules: {
       "react-hooks/rules-of-hooks": "error",

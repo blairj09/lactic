@@ -1,6 +1,7 @@
 {
   "name": "lactic",
-  "version": "0.1.0",
+  "version": "0.1.3",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "lint": "eslint src",
+    "lint": "eslint src evals",
+    "eval:coach": "vite-node evals/cli.ts --",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -17,6 +19,8 @@
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.8.4",
     "@tauri-apps/plugin-opener": "^2.7.2",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-updater": "^2.14.1",
     "buffer": "^6.0.3",
     "fflate": "^0.8.3",
     "leaflet": "^1.9.4",

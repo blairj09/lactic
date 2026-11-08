@@ -1,6 +1,6 @@
 import Link from "next/link";
 import WorkoutProfile from "@/components/workout-profile";
-import { Dash, Panel, PageHeader, Stat } from "@/components/ui";
+import { Dash, Panel, PageHeader, Stat, button } from "@/components/ui";
 import type { StoredRide, StoredStream } from "@/lib/activities";
 import { weighInOn, type BodyMeasurement } from "@/lib/body-data";
 import { localDate } from "@/lib/engine/activity";
@@ -211,7 +211,7 @@ function TodayWorkout({ state, ridden, stream }: { state: TrainingState; ridden:
   } else if (outside?.workout) {
     body = (
       <div className="space-y-4">
-        <p className="text-[15px]">Riding outside today: this workout is on your bike computer (through intervals.icu), in place of the plan&apos;s.</p>
+        <p className="text-[15px]">Riding outside today: this workout is on your bike computer, in place of the plan&apos;s.</p>
         <WorkoutProfile workout={outside.workout} height={88} details ftp={athlete.ftp} />
         <OutdoorToggle day={today} outside />
       </div>
@@ -240,7 +240,14 @@ function TodayWorkout({ state, ridden, stream }: { state: TrainingState; ridden:
         {todayPlan?.why && <p className="text-sm text-muted">Coach: {todayPlan.why}</p>}
         <WorkoutProfile workout={planned.workout} height={88} details ftp={athlete.ftp} />
         {outside && <OutsideLine />}
-        <OutdoorToggle day={today} outside={Boolean(outside)} />
+        <span className="flex flex-wrap items-center gap-3">
+          {!outside && (
+            <Link href="/ride" className={button.primary}>
+              Ride it
+            </Link>
+          )}
+          <OutdoorToggle day={today} outside={Boolean(outside)} />
+        </span>
       </div>
     ) : (
       <p className="text-[15px] text-muted">Nothing planned. Say how you feel above if you want to ride anyway.</p>
@@ -315,7 +322,7 @@ function FtpNudge({ ftp, estimate, windowDays, hasPowerRides }: { ftp: number | 
       sub={
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span>
-            Last {windowDays} days{estimate.method === "twentyMinute" ? ", 95% of best 20 min" : ", critical power"}. Settings has{" "}
+            {estimate.method === "twentyMinute" ? "95% of your best 20 min" : "Critical power"}, last {windowDays} days. Now{" "}
             <span className="num whitespace-nowrap text-ink">{ftp} W</span>.
           </span>
           <UseEstimateButton estimate={estimate} />

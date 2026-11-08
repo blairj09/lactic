@@ -16,6 +16,7 @@ import { loadTrainingState, sessionFor } from "@/lib/training";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { allowedEmail, isAllowedEmail } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { formatWeight, readUnits } from "@/lib/units";
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string };
 
@@ -389,10 +390,9 @@ export async function saveWeighIn(input: {
       .upsert({ user_id: athlete.userId, weight_kg: round(weightKg, 2), updated_at: new Date().toISOString() }, { onConflict: "user_id" });
     if (settingsError) throw settingsError;
     refresh();
-    if (body.bodyFatPercent !== null) return `Saved ${weightKg.toFixed(1)} kg, ${body.bodyFatPercent.toFixed(1)}% body fat.`;
-    return source === "body_pod"
-      ? `Saved ${weightKg.toFixed(1)} kg. No body composition this time: the scale needs bare, slightly damp feet and both hands on the handle.`
-      : `Saved ${weightKg.toFixed(1)} kg.`;
+    const saved = formatWeight(weightKg, readUnits());
+    if (body.bodyFatPercent !== null) return `Saved ${saved}, ${body.bodyFatPercent.toFixed(1)}% body fat.`;
+    return source === "body_pod" ? `Saved ${saved}. No body composition this time: the scale needs bare, slightly damp feet and both hands on the handle.` : `Saved ${saved}.`;
   });
 }
 

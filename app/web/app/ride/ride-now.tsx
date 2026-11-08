@@ -209,8 +209,8 @@ export default function RideNow({
             ) : (
               <p className="text-sm text-muted">
                 {canSave
-                  ? "Nothing saved yet. Build one, import a .zwo file, or adjust any workout in the editor and save it."
-                  : "Build one in the editor, or import a .zwo file. Saving needs you signed in."}
+                  ? "Nothing saved yet. Build one, import a .zwo file, or save any workout from the editor."
+                  : "Build one in the editor, or import a .zwo file."}
               </p>
             )}
             <div className="flex flex-wrap items-center gap-2">
@@ -236,7 +236,7 @@ export default function RideNow({
         )}
 
         {source === "erg" && (
-          <p className="text-sm text-muted">One ERG target you move with the slider, or −/+ in the overlay. The ride runs until you pause and save it.</p>
+          <p className="text-sm text-muted">One ERG target you change as you go. The ride runs until you pause and save it.</p>
         )}
       </div>
     </Panel>

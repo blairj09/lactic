@@ -85,7 +85,7 @@ export default function RouteMap({
   return (
     <div className="space-y-2">
       <div ref={box} className="relative z-0 h-80 w-full overflow-hidden rounded-md bg-raised sm:h-96" role="img" aria-label="Map of the ride's route" />
-      {!timed && (zoom || selecting || highlight) && <p className="text-sm text-muted">This route was saved without timing, so it can&apos;t show that part. Re-importing the ride adds it.</p>}
+      {!timed && (zoom || selecting || highlight) && <p className="text-sm text-muted">This route has no timing, so it can&apos;t show that part. Re-import the ride to add it.</p>}
     </div>
   );
 }

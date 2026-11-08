@@ -5,6 +5,7 @@ import { Chevron, Dash, Panel } from "@/components/ui";
 import type { BodyMeasurement } from "@/lib/body-data";
 import { formatDay } from "@/lib/format";
 import type { HealthSummary } from "@/lib/health-summary";
+import { readUnits, weightIn, weightUnit } from "@/lib/units";
 
 /** A panel that opens a closer look: the whole surface is the link, with an arrow by the title. */
 export function LinkPanel({ href, title, note, children }: { href: string; title: React.ReactNode; note?: React.ReactNode; children: React.ReactNode }) {
@@ -38,7 +39,7 @@ export function ExertionPanel({ exertion, activity, href }: { exertion: HealthSu
   const y = exertion.yesterday;
   const total = y ? y.bandMinutes.reduce((a, b) => a + b, 0) : 0;
   const most = y ? Math.max(...y.bandMinutes, 1) : 1;
-  const note = y ? `Exertion ${y.exertion.toFixed(1)}` : "No heart rate";
+  const note = y ? `${y.exertion.toFixed(1)} / 10` : "No heart rate";
   const body = y ? (
         <div className="grid gap-6 text-sm sm:grid-cols-2">
           <dl className="num grid grid-cols-2 gap-x-4 gap-y-1 self-start">
@@ -82,7 +83,7 @@ export function ExertionPanel({ exertion, activity, href }: { exertion: HealthSu
       );
   if (href)
     return (
-      <LinkPanel href={href} title="Yesterday" note={note}>
+      <LinkPanel href={href} title="Exertion" note={note}>
         {body}
       </LinkPanel>
     );
@@ -99,6 +100,7 @@ export function ExertionPanel({ exertion, activity, href }: { exertion: HealthSu
 
 /** Weigh-ins, newest first. */
 export function WeighInTable({ measurements, timeZone }: { measurements: BodyMeasurement[]; timeZone: string }) {
+  const units = readUnits();
   return (
     <>
     {measurements.length === 0 ? (
@@ -125,12 +127,12 @@ export function WeighInTable({ measurements, timeZone }: { measurements: BodyMea
                   </span>
                 </td>
                 <td className="py-2.5 text-right">
-                  {m.weightKg.toFixed(1)}
-                  <span className="ml-1 text-muted">kg</span>
+                  {weightIn(m.weightKg, units).toFixed(1)}
+                  <span className="ml-1 text-muted">{weightUnit(units)}</span>
                 </td>
                 <td className="py-2.5 text-right">{m.bodyFatPercent === null ? <Dash /> : `${m.bodyFatPercent.toFixed(1)}%`}</td>
                 <td className="hidden py-2.5 text-right sm:table-cell">
-                  {m.fatFreeMassKg === null ? <Dash /> : <>{m.fatFreeMassKg.toFixed(1)}<span className="ml-1 text-muted">kg</span></>}
+                  {m.fatFreeMassKg === null ? <Dash /> : <>{weightIn(m.fatFreeMassKg, units).toFixed(1)}<span className="ml-1 text-muted">{weightUnit(units)}</span></>}
                 </td>
                 <td className="hidden py-2.5 text-right sm:table-cell">{m.bmi === null ? <Dash /> : m.bmi.toFixed(1)}</td>
               </tr>

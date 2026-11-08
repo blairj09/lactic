@@ -26,7 +26,7 @@ export default function ThemeSetting() {
           setTheme(value);
         }}
       />
-      <p className="text-sm text-muted">System follows this device&apos;s light or dark mode. Saved on this device.</p>
+      <p className="text-sm text-muted">System follows your computer&apos;s light or dark mode.</p>
     </div>
   );
 }

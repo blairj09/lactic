@@ -22,7 +22,7 @@ export function useIntervalsConnected() {
   return [on, setOn] as const;
 }
 
-export function IntervalsConnect({ onConnected }: { onConnected?: () => void }) {
+export function IntervalsConnect({ onConnected, heading = true }: { onConnected?: () => void; heading?: boolean }) {
   const [connected, setConnected] = useIntervalsConnected();
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -48,16 +48,16 @@ export function IntervalsConnect({ onConnected }: { onConnected?: () => void }) 
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-line p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
+    <div className={heading ? "space-y-3 rounded-lg border border-line p-4" : "space-y-3"}>
+      <div className={heading || connected ? "flex items-center justify-between gap-3" : "hidden"}>
+        <div className={heading ? undefined : "hidden"}>
           <p className="font-medium">intervals.icu</p>
-          <p className="text-sm text-muted">Free. Zwift, Garmin, Wahoo, Hammerhead and most others sync to it, so one key brings in all your rides and wellness.</p>
+          <p className="text-sm text-muted">Free. Zwift, Garmin, Wahoo and most apps sync to it, so one key brings in your rides.</p>
         </div>
         {connected && <Pill tone="positive">Connected</Pill>}
       </div>
       {connected ? (
-        <p className="text-sm text-muted">Your history is importing in the background. New rides come in on their own, and rides you do in Lactic go back to intervals.icu.</p>
+        <p className="text-sm text-muted">Importing your history. New rides come in on their own, and Lactic rides go back to intervals.icu.</p>
       ) : (
         <>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
@@ -66,10 +66,10 @@ export function IntervalsConnect({ onConnected }: { onConnected?: () => void }) 
               <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal("https://intervals.icu/settings")}>
                 intervals.icu settings
               </button>{" "}
-              (make a free account if you don&apos;t have one).
+              (sign up free if you need to).
             </li>
             <li>Under Developer Settings, copy your API key.</li>
-            <li>Paste it here. It&apos;s kept in your computer&apos;s keychain.</li>
+            <li>Paste it here. It stays in your keychain.</li>
           </ol>
           <div className="flex gap-2">
             <input className={`${input} min-w-0 flex-1`} type="password" placeholder="API key" value={key} onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void go()} />
@@ -91,12 +91,12 @@ export function RidesSetup() {
       <div className="space-y-3 rounded-lg border border-line p-4">
         <div>
           <p className="font-medium">FIT files</p>
-          <p className="text-sm text-muted">Or bring rides in straight from files: export them from Garmin Connect, Wahoo or Zwift (Documents/Zwift/Activities).</p>
+          <p className="text-sm text-muted">Or import files from Garmin Connect, Wahoo or Zwift (Documents/Zwift/Activities).</p>
         </div>
         <FitImport />
       </div>
       <HealthSetup />
-      <p className="text-sm text-muted">No history? That&apos;s fine. Lactic starts from your FTP and learns as you ride.</p>
+      <p className="text-sm text-muted">No history? Lactic starts from your FTP and learns as you ride.</p>
     </div>
   );
 }

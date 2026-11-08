@@ -14,13 +14,16 @@ import FitImport from "@/app/settings/fit-import";
 import IntervalsPanel from "@/app/settings/intervals-panel";
 import SettingsForm, { Section } from "@/app/settings/settings-form";
 import ThemeSetting from "@/app/settings/theme-setting";
+import UnitsSetting from "@/app/settings/units-setting";
 import { coachSetup } from "~/ai/settings";
 import { createClient } from "~/db/supabase-client";
 import { CoachSetupPanel } from "~/setup/coach";
 import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
-import { AboutPanel, SimulatorSwitch } from "./panels";
+import { DataPanel, SimulatorSwitch } from "./panels";
 import { TakeTour } from "~/tour/take-tour";
+import { FeedbackSetting } from "~/feedback/dialog";
+import { AboutSetting } from "~/updates/check-button";
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
@@ -28,6 +31,7 @@ const SECTIONS = [
   { id: "connections", label: "Connections" },
   { id: "gear", label: "Gear" },
   { id: "data", label: "Your data" },
+  { id: "about", label: "About" },
 ];
 
 export default async function SettingsPage() {
@@ -67,15 +71,19 @@ export default async function SettingsPage() {
           }}
         />
         <div className="space-y-4 border-t border-line pt-8">
-          <Section id="appearance" title="Appearance" description="Light, dark, or match the system. Applies everywhere, the ride overlay included.">
+          <Section id="appearance" title="Appearance" description="Light or dark, and metric or imperial units.">
             <ThemeSetting />
+            <UnitsSetting />
           </Section>
-          <Section id="tour" title="Getting started" description="A quick look at what each screen is for, and what the Ride screen shows.">
+          <Section id="tour" title="Getting started" description="A short walk through each screen.">
             <TakeTour />
+          </Section>
+          <Section id="feedback" title="Feedback" description="Found a problem or have an idea? No account needed.">
+            <FeedbackSetting />
           </Section>
         </div>
         <div id="coach-settings" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-          <Section title="Coach" description="No coach, the built-in coach on an AI model you choose, or an AI app you already use. Keys stay in your keychain.">
+          <Section title="Coach" description="Built-in, an AI app you already use, or none.">
             <div className="sm:col-span-2">
               <CoachSetupPanel />
             </div>
@@ -87,14 +95,14 @@ export default async function SettingsPage() {
                   <CoachPersona initial={persona} />
                 </Section>
               )}
-              <Section title="What the coach remembers" description="Facts it reads before every answer, built-in or external. Saved from your chats; edit or add your own.">
+              <Section title="What the coach remembers" description="Facts it reads before every answer. Edit them or add your own.">
                 <CoachMemory memory={memory} />
               </Section>
             </>
           )}
         </div>
         <div id="connections" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-          <Section title="intervals.icu" description="Brings in rides from Zwift, Garmin, Wahoo and others, sends rides recorded here, and puts planned workouts on its calendar for your bike computer.">
+          <Section title="intervals.icu" description="Brings in rides from Zwift, Garmin and Wahoo, and sends your rides and planned workouts back.">
             <div className="sm:col-span-2">
               {icu ? (
                 <IntervalsPanel
@@ -107,23 +115,23 @@ export default async function SettingsPage() {
                   }}
                 />
               ) : (
-                <IntervalsConnect />
+                <IntervalsConnect heading={false} />
               )}
             </div>
           </Section>
-          <Section id="health" title="Health and recovery" description="Sleep, HRV and resting heart rate from your watch or ring, through intervals.icu or your iPhone.">
+          <Section id="health" title="Sleep and recovery" description="Sleep, HRV and resting heart rate from your watch or ring.">
             <div className="sm:col-span-2">
-              <HealthSetup />
+              <HealthSetup heading={false} />
             </div>
           </Section>
-          <Section title="Import FIT files" description=".fit or .fit.gz files, from Documents/Zwift/Activities, Garmin Connect or your bike computer. Duplicates are skipped.">
+          <Section title="Import FIT files" description="From Zwift (Documents/Zwift/Activities), Garmin Connect or your bike computer. Duplicates are skipped.">
             <div className="sm:col-span-2">
               <FitImport />
             </div>
           </Section>
         </div>
         <div id="gear" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-          <Section title="Bluetooth" description="Devices Lactic remembers. Pair once and they reconnect on their own.">
+          <Section title="Bluetooth" description="Pair once and your gear reconnects on its own.">
             <BluetoothDevices />
           </Section>
           {import.meta.env.DEV && (
@@ -133,8 +141,13 @@ export default async function SettingsPage() {
           )}
         </div>
         <div id="data" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-          <Section title="Your data" description="Everything Lactic knows is in one file on this computer. Back it up, or take it anywhere.">
-            <AboutPanel />
+          <Section title="Your data" description="Everything is in one file on this computer. Back it up or take it anywhere.">
+            <DataPanel />
+          </Section>
+        </div>
+        <div id="about" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
+          <Section title="About Lactic" description="Your version, and whether there's a newer one.">
+            <AboutSetting />
           </Section>
         </div>
       </Page>
