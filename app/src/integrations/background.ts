@@ -4,7 +4,8 @@
 import { syncIntervals } from "@/app/actions";
 import { loadConnection, syncWellness } from "@/lib/intervals/client";
 import { createClient } from "~/db/supabase-client";
-import { placeholder, saveSecret, SECRET_INTERVALS } from "~/platform/secrets";
+import { deleteSecret, placeholder, saveSecret, secretStatus, SECRET_INTERVALS } from "~/platform/secrets";
+import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { logEvent } from "~/support/log";
 
@@ -59,6 +60,11 @@ function run(job: Job) {
 export async function moveIntervalsKeyToKeychain() {
   const db = createClient();
   const connection = await loadConnection(db);
+  // Once, after onboarding: older builds' Disconnect left the key in the keychain with no connection.
+  if (!connection && (await getSetting("onboarding.done", false)) && !(await getSetting("secrets.intervalsSwept", false))) {
+    if (await secretStatus(SECRET_INTERVALS)) await deleteSecret(SECRET_INTERVALS);
+    await setSetting("secrets.intervalsSwept", true);
+  }
   if (!connection || connection.apiKey.startsWith("keychain:")) return;
   await saveSecret(SECRET_INTERVALS, connection.apiKey);
   const { error } = await db.from("intervals_connections").update({ api_key: placeholder(SECRET_INTERVALS) }).eq("user_id", connection.userId);

@@ -19,6 +19,8 @@ const { localClient } = await import("~/db/supabase-client");
 const { secretStatus } = await import("~/platform/secrets");
 const { disconnectIntervals } = await import("@/app/actions");
 const { moveIntervalsKeyToKeychain } = await import("./background");
+const { saveSecret } = await import("~/platform/secrets");
+const { setSetting } = await import("~/settings/store");
 
 beforeAll(async () => {
   const db = await openSqlJs({ persist: false });
@@ -41,5 +43,15 @@ describe("intervals.icu key", () => {
     expect(result.ok).toBe(true);
     expect(await row()).toBeNull();
     expect(await secretStatus("intervals")).toBeNull();
+  });
+
+  it("removes a key an older build left behind after disconnecting, once", async () => {
+    await setSetting("onboarding.done", true);
+    await saveSecret("intervals", "leftoverkey9876");
+    await moveIntervalsKeyToKeychain();
+    expect(await secretStatus("intervals")).toBeNull();
+    await saveSecret("intervals", "newkeyabcd5555");
+    await moveIntervalsKeyToKeychain();
+    expect(await secretStatus("intervals")).toBe("…5555");
   });
 });
