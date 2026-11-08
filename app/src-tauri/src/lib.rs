@@ -111,6 +111,7 @@ pub fn run() {
             files::home_dir,
             window::overlay_open,
             window::overlay_close,
+            window::overlay_support,
             mcp::mcp_respond,
             mcp::mcp_set_enabled,
             mcp::mcp_setup,

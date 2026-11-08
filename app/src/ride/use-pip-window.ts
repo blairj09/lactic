@@ -4,8 +4,8 @@
 // running while the page is behind other windows) and resizeTo.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePipWindow as useWebPip } from "@/app/ride/use-pip-window";
-import { invoke, isDesktop, listen } from "~/platform/native";
+import { usePipWindow as useWebPip, type OverlayFullScreen } from "@/app/ride/use-pip-window";
+import { invoke, isDesktop, listen, os } from "~/platform/native";
 import { EV } from "./channel";
 import { isDemo } from "~/demo/flag";
 
@@ -34,6 +34,11 @@ function nativeStandIn(): Window {
 function useNativePip() {
   const [pip, setPip] = useState<Window | null>(null);
   const standIn = useMemo(nativeStandIn, []);
+  // A guess from the OS until the core says (it knows Wayland from X11).
+  const [fullScreen, setFullScreen] = useState<OverlayFullScreen>(() => (os() === "macos" ? "floats" : os() === "windows" ? "windows" : "x11"));
+  useEffect(() => {
+    invoke<OverlayFullScreen>("overlay_support").then(setFullScreen, () => {});
+  }, []);
 
   useEffect(() => {
     const stop = listen(EV.closed, () => setPip(null));
@@ -55,13 +60,15 @@ function useNativePip() {
   // Close the overlay with the page, so it doesn't linger with stale numbers.
   useEffect(() => close, [close]);
 
-  return { supported: true, pip, open, close, needsClick: false, floatsOverFullScreen: true };
+  return { supported: true, pip, open, close, needsClick: false, fullScreen };
 }
 
 /** The website demo runs in a browser on Chrome's picture-in-picture, but it stands for the desktop
  * app, so the Ride page describes the desktop overlay (which floats over full-screen apps). */
 function useDemoPip(...args: Parameters<typeof useWebPip>) {
-  return { ...useWebPip(...args), needsClick: false, floatsOverFullScreen: true };
+  return { ...useWebPip(...args), needsClick: false, fullScreen: "floats" as OverlayFullScreen };
 }
+
+export type { OverlayFullScreen };
 
 export const usePipWindow = isDesktop ? useNativePip : isDemo ? useDemoPip : useWebPip;

@@ -2415,6 +2415,7 @@ dependencies = [
  "btleplug",
  "dirs 5.0.1",
  "futures",
+ "gtk",
  "keyring",
  "objc2-app-kit",
  "os_info",
