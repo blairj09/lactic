@@ -1,5 +1,6 @@
 import { STARTING_LEVELS } from "@/lib/engine/library";
 import { loadCustomWorkouts } from "@/lib/custom-workouts";
+import { ftpIsGuess } from "@/lib/engine/ftp-check";
 import { authEnabled } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { loadPlanDays, loadTrainingState, sessionFor } from "@/lib/training";
@@ -25,6 +26,7 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
     <RideScreen
       key={day}
       initialFtp={state.athlete.ftp}
+      ftpGuess={ftpIsGuess(state.athlete.ftpHistory, state.today)}
       canSave
       planned={session}
       plannedDay={session ? day : undefined}

@@ -71,8 +71,11 @@ export default function RideScreen({
   saved = [],
   favorites: initialFavorites = [],
   today,
+  ftpGuess = false,
 }: {
   initialFtp: number | null;
+  /** FTP is still setup's guess, so a ramp test sets it straight away (with Undo) instead of asking. */
+  ftpGuess?: boolean;
   canSave: boolean;
   /** The plan's session for the day, offered first. */
   planned?: Session | null;
@@ -832,8 +835,8 @@ export default function RideScreen({
                     </>
                   )}
                 </p>
-                {rampResult && <RampTestResult test="ramp" result={{ watts: rampResult.watts, best: rampResult.bestMinute }} current={initialFtp ?? ftp} onSet={setFtp} />}
-                {twentyResult && <RampTestResult test="twentyMinute" result={twentyResult} current={initialFtp ?? ftp} onSet={setFtp} />}
+                {rampResult && <RampTestResult test="ramp" result={{ watts: rampResult.watts, best: rampResult.bestMinute }} current={initialFtp ?? ftp} guess={ftpGuess} onSet={setFtp} />}
+                {twentyResult && <RampTestResult test="twentyMinute" result={twentyResult} current={initialFtp ?? ftp} guess={ftpGuess} onSet={setFtp} />}
                 {canSave && !erg && saveState === "saved" && (
                   <FavoriteButton
                     on={(() => {

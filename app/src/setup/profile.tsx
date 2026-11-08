@@ -1,5 +1,5 @@
 // About you: the numbers the engine needs to set zones and stress. Everything but weight is
-// optional, and FTP has an "I don't know" that starts from a sensible guess the app refines.
+// optional, and FTP has an "I don't know" that starts from a sensible guess, with an FTP test first in the plan to set it.
 
 import { useEffect, useState } from "react";
 import { saveSettings } from "@/app/actions";
@@ -65,6 +65,8 @@ export async function saveProfile(v: ProfileValues) {
   } catch {}
   const form = new FormData();
   form.set("ftp_watts", String(Math.round(ftp)));
+  // Marks the FTP as a guess, so the plan starts with a test that sets it (scheduleFirstTest).
+  if (v.ftpUnknown) form.set("ftp_method", "guess");
   form.set("weight_kg", String(Math.round(kg * 10) / 10));
   if (cm) form.set("height_cm", String(Math.round(cm)));
   if (v.maxHr) form.set("max_hr", v.maxHr);
@@ -100,7 +102,7 @@ export function ProfileForm({ values: v, onChange, error }: { values: ProfileVal
         />
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="FTP" hint={v.ftpUnknown ? `Lactic starts at ${kg ? `${guessFtp(kg)} W` : "about 2.5 W/kg"} and refines it as you ride.` : "The power you can hold for about an hour."}>
+        <Field label="FTP" hint={v.ftpUnknown ? `Lactic starts at ${kg ? `${guessFtp(kg)} W` : "about 2.5 W/kg"} and makes your first workout an FTP test to find your real number.` : "The power you can hold for about an hour."}>
           <div className="flex items-center gap-3">
             <div className="relative w-36">
               <input className={`${input} w-full pr-8`} inputMode="numeric" value={v.ftp} disabled={v.ftpUnknown} onChange={(e) => set("ftp", e.target.value.replace(/\D/g, ""))} placeholder="250" />

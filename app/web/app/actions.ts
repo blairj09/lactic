@@ -13,7 +13,7 @@ import { readWorkout } from "@/lib/engine/workout-edit";
 import { chartStream, MAX_ROUTE_POINTS, rideIntervals, type RoutePoint } from "@/lib/engine/ride-detail";
 import { createIngestToken } from "@/lib/recovery-data";
 import { loadTrainingState, ridesFor, sessionFor } from "@/lib/training";
-import { retestDay } from "@/lib/engine/ftp-check";
+import { firstTestDay, ftpIsGuess, retestDay } from "@/lib/engine/ftp-check";
 import { rampTest } from "@/lib/engine/library";
 import { dayMinutes } from "@/lib/engine/plan";
 import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
@@ -168,7 +168,7 @@ async function linkPlanDay(supabase: Awaited<ReturnType<typeof createClient>>, d
  * Sets FTP from today on and recomputes stress for every ride. The only place FTP is written: Settings,
  * Today's estimate and a ramp test all come through here, so FTP history and settings agree.
  */
-export async function setFtp(watts: number, method: "criticalPower" | "twentyMinute" | "rampTest" | "manual" = "manual", wPrime?: number): Promise<ActionResult> {
+export async function setFtp(watts: number, method: "criticalPower" | "twentyMinute" | "rampTest" | "manual" | "guess" = "manual", wPrime?: number): Promise<ActionResult> {
   return attempt(async () => {
     const rounded = Math.round(watts);
     if (!(rounded > 50 && rounded < 700)) throw new Error("FTP should be between 50 and 700 W");
@@ -233,6 +233,31 @@ export async function scheduleRampTest(): Promise<ActionResult> {
   });
 }
 
+/**
+ * Setup's step for riders who don't know their FTP: while FTP is still the guess from weight, the plan
+ * starts with a ramp test on the first good day (ftp-check.ts firstTestDay), and the test sets FTP.
+ * Does nothing once FTP has come from a test, an entry or rides.
+ */
+export async function scheduleFirstTest(): Promise<ActionResult> {
+  return attempt(async () => {
+    const supabase = await createClient();
+    const state = await loadTrainingState(supabase);
+    if (!ftpIsGuess(state.athlete.ftpHistory, state.today)) return "";
+    // A test needs the trainer, so outdoor-only days don't count.
+    const minutes = (d: string) => {
+      const day = dayMinutes(d, state.athlete.availability, state.breaks);
+      return day.easyOnly ? 0 : day.minutes;
+    };
+    const date = firstTestDay(state.plan, state.today, minutes, ridesFor(state, state.today).length > 0);
+    if (!date) return "No day with time for an FTP test this week. Today will offer one once there is.";
+    await writeDays(supabase, state, [{ date, session: rampTest() }]);
+    const pushed = await pushChangedPlan(supabase);
+    refresh();
+    const label = new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
+    return `Your plan starts with an FTP test ${date === state.today ? "today" : `on ${label}`}.${pushed}`;
+  });
+}
+
 export async function saveSettings(_: ActionResult | null, form: FormData): Promise<ActionResult> {
   return attempt(async () => {
     const supabase = await createClient();
@@ -273,8 +298,10 @@ export async function saveSettings(_: ActionResult | null, form: FormData): Prom
     if (error) throw error;
 
     const ftp = optionalNumber("ftp_watts", 50, 700);
-    if (ftp !== null && Math.round(ftp) !== athlete.ftp) {
-      const result = await setFtp(ftp);
+    // Setup sends ftp_method=guess when the rider doesn't know their FTP, so the first test can set it.
+    const guess = form.get("ftp_method") === "guess";
+    if (ftp !== null && (Math.round(ftp) !== athlete.ftp || (guess && !ftpIsGuess(athlete.ftpHistory, localDate(new Date(), athlete.timezone))))) {
+      const result = await setFtp(ftp, guess ? "guess" : "manual");
       if (!result.ok) throw new Error(result.message);
       return `Saved. ${result.message}`;
     }
