@@ -172,16 +172,18 @@ export function SessionLine({ session }: { session: Session | null }) {
 }
 
 /** Today's chosen session, ready to ride. */
-export function ChosenSession({ session, day, ftp }: { session: Session | null; day: string; ftp?: number | null }) {
+export function ChosenSession({ session, day, ftp, action }: { session: Session | null; day: string; ftp?: number | null; action?: React.ReactNode }) {
   return (
     <div className="space-y-4">
       <SessionLine session={session} />
       {session && (
         <>
           <WorkoutProfile workout={session.workout} height={88} details ftp={ftp} />
-          <Link href={`/ride?day=${day}`} className={button.primary}>
-            Ride it
-          </Link>
+          {action ?? (
+            <Link href={`/ride?day=${day}`} className={button.primary}>
+              Start ride
+            </Link>
+          )}
         </>
       )}
     </div>
