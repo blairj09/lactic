@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Like Lactic? Settings → About now has a Support Lactic link if you want to chip in.
 - Weigh in on many more smart scales: Xiaomi Mi scales, Renpho and other QN scales, Etekcity ESF-551 and scales with the standard Bluetooth weight profile, as well as the Hume Body Pod.
 - Fewer Mac keychain password prompts: your API keys now share one keychain entry, so Lactic asks at most once after each update.
 
