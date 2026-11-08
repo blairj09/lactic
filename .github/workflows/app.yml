@@ -160,7 +160,8 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: Lactic ${{ steps.version.outputs.tag }}
+          # Beta until James says otherwise (see app/src/app/beta.ts).
+          name: Lactic ${{ steps.version.outputs.tag }} (Beta)
           files: |
             dist/**/*.dmg
             dist/**/*.exe

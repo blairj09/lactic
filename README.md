@@ -2,12 +2,14 @@
 
 <img src="docs/images/logo.svg" width="88" height="88" alt="Lactic logo">
 
-# Lactic
+# Lactic <sup><sub>BETA</sub></sup>
 
 **The open-source training platform.**
 
 A training plan that fits your week, workouts on your smart trainer, and your recovery in one place.<br>
 Free, on your computer, with the AI coach of your choice. Or none.
+
+_Lactic is in beta. Expect a few rough edges, and please [open an issue](https://github.com/blairj09/lactic/issues) or use Send feedback in the app when something's off._
 
 [**Download**](https://github.com/blairj09/lactic/releases/latest) · [MIT licensed](LICENSE) · [lactic.fit](https://lactic.fit) · [Build from source](#build-from-source) · [Contributing](#contributing)
 
