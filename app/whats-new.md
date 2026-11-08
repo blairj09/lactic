@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - When something in Lactic frustrates you or you ask for a feature it doesn't have, the coach offers a Send feedback button with your note already written up. Check it, change it, and send it if you like.
+- The tour now shows the Send feedback button and how to include a marked-up screenshot.
 - Only ride and plan? Setup now asks whether you want sleep and recovery, weight, both or neither, and Lactic hides what you skip. Not ready? Set them up later in Settings → What you track, or ask the coach.
 - Today's Recovery step names where your sleep comes from, like Connect Apple Health or Connect intervals.icu, instead of asking for a watch.
 - Lactic is in beta: you'll see a Beta tag next to the name. Expect a few rough edges, and tell us what you find with Send feedback.
