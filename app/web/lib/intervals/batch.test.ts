@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canImport, matchActivities, nextBatch, sameRide, stravaRides, type IntervalsActivity } from "./batch";
+import { canImport, matchActivities, missingStravaRides, nextBatch, sameRide, stravaRides, type IntervalsActivity } from "./batch";
 
 const a = (id: string, start: string, type = "Ride", source = "OAUTH_CLIENT"): IntervalsActivity => ({ id, start_date_local: start, type, source });
 
@@ -101,5 +101,26 @@ describe("finding the same ride on intervals.icu", () => {
   it("falls back to the start time when the length isn't listed", () => {
     expect(sameRide(ride, [at("near", "2026-10-31T13:05:00Z", null)])?.id).toBe("near");
     expect(sameRide(ride, [at("far", "2026-10-31T13:30:00Z", null)])).toBeNull();
+  });
+});
+
+describe("Strava rides missing here", () => {
+  const strava = (id: string, startUtc: string, type = "Ride"): IntervalsActivity => ({ id, start_date_local: startUtc.slice(0, 19), start_date: startUtc, type, source: "STRAVA", elapsed_time: 3600 });
+  const stored = [{ startedAt: new Date("2026-10-31T13:00:00Z"), durationSeconds: 3600 }];
+
+  it("lists Strava rides no stored ride covers, oldest first", () => {
+    const listed = [strava("later", "2026-11-02T13:00:00Z"), strava("have", "2026-10-31T13:02:00Z"), strava("earlier", "2026-10-20T13:00:00Z")];
+    expect(missingStravaRides(listed, stored).map((x) => x.id)).toEqual(["earlier", "later"]);
+  });
+
+  it("leaves out runs and rides from other sources", () => {
+    expect(missingStravaRides([strava("run", "2026-11-02T13:00:00Z", "Run"), a("zwift", "2026-11-02T07:00:00", "VirtualRide", "ZWIFT")], stored)).toEqual([]);
+  });
+
+  it("matches on the local start when there's no UTC one", () => {
+    const local = new Date("2026-11-03T08:00:00"); // read in this computer's zone, as the helper does
+    const noUtc: IntervalsActivity = { id: "s", start_date_local: "2026-11-03T08:00:00", type: "Ride", source: "STRAVA", elapsed_time: 3600 };
+    expect(missingStravaRides([noUtc], [{ startedAt: local, durationSeconds: 3600 }])).toEqual([]);
+    expect(missingStravaRides([noUtc], stored)).toHaveLength(1);
   });
 });

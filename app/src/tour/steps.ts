@@ -64,7 +64,7 @@ export const TOUR_STEPS: TourStep[] = [
     target: "coach",
     coach: ["external"],
     title: "Your AI coach",
-    body: "Your AI app reads your training through Lactic's MCP server. Changes it suggests show up here for you to apply or dismiss.",
+    body: "You coach through your own AI app, like Claude: chat with it there and it reads your training from Lactic. Changes it suggests show up here to apply or dismiss. Click this (or ⌘K) to see if it's connected and what to ask.",
   },
   {
     id: "settings",
@@ -72,6 +72,13 @@ export const TOUR_STEPS: TourStep[] = [
     target: "settings",
     title: "Settings",
     body: "Your profile and zones, the coach, connections, Bluetooth gear and backups.",
+  },
+  {
+    id: "feedback",
+    route: "/",
+    target: "feedback",
+    title: "Send feedback",
+    body: "Found a problem or have an idea? Write a note, press Include screenshot to circle what you mean, and Send. It goes straight to the developer.",
   },
   {
     id: "ride",

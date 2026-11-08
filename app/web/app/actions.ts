@@ -12,11 +12,16 @@ import { addDays } from "@/lib/engine/pmc";
 import { readWorkout } from "@/lib/engine/workout-edit";
 import { chartStream, MAX_ROUTE_POINTS, rideIntervals, type RoutePoint } from "@/lib/engine/ride-detail";
 import { createIngestToken } from "@/lib/recovery-data";
-import { loadTrainingState, sessionFor } from "@/lib/training";
+import { loadTrainingState, ridesFor, sessionFor } from "@/lib/training";
+import { firstTestDay, ftpIsGuess, retestDay } from "@/lib/engine/ftp-check";
+import { rampTest } from "@/lib/engine/library";
+import { dayMinutes } from "@/lib/engine/plan";
+import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { allowedEmail, isAllowedEmail } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { formatWeight, readUnits } from "@/lib/units";
+import { deleteSecret, placeholder, saveSecret, SECRET_INTERVALS } from "~/platform/secrets";
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string };
 
@@ -163,7 +168,7 @@ async function linkPlanDay(supabase: Awaited<ReturnType<typeof createClient>>, d
  * Sets FTP from today on and recomputes stress for every ride. The only place FTP is written: Settings,
  * Today's estimate and a ramp test all come through here, so FTP history and settings agree.
  */
-export async function setFtp(watts: number, method: "criticalPower" | "twentyMinute" | "rampTest" | "manual" = "manual", wPrime?: number): Promise<ActionResult> {
+export async function setFtp(watts: number, method: "criticalPower" | "twentyMinute" | "rampTest" | "manual" | "guess" = "manual", wPrime?: number): Promise<ActionResult> {
   return attempt(async () => {
     const rounded = Math.round(watts);
     if (!(rounded > 50 && rounded < 700)) throw new Error("FTP should be between 50 and 700 W");
@@ -188,6 +193,68 @@ export async function setFtp(watts: number, method: "criticalPower" | "twentyMin
     const changed = await recomputeStress(supabase);
     refresh();
     return `FTP set to ${rounded} W from today${changed ? `; updated stress on ${changed} rides` : ""}.`;
+  });
+}
+
+/**
+ * Takes back an FTP set today (the "FTP looks higher" banner's Undo): removes today's change and goes back to the
+ * FTP before it, then recomputes stress.
+ */
+export async function undoFtp(previous: number): Promise<ActionResult> {
+  return attempt(async () => {
+    const supabase = await createClient();
+    const athlete = await loadAthlete(supabase);
+    const today = localDate(new Date(), athlete.timezone);
+    const { error } = await supabase.from("ftp_history").delete().eq("effective_date", today);
+    if (error) throw error;
+    const before = [...athlete.ftpHistory].filter((h) => h.effectiveDate < today).sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate))[0]?.watts ?? Math.round(previous);
+    const { error: settingsError } = await supabase
+      .from("athlete_settings")
+      .upsert({ user_id: athlete.userId, ftp_watts: before, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+    if (settingsError) throw settingsError;
+    await recomputeStress(supabase);
+    refresh();
+    return `FTP back to ${before} W.`;
+  });
+}
+
+/** Puts a ramp test on the next good day this week (ftp-check.ts retestDay), in place of what was planned. */
+export async function scheduleRampTest(): Promise<ActionResult> {
+  return attempt(async () => {
+    const supabase = await createClient();
+    const state = await loadTrainingState(supabase);
+    const date = retestDay(state.plan, state.today, (d) => dayMinutes(d, state.athlete.availability, state.breaks).minutes, ridesFor(state, state.today).length > 0);
+    if (!date) throw new Error("No good day for a test in the next week. Pick one on the Plan page and set it to a ramp test.");
+    await writeDays(supabase, state, [{ date, session: rampTest() }]);
+    const pushed = await pushChangedPlan(supabase);
+    refresh();
+    const label = new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
+    return `Ramp test planned for ${date === state.today ? "today" : label}.${pushed}`;
+  });
+}
+
+/**
+ * Setup's step for riders who don't know their FTP: while FTP is still the guess from weight, the plan
+ * starts with a ramp test on the first good day (ftp-check.ts firstTestDay), and the test sets FTP.
+ * Does nothing once FTP has come from a test, an entry or rides.
+ */
+export async function scheduleFirstTest(): Promise<ActionResult> {
+  return attempt(async () => {
+    const supabase = await createClient();
+    const state = await loadTrainingState(supabase);
+    if (!ftpIsGuess(state.athlete.ftpHistory, state.today)) return "";
+    // A test needs the trainer, so outdoor-only days don't count.
+    const minutes = (d: string) => {
+      const day = dayMinutes(d, state.athlete.availability, state.breaks);
+      return day.easyOnly ? 0 : day.minutes;
+    };
+    const date = firstTestDay(state.plan, state.today, minutes, ridesFor(state, state.today).length > 0);
+    if (!date) return "No day with time for an FTP test this week. Today will offer one once there is.";
+    await writeDays(supabase, state, [{ date, session: rampTest() }]);
+    const pushed = await pushChangedPlan(supabase);
+    refresh();
+    const label = new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
+    return `Your plan starts with an FTP test ${date === state.today ? "today" : `on ${label}`}.${pushed}`;
   });
 }
 
@@ -231,8 +298,10 @@ export async function saveSettings(_: ActionResult | null, form: FormData): Prom
     if (error) throw error;
 
     const ftp = optionalNumber("ftp_watts", 50, 700);
-    if (ftp !== null && Math.round(ftp) !== athlete.ftp) {
-      const result = await setFtp(ftp);
+    // Setup sends ftp_method=guess when the rider doesn't know their FTP, so the first test can set it.
+    const guess = form.get("ftp_method") === "guess";
+    if (ftp !== null && (Math.round(ftp) !== athlete.ftp || (guess && !ftpIsGuess(athlete.ftpHistory, localDate(new Date(), athlete.timezone))))) {
+      const result = await setFtp(ftp, guess ? "guess" : "manual");
       if (!result.ok) throw new Error(result.message);
       return `Saved. ${result.message}`;
     }
@@ -251,7 +320,14 @@ export async function connectIntervals(_: ActionResult | null, form: FormData): 
     if (!/^[A-Za-z0-9]{10,100}$/.test(apiKey)) throw new Error("That doesn't look like an intervals.icu API key");
     const supabase = await createClient();
     const athlete = await loadAthlete(supabase);
-    await intervals.connect(supabase, athlete.userId, apiKey);
+    // The key goes in the system keychain; the database only holds a placeholder for it.
+    await saveSecret(SECRET_INTERVALS, apiKey);
+    try {
+      await intervals.connect(supabase, athlete.userId, placeholder(SECRET_INTERVALS));
+    } catch (e) {
+      await deleteSecret(SECRET_INTERVALS).catch(() => {});
+      throw e;
+    }
     refresh();
     return "intervals.icu connected. Import your history to fill in your fitness.";
   });
@@ -275,9 +351,10 @@ export async function syncIntervals(mode: "new" | "history" | "reimport"): Promi
       : "";
     const sent = result.sent ? ` Sent ${result.sent} ride${result.sent === 1 ? "" : "s"} recorded here to intervals.icu.` : "";
     const linked = result.linked ? ` Linked ${result.linked} ride${result.linked === 1 ? "" : "s"} to intervals.icu.` : "";
-    const strava = result.fromStrava
-      ? ` ${result.fromStrava} ride${result.fromStrava === 1 ? "" : "s"} in the last 2 years reached intervals.icu from Strava, and its API can't share those: link Zwift and the Karoo to intervals.icu directly, or import their FIT files.`
-      : "";
+    const fromStrava = (n: number, when: string) =>
+      ` ${n} ride${n === 1 ? "" : "s"} ${when} came to intervals.icu from Strava, which doesn't let it share them, so Lactic couldn't bring ${n === 1 ? "it" : "them"} in. Settings → intervals.icu says how to fix this.`;
+    const missing = mode === "new" || connection.backfillBeforeLocal ? 0 : ((await intervals.loadConnection(supabase))?.stravaMissing?.count ?? 0);
+    const strava = result.newFromStrava ? fromStrava(result.newFromStrava, "since the last sync") : missing ? fromStrava(missing, "in the last 2 years") : "";
     return {
       ok: true,
       imported: result.imported,
@@ -312,7 +389,9 @@ export async function disconnectIntervals(): Promise<ActionResult> {
     const connection = await intervals.loadConnection(supabase);
     if (connection) await intervals.disconnect(supabase, connection);
     refresh();
-    return "intervals.icu disconnected. Rides already imported stay.";
+    // Forget the API key too, so nothing of the connection is left behind.
+    await deleteSecret(SECRET_INTERVALS);
+    return "intervals.icu disconnected and its API key removed. Rides already imported stay.";
   });
 }
 

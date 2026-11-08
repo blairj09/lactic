@@ -10,6 +10,7 @@ import { features } from "@/lib/features";
 import { createClient } from "~/db/supabase-client";
 import { invoke, isDesktop, listen } from "~/platform/native";
 import { revalidatePath } from "~/shims/next-cache";
+import { recordSeen } from "./status";
 
 interface FnTool {
   function: { name: string; description: string; parameters: Record<string, unknown> };
@@ -58,12 +59,15 @@ interface McpRequest {
   requestId: number;
   method: string;
   params?: { name?: string; arguments?: Record<string, unknown> };
+  /** The AI app that sent it, when it said. */
+  client?: string | null;
 }
 
 /** Answers the MCP server from this window (the main one) for as long as the app runs. */
 export function startMcpBridge() {
   if (!isDesktop) return () => undefined;
   const stop = listen<McpRequest>("mcp:request", async (req) => {
+    void recordSeen(req.client ?? null).catch(() => {});
     try {
       const result = req.method === "tools/list" ? { tools: mcpTools() } : req.method === "tools/call" ? await callTool(String(req.params?.name ?? ""), req.params?.arguments ?? {}) : null;
       if (result === null) await invoke("mcp_respond", { requestId: req.requestId, result: null, error: { code: -32601, message: `Unknown method ${req.method}` } });

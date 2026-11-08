@@ -4,7 +4,8 @@
 import Link from "next/link";
 import CoachButton from "@/app/coach/coach-button";
 import { Wordmark } from "./brand";
-import { useCoachMode } from "./coach-mode";
+import { useCoachMode, useMcpOn } from "./coach-mode";
+import { ExternalCoachButton } from "~/mcp/external-coach";
 import { FeedbackButton } from "~/feedback/dialog";
 import { isDemo } from "~/demo/flag";
 import { hasHealth } from "@/lib/features";
@@ -19,6 +20,7 @@ const LINKS = [
 
 export default function Nav({ current }: { current: string }) {
   const mode = useCoachMode();
+  const mcp = useMcpOn();
   const tracking = useFeatures();
   // Health has nothing to show when the rider tracks neither recovery nor weight.
   const links = LINKS.filter((l) => l.href !== "/health" || hasHealth(tracking));
@@ -47,12 +49,8 @@ export default function Nav({ current }: { current: string }) {
               <CoachButton />
             </span>
           )}
-          {mode === "external" && (
-            <Link href="/settings?section=coach" data-tour="coach" className="inline-flex h-8 items-center gap-2 rounded-md border border-control px-3 text-sm text-muted hover:text-ink" title="Your AI app is the coach, through Lactic's MCP server">
-              <span className="size-1.5 rounded-full bg-positive" aria-hidden />
-              External coach
-            </Link>
-          )}
+          {mode === "builtin" && mcp && <ExternalCoachButton alongside />}
+          {mode === "external" && <ExternalCoachButton />}
           <Link
             href="/ride"
             data-tour="ride"

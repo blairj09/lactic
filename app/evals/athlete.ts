@@ -98,6 +98,7 @@ export function athlete(o: AthleteOptions = {}): CoachData {
   const recovery: RecoveryToday | null = rec
     ? {
         today: { hrv: rec.hrv, restingHeartRate: rec.restingHr, sleepHours: rec.sleepHours, hrvKind: "sdnn" },
+        source: "apple_health",
         score: rec.score === null ? null : { score: rec.score, reasons: rec.reasons ?? [] },
         baselineDays: rec.baselineDays ?? 30,
         sleep: null,
@@ -119,12 +120,13 @@ export function athlete(o: AthleteOptions = {}): CoachData {
     bodyFatPercent: 14.2,
     bmi: null,
     fatFreeMassKg: null,
+    source: "body_pod",
   }));
 
   const checkin: CheckinRecord | null = o.checkin
     ? { feel: o.checkin.feel, sick: o.checkin.sick ?? false, minutes: o.checkin.minutes ?? null, notes: o.checkin.notes ?? "", recovery: rec?.score ?? null, form: yesterday.form, recommended: "asPlanned", reasons: [], coach: null, at: `${today}T15:00:00Z` }
     : null;
-  const todayStored: StoredPlanDay | null = checkin ? { day: today, planned: null, chosen: null, checkin, activityId: null, feelAfter: null } : null;
+  const todayStored: StoredPlanDay | null = checkin ? { day: today, planned: null, chosen: null, checkin, activityId: null, feelAfter: null, movedFrom: null } : null;
 
   const state = {
     athlete: {
@@ -164,6 +166,10 @@ export function athlete(o: AthleteOptions = {}): CoachData {
     basePlan: plan,
     picks: [],
     outdoor: [],
+    moves: [],
+    weekDrift: null,
+    rebuiltWeek: null,
+    planInputs: "",
     changedDays: [],
     todayPlan,
     todayStored,
@@ -171,6 +177,7 @@ export function athlete(o: AthleteOptions = {}): CoachData {
     storedDays: todayStored ? [todayStored] : [],
     feedback,
     rideLinks: new Map(),
+    favorites: [],
   } satisfies TrainingState;
   return { state, planDays: todayStored ? [todayStored] : [], recoveryDays, body, memory: o.memory ?? [] };
 }

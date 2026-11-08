@@ -5,6 +5,7 @@
 import { buildSession, INTERVAL_ZONES, openers, rampTest, ZONE_LABELS, type Levels, type Session, type Zone, MAX_LEVEL, MIN_LEVEL } from "./library";
 import { addDays, fitnessSeries, type FitnessDay } from "./pmc";
 import { pickTemplate, type Focus } from "./templates";
+import { libraryFits, librarySession } from "./workout-library";
 
 export const GOAL_KINDS = ["roadRace", "criterium", "cyclocross", "mountainBike", "track", "timeTrial", "gravel", "granFondo", "hillClimb"] as const;
 export type GoalKind = (typeof GOAL_KINDS)[number];
@@ -128,11 +129,22 @@ export function phaseFocus(phase: Phase, target: Goal | null): Focus[] {
   }
 }
 
-/** A key session in `zone` with a structure that rotates week to week (`slot` spreads a week's key days). */
-function keySession(zone: Zone, level: number, seconds: number, prefer: Focus[], week: string, slot: number): Session {
-  if (zone === "endurance" || zone === "recovery") return buildSession(zone, level, seconds);
+/** How a week picks its key workouts: the structures its phase favors, and the rider's favorite library workouts. */
+interface Picking {
+  focus: Focus[];
+  favorites: readonly string[];
+}
+
+/**
+ * A key session in `zone`: one of your favorite library workouts when one fits the slot and level,
+ * else a structure that rotates week to week (`slot` spreads a week's key days). Favorites rotate the same way.
+ */
+function keySession(zone: Zone, level: number, seconds: number, prefer: Picking, week: string, slot: number): Session {
   const seed = Math.floor(daysBetween("2024-01-01", week) / 7) + slot;
-  return buildSession(zone, level, seconds, { template: pickTemplate(zone, prefer, seed).id });
+  const favorites = prefer.favorites.length ? libraryFits(zone, level, seconds, prefer.favorites) : [];
+  if (favorites.length) return librarySession(favorites[seed % favorites.length]);
+  if (zone === "endurance" || zone === "recovery") return buildSession(zone, level, seconds);
+  return buildSession(zone, level, seconds, { template: pickTemplate(zone, prefer.focus, seed).id });
 }
 
 export type Phase = "base" | "build" | "specialty" | "taper" | "test";
@@ -215,6 +227,35 @@ const REENTRY_DAYS = 7;
 
 export type DayRole = "key" | "long" | "easy" | "openers" | "test" | "event" | "rest";
 
+/**
+ * The named rules that make a day easier than its phase would: each eased day says which one, so the
+ * plan never goes light without a reason you can read.
+ */
+export const SAFETY_RULES = ["recoveryWeek", "breakWeek", "reentryWeek", "eventTaper", "testWeek", "beforeEvent", "afterEvent", "outdoorOnly"] as const;
+export type SafetyRule = (typeof SAFETY_RULES)[number];
+
+export const SAFETY_RULE_LABELS: Record<SafetyRule, string> = {
+  recoveryWeek: "Recovery week",
+  breakWeek: "Break week",
+  reentryWeek: "First week back",
+  eventTaper: "Taper",
+  testWeek: "Test week",
+  beforeEvent: "Fresh for your event",
+  afterEvent: "Recover from your event",
+  outdoorOnly: "Outdoor only",
+};
+
+export const SAFETY_RULE_NOTES: Record<SafetyRule, string> = {
+  recoveryWeek: "Every fourth week or so is lighter, with shorter sessions a level down, so the work of the last three can sink in.",
+  breakWeek: "Time off in this week makes it a recovery week: shorter sessions, a level down.",
+  reentryWeek: "The first week back after a week or more off the bike is a recovery week, to ease back in.",
+  eventTaper: "The week of your A event: one short key session early, openers two days out, then the event, so you start fresh.",
+  testWeek: "The week of an FTP test is light, so the test measures fitness, not fatigue.",
+  beforeEvent: "Nothing hard in the days before an A or B event (openers the day before), and no key session the day before a C event.",
+  afterEvent: "An easy spin or rest after an event while you recover.",
+  outdoorOnly: "An outdoor-only break day: unstructured riding, so intervals become endurance.",
+};
+
 export interface PlanDay {
   /** YYYY-MM-DD. */
   date: string;
@@ -228,6 +269,12 @@ export interface PlanDay {
   break?: Break;
   /** The coach's reason for this day's workout, when it picked it (picks.ts). */
   why?: string;
+  /** The safety rule that made this day easier than its phase would, if one did. */
+  rule?: SafetyRule;
+  /** A key session missed earlier in the week and moved here (adapt.ts): the day it was planned for, and whether it was shortened to fit. */
+  movedFrom?: { date: string; shortened: boolean };
+  /** A missed key session that moved to a later day this week: that day, and the session as it was planned here. */
+  movedTo?: { date: string; session: Session };
 }
 
 export interface PlanWeek {
@@ -262,6 +309,8 @@ export interface PlanInput {
   frame?: PlanFrame | null;
   /** Scheduled time away. */
   breaks?: Break[];
+  /** Starter library workouts the rider favorited (ids): key days use one when it fits. */
+  favorites?: readonly string[];
 }
 
 export interface Plan {
@@ -306,6 +355,7 @@ const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T
 export function buildPlan(input: PlanInput): Plan {
   const { today, availability } = input;
   const rampRate = input.rampRate ?? DEFAULT_RAMP_RATE;
+  const favorites = input.favorites ?? [];
   const frame = input.frame ?? null;
   const upcoming = input.goals.filter((g) => g.date >= today).sort((a, b) => a.date.localeCompare(b.date));
   const thisWeek = weekStart(today);
@@ -349,19 +399,23 @@ export function buildPlan(input: PlanInput): Plan {
 
     const days =
       phase === "taper" && target
-        ? taperWeek(start, weekAvail, target, zones, levels, phaseFocus(phase, target))
+        ? taperWeek(start, weekAvail, target, zones, levels, { focus: phaseFocus(phase, target), favorites })
         : phase === "test"
           ? testWeek(start, weekAvail, schedule.end, levels)
-          : loadWeek(start, weekAvail, zones, levels, weekTarget, recoveryWeek, longFloor, week.easyOnly, phaseFocus(phase, target));
+          : loadWeek(start, weekAvail, zones, levels, weekTarget, recoveryWeek, longFloor, week.easyOnly, { focus: phaseFocus(phase, target), favorites });
+    // A lighter week names why on each of its rides.
+    const weekRule: SafetyRule | undefined =
+      phase === "taper" && target ? "eventTaper" : phase === "test" ? "testWeek" : recoveryWeek ? (breakNote === "break" ? "breakWeek" : breakNote === "reentry" ? "reentryWeek" : "recoveryWeek") : undefined;
+    if (weekRule) for (const day of days) if (day.session && day.role !== "test") day.rule = weekRule;
     for (const goal of weekGoals) if (goal !== target) applyEvent(days, goal, weekAvail, levels);
     // Days outside a saved plan's dates are left open, apart from the events on them.
-    for (const day of days) if ((day.date < schedule.firstDay || day.date > schedule.end) && day.role !== "event") Object.assign(day, { role: "rest", session: null });
+    for (const day of days) if ((day.date < schedule.firstDay || day.date > schedule.end) && day.role !== "event") Object.assign(day, { role: "rest", session: null, rule: undefined });
     if (target && phase === "taper") markAfterEvent(days, target, weekAvail);
     days.forEach((day, i) => {
       if (week.breaks[i]) day.break = week.breaks[i];
       // Outdoor-only days ride whatever comes, so intervals become endurance.
       if (week.easyOnly[i] && day.session && INTERVAL_ZONES.includes(day.session.zone) && day.role !== "event") {
-        Object.assign(day, { role: "easy", session: buildSession("endurance", levels.endurance, day.session.duration) });
+        Object.assign(day, { role: "easy", session: buildSession("endurance", levels.endurance, day.session.duration), rule: "outdoorOnly" });
       }
     });
 
@@ -480,6 +534,13 @@ function weekAvailability(start: string, availability: Availability, breaks: Bre
   return result;
 }
 
+/** Minutes you have on a day once breaks are applied, and whether it's an outdoor-only day (no intervals). */
+export function dayMinutes(date: string, availability: Availability, breaks: Break[] = []): { minutes: number; easyOnly: boolean } {
+  const week = weekAvailability(weekStart(date), availability, breaks);
+  const i = daysBetween(weekStart(date), date);
+  return { minutes: week.availability[i], easyOnly: week.easyOnly[i] };
+}
+
 /**
  * True when this is the first week back after at least REENTRY_DAYS off the bike: the week of the
  * first day back when that's Monday to Thursday, else the week after.
@@ -511,7 +572,7 @@ function loadWeek(
   recoveryWeek: boolean,
   longFloorMinutes = 60,
   easyOnly: boolean[] = [],
-  prefer: Focus[] = [],
+  prefer: Picking = { focus: [], favorites: [] },
 ): PlanDay[] {
   const days = emptyWeek(start);
   let open = availability.flatMap((m, i) => (m >= MIN_SESSION_MINUTES ? [i] : []));
@@ -577,7 +638,7 @@ function pickKeyDays(candidates: number[], availability: Availability, count: nu
 }
 
 /** Event week of the A goal: one shortened key session early, openers two days out, then the event. */
-function taperWeek(start: string, availability: Availability, goal: Goal, zones: Zone[], levels: Levels, prefer: Focus[]): PlanDay[] {
+function taperWeek(start: string, availability: Availability, goal: Goal, zones: Zone[], levels: Levels, prefer: Picking): PlanDay[] {
   const days = emptyWeek(start);
   const eventIndex = daysBetween(start, goal.date);
   days[eventIndex] = { ...days[eventIndex], role: "event", goal };
@@ -626,28 +687,38 @@ function applyEvent(days: PlanDay[], goal: Goal, availability: Availability, lev
   const i = days.findIndex((d) => d.date === goal.date);
   if (i < 0) return;
   days[i] = { ...days[i], role: "event", goal, session: null };
-  const easyDay = (n: number, minutes: number) => {
-    if (n < 0 || n > 6) return;
-    days[n] = availability[n] >= MIN_SESSION_MINUTES ? { ...days[n], role: "easy", session: buildSession("recovery", 1, Math.min(availability[n], minutes) * 60) } : { ...days[n], role: "rest", session: null };
+  // Back-to-back events (a race weekend) keep every race: the days around one event never replace another.
+  const isEvent = (n: number) => days[n]?.role === "event";
+  const easyDay = (n: number, minutes: number, rule: SafetyRule) => {
+    if (n < 0 || n > 6 || isEvent(n)) return;
+    days[n] =
+      availability[n] >= MIN_SESSION_MINUTES
+        ? { ...days[n], role: "easy", session: buildSession("recovery", 1, Math.min(availability[n], minutes) * 60), rule }
+        : { ...days[n], role: "rest", session: null, rule };
   };
   if (goal.priority !== "C") {
     // An A event the plan isn't peaking for is treated like a B. Openers the day before, and nothing hard in the two days before that.
-    if (i - 1 >= 0) days[i - 1] = availability[i - 1] >= MIN_SESSION_MINUTES ? { ...days[i - 1], role: "openers", session: openers(Math.min(availability[i - 1], 45) * 60) } : { ...days[i - 1], role: "rest", session: null };
-    for (const n of [i - 2, i - 3]) if (n >= 0 && days[n].role === "key") easyDay(n, 60);
+    if (i - 1 >= 0 && !isEvent(i - 1))
+      days[i - 1] =
+        availability[i - 1] >= MIN_SESSION_MINUTES
+          ? { ...days[i - 1], role: "openers", session: openers(Math.min(availability[i - 1], 45) * 60), rule: "beforeEvent" }
+          : { ...days[i - 1], role: "rest", session: null, rule: "beforeEvent" };
+    for (const n of [i - 2, i - 3]) if (n >= 0 && days[n].role === "key") easyDay(n, 60, "beforeEvent");
   } else if (i - 1 >= 0 && days[i - 1].role === "key") {
-    days[i - 1] = { ...days[i - 1], role: "easy", session: buildSession("endurance", levels.endurance, Math.min(availability[i - 1], 60) * 60) };
+    days[i - 1] = { ...days[i - 1], role: "easy", session: buildSession("endurance", levels.endurance, Math.min(availability[i - 1], 60) * 60), rule: "beforeEvent" };
   }
-  easyDay(i + 1, 45);
+  easyDay(i + 1, 45, "afterEvent");
 }
 
 /** After the A event, recovery spins for the rest of the week. */
 function markAfterEvent(days: PlanDay[], goal: Goal, availability: Availability) {
   const i = days.findIndex((d) => d.date === goal.date);
   for (let n = i + 1; n < 7; n++) {
+    if (days[n].role === "event") continue;
     days[n] =
       availability[n] >= MIN_SESSION_MINUTES && n > i + 1
-        ? { ...days[n], role: "easy", session: buildSession("recovery", 1, Math.min(availability[n], 45) * 60) }
-        : { ...days[n], role: "rest", session: null };
+        ? { ...days[n], role: "easy", session: buildSession("recovery", 1, Math.min(availability[n], 45) * 60), rule: "afterEvent" }
+        : { ...days[n], role: "rest", session: null, rule: "afterEvent" };
   }
 }
 
@@ -665,8 +736,11 @@ const weekIndex = (monday: string) => Math.floor(daysBetween("1970-01-05", monda
 export function describeDay(day: PlanDay): string {
   if (day.role === "event" && day.goal) return `${day.goal.name} (${day.goal.priority} event)`;
   const away = day.break ? ` (${BREAK_KIND_LABELS[day.break.kind].toLowerCase()} break${day.break.note ? `: ${day.break.note}` : ""})` : "";
+  if (day.movedTo) return `Rest: the ${ZONE_LABELS[day.movedTo.session.zone].toLowerCase()} session planned here was missed and moved to ${day.movedTo.date}`;
   if (!day.session) return `Rest${away}`;
   const s = day.session;
   const level = s.zone === "recovery" || s.zone === "endurance" ? "" : ` · ${ZONE_LABELS[s.zone]} level ${s.level}`;
-  return `${s.workout.name} · ${Math.round(s.duration / 60)} min · ${Math.round(s.stress)} TSS${level}${away}`;
+  const eased = day.rule ? ` (eased: ${SAFETY_RULE_LABELS[day.rule].toLowerCase()})` : "";
+  const moved = day.movedFrom ? ` (moved from ${day.movedFrom.date}, which was missed${day.movedFrom.shortened ? "; shortened to fit" : ""})` : "";
+  return `${s.workout.name} · ${Math.round(s.duration / 60)} min · ${Math.round(s.stress)} TSS${level}${away}${moved}${eased}`;
 }

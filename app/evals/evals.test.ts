@@ -55,6 +55,14 @@ describe("scenarios", () => {
 });
 
 describe("checks", () => {
+  it("want feedback offered for the app, not for training", async () => {
+    const offer = () => scripted(call("suggest_feedback", { kind: "idea", summary: "I'd like group rides with friends." }), say("Lactic doesn't do group rides. You can suggest it with the button below."));
+    expect(await failures("feedback-missing-feature", offer())).toEqual([]);
+    expect(await failures("feedback-missing-feature", scripted(say("Lactic doesn't do group rides.")))).toContain("didn't offer to send feedback");
+    expect((await failures("feedback-training-frustration", offer())).join()).toMatch(/offered feedback/);
+    expect(await failures("feedback-training-frustration", scripted(say("Tough day. The engine eases your level from your answer.")))).toEqual([]);
+  });
+
   it("pass a good travel answer and fail a vague one", async () => {
     const good = scripted(
       call("propose_break", { start: "2026-11-09", end: "2026-11-13", kind: "travel", riding: "off", reason: "Work trip, no bike" }),

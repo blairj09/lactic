@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import { setLiveRide } from "@/lib/live-ride";
 import { POWER_SOURCE_PREF, SensorHub, isWebBluetoothAvailable, type PowerSource } from "@/lib/ble/sensor-hub";
-import { rampTestFtp } from "@/lib/engine/ftp";
+import { rampTestFtp, twentyMinuteTestFtp } from "@/lib/engine/ftp";
 import { isRampTest, type Levels, type Session } from "@/lib/engine/library";
 import { intervalAt, intervals, scaleWorkout, targetWattsAt, workoutDuration, type Workout } from "@/lib/engine/workout";
 import { parseZwo } from "@/lib/engine/zwo";
@@ -12,6 +12,8 @@ import { AutoPause, easeIn } from "@/lib/ride/auto-pause";
 import { AutoStart } from "@/lib/ride/auto-start";
 import { BLOCKS, DEFAULT_BLOCK, EXTEND_KINDS, clampMinutes, defaultExtendWatts, extendWorkout, extensionMinutes, type ExtendKind, type Extension } from "@/lib/ride/extend";
 import { templateById } from "@/lib/engine/templates";
+import { customKey, isTwentyMinuteTest, libraryKey, librarySession as starterSession, libraryWorkout, WORKOUT_LIBRARY, type LibraryWorkout } from "@/lib/engine/workout-library";
+import FavoriteButton from "@/components/favorite-button";
 import { RideClock } from "@/lib/ride/clock";
 import { rideTotals } from "@/lib/ride/totals";
 import { SPRINT_GRADE, allOutAt, clampGrade, freeRideAt } from "@/lib/ride/sprint";
@@ -21,7 +23,7 @@ import { ERG_STEP, addErgChange, clampErg, defaultErg, ergWorkout, type ErgChang
 import Nav from "@/components/nav";
 import { Notice, Page, Panel, Segmented, button, input } from "@/components/ui";
 import { saveAppRide } from "../actions";
-import { deleteCustomWorkout, saveCustomWorkout } from "./actions";
+import { deleteCustomWorkout, saveCustomWorkout, setFavorite } from "./actions";
 import { holdCoachShortcut } from "../coach/open";
 import { holdNewDayRefresh } from "@/lib/new-day";
 import RideSurvey from "../ride-survey";
@@ -67,9 +69,13 @@ export default function RideScreen({
   plannedLabel = "Today",
   levels,
   saved = [],
+  favorites: initialFavorites = [],
   today,
+  ftpGuess = false,
 }: {
   initialFtp: number | null;
+  /** FTP is still setup's guess, so a ramp test sets it straight away (with Undo) instead of asking. */
+  ftpGuess?: boolean;
   canSave: boolean;
   /** The plan's session for the day, offered first. */
   planned?: Session | null;
@@ -80,6 +86,8 @@ export default function RideScreen({
   levels: Levels;
   /** My workouts, saved from the editor. */
   saved?: CustomWorkout[];
+  /** Favorite workout keys (`library:<id>`, `custom:<id>`), newest first. */
+  favorites?: string[];
   /** Today in your time zone; set when signed in, so a workout can be sent to the Karoo. */
   today?: string;
 }) {
@@ -98,6 +106,11 @@ export default function RideScreen({
   const [baseWorkout, setBaseWorkout] = useState<Workout>(() => planned?.workout ?? librarySession(DEFAULT_LIBRARY, levels).workout);
   /** The My workouts entry loaded (or just saved), so Save updates it. */
   const [customId, setCustomId] = useState<string | null>(null);
+  /** The starter library workout loaded. */
+  const [starterId, setStarterId] = useState<string | null>(null);
+  /** A ridden workout saved to My workouts to favorite it. */
+  const [keptId, setKeptId] = useState<string | null>(null);
+  const [favorites, setFavorites] = useState<ReadonlySet<string>>(() => new Set(initialFavorites));
   /** The loaded workout was changed in the editor. */
   const [edited, setEdited] = useState(false);
   /** Bumped on each load, so the editor's undo history starts fresh. */
@@ -132,6 +145,8 @@ export default function RideScreen({
   const [survey, setSurvey] = useState<{ appStartedAt: string; name: string; session: Pick<Session, "zone" | "level" | "duration" | "stress"> | null } | null>(null);
   /** The FTP a just-saved ramp test gives, offered with a confirm. */
   const [rampResult, setRampResult] = useState<ReturnType<typeof rampTestFtp>>(null);
+  /** The FTP a just-saved 20-minute test gives. */
+  const [twentyResult, setTwentyResult] = useState<ReturnType<typeof twentyMinuteTestFtp>>(null);
   const lastSentTarget = useRef<number | null>(null);
   /** ERG off: the trainer simulates a road at `grade` and you ride the targets by feel. */
   const [ergOn, setErgOn] = useState(true);
@@ -415,6 +430,8 @@ export default function RideScreen({
     setNotice(null);
     setSurvey(null);
     setRampResult(null);
+    setTwentyResult(null);
+    setKeptId(null);
   };
 
   /** Loads a workout into the player (only before a ride starts: Ride now is locked after). */
@@ -431,12 +448,56 @@ export default function RideScreen({
   const pickSource = (next: RideSource) => {
     if (next === "planned" && planned) ride(next, planned.workout);
     else if (next === "library") ride(next, librarySession(library, levels).workout);
-    else if (next === "custom") ride(next, saved[0]?.workout ?? blankWorkout(), saved[0]?.id ?? null);
+    else if (next === "custom") {
+      // My workouts opens on your saved ones, or on the starter library before you've saved any.
+      if (saved.length) ride(next, saved[0].workout, saved[0].id);
+      else pickStarter(libraryWorkout(starterId) ?? WORKOUT_LIBRARY.find((w) => w.category === "endurance") ?? WORKOUT_LIBRARY[0]);
+    }
     else {
       // Free ERG is nothing without ERG.
       if (!ergOnRef.current) setErgMode(true);
       ride(next);
     }
+  };
+
+  const pickStarter = (entry: LibraryWorkout) => {
+    setStarterId(entry.id);
+    ride("starter", entry.workout);
+  };
+
+  /** Adds a workout to favorites or takes it off, at once on screen and then in the database. */
+  const toggleFavorite = async (key: string, on: boolean) => {
+    const flip = (add: boolean) =>
+      setFavorites((current) => {
+        const rest = [...current].filter((k) => k !== key);
+        return new Set(add ? [key, ...rest] : rest);
+      });
+    flip(on);
+    const result = await setFavorite(key, on);
+    if (!result.ok) {
+      flip(!on);
+      setError(result.message);
+    }
+  };
+
+  /** The workout just ridden, as a favorite key: the library workout or saved one it was, unless edited. */
+  const ridden = (): string | null => {
+    if (keptId) return customKey(keptId);
+    if (edited) return source === "custom" && customId ? customKey(customId) : null;
+    if (source === "starter" && starterId) return libraryKey(starterId);
+    if (source === "planned" && planned?.library && !planned.edited) return libraryKey(planned.library);
+    if (source === "custom" && customId) return customKey(customId);
+    return null;
+  };
+
+  /** Favorites the ride's workout; one that isn't in the library or My workouts is saved to My workouts first. */
+  const favoriteRidden = async () => {
+    const key = ridden();
+    if (key) return toggleFavorite(key, !favorites.has(key));
+    const result = await saveCustomWorkout({ workout });
+    if (!result.ok) return setError(result.message);
+    setKeptId(result.id);
+    await toggleFavorite(customKey(result.id), true);
   };
 
   const pickLibrary = (choice: LibraryChoice) => {
@@ -490,9 +551,11 @@ export default function RideScreen({
     if (result.ok) {
       setNotice(result.message);
       setRampResult(isRampTest(workout) && !edited ? rampTestFtp(samples.current) : null);
+      setTwentyResult(isTwentyMinuteTest(workout) && !edited ? twentyMinuteTestFtp(samples.current) : null);
       setSavedId(result.rideId ?? null);
       // A library workout at full intensity can move its zone's level; a planned one is moved through its plan day.
-      const libraryRide = source === "library" && intensity === 100 && !edited ? librarySession(library, levels) : null;
+      const starter = source === "starter" ? libraryWorkout(starterId) : null;
+      const libraryRide = intensity !== 100 || edited ? null : source === "library" ? librarySession(library, levels) : starter ? starterSession(starter) : null;
       setSurvey({
         appStartedAt: started,
         name: workout.name,
@@ -730,11 +793,15 @@ export default function RideScreen({
               levels={levels}
               saved={saved}
               customId={customId}
+              starterId={starterId}
+              favorites={favorites}
               canSave={canSave}
               importing={importing}
               onSource={pickSource}
               onLibrary={pickLibrary}
               onCustom={(entry) => ride("custom", entry.workout, entry.id)}
+              onStarter={pickStarter}
+              onFavorite={toggleFavorite}
               onNew={() => {
                 ride("custom", blankWorkout(), null);
                 setEditorOpen(true);
@@ -768,7 +835,19 @@ export default function RideScreen({
                     </>
                   )}
                 </p>
-                {rampResult && <RampTestResult result={rampResult} current={initialFtp ?? ftp} onSet={setFtp} />}
+                {rampResult && <RampTestResult test="ramp" result={{ watts: rampResult.watts, best: rampResult.bestMinute }} current={initialFtp ?? ftp} guess={ftpGuess} onSet={setFtp} />}
+                {twentyResult && <RampTestResult test="twentyMinute" result={twentyResult} current={initialFtp ?? ftp} guess={ftpGuess} onSet={setFtp} />}
+                {canSave && !erg && saveState === "saved" && (
+                  <FavoriteButton
+                    on={(() => {
+                      const key = ridden();
+                      return key !== null && favorites.has(key);
+                    })()}
+                    name={workout.name}
+                    label={ridden() ? "Favorite this workout" : "Save and favorite this workout"}
+                    onToggle={favoriteRidden}
+                  />
+                )}
                 {survey && <RideSurvey ride={{ appStartedAt: survey.appStartedAt }} name={survey.name} session={survey.session} />}
               </div>
             </Panel>

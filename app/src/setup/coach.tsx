@@ -8,11 +8,11 @@ import { knownPrice, PROVIDERS, preset, type ProviderKind } from "~/ai/providers
 import { coachSetup, saveCoachSetup, SECRET_AI, type CoachMode, type CoachSetup, type ModelChoice } from "~/ai/settings";
 import { listModels, testModel, type ModelInfo } from "~/ai/test";
 import { invoke, isDesktop, openExternal } from "~/platform/native";
-import { saveSecret, secretStatus } from "~/platform/secrets";
+import { deleteSecret, saveSecret, secretStatus } from "~/platform/secrets";
 
 const MODES: { mode: CoachMode; title: string; line: string }[] = [
   { mode: "builtin", title: "Built-in coach", line: "Chat with a coach inside Lactic, on an AI model you pick. Use a cloud key, or run a free model on this computer." },
-  { mode: "external", title: "An AI app you already use", line: "Let Claude Desktop (or another app that speaks MCP) read your training and suggest changes." },
+  { mode: "external", title: "An AI app you already use", line: "Coach through Claude Desktop (or another app that speaks MCP): you chat there, it reads your training from Lactic and suggests changes." },
   { mode: "none", title: "No coach", line: "Just the plan, the workouts and your numbers. You can add a coach later." },
 ];
 
@@ -67,6 +67,7 @@ export function CoachSetupPanel() {
         ))}
       </div>
       {setup.mode === "builtin" && <BuiltinSetup setup={setup} update={update} />}
+      {setup.mode === "builtin" && <AlongsideSetup on={Boolean(setup.alongside)} onChange={(alongside) => void update({ ...setup, alongside })} />}
       {setup.mode === "external" && <ExternalSetup />}
     </div>
   );
@@ -184,6 +185,17 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
               <Pill tone="positive">Saved {keySaved}</Pill>
               <button type="button" className={button.ghost} onClick={() => setup.provider && void update({ ...setup, provider: { ...setup.provider, hasKey: false } })}>
                 Replace
+              </button>
+              <button
+                type="button"
+                className={button.ghost}
+                onClick={async () => {
+                  await deleteSecret(SECRET_AI);
+                  setKeySaved(null);
+                  if (setup.provider) await update({ ...setup, provider: { ...setup.provider, hasKey: false } });
+                }}
+              >
+                Remove
               </button>
             </div>
           ) : (
@@ -362,6 +374,7 @@ interface McpSetup {
   token: string | null;
   command: string;
   claudeConfig: string | null;
+  claudeAdded?: boolean;
 }
 
 function Copy({ text }: { text: string }) {
@@ -381,6 +394,25 @@ function Copy({ text }: { text: string }) {
   );
 }
 
+/** With the built-in coach, AI apps can still connect over MCP. */
+function AlongsideSetup({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <div className="space-y-4">
+      <label className="flex items-start gap-3 rounded-lg border border-line p-4">
+        <input type="checkbox" className="mt-1 size-4 accent-[var(--accent)]" checked={on} onChange={(e) => onChange(e.target.checked)} />
+        <span>
+          <span className="block font-medium">Let AI apps connect too</span>
+          <span className="block text-sm text-muted">
+            Keep the built-in coach and also let Claude Desktop (or another app that speaks MCP) read your training and suggest changes. Suggestions from both show up here
+            to apply or dismiss.
+          </span>
+        </span>
+      </label>
+      {on && <ExternalSetup />}
+    </div>
+  );
+}
+
 export function ExternalSetup() {
   const [mcp, setMcp] = useState<McpSetup | null>(null);
   const [claude, setClaude] = useState<{ ok: boolean; message: string } | null>(null);
@@ -391,6 +423,7 @@ export function ExternalSetup() {
   async function addToClaude() {
     try {
       await invoke<string>("mcp_install_claude");
+      void invoke<McpSetup>("mcp_setup").then(setMcp);
       setClaude({ ok: true, message: "Added. Quit and reopen Claude Desktop, then ask it “How's my training going?”" });
     } catch (e) {
       setClaude({ ok: false, message: String(e) });
@@ -401,15 +434,23 @@ export function ExternalSetup() {
   return (
     <div className="space-y-5 rounded-lg border border-line p-5">
       {!isDesktop && <Notice>Connecting an AI app needs the Lactic desktop app.</Notice>}
+      <p className="text-sm text-muted">
+        You talk to the coach in that app, not in Lactic. It reads your numbers from Lactic while Lactic is open, and anything it suggests waits here for you to apply
+        or dismiss.
+      </p>
       <div className="space-y-3">
         <div>
           <p className="font-medium">Claude Desktop</p>
           <p className="text-sm text-muted">One click adds Lactic to Claude Desktop. Claude can then read your plan, rides, fitness and recovery, and propose changes that you approve here.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" className={button.primary} disabled={!isDesktop} onClick={() => void addToClaude()}>
-            Add to Claude Desktop
-          </button>
+          {mcp?.claudeAdded ? (
+            <Pill tone="positive">Added to Claude Desktop</Pill>
+          ) : (
+            <button type="button" className={button.primary} disabled={!isDesktop} onClick={() => void addToClaude()}>
+              Add to Claude Desktop
+            </button>
+          )}
           <button type="button" className={button.ghost} onClick={() => void openExternal("https://claude.ai/download")}>
             Get Claude Desktop
           </button>

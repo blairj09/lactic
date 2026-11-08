@@ -5,6 +5,7 @@ import { input } from "@/components/ui";
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import { AskCoach } from "@/app/coach/ask-coach";
+import type { StravaMissing } from "@/lib/intervals/client";
 import { connectIntervals, disconnectIntervals, pushIntervalsPlan, setIntervalsUpload, syncIntervals } from "../actions";
 
 export interface IntervalsStatus {
@@ -15,6 +16,37 @@ export interface IntervalsStatus {
   historyReachedBack: string | null;
   /** Rides recorded here go to intervals.icu. */
   uploadRides: boolean;
+  /** Rides that came to intervals.icu from Strava and aren't here. */
+  stravaMissing: StravaMissing | null;
+}
+
+const monthYear = (date: string) => new Date(date).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+
+/** Strava doesn't let intervals.icu share the rides it got from Strava: say what's missing and how to bring it in. */
+function StravaGap({ missing }: { missing: StravaMissing }) {
+  const n = missing.count;
+  const span = missing.oldest && missing.newest ? (monthYear(missing.oldest) === monthYear(missing.newest) ? ` (${monthYear(missing.oldest)})` : ` (${monthYear(missing.oldest)} to ${monthYear(missing.newest)})`) : "";
+  return (
+    <div role="status" className="space-y-1.5 rounded-lg border border-line bg-raised p-3 text-sm">
+      <p className="font-medium">
+        {n} ride{n === 1 ? "" : "s"} from Strava {n === 1 ? "isn't" : "aren't"} in Lactic{span}.
+      </p>
+      <p className="text-muted">
+        intervals.icu got {n === 1 ? "this ride" : "these rides"} from Strava, and Strava doesn't let it share them with other apps. Until they&apos;re here,
+        your fitness and plan leave them out, so the plan may start you too easy.
+      </p>
+      <ul className="list-disc space-y-1 pl-5 text-muted">
+        <li>
+          <span className="text-ink">New rides:</span> in intervals.icu → Settings, connect your Garmin, Wahoo, COROS, Polar, Suunto or Zwift account directly (for
+          a Karoo, turn on intervals.icu in the Hammerhead dashboard). Rides then reach Lactic with their data.
+        </li>
+        <li>
+          <span className="text-ink">Past rides:</span> on strava.com, Settings → My Account → Download or Delete Your Account → Request your archive. Strava
+          emails a .zip; choose it under Import FIT files below. Rides Strava only has as GPX or TCX files can&apos;t come in this way.
+        </li>
+      </ul>
+    </div>
+  );
 }
 
 export default function IntervalsPanel({ status }: { status: IntervalsStatus }) {
@@ -88,6 +120,7 @@ export default function IntervalsPanel({ status }: { status: IntervalsStatus }) 
                 : "History not imported yet."}{" "}
             Each sync puts your next 4 weeks on its calendar.
           </p>
+          {status.stravaMissing && status.stravaMissing.count > 0 && <StravaGap missing={status.stravaMissing} />}
           <label className="flex items-start gap-2 text-sm">
             <input
               type="checkbox"

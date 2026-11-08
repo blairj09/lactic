@@ -166,6 +166,8 @@ A few house rules keep Lactic trustworthy:
 
 [MIT](LICENSE). Use it, fork it, ship it. Just keep the copyright notice.
 
+The Lactic name and logo aren't covered by the license. If you ship a fork, give it its own name and icon. See [TRADEMARKS.md](TRADEMARKS.md).
+
 ---
 
 <div align="center">

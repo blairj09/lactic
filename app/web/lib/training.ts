@@ -4,11 +4,15 @@
 import { loadAthlete, loadRides, type Athlete, type StoredRide } from "./activities";
 import { dailyStress, localDate } from "./engine/activity";
 import { DIFFICULTIES, type Difficulty } from "./engine/feedback";
+import { loadFavorites } from "./favorites";
+import { favoriteLibraryIds } from "./engine/workout-library";
 import { applyOutcomes, outcomeFromRides, seedLevels, type Outcome } from "./engine/levels";
 import { ZONE_LABELS, ZONES, type Levels, type Session } from "./engine/library";
 import { addDays, fitnessSeries, type FitnessDay } from "./engine/pmc";
-import { BREAK_KINDS, BREAK_RIDING, buildPlan, currentPlan, GOAL_KINDS, goalMinutes, INTENSITIES, PLAN_GOALS, type Break, type Goal, type Plan, type PlanDay, type SavedPlan } from "./engine/plan";
+import { BREAK_KINDS, BREAK_RIDING, buildPlan, currentPlan, dayMinutes, weekStart, GOAL_KINDS, goalMinutes, INTENSITIES, PLAN_GOALS, type Break, type Goal, type Plan, type PlanDay, type SavedPlan } from "./engine/plan";
 import { applyOverrides, sameSession } from "./engine/overrides";
+import { applyMoves, refitMissed, type Move } from "./engine/adapt";
+import { inputsKey, keepWeek, weekDrift, type Drift, type KeptWeek } from "./engine/stability";
 import { LINK_WINDOW_DAYS, type ComplianceDay } from "./engine/compliance";
 import { applyPicks, type WorkoutPick } from "./engine/picks";
 import { weekReview, type SnapshotDay, type WeekReview } from "./engine/review";
@@ -48,6 +52,8 @@ export interface StoredPlanDay {
   checkin: CheckinRecord | null;
   activityId: string | null;
   feelAfter: number | null;
+  /** Set when a missed key session was moved to this day (adapt.ts): the day it was planned for. */
+  movedFrom: string | null;
 }
 
 /** The post-ride survey for one ride. */
@@ -83,6 +89,8 @@ export interface TrainingState {
   activePlan: SavedPlan | null;
   breaks: Break[];
   levels: Levels;
+  /** Favorite workout keys (`library:<id>`, `custom:<id>`). */
+  favorites: string[];
   /** What levels start from and the outcomes that moved them, so levels on an earlier day can be worked out (levelsOn). */
   levelSeed: Levels;
   levelOutcomes: Outcome[];
@@ -94,6 +102,13 @@ export interface TrainingState {
   picks: WorkoutPick[];
   /** Days from today on ridden outside, so they go to the Karoo (outdoor.ts). */
   outdoor: OutdoorRide[];
+  /** How far the rebuilt week has moved from the one kept when the week began (stability.ts), and the rebuilt days, for a re-plan. */
+  weekDrift: Drift | null;
+  rebuiltWeek: PlanDay[] | null;
+  /** What the plan is built from, as kept with the week. */
+  planInputs: string;
+  /** Missed key sessions moved to a later day of their week, stored and made this load. */
+  moves: Move[];
   /** Days from today on whose session differs from the engine's plan. */
   changedDays: string[];
   /** Today's plan entry, and what's stored for it. */
@@ -163,12 +178,12 @@ export async function loadOutdoor(supabase: Supabase, from: string): Promise<Out
 export async function loadPlanDays(supabase: Supabase, from: string, through: string): Promise<StoredPlanDay[]> {
   const { data, error } = await supabase
     .from("plan_days")
-    .select("day, planned, chosen, checkin, activity_id, feel_after")
+    .select("day, planned, chosen, checkin, activity_id, feel_after, moved_from")
     .gte("day", from)
     .lte("day", through)
     .order("day", { ascending: false });
   if (error) throw error;
-  return data.map((r) => ({ day: r.day, planned: r.planned, chosen: r.chosen, checkin: r.checkin, activityId: r.activity_id, feelAfter: r.feel_after }));
+  return data.map((r) => ({ day: r.day, planned: r.planned, chosen: r.chosen, checkin: r.checkin, activityId: r.activity_id, feelAfter: r.feel_after, movedFrom: r.moved_from ?? null }));
 }
 
 /** Survey answers, unmatched to rides yet (feedbackFor), so the query can run alongside the rides'. */
@@ -209,7 +224,7 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
   const tz = athlete.timezone;
   const today = localDate(new Date(), tz);
   const daytime = loadDaytime(supabase, athlete, today).catch((e) => (console.error(e), null));
-  const [[rides, goals, plans, breaks, feedbackRows], recovery, daytimeData, allDays, picks, outdoor] = await Promise.all([
+  const [[rides, goals, plans, breaks, feedbackRows], recovery, daytimeData, allDays, picks, outdoor, keptRow, favorites] = await Promise.all([
     early,
     // Riders who don't track recovery get none, even if some sleep data arrived (intervals.icu wellness), so neither
     // Today's options nor the coach go by a score they never see.
@@ -218,6 +233,9 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     loadPlanDays(supabase, addDays(today, -LEVEL_WINDOW_DAYS), addDays(today, AHEAD_DAYS)),
     loadPicks(supabase, today),
     loadOutdoor(supabase, today),
+    loadKeptWeek(supabase, weekStart(today)),
+    // Favorites are optional: the plan builds the same without them.
+    loadFavorites(supabase).catch((e) => (console.error(e), [] as string[])),
   ]);
   const feedback = feedbackFor(feedbackRows, rides, addDays(today, -LEVEL_WINDOW_DAYS), tz);
   const ahead = allDays.filter((d) => d.day >= today);
@@ -271,9 +289,36 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     fatigue: yesterday.fatigue,
     levels,
     rampRate: athlete.rampRate,
+    favorites: favoriteLibraryIds(favorites),
   });
+  // This week's skeleton stays as it was when the week began; a rebuild that's moved past the drift limit is offered
+  // as a re-plan instead (stability.ts). Changing what the plan is built from re-plans the week at once.
+  const planInputs = inputsKey({ availability: athlete.availability, rampRate: athlete.rampRate, goals, breaks, plan: activePlan });
+  const rebuiltWeek = enginePlan.weeks[0]?.start === weekStart(today) ? enginePlan.weeks[0].days : null;
+  let kept: KeptWeek | null = keptRow && keptRow.inputs === planInputs ? keptRow : null;
+  if (!kept && rebuiltWeek) {
+    kept = { week: weekStart(today), days: rebuiltWeek, inputs: planInputs };
+    await saveKeptWeek(supabase, athlete.userId, kept);
+  }
+  const drift = kept && rebuiltWeek ? weekDrift(kept.days, rebuiltWeek, today) : null;
+  const stablePlan = keepWeek(enginePlan, kept, today, yesterday);
   // The coach's weekly picks choose the structure of key days; the engine keeps everything else.
-  const basePlan = applyPicks(enginePlan, picks, today, yesterday);
+  const picked = applyPicks(stablePlan, picks, today, yesterday);
+  // Key sessions missed earlier this week move to a later day: moves made on earlier loads are stored with the day
+  // they went to, so they stay put; new ones are made now and stored.
+  const storedMoves: Move[] = allDays.filter((d) => d.movedFrom).map((d) => ({ from: d.movedFrom!, to: d.day, session: d.planned }));
+  const refit = refitMissed(
+    applyMoves(picked, storedMoves, today, yesterday),
+    {
+      today,
+      ridden: new Set(rides.map(countsOn)),
+      decided: new Set([...storedDays.filter((d) => d.chosen).map((d) => d.day), ...ahead.map((d) => d.day)]),
+      minutes: (date) => dayMinutes(date, athlete.availability, breaks),
+    },
+    yesterday,
+  );
+  const basePlan = refit.plan;
+  if (refit.moves.length) await saveMoves(supabase, athlete.userId, refit.moves);
   // Days changed through the coach: today and later rows hold the session to ride (chosen at check-in, else planned).
   const overrides = ahead.map((d) => ({ date: d.day, session: d.chosen ? d.chosen.session : d.planned }));
   const plan = applyOverrides(basePlan, overrides, today, yesterday);
@@ -305,6 +350,10 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     basePlan,
     picks,
     outdoor,
+    moves: [...storedMoves, ...refit.moves],
+    weekDrift: drift,
+    rebuiltWeek,
+    planInputs,
     changedDays,
     todayPlan,
     todayStored: storedDays.find((d) => d.day === today) ?? null,
@@ -312,7 +361,31 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     storedDays,
     feedback,
     rideLinks,
+    favorites,
   };
+}
+
+/** The week's skeleton as kept when it began. Null (and logged on error) when there's none yet. */
+async function loadKeptWeek(supabase: Supabase, monday: string): Promise<KeptWeek | null> {
+  const { data, error } = await supabase.from("plan_weeks").select("week, days, inputs").eq("week", monday).maybeSingle();
+  if (error) return (console.error(error), null);
+  return data && Array.isArray(data.days) ? { week: data.week, days: data.days, inputs: data.inputs ?? "" } : null;
+}
+
+/** Keeps a week's skeleton (the Re-plan button writes the rebuilt one through here too). A failure is logged: the week is just rebuilt again. */
+export async function saveKeptWeek(supabase: Supabase, userId: string, kept: KeptWeek) {
+  const { error } = await supabase
+    .from("plan_weeks")
+    .upsert({ user_id: userId, week: kept.week, days: kept.days, inputs: kept.inputs, updated_at: new Date().toISOString() }, { onConflict: "user_id,week" });
+  if (error) console.error("Couldn't keep this week's plan:", error);
+}
+
+/** Stores new moves on the days they went to, so they stay put. A failure is logged: the move is made again next load. */
+async function saveMoves(supabase: Supabase, userId: string, moves: Move[]) {
+  const now = new Date().toISOString();
+  const rows = moves.map((m) => ({ user_id: userId, day: m.to, planned: m.session, chosen: null, moved_from: m.from, updated_at: now }));
+  const { error } = await supabase.from("plan_days").upsert(rows, { onConflict: "user_id,day" });
+  if (error) console.error("Couldn't store a moved session:", error);
 }
 
 /** Ride id to the plan day it's linked to; a ride linked to two days (shouldn't happen) counts for the latest. */
@@ -396,11 +469,13 @@ function plannedOrSnapshot(state: TrainingState, day: string, snapshot?: Map<str
 export function complianceDays(state: TrainingState, from: string, through: string, snapshot?: Map<string, { duration: number; stress: number }>): ComplianceDay[] {
   const days: ComplianceDay[] = [];
   for (let date = from; date <= through; date = addDays(date, 1)) {
-    const planned = plannedOrSnapshot(state, date, snapshot);
+    const move = state.moves.find((m) => m.from === date);
+    const planned = move ? null : plannedOrSnapshot(state, date, snapshot);
     days.push({
       date,
       planned: planned && { duration: planned.duration, stress: planned.stress },
       rides: date <= state.today ? ridesFor(state, date) : [],
+      ...(move ? { movedTo: move.to } : {}),
     });
   }
   return days;

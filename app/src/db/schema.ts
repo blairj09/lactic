@@ -220,6 +220,18 @@ export const TABLES: Record<string, Table> = {
     },
     primaryKey: ["id"],
   },
+  /** Workouts the rider favorited: `library:<id>` for the starter library, `custom:<id>` for My workouts. */
+  workout_favorites: {
+    columns: {
+      id,
+      user_id: user,
+      workout_key: { type: "text", notNull: true },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    unique: [["user_id", "workout_key"]],
+  },
   health_days: {
     columns: {
       user_id: user,
@@ -245,6 +257,10 @@ export const TABLES: Record<string, Table> = {
       connected_at: now,
       last_synced_at: { type: "ts" },
       upload_rides: { type: "bool", default: true },
+      // Rides in the last two years that reached intervals.icu from Strava and aren't here (its API can't share them).
+      strava_missing: { type: "int" },
+      strava_missing_oldest: { type: "text" },
+      strava_missing_newest: { type: "text" },
       updated_at: now,
     },
     primaryKey: ["user_id"],
@@ -290,10 +306,17 @@ export const TABLES: Record<string, Table> = {
       checkin: { type: "json" },
       activity_id: { type: "uuid" },
       feel_after: { type: "int" },
+      // A missed key session moved to this day: the day it was planned for.
+      moved_from: { type: "date" },
       updated_at: now,
     },
     primaryKey: ["user_id", "day"],
     foreignKeys: { activity_id: activity("set null") },
+  },
+  // Each week's plan as it stood when the week began (engine/stability.ts), so it stays put as the rides come in.
+  plan_weeks: {
+    columns: { user_id: user, week: { type: "date", notNull: true }, days: { type: "json", notNull: true, default: [] }, inputs: { type: "text" }, created_at: now, updated_at: now },
+    primaryKey: ["user_id", "week"],
   },
   plan_snapshots: {
     columns: { user_id: user, week: { type: "date", notNull: true }, days: { type: "json", notNull: true, default: [] }, created_at: now, updated_at: now },

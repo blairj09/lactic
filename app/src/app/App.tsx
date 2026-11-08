@@ -7,7 +7,7 @@ import DrawerBoundary from "@/app/coach/drawer-boundary";
 import NewDayRefresh from "@/components/new-day-refresh";
 import { ServerPage } from "./server-page";
 import { setNavigator } from "~/shims/next-navigation";
-import { refreshCoachMode, useCoachMode } from "./coach-mode";
+import { refreshCoachMode, useCoachMode, useMcpOn } from "./coach-mode";
 import { getSetting } from "~/settings/store";
 import { loadFeatures } from "~/settings/features";
 import { loadExperiments } from "~/settings/experiments";
@@ -52,6 +52,7 @@ function Lazy({ load }: { load: () => Promise<{ default: React.ComponentType }> 
 
 function Shell() {
   const mode = useCoachMode();
+  const mcp = useMcpOn();
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   useEffect(() => {
     void refreshCoachMode();
@@ -104,7 +105,7 @@ function Shell() {
       <BluetoothPicker />
       <UpdatePrompt />
       {onboarded && <Tour />}
-      {onboarded && mode === "external" && <ExternalSuggestions />}
+      {onboarded && mcp && <ExternalSuggestions />}
       {mode === "builtin" && (
         <DrawerBoundary>
           <CoachDrawer />

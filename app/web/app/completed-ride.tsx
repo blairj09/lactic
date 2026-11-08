@@ -6,6 +6,7 @@ import { DAY_MARK_LABELS, type DayMark } from "@/lib/engine/compliance";
 import { DIFFICULTY_LABELS, RPE_LABELS } from "@/lib/engine/feedback";
 import { ZONE_LABELS } from "@/lib/engine/library";
 import { completion, plannedTargets, smooth } from "@/lib/engine/ride-detail";
+import { EXECUTION_GRADE_LABELS, executionGrade, rideExecution } from "@/lib/engine/execution";
 import { formatDuration, SOURCE_LABEL } from "@/lib/format";
 import type { plannedOn, StoredFeedback } from "@/lib/training";
 import { formatDistance, readUnits } from "@/lib/units";
@@ -47,6 +48,7 @@ export default function CompletedRide({
   // A ride from Zwift or the Karoo has no target of its own: line the plan's workout up with its start.
   const target = stream ? (stream.target ?? (session && ftp ? plannedTargets(session.workout, ftp, stream) : null)) : null;
   const targetLabel = stream?.target ? "Target" : "Planned";
+  const execution = rideExecution(stream ? { workout: stream.workout ?? null, intervals: stream.intervals ?? null } : null, planned, ride);
 
   return (
     <div className="space-y-4">
@@ -56,6 +58,11 @@ export default function CompletedRide({
           Ridden at {clockTime(ride.startedAt, timeZone)} · {SOURCE_LABEL[ride.source] ?? ride.source}
           {share !== null && ` · ${Math.round(share * 100)}% of the plan${planned!.stress > 0 && ride.trainingStress !== null ? "'s stress" : "'s time"}`}
         </span>
+        {execution && (
+          <span className="num">
+            · Execution <span className="font-medium text-ink">{execution.score}</span>/100, {EXECUTION_GRADE_LABELS[executionGrade(execution.score)].toLowerCase()}
+          </span>
+        )}
       </p>
 
       <StatStrip cols={4} phone={2}>

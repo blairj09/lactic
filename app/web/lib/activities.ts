@@ -84,7 +84,7 @@ export const loadAthlete = cache(async (supabase: Supabase): Promise<Athlete> =>
   const [{ data: auth }, { data: settings, error }, { data: history, error: historyError }] = await Promise.all([
     supabase.auth.getClaims(),
     supabase.from("athlete_settings").select("*").maybeSingle(),
-    supabase.from("ftp_history").select("effective_date, watts").order("effective_date"),
+    supabase.from("ftp_history").select("effective_date, watts, method").order("effective_date"),
   ]);
   const userId = auth?.claims.sub;
   if (!userId) throw new Error("Not signed in");
@@ -101,7 +101,7 @@ export const loadAthlete = cache(async (supabase: Supabase): Promise<Athlete> =>
     sex: settings?.sex ?? null,
     sleepNeedHours: settings ? Number(settings.sleep_need_hours) : 8,
     timezone: settings?.timezone ?? "America/Los_Angeles",
-    ftpHistory: (history ?? []).map((h) => ({ effectiveDate: h.effective_date, watts: h.watts })),
+    ftpHistory: (history ?? []).map((h) => ({ effectiveDate: h.effective_date, watts: h.watts, method: h.method ?? undefined })),
     availability: Array.isArray(settings?.availability) && settings.availability.length === 7 ? (settings.availability as Availability) : DEFAULT_AVAILABILITY,
     rampRate: settings ? Number(settings.ramp_rate ?? DEFAULT_RAMP_RATE) : DEFAULT_RAMP_RATE,
   };
@@ -251,6 +251,13 @@ export async function unlinkedRides(supabase: Supabase, since: Date): Promise<Un
     .gte("started_at", since.toISOString());
   if (error) throw error;
   return data.map((r) => ({ id: r.id, userId: r.user_id, source: r.source, startedAt: new Date(r.started_at), durationSeconds: r.duration_seconds }));
+}
+
+/** Start and length of every ride stored since `since`, from any source. */
+export async function rideTimes(supabase: Supabase, since: Date): Promise<{ startedAt: Date; durationSeconds: number }[]> {
+  const { data, error } = await supabase.from("activities").select("started_at, duration_seconds").gte("started_at", since.toISOString());
+  if (error) throw error;
+  return data.map((r) => ({ startedAt: new Date(r.started_at), durationSeconds: r.duration_seconds }));
 }
 
 /** Saves intervals.icu activity ids (ride id -> activity id) on those rides. Returns how many it linked. */
