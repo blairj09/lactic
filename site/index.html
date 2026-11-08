@@ -25,7 +25,7 @@
       Lactic
     </a>
     <nav class="nav" aria-label="Main">
-      <a class="nav-link" href="#why">Why Lactic</a>
+      <a class="nav-link" href="#why">Features</a>
       <a class="nav-link" href="#coach">AI coach</a>
       <a class="nav-link" href="#gear">Gear</a>
       <a class="nav-link" href="https://github.com/blairj09/lactic">GitHub</a>
@@ -43,7 +43,7 @@
           <h1>The <span class="nowrap">open-source</span> training platform.</h1>
         </div>
         <div class="hero-side">
-          <p class="lede">Your fitness shouldn't live on someone else's server, and your coach shouldn't be a subscription. So we built the alternative, and we're giving it away.</p>
+          <p class="lede">A plan that fits your week. Workouts that hold the watts on your smart trainer. Recovery from the watch you already wear. And a coach, if you want one.</p>
           <div class="buttons">
             <a class="btn btn-primary" href="#download"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Download free</a>
             <a class="btn btn-secondary" href="https://github.com/blairj09/lactic">Read the code</a>
@@ -100,42 +100,61 @@
     <div class="wrap">
       <div class="belief">
         <div class="belief-copy">
-          <p class="eyebrow">Local first</p>
-          <h2>Your data is yours.</h2>
-          <p>Every ride, plan and night of sleep sits in one file on your computer. No account. Nothing to export when you leave. Back it up like any other file.</p>
+          <p class="eyebrow">Plans</p>
+          <h2>A plan that fits your life.</h2>
+          <p>Tell Lactic your goal and the time you have each day. It builds the weeks, the recovery weeks and the workouts, and shows where your fitness will be at the end. Move a day by dragging it.</p>
         </div>
-        <div class="belief-detail file-tree">
-          <div class="dim">Your computer · Lactic's data folder</div>
-          <div>└─ lactic.db</div>
-          <div class="tables">rides · plans · workouts · wellness · weight</div>
+        <div class="belief-detail week" aria-label="Example week">
+          <div class="day"><span class="d">Mon</span><span class="w rest">Rest</span></div>
+          <div class="day"><span class="d">Tue</span><span class="w">Sweet spot 2 × 26</span><span class="t num">1:15</span></div>
+          <div class="day"><span class="d">Wed</span><span class="w">Endurance</span><span class="t num">1:00</span></div>
+          <div class="day"><span class="d">Thu</span><span class="w">VO2 max 5 × 4</span><span class="t num">1:00</span></div>
+          <div class="day"><span class="d">Fri</span><span class="w rest">Rest</span></div>
+          <div class="day"><span class="d">Sat</span><span class="w">Long endurance</span><span class="t num">2:00</span></div>
+          <div class="day"><span class="d">Sun</span><span class="w">Endurance with tempo</span><span class="t num">1:30</span></div>
         </div>
       </div>
 
-      <div class="belief" id="coach">
+      <div class="belief" id="ride">
         <div class="belief-copy">
-          <p class="eyebrow">Bring your own AI</p>
-          <h2>Your coach is your call.</h2>
-          <p>Use any AI key, or a free model on your own computer. Already use Claude Desktop? Connect it through Lactic&apos;s MCP server. Rather ride in peace? Go without.</p>
+          <p class="eyebrow">Rides</p>
+          <h2>Every interval, on target.</h2>
+          <p>Lactic sets the watts in ERG and drops to road mode for sprints. Start pedaling and the workout starts. The overlay keeps it on top of Zwift, a video or anything else.</p>
         </div>
-        <div class="belief-detail modes">
-          <div class="mode"><h3>Built-in coach</h3><p>OpenRouter, Anthropic, OpenAI, Gemini, Ollama or LM Studio. Keys stay in your OS keychain. A monthly limit you set.</p></div>
-          <div class="mode"><h3>An AI app you already use</h3><p>One click adds Lactic to Claude Desktop. Any MCP app gets the same tools as the built-in coach.</p></div>
-          <div class="mode"><h3>No coach</h3><p>Just the plan, the workouts and your numbers. Nothing leaves your computer.</p></div>
+        <div class="belief-detail metrics">
+          <div class="metric"><p class="label">Power</p><p class="value num">239 W</p></div>
+          <div class="metric"><p class="label">Target</p><p class="value num">237 W</p></div>
+          <div class="metric"><p class="label">Interval 2 of 6</p><p class="value num">25:15</p></div>
+          <div class="metric"><p class="label">Heart rate</p><p class="value num">137</p></div>
+          <p class="note">Sweet spot, ERG on.</p>
         </div>
       </div>
 
       <div class="belief">
         <div class="belief-copy">
-          <p class="eyebrow">The engine owns the math</p>
-          <h2>The math is open.</h2>
-          <p>Your plan, zones and fitness come from rules anyone can read. The AI explains and suggests. It never invents a number or changes your plan without you.</p>
+          <p class="eyebrow">Recovery</p>
+          <h2>Train for the day you&apos;re having.</h2>
+          <p>A recovery score each morning from your sleep, HRV and resting heart rate. Your plan adjusts to it, and to how yesterday felt.</p>
         </div>
         <div class="belief-detail metrics">
-          <div class="metric"><p class="label">Fitness (CTL)</p><p class="value num">40</p></div>
-          <div class="metric"><p class="label">Fatigue (ATL)</p><p class="value num">44</p></div>
-          <div class="metric"><p class="label">Form (TSB)</p><p class="value num">−4</p></div>
-          <div class="metric"><p class="label">FTP</p><p class="value num">259 W</p></div>
-          <p class="note">Example rider.</p>
+          <div class="metric"><p class="label">Recovery</p><p class="value num">68</p></div>
+          <div class="metric"><p class="label">Sleep</p><p class="value num">7h 17m</p></div>
+          <div class="metric"><p class="label">HRV</p><p class="value num">71 ms</p></div>
+          <div class="metric"><p class="label">Resting HR</p><p class="value num">50</p></div>
+          <p class="note">Apple Watch, Garmin, Oura, WHOOP or Android.</p>
+        </div>
+      </div>
+
+      <div class="belief" id="coach">
+        <div class="belief-copy">
+          <p class="eyebrow">Coach</p>
+          <h2>A coach that knows your numbers.</h2>
+          <p>Ask why today is hard, or to move Saturday&apos;s ride. The coach reads your plan, rides and recovery, and suggests changes you apply with a click. Use the AI you like, or none.</p>
+        </div>
+        <div class="belief-detail modes">
+          <div class="mode"><h3>Built-in coach</h3><p>OpenRouter, Anthropic, OpenAI, Gemini, or a free model on your computer. A monthly limit you set.</p></div>
+          <div class="mode"><h3>An AI app you already use</h3><p>One click adds Lactic to Claude Desktop. Any MCP app gets the same tools.</p></div>
+          <div class="mode"><h3>No coach</h3><p>Just the plan, the workouts and your numbers.</p></div>
         </div>
       </div>
 
@@ -159,14 +178,14 @@
 
   <section class="features">
     <div class="wrap">
-      <h2>Everything a training app should do.</h2>
+      <h2>And everything else a training app should do.</h2>
       <div class="feature-grid">
-        <div class="feature"><h3>Plans that adapt</h3><p>Built around the time you have. Adjusted each morning for sleep, HRV and how yesterday felt.</p></div>
-        <div class="feature"><h3>ERG that holds</h3><p>Lactic sets the watts for every interval and drops to road mode for sprints.</p></div>
-        <div class="feature"><h3>Starts when you pedal</h3><p>Paired gear reconnects on its own. The workout begins with your first pedal stroke.</p></div>
-        <div class="feature"><h3>Stays on top</h3><p>The workout floats over other windows, full screen included: Zwift, a video, a browser.</p></div>
-        <div class="feature"><h3>Real progress</h3><p>Fitness, form, FTP from critical power, your power curve and profile. Calculated on your computer.</p></div>
-        <div class="feature"><h3>Five minutes to start</h3><p>Five short steps find your gear, build your plan and bring in your history. Skip what you don&apos;t have.</p></div>
+        <div class="feature"><h3>Real progress</h3><p>Fitness, fatigue and form. FTP from critical power, your power curve and profile, VO2 max.</p></div>
+        <div class="feature"><h3>Your history from day one</h3><p>intervals.icu brings in rides from Zwift, Garmin, Wahoo and more. Rides and workouts sync back.</p></div>
+        <div class="feature"><h3>Workouts your way</h3><p>Edit any workout, make your own, or pick an easier or harder version.</p></div>
+        <div class="feature"><h3>Five minutes to start</h3><p>Five short steps find your gear, build your plan and bring in your history.</p></div>
+        <div class="feature"><h3>Math you can check</h3><p>Every number comes from an open engine with tests. The AI explains it, never invents it.</p></div>
+        <div class="feature"><h3>Free and open source</h3><p>Free to use and change, MIT licensed. No account. Your data is one file on your computer.</p></div>
       </div>
     </div>
   </section>
@@ -186,7 +205,7 @@
 <footer class="site-footer">
   <div class="wrap">
     <span>Lactic · lactic.fit</span>
-    <span>No accounts. No subscriptions. No lock-in.</span>
+    <span>The open-source training platform.</span>
   </div>
 </footer>
 
