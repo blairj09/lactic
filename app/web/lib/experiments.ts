@@ -16,7 +16,7 @@ export const EXPERIMENTS: Experiment[] = [
   {
     id: "race_report",
     title: "Race reports",
-    line: "Line your race up against other riders' files, lap by lap and corner by corner, to see where you lost time and what to work on. Opens from a race's ride page.",
+    line: "Line your race up against other riders' files, lap by lap and corner by corner, to see where you lost time and what to work on. Long races that aren't laps (a point-to-point road race, a gran fondo) get pacing, fade, climbs, stops and your past years instead. Opens from a race's ride page.",
   },
 ];
 

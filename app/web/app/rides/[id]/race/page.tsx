@@ -6,13 +6,14 @@ import { experiments } from "@/lib/experiments";
 import { Notice, Page, PageHeader, Panel } from "@/components/ui";
 import { loadAthlete, loadRide } from "@/lib/activities";
 import { coachModel } from "@/lib/coach/conversation";
-import { raceReport, type RaceReport } from "@/lib/engine/race/report";
 import { isTimed } from "@/lib/engine/race/track";
+import { buildRace, type BuiltRace } from "@/lib/race-build";
 import { formatDay } from "@/lib/format";
-import { loadRaceData } from "@/lib/race";
+import { bestCurveBefore, loadRaceData } from "@/lib/race";
 import { createClient } from "@/lib/supabase/server";
 import RaceReview from "./race-review";
 import RaceSetup from "./race-setup";
+import SoloReview from "./solo-review";
 
 export const metadata = { title: "Race report · Lactic" };
 export const dynamic = "force-dynamic";
@@ -47,16 +48,18 @@ export default async function RaceReportPage({ params }: { params: Promise<{ id:
     );
   }
 
-  let report: RaceReport | null = null;
+  let built: BuiltRace | null = null;
   let problem: string | null = null;
   if (data.ownTrack) {
     try {
-      report = raceReport({ own: data.ownTrack, ownName: data.ownName, rivals: data.rivals, results: data.results });
+      built = buildRace({ ...data, ownTrack: data.ownTrack }, athlete, ride.startedAt, await bestCurveBefore(supabase, ride.startedAt.toISOString()));
     } catch (e) {
       problem = e instanceof Error ? e.message : String(e);
     }
   }
-  const ready = report !== null;
+  const report = built?.kind === "laps" ? built.report : null;
+  const solo = built?.kind === "solo" ? built.report : null;
+  const ready = built !== null;
 
   return (
     <>
@@ -69,6 +72,7 @@ export default async function RaceReportPage({ params }: { params: Promise<{ id:
               <ExperimentalTag className="mr-2 align-[2px]" />
               Race report · {formatDay(ride.startedAt, athlete.timezone)}
               {report ? ` · ${report.lapCount} laps of ${(report.lapMeters / 1000).toFixed(2)} km` : ""}
+              {solo ? " · one long race, read from your ride" : ""}
             </>
           }
           actions={
@@ -79,13 +83,16 @@ export default async function RaceReportPage({ params }: { params: Promise<{ id:
         />
         {problem && <Notice>{problem}</Notice>}
         {report && <RaceReview activityId={id} report={report} notes={data.notes} debrief={data.debrief} coachOn={Boolean(coachModel())} />}
+        {solo && <SoloReview activityId={id} report={solo} notes={data.notes} debrief={data.debrief} coachOn={Boolean(coachModel())} />}
         <div id="race-files" className="scroll-mt-20">
-        <Panel title={ready ? "Files and results" : "Set up the report"} meta={ready ? undefined : "Three steps, about a minute"}>
+        <Panel title={ready ? (solo ? "Files and places" : "Files and results") : "Set up the report"} meta={ready ? undefined : "Three steps, about a minute"}>
           <RaceSetup
             activityId={id}
             ownPoints={data.ownTrack?.points.length ?? null}
             canFetch={Boolean(data.intervalsId)}
-            rivals={data.rivals.map((r) => ({ id: r.id, name: r.name, points: r.track.points.length, timed: isTimed(r.track) }))}
+            rivals={data.rivals.map((r) => ({ id: r.id, name: r.name, points: r.track.points.length, timed: isTimed(r.track), past: r.past }))}
+            solo={Boolean(solo)}
+            placesText={data.placesText}
             resultsText={data.resultsText}
             results={data.results}
             ownName={data.ownName}

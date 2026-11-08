@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import { button, fileInput, input, Result } from "@/components/ui";
 import Select from "@/components/select";
 import type { ResultRow } from "@/lib/engine/race/results";
-import { deleteRival, loadOwnTrack, readResultsScreenshot, saveRaceResults, uploadOwnTrack, uploadRival } from "./actions";
+import { deleteRival, loadOwnTrack, readResultsScreenshot, saveRacePlaces, saveRaceResults, uploadOwnTrack, uploadRival } from "./actions";
 
 export interface RivalInfo {
   id: string;
   name: string;
   points: number;
   timed: boolean;
+  past: boolean;
 }
 
 const readFile = (file: File, as: "base64" | "dataUrl") =>
@@ -46,8 +47,13 @@ export default function RaceSetup({
   resultsText,
   results,
   ownName,
+  solo = false,
+  placesText = "",
 }: {
   activityId: string;
+  /** A race that isn't laps: places on the course and past editions instead of results and lap riders. */
+  solo?: boolean;
+  placesText?: string;
   ownPoints: number | null;
   canFetch: boolean;
   rivals: RivalInfo[];
@@ -63,6 +69,8 @@ export default function RaceSetup({
   const [rivalName, setRivalName] = useState("");
   const [rivalFile, setRivalFile] = useState<File | null>(null);
   const [reading, setReading] = useState(false);
+  const [places, setPlaces] = useState(placesText);
+  const [past, setPast] = useState(true);
   const rows = results;
 
   const run = (work: () => Promise<{ ok: boolean; message: string }>) =>
@@ -108,6 +116,68 @@ export default function RaceSetup({
         </div>
       </Step>
 
+      {solo ? (
+        <>
+      <Step n={2} title="Places on the course (optional)" done={places.trim().length > 0}>
+        <p className="text-sm text-muted">Feed zones, summits and towns, one a line with the distance from the start in km. Climbs and stops near them take their names.</p>
+        <textarea
+          className={`${input} h-28 w-full py-2 font-mono text-xs`}
+          value={places}
+          onChange={(e) => setPlaces(e.target.value)}
+          placeholder={"Montpelier 122\nGeneva Summit 136.5\nSalt River Pass 171"}
+        />
+        <button type="button" className={button.primary} disabled={pending} onClick={() => run(() => saveRacePlaces(activityId, places))}>
+          Save places
+        </button>
+      </Step>
+
+      <Step n={3} title="Other years, and other riders (optional)" done={rivals.length > 0}>
+        <p className="text-sm text-muted">Your own ride of this course from another year lines up along the road, section by section, to show where you gained and lost on it. Use the original file from your device or intervals.icu (Actions → Download original). Another rider&apos;s file works too if it keeps its times.</p>
+        {rivals.length > 0 && (
+          <ul className="divide-y divide-line rounded-md border border-line">
+            {rivals.map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <span className="min-w-0">
+                  <span className="font-medium">{r.name}</span>
+                  <span className="text-muted"> · {r.past ? "you, another year" : "another rider"}{r.timed ? "" : ", no times in the file, so it can't be lined up"}</span>
+                </span>
+                <button type="button" className={button.ghost} disabled={pending} onClick={() => run(() => deleteRival(r.id))}>
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <input className={input} placeholder={past ? "Name (e.g. 2023)" : "Their name"} value={rivalName} onChange={(e) => setRivalName(e.target.value)} aria-label="Name" />
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={past} onChange={(e) => setPast(e.target.checked)} />
+            This is me, another year
+          </label>
+          <input type="file" accept=".gpx,.fit" className={fileInput} aria-label="The ride file" onChange={(e) => setRivalFile(e.target.files?.[0] ?? null)} />
+          <button
+            type="button"
+            className={button.primary}
+            disabled={pending || !rivalFile}
+            onClick={() =>
+              rivalFile &&
+              run(async () => {
+                const r = await uploadRival(activityId, rivalName, rivalFile.name, await readFile(rivalFile, "base64"), past);
+                if (r.ok) {
+                  setRivalFile(null);
+                  setRivalName("");
+                }
+                return r;
+              })
+            }
+          >
+            Add it
+          </button>
+        </div>
+      </Step>
+        </>
+      ) : (
+        <>
       <Step n={2} title="Results (optional, but they sharpen everything)" done={rows.length > 0}>
         <p className="text-sm text-muted">Paste them from the timing site, one rider per line, or read them off a screenshot. Lap times line everyone up exactly, and give GPX files without times a clock.</p>
         <textarea
@@ -208,6 +278,8 @@ export default function RaceSetup({
           </button>
         </div>
       </Step>
+        </>
+      )}
       {message && <Result ok={message.ok}>{message.text}</Result>}
     </div>
   );

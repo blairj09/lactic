@@ -1,15 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { raceDebrief } from "@/lib/coach/chat";
+import { raceDebrief, soloRaceDebrief } from "@/lib/coach/chat";
 import { coachModel } from "@/lib/coach/conversation";
 import { readResultsImage } from "@/lib/coach/race-results";
 import { loadCoachData } from "@/lib/coach/store";
 import { raceAdvice } from "@/lib/engine/race/advice";
 import { raceForCoach } from "@/lib/engine/race/brief";
-import { BEST_LAP_ID, raceReport } from "@/lib/engine/race/report";
+import { BEST_LAP_ID } from "@/lib/engine/race/report";
 import { parseResults } from "@/lib/engine/race/results";
-import { addRival, fetchOwnTrack, loadRaceData, removeRival, saveDebrief, saveNotes, saveOwnName, saveOwnTrack, saveResults, trackFromFile } from "@/lib/race";
+import { soloAdvice } from "@/lib/engine/race/solo-advice";
+import { soloForCoach } from "@/lib/engine/race/solo-brief";
+import { loadAthlete, loadRide } from "@/lib/activities";
+import { addRival, bestCurveBefore, fetchOwnTrack, loadRaceData, removeRival, saveDebrief, saveNotes, saveOwnName, saveOwnTrack, savePlaces, saveResults, trackFromFile } from "@/lib/race";
+import { buildRace } from "@/lib/race-build";
+import { soloFormatters } from "@/lib/race-format";
 import { raceFormatters } from "@/lib/race-format";
 import { createClient } from "@/lib/supabase/server";
 import { readUnits } from "@/lib/units";
@@ -55,14 +60,25 @@ export async function uploadOwnTrack(activityId: string, fileName: string, base6
   });
 }
 
-/** Another rider's GPX (Strava: ⋯ → Export GPX on their activity). */
-export async function uploadRival(activityId: string, name: string, fileName: string, base64: string): Promise<ActionResult> {
+/** Another rider's GPX (Strava: ⋯ → Export GPX on their activity), or your own ride of the course another year. */
+export async function uploadRival(activityId: string, name: string, fileName: string, base64: string, past = false): Promise<ActionResult> {
   return attempt(async () => {
     check(activityId);
     const track = trackFromFile(fileName, bytesOf(base64));
-    const who = name.trim() || track.name || fileName.replace(/\.(gpx|fit)$/i, "");
-    await addRival(await createClient(), activityId, who.slice(0, 80), track);
+    if (past && !track.points.every((p) => p.t !== null)) throw new Error("That file has no times. Use the original file from your device or intervals.icu.");
+    const year = track.points[0]?.t ? new Date((track.points[0].t as number) * 1000).getFullYear() : null;
+    const who = name.trim() || (past && year ? `You, ${year}` : null) || track.name || fileName.replace(/\.(gpx|fit)$/i, "");
+    await addRival(await createClient(), activityId, who.slice(0, 80), track, past);
     return `Added ${who}`;
+  });
+}
+
+/** Named places on a race that isn't laps: feed zones, summits, towns ("Montpelier 122"). */
+export async function saveRacePlaces(activityId: string, text: string): Promise<ActionResult> {
+  return attempt(async () => {
+    check(activityId);
+    await savePlaces(await createClient(), activityId, text);
+    return "Saved";
   });
 }
 
@@ -122,12 +138,24 @@ export async function writeRaceDebrief(activityId: string, compareId: string): P
     const supabase = await createClient();
     const data = await loadRaceData(supabase, activityId);
     if (!data.ownTrack) throw new Error("Add your ride file first");
-    const report = raceReport({ own: data.ownTrack, ownName: data.ownName, rivals: data.rivals, results: data.results });
-    const c = report.comparisons.find((x) => x.id === compareId) ?? report.comparisons.find((x) => x.id !== BEST_LAP_ID) ?? report.comparisons[0];
-    const advice = raceAdvice(report, c, raceFormatters(readUnits()));
+    const ride = await loadRide(supabase, activityId);
+    if (!ride) throw new Error("Which ride?");
+    const own = data.ownTrack;
+    const built = buildRace({ ...data, ownTrack: own }, await loadAthlete(supabase), ride.startedAt, await bestCurveBefore(supabase, ride.startedAt.toISOString()));
     const { data: feedback } = await supabase.from("ride_feedback").select("difficulty, rpe, note").eq("activity_id", activityId).maybeSingle();
     const notes = [data.notes, feedback ? `After the ride: ${feedback.difficulty}${feedback.rpe ? `, RPE ${feedback.rpe}/10` : ""}${feedback.note ? `. "${feedback.note}"` : ""}` : ""].filter(Boolean).join("\n");
     const coachData = await loadCoachData(supabase);
+    if (built.kind === "solo") {
+      const report = built.report;
+      const reply = await soloRaceDebrief(coach.complete, coachData, soloForCoach(report, soloAdvice(report, soloFormatters(readUnits()))), notes);
+      const past = report.comparisons.map((x) => x.name);
+      await saveDebrief(supabase, activityId, reply.message, past.length ? past.join(", ") : null);
+      revalidatePath("/", "layout");
+      return { ok: true, message: "Written", text: reply.message };
+    }
+    const report = built.report;
+    const c = report.comparisons.find((x) => x.id === compareId) ?? report.comparisons.find((x) => x.id !== BEST_LAP_ID) ?? report.comparisons[0];
+    const advice = raceAdvice(report, c, raceFormatters(readUnits()));
     const reply = await raceDebrief(coach.complete, coachData, raceForCoach(report, c, advice), notes);
     await saveDebrief(supabase, activityId, reply.message, c.name);
     revalidatePath("/", "layout");
