@@ -4,6 +4,9 @@ import { Hypnogram, StageBars } from "@/components/sleep-charts";
 import TrendChart from "@/components/trend-chart";
 import type { Athlete } from "@/lib/activities";
 import { weighInOn, type BodyMeasurement } from "@/lib/body-data";
+import ProvenanceTag from "@/components/provenance";
+import { nightProvenance, weightProvenance } from "@/lib/engine/provenance";
+import { localDate } from "@/lib/engine/activity";
 import { ageOn, bodyTrend } from "@/lib/engine/body";
 import { addDays } from "@/lib/engine/pmc";
 import { MIN_EXERTION_BASELINE_DAYS } from "@/lib/engine/exertion";
@@ -67,6 +70,9 @@ export default function HealthView({
   const latest = recent[0];
   const weightChange = bodyTrend(measurementsOldestFirst, new Date());
 
+  const nightSource = recovery.today ? <ProvenanceTag source={nightProvenance(recovery.source, today)} today={today} /> : undefined;
+  const weightSource = latest ? <ProvenanceTag source={weightProvenance(latest.source, localDate(latest.measuredAt, tz))} today={today} /> : undefined;
+
   const hrvKind = recovery.today?.hrvKind === "sdnn" ? "SDNN" : "RMSSD";
   const segments = recovery.sleep?.segments ?? [];
 
@@ -118,6 +124,7 @@ export default function HealthView({
             <Stat
               label="HRV"
               href={metricHref("hrv")}
+              source={night?.hrv != null ? nightSource : undefined}
               value={night?.hrv != null ? Math.round(night.hrv) : <Dash />}
               unit={night?.hrv != null ? "ms" : undefined}
               sub={normals.hrv !== null ? `Normal ${Math.round(normals.hrv)} ms` : `Normal after ${MINIMUM_BASELINE_DAYS} nights`}
@@ -125,6 +132,7 @@ export default function HealthView({
             <Stat
               label="Resting HR"
               href={metricHref("resting-hr")}
+              source={night?.restingHeartRate != null ? nightSource : undefined}
               value={night?.restingHeartRate != null ? Math.round(night.restingHeartRate) : <Dash />}
               unit={night?.restingHeartRate != null ? "bpm" : undefined}
               sub={normals.restingHeartRate !== null ? `Normal ${Math.round(normals.restingHeartRate)} bpm` : `Normal after ${MINIMUM_BASELINE_DAYS} nights`}
@@ -132,6 +140,7 @@ export default function HealthView({
             <Stat
               label="Sleep"
               href={metricHref("sleep")}
+              source={night?.sleepHours != null ? nightSource : undefined}
               value={night?.sleepHours != null ? hoursMinutes(night.sleepHours) : <Dash />}
               sub={`Need ${hoursMinutes(athlete.sleepNeedHours)}`}
             />
@@ -217,6 +226,7 @@ export default function HealthView({
             <Stat
               label="Weight"
               href={metricHref("body")}
+              source={weightSource}
               value={latest ? kg(latest.weightKg).toFixed(1) : <Dash />}
               unit={latest ? weightUnit(units) : undefined}
               sub={latest ? formatDay(latest.measuredAt, tz) : "No weigh-ins yet"}
@@ -224,6 +234,7 @@ export default function HealthView({
             <Stat
               label="Body fat"
               href={metricHref("body")}
+              source={latest?.bodyFatPercent != null ? weightSource : undefined}
               value={latest?.bodyFatPercent != null ? latest.bodyFatPercent.toFixed(1) : <Dash />}
               unit={latest?.bodyFatPercent != null ? "%" : undefined}
               sub={latest?.fatFreeMassKg != null ? `${formatWeight(latest.fatFreeMassKg, units)} lean` : undefined}

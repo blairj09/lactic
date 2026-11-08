@@ -8,13 +8,15 @@ export interface BodyMeasurement extends BodyPoint {
   id: string;
   bmi: number | null;
   fatFreeMassKg: number | null;
+  /** The scale or service it came from (body_pod, ble_scale, intervals...). */
+  source: string | null;
 }
 
 /** Weigh-ins since a date, oldest first. */
 export async function loadBodyMeasurements(supabase: Supabase, since: Date): Promise<BodyMeasurement[]> {
   const { data, error } = await supabase
     .from("body_measurements")
-    .select("id, measured_at, weight_kg, bmi, body_fat_pct, fat_free_mass_kg")
+    .select("id, measured_at, weight_kg, bmi, body_fat_pct, fat_free_mass_kg, source")
     .gte("measured_at", since.toISOString())
     .order("measured_at");
   if (error) throw error;
@@ -26,6 +28,7 @@ export async function loadBodyMeasurements(supabase: Supabase, since: Date): Pro
     bmi: num(r.bmi),
     bodyFatPercent: num(r.body_fat_pct),
     fatFreeMassKg: num(r.fat_free_mass_kg),
+    source: r.source ?? null,
   }));
 }
 
