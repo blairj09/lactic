@@ -6,6 +6,7 @@
     "@vercel/blob": "^2.8.2"
   },
   "scripts": {
+    "build": "cd ../app && npm ci --no-audit --no-fund && npm run build:demo",
     "test": "node --test"
   }
 }

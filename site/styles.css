@@ -205,3 +205,28 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .dl-choices a:hover { border-color: var(--accent); color: var(--ink); }
 .dl-choices span { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--muted); }
 .dl-links { font-size: 14px; color: var(--muted); }
+
+/* The live app in the hero window (the real app from /demo/, with sample data) */
+.app-stage { position: relative; height: clamp(560px, 76vh, 760px); background: var(--ground); }
+.app-live { display: block; width: 100%; height: 100%; border: 0; background: var(--ground); }
+.app-loading { position: absolute; inset: 0; display: grid; place-items: center; background: var(--ground); }
+.app-loading[hidden] { display: none; }
+
+/* The same loader the app shows while it starts (app/index.html): the mark builds one interval at a time, then the name. */
+.boot-mark { display: flex; align-items: center; gap: 14px; color: var(--ink); font-weight: 700; font-size: 30px; line-height: 1; letter-spacing: -0.02em; }
+.boot-mark svg { width: 52px; height: 52px; fill: var(--accent); overflow: visible; }
+.boot-mark rect, .boot-name { animation: boot-build 2.6s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both; }
+.boot-mark rect { transform-box: fill-box; transform-origin: 50% 100%; }
+.boot-mark rect:nth-child(2) { animation-delay: 0.16s; }
+.boot-mark rect:nth-child(3) { animation-delay: 0.32s; }
+.boot-mark rect:nth-child(4) { animation-delay: 0.48s; }
+.boot-mark rect:nth-child(5) { animation-delay: 0.64s; }
+.boot-name { display: inline-block; animation-name: boot-name; animation-delay: 0.85s; }
+@keyframes boot-build { 0% { transform: scaleY(0); opacity: 1; } 14% { transform: scaleY(1); } 80% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
+@keyframes boot-name { 0% { transform: translateX(-6px); opacity: 0; } 12% { transform: none; opacity: 1; } 55% { opacity: 1; } 68% { opacity: 0; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .boot-mark rect, .boot-name { animation: none; } }
+.app-live-note { margin-left: 10px; min-width: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 560px) {
+  .app-stage { height: 540px; }
+  .app-live-note .more { display: none; }
+}

@@ -1,5 +1,5 @@
 // Mark up a screenshot before sending: drag to draw a red box or circle around the problem.
-// Marks stay editable (undo, clear) until Done, which flattens them into the JPEG that's sent.
+// Marks stay editable (undo, clear) until Done (or Attach), which flattens them into the JPEG that's sent.
 
 import { useEffect, useRef, useState } from "react";
 import { button, Segmented } from "@/components/ui";
@@ -32,7 +32,7 @@ export function drawMarks(ctx: CanvasRenderingContext2D, marks: Mark[], width: n
   }
 }
 
-export function Annotate({ src, initial, onDone, onCancel }: { src: string; initial: Mark[]; onDone: (marks: Mark[]) => void; onCancel: () => void }) {
+export function Annotate({ src, initial, onDone, onCancel, doneLabel = "Done" }: { src: string; initial: Mark[]; onDone: (marks: Mark[]) => void; onCancel: () => void; doneLabel?: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [tool, setTool] = useState<Tool>("box");
@@ -96,7 +96,7 @@ export function Annotate({ src, initial, onDone, onCancel }: { src: string; init
             Cancel
           </button>
           <button type="button" className={button.smallPrimary} onClick={() => onDone(marks)}>
-            Done
+            {doneLabel}
           </button>
         </span>
       </div>

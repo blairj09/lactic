@@ -8,8 +8,13 @@ const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 // `@shared` is the web app's pure TypeScript (engine, FIT, BLE protocol, ride logic), shared so the
 // two apps never have two training engines. `~` is the desktop app's own code.
-export default defineConfig(({ command }) => ({
-  plugins: [react(), tailwindcss()],
+export default defineConfig(({ command, mode }) => ({
+  plugins: [
+    react(),
+    tailwindcss(),
+    // The website demo (npm run build:demo, served at lactic.fit/demo/) stays out of search results.
+    mode === "demo" && { name: "demo-noindex", transformIndexHtml: (html: string) => html.replace("<head>", '<head>\n    <meta name="robots" content="noindex" />') },
+  ],
   clearScreen: false,
   resolve: {
     // Specific overrides first: the web app's server-only modules swap for local versions.
