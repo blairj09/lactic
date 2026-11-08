@@ -1,3 +1,5 @@
+import { isBeta } from "./beta";
+
 // Lactic's mark: an L drawn as a stepped ramp test, then the endurance tail (logo concept C).
 
 export const MARK_PATH = "M2 21V15H4.5V10.5H7V6.5H9.5V3H12V15H22V21Z";
@@ -26,6 +28,16 @@ export function Wordmark({ size = 15 }: { size?: number }) {
     <span className="flex items-center gap-2 font-semibold tracking-tight text-ink" style={{ fontSize: size }}>
       <Mark size={Math.round(size * 1.2)} />
       Lactic
+      {isBeta && <BetaTag />}
+    </span>
+  );
+}
+
+/** Shown beside the name while the version is below 1.0.0. */
+export function BetaTag() {
+  return (
+    <span className="rounded bg-accent/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-accent" title="Lactic is in beta until version 1.0">
+      Beta
     </span>
   );
 }

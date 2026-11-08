@@ -1,3 +1,5 @@
+Lactic is in beta: expect a few rough edges, and tell us what you find with Send feedback in the app.
+
 Already have Lactic? Versions with in-app updates offer this one themselves when they start: choose Update and restart.
 
 ## Download
