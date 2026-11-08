@@ -106,6 +106,14 @@ const day = (d: Date) => d.toISOString().slice(0, 10);
 const listActivities = (apiKey: string, oldest: string, newest: string) =>
   getJson<IntervalsActivity[]>(apiKey, `/athlete/0/activities?oldest=${oldest.slice(0, 10)}&newest=${newest.slice(0, 10)}`);
 
+/** An activity's original file (FIT, GPX or TCX), unzipped; null when intervals.icu doesn't have it. */
+export async function downloadOriginal(apiKey: string, activityId: string): Promise<Uint8Array | null> {
+  const response = await request(apiKey, `/activity/${encodeURIComponent(activityId)}/file`, DOWNLOAD_TIMEOUT_MS);
+  if (!response.ok) return null;
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  return bytes[0] === 0x1f && bytes[1] === 0x8b ? new Uint8Array(gunzipSync(bytes)) : bytes;
+}
+
 /** Downloads an activity's original file and reads it as a ride; null when it isn't a cycling FIT file. */
 async function rideFrom(apiKey: string, activity: IntervalsActivity): Promise<NewRide | null> {
   try {

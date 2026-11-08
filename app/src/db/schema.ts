@@ -431,6 +431,44 @@ export const TABLES: Record<string, Table> = {
     primaryKey: ["id"],
     indexes: [["at"]],
   },
+  /**
+   * A race's review: the rider's own GPS track at full detail (their ride file, from intervals.icu or
+   * dropped in), the official results pasted or read off a screenshot, and the coach's debrief.
+   */
+  race_reviews: {
+    columns: {
+      id,
+      user_id: user,
+      activity_id: { type: "uuid", notNull: true },
+      own_track: { type: "json" },
+      own_name: { type: "text" },
+      results_text: { type: "text" },
+      notes: { type: "text" },
+      debrief: { type: "text" },
+      debrief_rival: { type: "text" },
+      debrief_at: { type: "ts" },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    unique: [["activity_id"]],
+    foreignKeys: { activity_id: activity("cascade") },
+  },
+  /** Other riders' tracks of a race (GPX files from Strava), to compare against. */
+  race_rivals: {
+    columns: {
+      id,
+      user_id: user,
+      activity_id: { type: "uuid", notNull: true },
+      name: { type: "text", notNull: true },
+      track: { type: "json", notNull: true },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    foreignKeys: { activity_id: activity("cascade") },
+    indexes: [["activity_id"]],
+  },
   /** Plan changes proposed by an external coach over MCP, waiting in the app for the rider. */
   coach_proposals: {
     columns: {
