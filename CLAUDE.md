@@ -9,3 +9,4 @@ Open-source desktop app for structured cycling training (Tauri 2 + React, SQLite
 - Support riding with Zwift open: Lactic holds trainer control; Zwift only reads power, cadence and HR.
 - The database schema (`app/src/db/schema.ts`) migrates additively on start: add tables and columns, never drop or rename. Every table has a UUID `id` and `updated_at` so sync can come later.
 - Secrets live in the OS keychain only. The UI sends `keychain:<name>` placeholders and Rust swaps in the real value.
+- Rider-facing app changes add a plain-words line under **Next** in `app/whats-new.md` (the in-app "What's new"); skip CI, refactors and site changes. A release that bumps the version renames **Next** to that version.

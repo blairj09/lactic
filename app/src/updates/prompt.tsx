@@ -1,6 +1,7 @@
 // The update cards, bottom left of every page. "Lactic X is available" lists what's new, with
 // Update and restart; it's hidden on the Ride screen so nobody restarts mid-workout. After the
-// restart, "Updated to X" lists the same changes once.
+// restart, "Updated to X" lists the same changes once. A check from the Mac menu that finds nothing
+// says so here too.
 
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router";
@@ -15,6 +16,19 @@ export function UpdatePrompt() {
   const { pathname } = useLocation();
   useEffect(() => startUpdateChecks(), []);
   const onRide = pathname.startsWith("/ride");
+
+  if ((state.status === "current" || state.status === "error") && state.announce && !("version" in state && state.version)) {
+    return (
+      <Card label="Lactic update" title={state.status === "current" ? "You're up to date" : "Couldn't check for updates"}>
+        <p className="text-sm text-muted">{state.status === "current" ? "You have the latest version of Lactic." : state.message}</p>
+        <div className="flex">
+          <button type="button" className={button.small} onClick={dismiss}>
+            OK
+          </button>
+        </div>
+      </Card>
+    );
+  }
 
   const version = "version" in state ? state.version : undefined;
   const waiting = state.status === "available" || state.status === "error";

@@ -1,7 +1,8 @@
 // Writes latest.json, the file installed copies of Lactic read to find an update
 // (tauri-plugin-updater's static manifest). Run by the release job after the builds:
-//   node app/scripts/update-manifest.mjs <folder with the builds and their .sig files> <version> <owner/repo> [notes.md] > latest.json
-// notes.md is GitHub's generated release notes; the app shows them as "What's new".
+//   node app/scripts/update-manifest.mjs <folder with the builds and their .sig files> <version> <owner/repo> [app/whats-new.md] > latest.json
+//   node app/scripts/update-manifest.mjs --notes app/whats-new.md <version>   (just this release's notes, for the release page)
+// The app shows the release's section of whats-new.md as "What's new".
 // Every build that comes with a signature gets an entry under each name the updater looks for:
 // `{os}-{arch}-{bundle}` first (so a .deb install updates with a .deb), then plain `{os}-{arch}`.
 
@@ -16,16 +17,20 @@ const KINDS = [
 ];
 
 /**
- * GitHub's generated notes ("* Title by @someone in https://…/pull/12", a New Contributors list,
- * a Full Changelog link) as the short list the app shows: one "- Title" line per change.
+ * One release's section of app/whats-new.md (`## 0.1.3`) as the list the app shows: "- change"
+ * lines, written for riders. Empty when the release has no section.
  */
-export function whatsNew(generated) {
+export function whatsNew(markdown, version) {
   const lines = [];
-  for (const raw of generated.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (/^#+\s*new contributors/i.test(line)) break;
-    const m = line.match(/^[*-]\s+(.+?)(?:\s+by\s+@\S+)?(?:\s+in\s+https?:\/\/\S+)?$/);
-    if (m && !/^full changelog/i.test(m[1])) lines.push(`- ${m[1].replace(/\s*\(#\d+\)$/, "")}`);
+  let inside = false;
+  for (const raw of markdown.split(/\r?\n/)) {
+    const heading = raw.match(/^##\s+v?(\S+)/);
+    if (heading) {
+      if (inside) break;
+      inside = heading[1] === version.replace(/^v/, "");
+      continue;
+    }
+    if (inside && /^[-*]\s+\S/.test(raw.trim())) lines.push(`- ${raw.trim().replace(/^[-*]\s+/, "")}`);
   }
   return lines.join("\n");
 }
@@ -71,11 +76,15 @@ export function manifest({ paths, version, repo, date = new Date(), notes }) {
 }
 
 if (process.argv[1] && import.meta.url.endsWith(basename(process.argv[1]))) {
+  if (process.argv[2] === "--notes") {
+    console.log(whatsNew(readFileSync(process.argv[3], "utf8"), process.argv[4] ?? ""));
+    process.exit(0);
+  }
   const [dir, version, repo, notesFile] = process.argv.slice(2);
   if (!dir || !version || !repo) {
     console.error("usage: update-manifest.mjs <dir> <version> <owner/repo>");
     process.exit(2);
   }
-  const notes = notesFile ? whatsNew(readFileSync(notesFile, "utf8")) : undefined;
+  const notes = notesFile ? whatsNew(readFileSync(notesFile, "utf8"), version) : undefined;
   console.log(JSON.stringify(manifest({ paths: files(dir), version, repo, notes }), null, 2));
 }

@@ -1,22 +1,22 @@
 // Lactic's updates. On every start (and every few hours while it stays open) the app asks GitHub
 // Releases for latest.json. When a newer signed build is there, the corner prompt (prompt.tsx)
 // offers it; "Update and restart" downloads it, checks its signature, installs it and restarts.
-// Settings → Your data can check by hand. Nothing happens in a browser or a development build.
+// Check for Updates… in the Mac's Lactic menu and Settings → About check by hand. Nothing happens in a browser or a development build.
 // The card lists what's new (the release's notes, from latest.json), and after the restart the
 // new version says once what changed.
 
 import { useSyncExternalStore } from "react";
-import { isDesktop } from "~/platform/native";
+import { isDesktop, listen } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 
 export type UpdateState =
   | { status: "idle" }
   | { status: "checking" }
-  | { status: "current"; checkedAt: number }
+  | { status: "current"; checkedAt: number; announce?: boolean }
   | { status: "available"; version: string; notes: string[] }
   | { status: "installing"; version: string; downloaded: number; total?: number }
   | { status: "restarting"; version: string }
-  | { status: "error"; message: string; version?: string; notes?: string[] };
+  | { status: "error"; message: string; version?: string; notes?: string[]; announce?: boolean };
 
 /** Just installed, shown once after the restart. */
 export interface Installed {
@@ -63,6 +63,7 @@ export function dismissedVersion(): string | null {
 }
 
 export function dismiss() {
+  if (state.status === "current" || (state.status === "error" && !state.version)) return set({ status: "idle" });
   if (state.status !== "available" && state.status !== "error") return;
   if (!state.version) return;
   dismissed = state.version;
@@ -104,9 +105,10 @@ async function loadInstalled() {
 
 /**
  * Asks for a newer version. `quiet` (the automatic checks) keeps failures to itself: being offline
- * at start isn't worth a message. A manual check says what went wrong.
+ * at start isn't worth a message. A manual check says what went wrong; `announce` (the menu item)
+ * also puts "up to date" or the error on a card, since there's no button beside it to show it.
  */
-export async function checkForUpdate({ quiet = false } = {}): Promise<UpdateState> {
+export async function checkForUpdate({ quiet = false, announce = false } = {}): Promise<UpdateState> {
   if (!updatesSupported) return state;
   if (state.status === "checking" || state.status === "installing" || state.status === "restarting") return state;
   const before = state;
@@ -116,9 +118,10 @@ export async function checkForUpdate({ quiet = false } = {}): Promise<UpdateStat
     const update = await check({ timeout: 30_000 });
     await pending?.close().catch(() => undefined);
     pending = update;
-    set(update ? { status: "available", version: update.version, notes: parseNotes(update.body) } : { status: "current", checkedAt: Date.now() });
+    if (update && !quiet) dismissed = null;
+    set(update ? { status: "available", version: update.version, notes: parseNotes(update.body) } : { status: "current", checkedAt: Date.now(), announce });
   } catch (e) {
-    set(quiet ? (before.status === "available" ? before : { status: "idle" }) : { status: "error", message: describe(e) });
+    set(quiet ? (before.status === "available" ? before : { status: "idle" }) : { status: "error", message: describe(e), announce });
   }
   return state;
 }
@@ -156,7 +159,12 @@ export function startUpdateChecks(): () => void {
   void loadInstalled().catch(() => undefined);
   void checkForUpdate({ quiet: true });
   const timer = setInterval(() => void checkForUpdate({ quiet: true }), EVERY);
-  return () => clearInterval(timer);
+  // Lactic → Check for Updates… on a Mac (src-tauri/src/lib.rs).
+  const unlisten = listen("lactic:check-updates", () => void checkForUpdate({ announce: true }));
+  return () => {
+    clearInterval(timer);
+    void unlisten.then((stop) => stop());
+  };
 }
 
 export function releaseUrl(version: string): string {

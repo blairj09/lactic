@@ -140,13 +140,18 @@ jobs:
           # The Mac update bundle comes out as Lactic.app.tar.gz; give it the version and arch.
           mv dist/Lactic.app.tar.gz "dist/Lactic_${VERSION}_aarch64.app.tar.gz"
           mv dist/Lactic.app.tar.gz.sig "dist/Lactic_${VERSION}_aarch64.app.tar.gz.sig"
-          # What's new, for the update card: the same notes GitHub writes for the release.
-          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="v$VERSION" -f target_commitish="$GITHUB_SHA" --jq .body > notes.md || : > notes.md
-          node app/scripts/update-manifest.mjs dist "$VERSION" "$GITHUB_REPOSITORY" notes.md > dist/latest.json
+          # What's new, for the update card and the top of the release page: this version's
+          # section of app/whats-new.md, written for riders.
+          node app/scripts/update-manifest.mjs dist "$VERSION" "$GITHUB_REPOSITORY" app/whats-new.md > dist/latest.json
           cat dist/latest.json
+          notes=$(node app/scripts/update-manifest.mjs --notes app/whats-new.md "$VERSION")
+          [ -n "$notes" ] || echo "::warning::app/whats-new.md has no '## $VERSION' section, so the update card shows no notes."
+          {
+            if [ -n "$notes" ]; then printf "## What's new\n\n%s\n\n" "$notes"; fi
+            cat .github/release-body.md
+          } > release-body.md
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          GH_TOKEN: ${{ github.token }}
       - uses: softprops/action-gh-release@v2
         if: steps.version.outputs.skip != 'true'
         with:
@@ -163,11 +168,4 @@ jobs:
             dist/latest.json
           fail_on_unmatched_files: true
           generate_release_notes: true
-          body: |
-            Already have Lactic? Versions with in-app updates offer this one themselves when they start: choose Update and restart.
-
-            ## Download
-
-            - **Mac (Apple silicon):** `Lactic_*_aarch64.dmg`. Drag Lactic to Applications, then run `xattr -cr /Applications/Lactic.app` once in Terminal (the app isn't signed yet).
-            - **Windows:** `Lactic_*_x64-setup.exe`. Windows warns about an unknown publisher; choose More info, then Run anyway.
-            - **Linux:** `Lactic_*_amd64.AppImage` (`chmod +x`, then run it) or `Lactic_*_amd64.deb` (`sudo apt install ./Lactic_*_amd64.deb`).
+          body_path: release-body.md
