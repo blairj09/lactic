@@ -26,6 +26,7 @@ import { FeedbackSetting } from "~/feedback/dialog";
 import { AboutSetting } from "~/updates/check-button";
 import { FeatureSetting } from "~/setup/features";
 import { features } from "@/lib/features";
+import { ScrollToSection } from "./scroll-to-section";
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
@@ -45,6 +46,7 @@ export default async function SettingsPage() {
       <Nav current="/settings" />
       <Page width="medium">
         <PageHeader title="Settings" />
+        <ScrollToSection />
         <nav aria-label="Settings sections" className="-mt-2 mb-8 flex flex-wrap gap-1">
           {SECTIONS.map((s) => (
             <a

@@ -320,3 +320,45 @@ describe("app tools in the chat", () => {
     expect(reply.proposals[0].change).toEqual({ kind: "app", setting: { setting: "power_source", value: "trainer" } });
   });
 });
+
+describe("feedback offers", () => {
+  const offered = (tools: unknown[]) => (tools as { function: { name: string } }[]).some((t) => t.function.name === "suggest_feedback");
+
+  it("offers feedback about the app once, with the summary for the form", async () => {
+    let seen: unknown[] = [];
+    const replies = [call("suggest_feedback", { kind: "problem", summary: "  I couldn't find where to change my FTP.  " }), say("It's in Settings → Profile. There's a Send feedback button below.")];
+    const reply = await coachChat(
+      async (_m, tools) => ((seen = tools), replies.shift()!),
+      data,
+      [{ role: "user", content: "Where's FTP? This app hides everything." }],
+    );
+    expect(offered(seen)).toBe(true);
+    expect(reply.feedback).toEqual({ kind: "problem", summary: "I couldn't find where to change my FTP." });
+  });
+
+  it("doesn't offer it again once a reply in the conversation has", async () => {
+    let seen: unknown[] = [];
+    await coachChat(
+      async (_m, tools) => ((seen = tools), say("Units are in Settings → Appearance.")),
+      data,
+      [
+        { role: "user", content: "Can't find FTP." },
+        { role: "assistant", content: "Settings → Profile.", meta: { feedback: { kind: "problem", summary: "FTP is hard to find." } } },
+        { role: "user", content: "Units too, ugh." },
+      ],
+    );
+    expect(offered(seen)).toBe(false);
+  });
+
+  it("checks the kind and summary", () => {
+    expect(runTool(data, "suggest_feedback", { kind: "bug", summary: "x" }).content).toMatch(/^Error: kind/);
+    expect(runTool(data, "suggest_feedback", { kind: "idea", summary: " " }).content).toMatch(/^Error: Give/);
+    expect(runTool(data, "suggest_feedback", { kind: "idea", summary: "Group rides with friends" }).feedback).toEqual({ kind: "idea", summary: "Group rides with friends" });
+  });
+
+  it("isn't part of the morning brief", async () => {
+    let seen: unknown[] = [];
+    await morningBrief(async (_m, tools) => ((seen = tools), say("A good day for it.")), data, []);
+    expect(offered(seen)).toBe(false);
+  });
+});
