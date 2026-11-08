@@ -31,12 +31,24 @@ Coach evals: `npm run eval:coach` scores how well a model coaches inside Lactic,
 
 ## Downloads
 
-Releases are on the [Releases page](https://github.com/blairj09/lactic/releases). To ship one, bump the version in `app/package.json`, `app/src-tauri/tauri.conf.json` and `app/src-tauri/Cargo.toml`, rename **Next** in `app/whats-new.md` to that version, and merge: when `main` has a version with no release yet, the **App** workflow builds the apps and publishes the release under its v tag (pushing a `v*` tag works too). Every push to `main` also builds them and attaches them to the run: **Lactic-macOS** (.dmg, Apple silicon), **Lactic-Windows** (installer .exe) and **Lactic-Linux** (AppImage and .deb). They're unsigned for now:
+Releases are on the [Releases page](https://github.com/blairj09/lactic/releases). To ship one, bump the version in `app/package.json`, `app/src-tauri/tauri.conf.json` and `app/src-tauri/Cargo.toml`, rename **Next** in `app/whats-new.md` to that version, and merge: when `main` has a version with no release yet, the **App** workflow builds the apps and publishes the release under its v tag (pushing a `v*` tag works too). Every push to `main` also builds them and attaches them to the run: **Lactic-macOS** (universal .dmg for Apple silicon and Intel), **Lactic-Windows** (installer .exe) and **Lactic-Linux** (AppImage and .deb). They're unsigned for now:
 
 - **macOS:** drag Lactic to Applications, then run `xattr -cr /Applications/Lactic.app` once.
 - **Windows:** SmartScreen warns about an unknown publisher; choose More info → Run anyway.
 - **Linux:** `chmod +x Lactic_*.AppImage` and run it, or `sudo apt install ./Lactic_*.deb`. Bluetooth needs BlueZ; keys are stored through the Secret Service (GNOME Keyring or KWallet).
 
 **Updates.** Installed copies check `releases/latest/download/latest.json` on every start and every 6 hours (`src/updates/`, `tauri-plugin-updater`), show a card when there's a newer version listing what's new (the release's section of `app/whats-new.md`, carried in `latest.json`; not on the Ride screen), and on "Update and restart" download it, verify its signature against the public key in `tauri.conf.json`, install it and restart; after the restart an "Updated to X" card lists the changes once. Check for Updates… is in the Lactic menu on a Mac and in Settings → About everywhere. The release job signs each build with the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secrets and writes `latest.json` with `app/scripts/update-manifest.mjs`; without the key (forks), builds skip the update files. Losing the private key means installed copies can't update anymore, so keep a copy somewhere safe. On a Mac the updater replaces the app in place, and its download carries no quarantine flag, so the `xattr` step should only be needed for the first install.
+
+**Mac signing.** With these repository secrets the App workflow signs the Mac app with Lactic's Developer ID (hardened runtime), has Apple notarize it, and staples the tickets to the app and the .dmg, so it opens with no Terminal step and macOS keychain "Always Allow" carries over between updates (the keychain trusts the signer, not one build). Without them (forks) the app gets the ad-hoc signature and needs the `xattr` step.
+
+| Secret | What it is |
+| --- | --- |
+| `APPLE_CERTIFICATE` | The "Developer ID Application" certificate with its private key, exported from Keychain Access as a .p12, base64 (`base64 -i cert.p12 \| pbcopy`) |
+| `APPLE_CERTIFICATE_PASSWORD` | The password set when exporting the .p12 |
+| `APPLE_API_KEY` | App Store Connect API key ID (Users and Access → Integrations → Team Keys, Developer access) |
+| `APPLE_API_ISSUER` | The Issuer ID shown above that key list |
+| `APPLE_API_KEY_P8` | The contents of the downloaded `AuthKey_<id>.p8` |
+
+The certificate step finds the signing identity in the .p12 itself; Tauri notarizes and staples the app, and the workflow then notarizes the .dmg and checks both with `spctl`.
 
 Simulated gear (a virtual trainer, heart rate strap, power meter and scale) is a testing aid: it's on by default in `npm run dev` and switchable in Settings in development builds.
