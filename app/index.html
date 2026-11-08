@@ -10,7 +10,11 @@
       html, body { margin: 0; background: #f5f6f8; }
       html[data-theme="dark"], html[data-theme="dark"] body { background: #000; }
       @media (prefers-color-scheme: dark) { html:not([data-theme="light"]), html:not([data-theme="light"]) body { background: #000; } }
-      .boot { position: fixed; inset: 0; display: grid; place-items: center; }
+      /* It sits over the app (not inside #root) so it can play one full build every time Lactic opens, then fade away. */
+      .boot { position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center; background: #f5f6f8; transition: opacity 0.3s ease; }
+      html[data-theme="dark"] .boot { background: #000; }
+      @media (prefers-color-scheme: dark) { html:not([data-theme="light"]) .boot { background: #000; } }
+      .boot.boot-out { opacity: 0; pointer-events: none; }
       .boot-mark { display: flex; align-items: center; gap: 14px; color: #0d1117; font: 700 30px/1 "Archivo Variable", "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.02em; }
       html[data-theme="dark"] .boot-mark { color: #f5f6f8; }
       @media (prefers-color-scheme: dark) { html:not([data-theme="light"]) .boot-mark { color: #f5f6f8; } }
@@ -28,12 +32,11 @@
     </style>
   </head>
   <body class="antialiased">
-    <div id="root">
-      <div class="boot" role="status" aria-label="Loading Lactic">
-        <div class="boot-mark">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="15" width="2.8" height="6" fill="currentColor" /><rect x="4.5" y="10.5" width="2.8" height="10.5" fill="currentColor" /><rect x="7" y="6.5" width="2.8" height="14.5" fill="currentColor" /><rect x="9.5" y="3" width="2.8" height="18" fill="currentColor" /><rect x="12" y="15" width="10" height="6" fill="currentColor" /></svg>
-          <span class="boot-name">Lactic</span>
-        </div>
+    <div id="root"></div>
+    <div id="boot" class="boot" role="status" aria-label="Loading Lactic">
+      <div class="boot-mark">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="15" width="2.8" height="6" fill="currentColor" /><rect x="4.5" y="10.5" width="2.8" height="10.5" fill="currentColor" /><rect x="7" y="6.5" width="2.8" height="14.5" fill="currentColor" /><rect x="9.5" y="3" width="2.8" height="18" fill="currentColor" /><rect x="12" y="15" width="10" height="6" fill="currentColor" /></svg>
+        <span class="boot-name">Lactic</span>
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
