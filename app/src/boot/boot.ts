@@ -13,6 +13,7 @@ import { installWebBluetooth } from "~/bluetooth/web-bluetooth";
 import { registerRoutes } from "./routes";
 import { applyEnv } from "./env";
 import { isDemo } from "~/demo/flag";
+import { hideLoader } from "./loader";
 
 export async function boot() {
   setTheme(readTheme());
@@ -20,6 +21,14 @@ export async function boot() {
   if (info) setOs(info.os);
   if (info?.os === "macos") document.documentElement.dataset.desktop = "macos";
   const root = createRoot(document.getElementById("root")!);
+  try {
+    await start(root);
+  } finally {
+    hideLoader();
+  }
+}
+
+async function start(root: ReturnType<typeof createRoot>) {
   try {
     let db = tauriSql;
     if (!isDesktop) {
