@@ -87,7 +87,7 @@ Cloud models stop at a monthly limit you set (default $10), so there are no surp
 
 ### Easy to start
 
-About five minutes, five steps: you, your week and goal, your gear, your rides and sleep, your coach. Skip anything you don't have. A short tour shows you around after.
+5 minutes and you'll be riding intervals. Five steps: you, your week and goal, your gear, your rides and sleep, your coach. Skip anything you don't have. A short tour shows you around after.
 
 ## Download
 
