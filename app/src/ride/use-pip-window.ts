@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePipWindow as useWebPip } from "@/app/ride/use-pip-window";
 import { invoke, isDesktop, listen } from "~/platform/native";
 import { EV } from "./channel";
+import { isDemo } from "~/demo/flag";
 
 function nativeStandIn(): Window {
   const timers = new Map<number, Promise<() => void>>();
@@ -57,4 +58,10 @@ function useNativePip() {
   return { supported: true, pip, open, close, needsClick: false, floatsOverFullScreen: true };
 }
 
-export const usePipWindow = isDesktop ? useNativePip : useWebPip;
+/** The website demo runs in a browser on Chrome's picture-in-picture, but it stands for the desktop
+ * app, so the Ride page describes the desktop overlay (which floats over full-screen apps). */
+function useDemoPip(...args: Parameters<typeof useWebPip>) {
+  return { ...useWebPip(...args), needsClick: false, floatsOverFullScreen: true };
+}
+
+export const usePipWindow = isDesktop ? useNativePip : isDemo ? useDemoPip : useWebPip;
