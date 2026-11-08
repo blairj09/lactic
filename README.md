@@ -19,12 +19,12 @@ Free, on your computer, with the AI coach of your choice. Or none.
 
 ---
 
-Your fitness shouldn't live on someone else's server, and your coach shouldn't be a subscription. So we built the alternative, and we're giving it away.
+- **A plan that fits your life.** Your goal, the time you have each day, and the weeks to get there.
+- **Every interval on target.** ERG on your smart trainer, road mode for sprints, an overlay on top of Zwift or anything else.
+- **Train for the day you're having.** A morning recovery score from your watch, and a plan that adjusts to it.
+- **A coach that knows your numbers.** Built-in, the AI app you already use, or none. It suggests; you apply.
 
-- **Your data is yours.** Every ride, plan and night of sleep sits in one file on your computer. No account. Back it up like any other file.
-- **Your coach is your call.** Use any AI key, a free model on your own computer, or Claude Desktop through Lactic's MCP server. Or no coach at all.
-- **The math is open.** Your plan, zones and fitness come from rules anyone can read. The AI explains and suggests. It never invents a number or changes your plan without you.
-- **Your gear is welcome.** Keep Zwift open for the roads. Lactic runs the trainer; Zwift reads power, cadence and heart rate.
+Free and open source. Your data stays in one file on your computer.
 
 ## What it does
 
@@ -141,6 +141,8 @@ site/               lactic.fit
 
 Lactic is built by riders, in the open. Issues and pull requests are welcome, whether that's a bug on your trainer, support for new gear or a health source, or a better workout.
 
+The quickest way to tell us something is the speech bubble at the top of the app: write a note, add a screenshot and circle the problem, and send. No GitHub account needed; it arrives here as an issue.
+
 Before you open a pull request, run the checks in `app/`:
 
 ```sh
@@ -165,5 +167,5 @@ A few house rules keep Lactic trustworthy:
 ---
 
 <div align="center">
-<sub>No accounts. No subscriptions. No lock-in. · <a href="https://lactic.fit">lactic.fit</a></sub>
+<sub>The open-source training platform · <a href="https://lactic.fit">lactic.fit</a></sub>
 </div>

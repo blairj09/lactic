@@ -64,6 +64,14 @@ settings (`src/ai/sampling.ts`), and costs use the provider's reported cost or t
 | `--concurrency n` | runs at once (default 3, or 1 when every model is local) |
 | `--out dir` | where results go (default `evals/results/<time>/`, not committed) |
 
+### On GitHub Actions
+
+Actions → **Coach evals** → Run workflow runs the same command on a GitHub runner, with the models,
+judge, scenarios and spend cap as inputs (defaults: the OpenRouter suggestions, a Sonnet judge, $3).
+Keys come from repository secrets (`OPENROUTER_API_KEY`, and `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+`GEMINI_API_KEY` for those providers). The summary shows on the run page and the full results are
+the `coach-evals` artifact. It never runs on its own, since it spends API credit.
+
 Each run writes `results.json` (every transcript, check and verdict, plus a per-model summary for
 model recommendations) and `summary.md` (tables by model, group and scenario, and every failure).
 
