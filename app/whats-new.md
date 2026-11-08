@@ -6,6 +6,10 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+## 0.1.4
+
+- Feedback now attaches a picture of the screen you're on, ready to circle the problem. Remove it or add your own images if you like.
+
 ## 0.1.3
 
 - Lactic now tells you when there's a new version and installs it for you with one click, then shows what changed.
