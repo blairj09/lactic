@@ -14,6 +14,7 @@ import FitImport from "@/app/settings/fit-import";
 import IntervalsPanel from "@/app/settings/intervals-panel";
 import SettingsForm, { Section } from "@/app/settings/settings-form";
 import ThemeSetting from "@/app/settings/theme-setting";
+import UnitsSetting from "@/app/settings/units-setting";
 import { coachSetup } from "~/ai/settings";
 import { createClient } from "~/db/supabase-client";
 import { CoachSetupPanel } from "~/setup/coach";
@@ -68,8 +69,9 @@ export default async function SettingsPage() {
           }}
         />
         <div className="space-y-4 border-t border-line pt-8">
-          <Section id="appearance" title="Appearance" description="Light, dark, or match your system.">
+          <Section id="appearance" title="Appearance" description="Light or dark, and metric or imperial units.">
             <ThemeSetting />
+            <UnitsSetting />
           </Section>
           <Section id="tour" title="Getting started" description="A short walk through each screen.">
             <TakeTour />

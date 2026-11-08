@@ -16,6 +16,7 @@ import { loadTrainingState, sessionFor } from "@/lib/training";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { allowedEmail, isAllowedEmail } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { formatWeight, readUnits } from "@/lib/units";
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string };
 
@@ -370,8 +371,8 @@ export async function saveWeighIn(input: { measuredAt: string; weightKg: number;
     if (settingsError) throw settingsError;
     refresh();
     return body.bodyFatPercent === null
-      ? `Saved ${weightKg.toFixed(1)} kg. No body composition this time: the scale needs bare, slightly damp feet and both hands on the handle.`
-      : `Saved ${weightKg.toFixed(1)} kg, ${body.bodyFatPercent.toFixed(1)}% body fat.`;
+      ? `Saved ${formatWeight(weightKg, readUnits())}. No body composition this time: the scale needs bare, slightly damp feet and both hands on the handle.`
+      : `Saved ${formatWeight(weightKg, readUnits())}, ${body.bodyFatPercent.toFixed(1)}% body fat.`;
   });
 }
 

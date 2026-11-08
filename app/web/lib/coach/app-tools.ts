@@ -9,6 +9,7 @@
 // only looking is allowed.
 
 import type { ToolResult } from "./tools";
+import type { UnitSystem } from "../units";
 
 export type GearKey = "trainer" | "powerMeter" | "heartRate" | "scale";
 
@@ -17,7 +18,8 @@ export type AppSetting =
   | { setting: "power_source"; value: "trainer" | "powerMeter" }
   | { setting: "forget_device"; device: GearKey }
   | { setting: "rename_device"; device: GearKey; name: string }
-  | { setting: "upload_rides"; value: boolean };
+  | { setting: "upload_rides"; value: boolean }
+  | { setting: "units"; value: UnitSystem };
 
 export const GEAR_LABELS: Record<GearKey, string> = { trainer: "trainer", powerMeter: "power meter", heartRate: "heart rate monitor", scale: "scale" };
 const GEAR_KEYS = Object.keys(GEAR_LABELS) as GearKey[];
@@ -41,6 +43,9 @@ export function checkAppSetting(raw: Record<string, unknown>): AppSetting {
       return { setting, value: raw.value };
     case "upload_rides":
       return { setting, value: bool() };
+    case "units":
+      if (raw.value !== "metric" && raw.value !== "imperial") throw new Error("value is metric or imperial");
+      return { setting, value: raw.value };
     case "forget_device":
       return { setting, device: needDevice() };
     case "rename_device": {
@@ -50,7 +55,7 @@ export function checkAppSetting(raw: Record<string, unknown>): AppSetting {
       return { setting, device: needDevice(), name };
     }
     default:
-      throw new Error("setting is one of power_source, upload_rides, forget_device, rename_device");
+      throw new Error("setting is one of power_source, upload_rides, units, forget_device, rename_device");
   }
 }
 
@@ -61,6 +66,8 @@ export function describeAppSetting(s: AppSetting): string {
       return `Power source: ${s.value === "powerMeter" ? "power meter" : "trainer"}`;
     case "upload_rides":
       return `${s.value ? "Send" : "Stop sending"} rides recorded in Lactic to intervals.icu`;
+    case "units":
+      return s.value === "imperial" ? "Units: imperial (lb, in, mi, °F)" : "Units: metric (kg, cm, km, °C)";
     case "forget_device":
       return `Forget the paired ${GEAR_LABELS[s.device]} (pair it again from Settings)`;
     case "rename_device":

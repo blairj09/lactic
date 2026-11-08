@@ -5,6 +5,7 @@
 // Never returned: API keys or tokens (only whether one is saved). Never done: deleting data,
 // raw Bluetooth writes, trainer control. While a ride is under way, only check_app runs.
 
+import { readUnits, setUnits } from "@/lib/units";
 import { appTools, checkAppSetting, describeAppSetting, GEAR_LABELS, registerAppTools, type AppSetting, type AppTools, type GearKey } from "@/lib/coach/app-tools";
 import type { Proposal } from "@/lib/coach/changes";
 import type { ToolResult } from "@/lib/coach/tools";
@@ -225,6 +226,8 @@ async function currentValue(s: AppSetting): Promise<string | null> {
       if (!c) throw new Error("intervals.icu isn't connected");
       return c.uploadRides ? "sending" : "not sending";
     }
+    case "units":
+      return readUnits();
     default: {
       const saved = remembered(s.device);
       if (!saved) throw new Error(`No ${GEAR_LABELS[s.device]} is paired`);
@@ -256,6 +259,9 @@ async function apply(setting: AppSetting): Promise<string> {
       await setUploadRides(supabase, c, setting.value);
       break;
     }
+    case "units":
+      setUnits(setting.value);
+      break;
     case "forget_device":
       await forgetDevice(setting.device);
       break;
