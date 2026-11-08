@@ -2,26 +2,219 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lactic</title>
-<meta name="description" content="Lactic: free, open-source structured training for cyclists. Coming soon.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lactic: the open-source training platform</title>
+<meta name="description" content="Free, open-source structured training for cyclists. A plan that fits your week, ERG workouts on your smart trainer, recovery from your watch, and the AI coach of your choice. For Mac, Windows and Linux. Your data stays on your computer.">
+<meta property="og:title" content="Lactic: the open-source training platform">
+<meta property="og:description" content="Free, open-source structured training for cyclists. Bring your own AI coach, or none.">
+<meta property="og:url" content="https://lactic.fit">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#2b55d6">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<style>
-  :root { color-scheme: light dark; --bg: #f5f6f8; --ink: #0d1117; --muted: #5d6573; --blue: #2b55d6; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #000000; --ink: #f2f3f5; --muted: #8b919c; } }
-  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--ink);
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { padding: 24px; display: grid; gap: 16px; justify-items: center; text-align: center; }
-  .mark { width: 72px; height: 72px; border-radius: 16px; background: var(--blue); color: #fff; display: grid; place-items: center; }
-  h1 { margin: 0; font-size: 44px; letter-spacing: -0.03em; }
-  p { margin: 0; font-size: 18px; line-height: 1.5; color: var(--muted); max-width: 34ch; }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M2 21V15H4.5V10.5H7V6.5H9.5V3H12V15H22V21Z" fill="currentColor"/></svg></span>
+      Lactic
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a class="nav-link" href="#why">Features</a>
+      <a class="nav-link" href="#coach">AI coach</a>
+      <a class="nav-link" href="#gear">Gear</a>
+      <a class="nav-link" href="https://github.com/blairj09/lactic">GitHub</a>
+      <a class="nav-cta" href="#download">Download</a>
+    </nav>
+  </div>
+</header>
+
 <main>
-  <div class="mark"><svg viewBox="0 0 24 24" width="44" height="44" aria-hidden="true"><path d="M2 21V15H4.5V10.5H7V6.5H9.5V3H12V15H22V21Z" fill="currentColor"/></svg></div>
-  <h1>Lactic</h1>
-  <p>Free, open-source structured training for cyclists. Coming soon.</p>
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-copy">
+        <div class="hero-title">
+          <p class="badge">Free and open source · Mac, Windows, Linux</p>
+          <h1>The <span class="nowrap">open-source</span> training platform.</h1>
+        </div>
+        <div class="hero-side">
+          <p class="lede">A plan that fits your week. Workouts on your head unit or smart trainer. Metric-based recovery. And a coach, if you want one.</p>
+          <div class="buttons">
+            <a class="btn btn-primary" href="#download"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Download free</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="app" role="img" aria-label="The Lactic app on Today: last night's recovery and this morning's weigh-in, today's sweet spot workout with Ride it, and the coach suggesting a schedule change to apply or dismiss">
+        <div class="app-bar" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        <div class="app-top" aria-hidden="true">
+          <span class="app-brand"><span class="app-mark"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M2 21V15H4.5V10.5H7V6.5H9.5V3H12V15H22V21Z" fill="currentColor"/></svg></span>Lactic</span>
+          <span class="app-tabs"><span class="on">Today</span><span>Plan</span><span>Progress</span><span>Health</span></span>
+          <span class="app-coach-btn">Coach <span class="kbd">⌘K</span></span>
+          <span class="app-ride">Ride</span>
+          <span class="app-gear"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+        </div>
+        <div class="app-body" aria-hidden="true">
+          <div class="app-main">
+            <div class="today-head">
+              <p class="today-title">Today</p>
+              <p class="today-sub">Saturday, November 7. Recovered (68). Form −4, neutral.</p>
+            </div>
+            <div class="app-card">
+              <div class="workout-head"><p class="card-title">Morning</p><p class="muted-sm">Ask the coach</p></div>
+              <div class="morning">
+                <div class="m-step"><p class="m-name"><span class="step done"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span>Recovery</p><p class="m-text">68, recovered. HRV 16% above your normal</p></div>
+                <div class="m-step"><p class="m-name"><span class="step done"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg></span>Weigh in</p><p class="m-text">73.8 kg</p></div>
+                <div class="m-step"><p class="m-name"><span class="step">3</span>How you feel</p><p class="seg"><span>Wrecked</span><span>Tired</span><span>Normal</span><span>Good</span><span>Great</span></p></div>
+              </div>
+            </div>
+            <div class="app-card">
+              <div class="workout-head"><p class="card-title big">Sweet spot</p><p class="muted-sm">This week&apos;s plan</p></div>
+              <p class="muted-sm">Sweet spot 2 x 26 min @ 93% · 93 TSS</p>
+              <svg class="chart" viewBox="0 0 450 120" preserveAspectRatio="none">
+                <polygon points="0,120 0,92 54,70 54,120" fill="#b2c0ea"/>
+                <rect x="54" y="30" width="156" height="90" fill="#6f8fe4"/>
+                <rect x="210" y="84" width="24" height="36" fill="#d5dae6"/>
+                <rect x="234" y="30" width="156" height="90" fill="#6f8fe4"/>
+                <rect x="390" y="78" width="24" height="42" fill="#b2c0ea"/>
+                <polygon points="414,120 414,84 450,100 450,120" fill="#d5dae6"/>
+              </svg>
+              <div class="foot-btns"><span class="fake-btn">Ride it</span><span class="fake-btn ghost">Ride outside</span></div>
+            </div>
+          </div>
+          <div class="app-coach">
+            <div class="drawer-title"><span>Coach</span><span class="drawer-icons"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8.3"/><path d="M3 3v5.3h5.3"/><path d="M12 7v5l3 2"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span></div>
+            <p class="bubble me">Can we move Saturday&apos;s long ride to Sunday?</p>
+            <p class="coach-text">Yes. You&apos;re recovered and Sunday has nothing hard in it, so a straight swap works.</p>
+            <div class="proposal">
+              <p class="p-sum">Swap Sat, Nov 14 (Endurance 120 min) with Sun, Nov 15 (Endurance 90 min)</p>
+              <p class="p-reason">The long ride lands on your free day. Saturday stays aerobic.</p>
+              <div class="coach-actions"><span class="yes">Apply</span><span>Dismiss</span></div>
+            </div>
+            <div class="chat-input"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg><span>Message your coach</span><span class="send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="beliefs" id="why">
+    <div class="wrap">
+      <div class="belief">
+        <div class="belief-copy">
+          <p class="eyebrow">Plans</p>
+          <h2>A plan that fits your life.</h2>
+          <p>Tell Lactic your goal and the time you have each day. It builds the plan, the recovery weeks and the workouts, and shows where your fitness will be at the end. The plan adapts as you progress.</p>
+        </div>
+        <div class="belief-detail week" aria-label="Example week">
+          <div class="day"><span class="d">Mon</span><span class="w rest">Rest</span></div>
+          <div class="day"><span class="d">Tue</span><span class="w">Sweet spot 2 × 26</span><span class="t num">1:15</span></div>
+          <div class="day"><span class="d">Wed</span><span class="w">Endurance</span><span class="t num">1:00</span></div>
+          <div class="day"><span class="d">Thu</span><span class="w">VO2 max 5 × 4</span><span class="t num">1:00</span></div>
+          <div class="day"><span class="d">Fri</span><span class="w rest">Rest</span></div>
+          <div class="day"><span class="d">Sat</span><span class="w">Long endurance</span><span class="t num">2:00</span></div>
+          <div class="day"><span class="d">Sun</span><span class="w">Endurance with tempo</span><span class="t num">1:30</span></div>
+        </div>
+      </div>
+
+      <div class="belief" id="ride">
+        <div class="belief-copy">
+          <p class="eyebrow">Rides</p>
+          <h2>Every interval, on target.</h2>
+          <p>Lactic sets the watts in ERG and drops to road mode for sprints, so you can give it all you&apos;ve got. Start pedaling and the workout starts. The overlay keeps it on top of Zwift, a video or anything else.</p>
+        </div>
+        <div class="belief-detail metrics">
+          <div class="metric"><p class="label">Power</p><p class="value num">239 W</p></div>
+          <div class="metric"><p class="label">Target</p><p class="value num">237 W</p></div>
+          <div class="metric"><p class="label">Interval 2 of 6</p><p class="value num">25:15</p></div>
+          <div class="metric"><p class="label">Heart rate</p><p class="value num">137</p></div>
+          <p class="note">Sweet spot, ERG on.</p>
+        </div>
+      </div>
+
+      <div class="belief">
+        <div class="belief-copy">
+          <p class="eyebrow">Recovery</p>
+          <h2>Train for the day you&apos;re having.</h2>
+          <p>A recovery score each morning from your sleep, HRV and resting heart rate. Your plan adjusts to where you are today.</p>
+        </div>
+        <div class="belief-detail metrics">
+          <div class="metric"><p class="label">Recovery</p><p class="value num">68</p></div>
+          <div class="metric"><p class="label">Sleep</p><p class="value num">7h 17m</p></div>
+          <div class="metric"><p class="label">HRV</p><p class="value num">71 ms</p></div>
+          <div class="metric"><p class="label">Resting HR</p><p class="value num">50</p></div>
+          <p class="note">Apple Watch, Garmin, Oura, WHOOP or Android.</p>
+        </div>
+      </div>
+
+      <div class="belief" id="coach">
+        <div class="belief-copy">
+          <p class="eyebrow">Coach</p>
+          <h2>A coach that knows your numbers.</h2>
+          <p>Ask why today is hard, or to move Saturday&apos;s ride. The coach reads your plan, rides and recovery, and suggests changes you apply with a click. Use the AI you like. Prefer to be AI free? No problem.</p>
+        </div>
+        <div class="belief-detail modes">
+          <div class="mode"><h3>Built-in coach</h3><p>OpenRouter, Anthropic, OpenAI, Gemini, or a free model on your computer. A monthly limit you set.</p></div>
+          <div class="mode"><h3>An AI app you already use</h3><p>One click adds Lactic to Claude Desktop. Any MCP app gets the same tools.</p></div>
+          <div class="mode"><h3>No coach</h3><p>Just the plan, the workouts and your numbers.</p></div>
+        </div>
+      </div>
+
+      <div class="belief stacked" id="gear">
+        <div class="belief-copy">
+          <p class="eyebrow">Works with what you own</p>
+          <h2>Your gear is welcome.</h2>
+        </div>
+        <div class="gear">
+          <div class="gear-item"><h3>Smart trainers</h3><p>Smart trainers over Bluetooth, in ERG or road mode.</p></div>
+          <div class="gear-item"><h3>Sensors</h3><p>Heart rate straps, power meters, cadence sensors. Or heart rate from your watch.</p></div>
+          <div class="gear-item"><h3>Your watch or ring</h3><p>Sleep, HRV and resting heart rate from Apple Watch, or through intervals.icu from Garmin, Oura, WHOOP or Android.</p></div>
+          <div class="gear-item"><h3>intervals.icu</h3><p>Your ride history from Zwift, Garmin, Wahoo and more. Rides and workouts sync back.</p></div>
+          <div class="gear-item"><h3>Smart scales</h3><p>Bluetooth smart scales, or type your weight in.</p></div>
+          <div class="gear-item"><h3>Head units</h3><p>Take your workouts outside on your head unit.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="wrap">
+      <h2>And everything else a training app should do.</h2>
+      <div class="feature-grid">
+        <div class="feature"><h3>Real progress</h3><p>Fitness, fatigue and form. FTP from critical power, your power curve and profile, VO2 max.</p></div>
+        <div class="feature"><h3>Your history from day one</h3><p>intervals.icu brings in rides from Zwift, Garmin, Wahoo and more. Rides and workouts sync back.</p></div>
+        <div class="feature"><h3>Workouts your way</h3><p>Edit any workout, make your own, or pick an easier or harder version.</p></div>
+        <div class="feature"><h3>Five minutes to start</h3><p>Five short steps find your gear, build your plan and bring in your history.</p></div>
+        <div class="feature"><h3>Math you can check</h3><p>Every number comes from an open engine. The AI explains it, never invents it.</p></div>
+        <div class="feature"><h3>Free and open source</h3><p>Free to use and change, MIT licensed. No account. Your data stays on your computer.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="download" id="download">
+    <div class="wrap">
+      <h2>Free. Forever.</h2>
+      <p>For Mac, Windows and Linux. Download it, fork it, make it better. Built by riders, in the open.</p>
+      <div class="buttons">
+        <a class="btn btn-white" href="https://github.com/blairj09/lactic/releases/latest">Download Lactic</a>
+        <a class="btn btn-outline btn-icon" href="https://github.com/blairj09/lactic" aria-label="Lactic on GitHub" title="Lactic on GitHub"><svg viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+      </div>
+    </div>
+  </section>
 </main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>Lactic · lactic.fit</span>
+    <span>The open-source training platform.</span>
+  </div>
+</footer>
+
+<script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
