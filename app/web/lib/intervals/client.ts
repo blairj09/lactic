@@ -1,11 +1,11 @@
 // intervals.icu access with a personal API key: rides come in as their original FIT files.
 
 import { gunzipSync } from "node:zlib";
-import { saveIntervalsLinks, storeRides, unlinkedRides, type NewRide, type UnlinkedRide } from "../activities";
+import { rideTimes, saveIntervalsLinks, storeRides, unlinkedRides, type NewRide, type UnlinkedRide } from "../activities";
 import { decodeFit, FIT_SPORT_CYCLING } from "../fit/decode";
 import { rideFromFit } from "../fit/ride";
 import type { createClient } from "../supabase/server";
-import { matchActivities, nextBatch, sameRide, stravaRides, type IntervalsActivity } from "./batch";
+import { matchActivities, missingStravaRides, nextBatch, sameRide, stravaRides, type IntervalsActivity } from "./batch";
 import { mergeWellness, WELLNESS_SOURCE, wellnessDays, type IntervalsWellness, type RecoveryRow } from "../engine/wellness";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -70,6 +70,16 @@ export interface IntervalsConnection {
   lastSyncedAt: Date | null;
   /** Rides recorded here go to intervals.icu unless Zwift or the Karoo sent them. */
   uploadRides: boolean;
+  /** Rides in the last two years that came to intervals.icu from Strava and aren't here; null before the first count. */
+  stravaMissing: StravaMissing | null;
+}
+
+export interface StravaMissing {
+  /** How many rides. */
+  count: number;
+  /** Local start dates (YYYY-MM-DD) of the oldest and newest of them. */
+  oldest: string | null;
+  newest: string | null;
 }
 
 export async function loadConnection(supabase: Supabase): Promise<IntervalsConnection | null> {
@@ -84,6 +94,10 @@ export async function loadConnection(supabase: Supabase): Promise<IntervalsConne
     backfillDone: data.backfill_done,
     lastSyncedAt: data.last_synced_at ? new Date(data.last_synced_at) : null,
     uploadRides: data.upload_rides !== false,
+    stravaMissing:
+      data.strava_missing === null || data.strava_missing === undefined
+        ? null
+        : { count: data.strava_missing, oldest: data.strava_missing_oldest ?? null, newest: data.strava_missing_newest ?? null },
   };
 }
 
@@ -146,6 +160,8 @@ export interface SyncResult {
   reachedBack?: string;
   /** On a history import's first call: rides in range that came from Strava, which can't be imported. */
   fromStrava?: number;
+  /** On a regular sync: new rides that came from Strava and couldn't be read. */
+  newFromStrava?: number;
   /** Rides recorded here that were sent to intervals.icu. */
   sent?: number;
 }
@@ -170,6 +186,22 @@ async function linkRides(supabase: Supabase, listed: IntervalsActivity[], rides?
   return saveIntervalsLinks(supabase, unlinked, matchActivities(unlinked, listed));
 }
 
+/**
+ * Counts the Strava rides in a two-year listing that no stored ride covers, and saves the count so
+ * Settings can say plainly what's missing and how to bring it in.
+ */
+async function countStravaMissing(supabase: Supabase, connection: IntervalsConnection, listed: IntervalsActivity[]): Promise<IntervalsActivity[]> {
+  const missing = missingStravaRides(listed, await rideTimes(supabase, backfillCutoff()));
+  await update(supabase, connection, {
+    strava_missing: missing.length,
+    strava_missing_oldest: missing[0]?.start_date_local.slice(0, 10) ?? null,
+    strava_missing_newest: missing.at(-1)?.start_date_local.slice(0, 10) ?? null,
+  });
+  return missing;
+}
+
+const historyRange = () => [day(backfillCutoff()), day(new Date(Date.now() + 86_400_000))] as const;
+
 /** Rides newer than the newest one synced, a batch at a time, oldest first. */
 export async function syncNew(supabase: Supabase, connection: IntervalsConnection): Promise<SyncResult> {
   // First sync: start from a week back; the history import covers the rest.
@@ -183,12 +215,18 @@ export async function syncNew(supabase: Supabase, connection: IntervalsConnectio
   // Rides stored without their intervals.icu id get it from one listing of the history: a single request,
   // made while any ride from the last BACKFILL_YEARS is unlinked (some, like FIT files intervals.icu never got, stay so).
   const unlinked = await unlinkedRides(supabase, backfillCutoff());
-  const linked = unlinked.length
-    ? await linkRides(supabase, await listActivities(connection.apiKey, day(backfillCutoff()), day(new Date(Date.now() + 86_400_000))), unlinked)
-    : 0;
+  // Strava rides in the stretch this sync walked, or ones still missing (a FIT import may have filled
+  // them in since), mean a fresh count.
+  const walked = cursor ? listed.filter((a) => a.start_date_local > after && a.start_date_local <= cursor) : [];
+  const recount = stravaRides(walked) > 0 || (connection.stravaMissing?.count ?? 0) > 0;
+  const history = unlinked.length || recount ? await listActivities(connection.apiKey, ...historyRange()) : [];
+  const linked = unlinked.length ? await linkRides(supabase, history, unlinked) : 0;
+  const missing = recount ? await countStravaMissing(supabase, connection, history) : [];
+  const walkedIds = new Set(walked.map((a) => a.id));
+  const newFromStrava = missing.filter((a) => walkedIds.has(a.id)).length;
   const sent = connection.uploadRides ? await sendRides(supabase, connection) : 0;
   await update(supabase, connection, { newest_synced_local: cursor ?? after, last_synced_at: new Date().toISOString() });
-  return { imported: saved, linked, more, sent };
+  return { imported: saved, linked, more, sent, ...(newFromStrava ? { newFromStrava } : {}) };
 }
 
 /** Walks back through history, a batch at a time, until BACKFILL_YEARS ago. */
@@ -203,6 +241,7 @@ export async function syncHistory(supabase: Supabase, connection: IntervalsConne
   const { saved } = await storeRides(supabase, rides);
   // Each call lists the whole range anyway, so the first one links every stored ride it can.
   const linked = connection.backfillBeforeLocal ? 0 : await linkRides(supabase, listed);
+  if (!connection.backfillBeforeLocal) await countStravaMissing(supabase, connection, listed);
 
   const fields: Record<string, unknown> = { backfill_before_local: cursor ?? before, backfill_done: !more };
   // History also counts as seen, so the next regular sync doesn't refetch it.

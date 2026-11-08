@@ -257,6 +257,10 @@ export const TABLES: Record<string, Table> = {
       connected_at: now,
       last_synced_at: { type: "ts" },
       upload_rides: { type: "bool", default: true },
+      // Rides in the last two years that reached intervals.icu from Strava and aren't here (its API can't share them).
+      strava_missing: { type: "int" },
+      strava_missing_oldest: { type: "text" },
+      strava_missing_newest: { type: "text" },
       updated_at: now,
     },
     primaryKey: ["user_id"],

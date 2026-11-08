@@ -324,9 +324,10 @@ export async function syncIntervals(mode: "new" | "history" | "reimport"): Promi
       : "";
     const sent = result.sent ? ` Sent ${result.sent} ride${result.sent === 1 ? "" : "s"} recorded here to intervals.icu.` : "";
     const linked = result.linked ? ` Linked ${result.linked} ride${result.linked === 1 ? "" : "s"} to intervals.icu.` : "";
-    const strava = result.fromStrava
-      ? ` ${result.fromStrava} ride${result.fromStrava === 1 ? "" : "s"} in the last 2 years reached intervals.icu from Strava, and its API can't share those: link Zwift and the Karoo to intervals.icu directly, or import their FIT files.`
-      : "";
+    const fromStrava = (n: number, when: string) =>
+      ` ${n} ride${n === 1 ? "" : "s"} ${when} came to intervals.icu from Strava, which doesn't let it share them, so Lactic couldn't bring ${n === 1 ? "it" : "them"} in. Settings → intervals.icu says how to fix this.`;
+    const missing = mode === "new" || connection.backfillBeforeLocal ? 0 : ((await intervals.loadConnection(supabase))?.stravaMissing?.count ?? 0);
+    const strava = result.newFromStrava ? fromStrava(result.newFromStrava, "since the last sync") : missing ? fromStrava(missing, "in the last 2 years") : "";
     return {
       ok: true,
       imported: result.imported,
