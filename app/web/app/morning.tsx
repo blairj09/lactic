@@ -20,11 +20,12 @@ import { STAGE_TEXT } from "./health/weigh-in";
 import { FeelStep, TodayOptions, type CheckinAnswers } from "./checkin";
 import { formatWeight } from "@/lib/units";
 import { useUnits } from "@/lib/use-units";
+import type { RecoverySourceInfo } from "@/lib/recovery-source";
 
 export interface MorningProps {
   day: string;
   /** Whether today's recovery is in, and a short line about it. */
-  recovery: { in: boolean; line: string | null; healthLinked?: boolean };
+  recovery: { in: boolean; line: string | null; healthLinked?: boolean; source?: RecoverySourceInfo | null };
   /** Today's latest weigh-in. */
   weighIn: { weightKg: number; bodyFatPercent: number | null } | null;
   /** For the scale's body composition; null until height, sex and birth date are in Settings. */
@@ -109,7 +110,7 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
     [profile, router],
   );
 
-  // Waiting on Apple Health: look again each minute, since the shortcut posts from the phone.
+  // Waiting on the recovery source: look again each minute, since nights arrive in the background.
   useEffect(() => {
     if (!fromHealth || recoveryDone || skips.recovery) return;
     const id = setInterval(() => router.refresh(), 60_000);
@@ -145,11 +146,11 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
           ) : skips.recovery ? (
             <p>Skipped for today.</p>
           ) : fromHealth ? (
-            <p className="animate-pulse">Waiting for last night from Apple Health.</p>
+            <p className="animate-pulse">Waiting for last night from {recovery.source?.name ?? "Apple Health"}.</p>
           ) : (
             <p>
               <Link href="/settings#health" className="text-ink underline underline-offset-4">
-                Connect your watch
+                {recovery.source ? `Connect ${recovery.source.name}` : "Connect your sleep and recovery data"}
               </Link>{" "}
               to bring in last night, or skip.
             </p>
