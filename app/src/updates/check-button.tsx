@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { button } from "@/components/ui";
-import { appInfo, openExternal } from "~/platform/native";
+import { isDesktop, openExternal } from "~/platform/native";
 import { checkForUpdate, installUpdate, releaseUrl, updatesSupported, useUpdates } from "./updates";
 
 export function AboutSetting() {
   const state = useUpdates();
   const [version, setVersion] = useState<string | null>(null);
-  useEffect(() => void appInfo().then((i) => setVersion(i.version)), []);
+  // The version the updater compares (tauri.conf.json); "dev" in a browser.
+  useEffect(() => {
+    if (!isDesktop) return setVersion("dev");
+    void import("@tauri-apps/api/app").then((app) => app.getVersion()).then(setVersion);
+  }, []);
   const busy = state.status === "checking" || state.status === "installing" || state.status === "restarting";
   return (
     <div className="space-y-4 text-sm sm:col-span-2">
