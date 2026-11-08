@@ -138,8 +138,11 @@ jobs:
         if: steps.version.outputs.skip != 'true'
         run: |
           # The Mac update bundle comes out as Lactic.app.tar.gz; give it the version and arch.
-          mv dist/Lactic.app.tar.gz "dist/Lactic_${VERSION}_aarch64.app.tar.gz"
-          mv dist/Lactic.app.tar.gz.sig "dist/Lactic_${VERSION}_aarch64.app.tar.gz.sig"
+          # (Artifacts with several folders keep them, so it lands in dist/macos/.)
+          mac=$(find dist -name Lactic.app.tar.gz | head -1)
+          if [ -z "$mac" ]; then echo "No Lactic.app.tar.gz: is TAURI_SIGNING_PRIVATE_KEY set?"; exit 1; fi
+          mv "$mac" "$(dirname "$mac")/Lactic_${VERSION}_aarch64.app.tar.gz"
+          mv "$mac.sig" "$(dirname "$mac")/Lactic_${VERSION}_aarch64.app.tar.gz.sig"
           # What's new, for the update card and the top of the release page: this version's
           # section of app/whats-new.md, written for riders.
           node app/scripts/update-manifest.mjs dist "$VERSION" "$GITHUB_REPOSITORY" app/whats-new.md > dist/latest.json
