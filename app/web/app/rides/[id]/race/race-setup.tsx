@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { button, fileInput, input, Result } from "@/components/ui";
 import Select from "@/components/select";
@@ -72,13 +72,21 @@ export default function RaceSetup({
       if (r.ok) router.refresh();
     });
 
+  // Rides from intervals.icu: fetch the full-detail file on first open, so there's nothing to upload.
+  const fetched = useRef(false);
+  useEffect(() => {
+    if (fetched.current || ownPoints !== null || !canFetch) return;
+    fetched.current = true;
+    run(() => loadOwnTrack(activityId));
+  }, [activityId, ownPoints, canFetch]);
+
   return (
     <div className="space-y-6">
       <Step n={1} title="Your ride file" done={ownPoints !== null}>
         {ownPoints !== null ? (
           <p className="text-sm text-muted">Your GPS track, {ownPoints.toLocaleString()} points.</p>
         ) : (
-          <p className="text-sm text-muted">The report needs your ride at full detail. {canFetch ? "Lactic can get it from intervals.icu, or drop in the file from your device." : "Drop in the FIT or GPX file from your device."}</p>
+          <p className="text-sm text-muted">The report needs your ride at full detail. {canFetch ? (pending ? "Getting it from intervals.icu…" : "Lactic gets it from intervals.icu, or drop in the file from your device.") : "Drop in the FIT or GPX file from your device."}</p>
         )}
         <div className="flex flex-wrap items-center gap-3">
           {canFetch && ownPoints === null && (
