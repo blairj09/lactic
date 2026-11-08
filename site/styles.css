@@ -43,6 +43,7 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
 /* Header */
 .site-header .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-block: 20px; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-weight: 700; font-size: 20px; letter-spacing: -0.02em; }
+.beta-tag { font: 600 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); background: var(--accent-tint); padding: 3px 6px; border-radius: 5px; margin-left: -2px; }
 .brand:hover { color: var(--ink); }
 .brand-mark { width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: #fff; display: grid; place-items: center; }
 .nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; font-size: 15px; font-weight: 500; }
@@ -194,6 +195,7 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .dl-close:hover { background: var(--line-soft); color: var(--ink); }
 .dl-meta { font-size: 13px; color: var(--muted); font-family: var(--mono); margin-top: -8px; }
 .dl-meta:empty { display: none; }
+.dl-beta { font-size: 14px; color: var(--muted); margin: 0; }
 .dl-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 16px; line-height: 1.55; color: var(--body); }
 .dl-steps code { font-family: var(--mono); font-size: 13px; background: var(--line-soft); padding: 2px 6px; border-radius: 5px; overflow-wrap: anywhere; }
 .dl-phone { font-size: 16px; line-height: 1.55; color: var(--body); }

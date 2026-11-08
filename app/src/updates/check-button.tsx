@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { button } from "@/components/ui";
 import { isDesktop, openExternal } from "~/platform/native";
+import { isBeta } from "~/app/beta";
 import { checkForUpdate, installUpdate, releaseUrl, updatesSupported, useUpdates } from "./updates";
 
 /** Lactic's Ko-fi page: one-off or monthly tips, no account needed to give. */
@@ -21,7 +22,7 @@ export function AboutSetting() {
     <div className="space-y-4 text-sm sm:col-span-2">
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5">
         <dt className="text-muted">Version</dt>
-        <dd className="num">{version ?? "…"}</dd>
+        <dd className="num">{version ?? "…"}{isBeta && " (beta)"}</dd>
         {updatesSupported && (
           <>
             <dt className="text-muted">Updates</dt>
