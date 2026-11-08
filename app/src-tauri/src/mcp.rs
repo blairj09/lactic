@@ -19,6 +19,12 @@ use tauri::{AppHandle, Emitter, State};
 use tokio::sync::{oneshot, Mutex};
 
 pub const DEFAULT_PORT: u16 = 47615;
+/// Lactic Preview starts further up, so it can run beside Lactic without taking its port.
+const PREVIEW_PORT: u16 = 47645;
+
+fn default_port() -> u16 {
+    if crate::is_preview() { PREVIEW_PORT } else { DEFAULT_PORT }
+}
 const PROTOCOL: &str = "2025-06-18";
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -53,7 +59,7 @@ fn load_or_create(data_dir: &PathBuf) -> McpInfo {
     }
     use rand::Rng;
     let token: String = rand::thread_rng().sample_iter(&rand::distributions::Alphanumeric).take(40).map(char::from).collect();
-    McpInfo { port: DEFAULT_PORT, token }
+    McpInfo { port: default_port(), token }
 }
 
 fn save(data_dir: &PathBuf, info: &McpInfo) {
@@ -72,7 +78,7 @@ pub async fn start(app: AppHandle, mcp: Arc<Mcp>, data_dir: PathBuf) {
     *mcp.app.lock().await = Some(app);
     let mut info = load_or_create(&data_dir);
     let mut listener = None;
-    for port in std::iter::once(info.port).chain(DEFAULT_PORT..DEFAULT_PORT + 20) {
+    for port in std::iter::once(info.port).chain(default_port()..default_port() + 20) {
         if let Ok(l) = tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
             info.port = port;
             listener = Some(l);
@@ -239,7 +245,7 @@ fn claude_has_lactic() -> bool {
     std::fs::read_to_string(path)
         .ok()
         .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-        .is_some_and(|c| c.get("mcpServers").and_then(|m| m.get("lactic")).is_some())
+        .is_some_and(|c| c.get("mcpServers").and_then(|m| m.get(server_name())).is_some())
 }
 
 /// Adds Lactic to Claude Desktop's MCP servers, keeping everything else in its config. Claude
@@ -256,7 +262,7 @@ pub fn mcp_install_claude() -> Result<String, String> {
     if !servers.is_object() {
         *servers = json!({});
     }
-    servers.as_object_mut().unwrap().insert("lactic".into(), json!({ "command": exe.to_string_lossy(), "args": ["--mcp"] }));
+    servers.as_object_mut().unwrap().insert(server_name().into(), json!({ "command": exe.to_string_lossy(), "args": ["--mcp"] }));
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
@@ -267,9 +273,15 @@ pub fn mcp_install_claude() -> Result<String, String> {
     Ok(path.to_string_lossy().into_owned())
 }
 
-/// Tauri keeps app data in <data dir>/<identifier> on every OS.
+/// Tauri keeps app data in <data dir>/<identifier> on every OS (Lactic Preview has its own).
 fn data_dir() -> Option<PathBuf> {
-    Some(dirs::data_dir()?.join("fit.lactic.app"))
+    Some(dirs::data_dir()?.join(crate::identifier()))
+}
+
+/// The name Lactic goes by in Claude Desktop's MCP servers: "lactic", or "lactic-preview" for a
+/// preview build, so installing a preview's bridge never replaces the real app's.
+fn server_name() -> &'static str {
+    if crate::is_preview() { "lactic-preview" } else { "lactic" }
 }
 
 /// `lactic --mcp`: JSON-RPC over stdin and stdout, forwarded to the running app.

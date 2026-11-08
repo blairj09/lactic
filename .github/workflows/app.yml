@@ -18,8 +18,34 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    outputs:
+      # "release": this run ships v<version> (a version tag, a manual run with "release" ticked,
+      # or main with a version that has no release yet). "preview": everything else (pull
+      # requests, the rest of main) builds Lactic Preview, a separate testing app with its own
+      # data, keychain item and updates (src-tauri/tauri.preview.conf.json).
+      channel: ${{ steps.channel.outputs.channel }}
+      version: ${{ steps.channel.outputs.version }}
     steps:
       - uses: actions/checkout@v5
+      - name: Release or preview build
+        id: channel
+        run: |
+          version=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          channel=preview
+          if [ "$GITHUB_REF_TYPE" = tag ] || [ "$RELEASE_INPUT" = true ]; then
+            channel=release
+          elif [ "$GITHUB_REF" = refs/heads/main ] && ! gh release view "v$version" >/dev/null 2>&1; then
+            channel=release
+          fi
+          # Previews count up with the run, so an installed Preview sees each newer one as an update.
+          if [ "$channel" = preview ]; then version="$version-preview.$GITHUB_RUN_NUMBER"; fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Building $channel $version"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.release }}
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -52,6 +78,7 @@ jobs:
     # With the Apple secrets (APPLE_CERTIFICATE and friends, see app/README.md) the Mac app is
     # signed with Lactic's Developer ID and notarized by Apple, so it opens with no Terminal step.
     # Without them (forks) it falls back to the ad-hoc signature.
+    # Preview runs build Lactic Preview instead (artifacts named Lactic-macOS-Preview and so on).
     needs: check
     strategy:
       fail-fast: false
@@ -89,6 +116,10 @@ jobs:
       # "true" when the Developer ID certificate secret is set (the secret itself stays in the
       # signing step).
       MAC_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
+      CHANNEL: ${{ needs.check.outputs.channel }}
+      VERSION: ${{ needs.check.outputs.version }}
+      # The screens say Preview instead of Beta in a preview build (src/app/beta.ts).
+      VITE_LACTIC_CHANNEL: ${{ needs.check.outputs.channel }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -151,7 +182,19 @@ jobs:
           else
             echo "::warning::Signed but not notarized: set APPLE_API_KEY, APPLE_API_ISSUER and APPLE_API_KEY_P8 too, or the Mac still blocks the app on first open."
           fi
-      - run: npx tauri build --bundles ${{ matrix.bundles }} ${{ matrix.target && format('--target {0}', matrix.target) || '' }} ${{ env.TAURI_SIGNING_PRIVATE_KEY != '' && '--config src-tauri/tauri.updater.conf.json' || '' }}
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--bundles ${{ matrix.bundles }})
+          if [ -n "${{ matrix.target }}" ]; then args+=(--target ${{ matrix.target }}); fi
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then args+=(--config src-tauri/tauri.updater.conf.json); fi
+          if [ "$CHANNEL" = preview ]; then
+            # Lactic Preview: its own name, bundle id, icon and update feed, at this run's version.
+            printf '{"version":"%s"}' "$VERSION" > src-tauri/tauri.version.conf.json
+            args+=(--config src-tauri/tauri.preview.conf.json --config src-tauri/tauri.version.conf.json)
+          fi
+          npx tauri build "${args[@]}"
         working-directory: app
       - name: Notarize the .dmg too (Mac)
         # Tauri notarizes the app inside; notarizing and stapling the disk image as well means
@@ -163,14 +206,14 @@ jobs:
           xcrun notarytool submit "$dmg" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" --wait --timeout 30m
           xcrun stapler staple "$dmg"
           spctl --assess --type open --context context:primary-signature -v "$dmg"
-          spctl --assess --type execute -v src-tauri/target/${{ matrix.target }}/release/bundle/macos/Lactic.app
+          spctl --assess --type execute -v "$(ls -d src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app | head -1)"
         working-directory: app
       - name: Clean up the signing keychain (Mac)
         if: always() && runner.os == 'macOS' && env.MAC_SIGNING == 'true'
         run: security delete-keychain "$RUNNER_TEMP/lactic-signing.keychain-db" || true
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}
+          name: ${{ matrix.name }}${{ needs.check.outputs.channel == 'preview' && '-Preview' || '' }}
           path: ${{ matrix.files }}
           if-no-files-found: error
 
@@ -178,8 +221,8 @@ jobs:
     # A GitHub release with the three apps attached, tagged v<version from tauri.conf.json>:
     # whenever main has a version with no release yet (bump the version, merge, and it ships),
     # on a version tag, or on a manual run with "release" ticked.
-    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.release)
-    needs: package
+    if: needs.check.outputs.channel == 'release'
+    needs: [check, package]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -244,3 +287,53 @@ jobs:
           fail_on_unmatched_files: true
           generate_release_notes: true
           body_path: release-body.md
+
+  preview:
+    # Lactic Preview from main: each push to main that isn't a release replaces the rolling
+    # `preview` pre-release, which installed Preview apps update from (tauri.preview.conf.json).
+    # It's a pre-release and never "latest", so the site, the README links and the release
+    # updater (releases/latest/download/latest.json) never see it.
+    if: needs.check.outputs.channel == 'preview' && github.ref == 'refs/heads/main'
+    needs: [check, package]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: preview-release
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: "*-Preview"
+          merge-multiple: true
+      - name: Name the files and write latest.json
+        run: |
+          set -euo pipefail
+          # Release file names can't have spaces: "Lactic Preview_..." becomes "Lactic-Preview_...".
+          find dist -type f -name '* *' -print0 | while IFS= read -r -d '' f; do mv "$f" "$(dirname "$f")/$(basename "$f" | tr ' ' '-')"; done
+          mac=$(find dist -name Lactic-Preview.app.tar.gz | head -1)
+          if [ -z "$mac" ]; then echo "No Lactic-Preview.app.tar.gz: is TAURI_SIGNING_PRIVATE_KEY set?"; exit 1; fi
+          mv "$mac" "$(dirname "$mac")/Lactic-Preview_${VERSION}_universal.app.tar.gz"
+          mv "$mac.sig" "$(dirname "$mac")/Lactic-Preview_${VERSION}_universal.app.tar.gz.sig"
+          node app/scripts/update-manifest.mjs dist "$VERSION" "$GITHUB_REPOSITORY" app/whats-new.md preview > latest.json
+          mv latest.json dist/latest.json
+          cat dist/latest.json
+          notes=$(node app/scripts/update-manifest.mjs --notes app/whats-new.md Next)
+          {
+            printf 'Built from %s (%s).\n\n' "${GITHUB_SHA::7}" "$(git log -1 --format=%s)"
+            if [ -n "$notes" ]; then printf "## Coming in the next release\n\n%s\n\n" "$notes"; fi
+            cat .github/preview-body.md
+          } > preview-body.md
+      - name: Replace the preview release
+        run: |
+          set -euo pipefail
+          mapfile -d '' files < <(find dist -type f -print0)
+          gh release delete preview --yes --cleanup-tag || true
+          gh release create preview --prerelease --latest=false --target "$GITHUB_SHA" \
+            --title "Lactic Preview $VERSION (testing build)" --notes-file preview-body.md "${files[@]}"

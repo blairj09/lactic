@@ -2,11 +2,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    // `lactic --mcp` is the stdio bridge an AI app (Claude Desktop, ChatGPT...) launches to reach
-    // the coach tools of the running app. Anything else opens the app.
-    if std::env::args().any(|a| a == "--mcp") {
-        lactic_lib::mcp::run_stdio_bridge();
-        return;
-    }
+    // `lactic --mcp` (the stdio bridge for AI apps) is handled in run().
     lactic_lib::run();
 }
