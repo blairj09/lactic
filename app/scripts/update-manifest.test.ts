@@ -40,6 +40,14 @@ describe("update manifest", () => {
     expect(m.platforms["linux-x86_64-deb"].url).toMatch(/\.deb$/);
   });
 
+  it("lists a universal Mac app for both Apple silicon and Intel", () => {
+    const paths = release(["Lactic_0.2.0_universal.dmg", "Lactic_0.2.0_universal.app.tar.gz", "Lactic_0.2.0_universal.app.tar.gz.sig"]);
+    const m = manifest({ paths, version: "0.2.0", repo: "blairj09/lactic" });
+    expect(Object.keys(m.platforms).sort()).toEqual(["darwin-aarch64", "darwin-aarch64-app", "darwin-x86_64", "darwin-x86_64-app"]);
+    expect(m.platforms["darwin-x86_64"]).toEqual(m.platforms["darwin-aarch64"]);
+    expect(m.platforms["darwin-x86_64"].url).toMatch(/Lactic_0\.2\.0_universal\.app\.tar\.gz$/);
+  });
+
   it("takes one release's rider-facing notes from whats-new.md", () => {
     const md = ["# What's new in Lactic", "", "Intro text.", "", "## Next", "", "- Not shipped yet", "", "## 0.1.3", "", "- Lactic checks for updates when it starts.", "* Release notes in the app.", "", "## 0.1.2", "", "- Older"].join("\n");
     expect(whatsNew(md, "0.1.3")).toBe("- Lactic checks for updates when it starts.\n- Release notes in the app.");
