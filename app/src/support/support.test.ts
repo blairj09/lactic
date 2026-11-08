@@ -62,6 +62,17 @@ describe("settings the coach can propose", () => {
     expect(() => checkAppSetting({ setting: "forget_device", device: "toaster" })).toThrow(/device is one of/);
     expect(() => checkAppSetting({ setting: "delete_rides" })).toThrow(/setting is one of/);
     expect(describeAppSetting({ setting: "rename_device", device: "trainer", name: "Kicker" })).toBe('Call the trainer "Kicker"');
+    expect(checkAppSetting({ setting: "units", value: "imperial" })).toEqual({ setting: "units", value: "imperial" });
+    expect(() => checkAppSetting({ setting: "units", value: "stone" })).toThrow(/metric or imperial/);
+  });
+
+  it("switches units once the athlete applies it", async () => {
+    store.set("lactic:units", "metric");
+    const r = await runSupportTool("propose_app_change", { setting: "units", value: "imperial", reason: "You think in pounds" });
+    expect(r.proposal?.summary).toBe("Units: imperial (lb, in, mi, °F) (now metric)");
+    expect(store.get("lactic:units")).toBe("metric");
+    expect(await applyChange(localClient as never, r.proposal!.change as never)).toBe("Done: Units: imperial (lb, in, mi, °F).");
+    expect(store.get("lactic:units")).toBe("imperial");
   });
 
   it("goes through Apply over MCP, like plan changes", async () => {

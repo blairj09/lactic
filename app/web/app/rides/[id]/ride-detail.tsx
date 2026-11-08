@@ -42,6 +42,7 @@ import {
 import RideSurvey from "../../ride-survey";
 import CountFor from "./count-for";
 import RideExplorer from "./ride-explorer";
+import { formatDistance, readUnits } from "@/lib/units";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const BEST_DAYS = 90;
@@ -161,7 +162,7 @@ export default async function RideDetail({
           value={formatDuration(ride.durationSeconds)}
           sub={
             ride.distanceMeters
-              ? `${(ride.distanceMeters / 1000).toFixed(1)} km`
+              ? formatDistance(ride.distanceMeters, readUnits())
               : undefined
           }
         />
@@ -244,7 +245,7 @@ export default async function RideDetail({
         route={stream?.route ?? null}
         distance={
           ride.distanceMeters
-            ? `${(ride.distanceMeters / 1000).toFixed(1)} km`
+            ? formatDistance(ride.distanceMeters, readUnits())
             : undefined
         }
         curve={ride.powerCurve}

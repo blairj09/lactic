@@ -4,6 +4,8 @@ import { Result, button, input } from "@/components/ui";
 import { hrZones, powerZones, type ZoneRange } from "@/lib/engine/zones";
 import { useActionState, useState } from "react";
 import { saveSettings } from "../actions";
+import { heightIn, heightToCm, heightUnit, weightIn, weightToKg, weightUnit, type UnitSystem } from "@/lib/units";
+import { useUnits } from "@/lib/use-units";
 
 type NumberField = "ftp_watts" | "threshold_hr" | "max_hr" | "weight_kg" | "height_cm" | "sleep_need_hours";
 type Values = Record<NumberField, number | null> & { timezone: string; birth_date: string | null; sex: "male" | "female" | null };
@@ -17,6 +19,12 @@ const FIELDS: { name: NumberField; label: string; unit: string; hint?: string; s
   { name: "sleep_need_hours", label: "Sleep need", unit: "hours", step: "0.25" },
 ];
 
+/** Fields typed in the rider's units: shown converted, saved in metric. */
+const CONVERT: Partial<Record<NumberField, { show: (v: number, u: UnitSystem) => number; save: (v: number, u: UnitSystem) => number; unit: (u: UnitSystem) => string }>> = {
+  weight_kg: { show: weightIn, save: weightToKg, unit: weightUnit },
+  height_cm: { show: heightIn, save: heightToCm, unit: heightUnit },
+};
+
 const GROUPS: { title: string; description: string; fields: NumberField[] }[] = [
   { title: "Body", description: "Height, birth date and sex are for body composition from a smart scale.", fields: ["weight_kg", "height_cm"] },
 ];
@@ -28,8 +36,33 @@ export default function SettingsForm({ values }: { values: Values }) {
   const [ftp, setFtp] = useState(values.ftp_watts);
   const [thresholdHr, setThresholdHr] = useState(values.threshold_hr);
   const [maxHr, setMaxHr] = useState(values.max_hr);
+  // Weight and height are typed in the rider's units and saved in kg and cm.
+  const units = useUnits();
+  const [body, setBody] = useState<Partial<Record<NumberField, number | null>>>({ weight_kg: values.weight_kg, height_cm: values.height_cm });
   const numberField = (name: NumberField, onValue?: (value: number | null) => void, width = "w-28") => {
     const f = FIELDS.find((x) => x.name === name)!;
+    const convert = CONVERT[name];
+    if (convert) {
+      const metric = body[name] ?? null;
+      return (
+        <label key={f.name} className="block space-y-2">
+          <span className="block text-sm font-medium">{f.label}</span>
+          <span className="flex items-center gap-2">
+            <input
+              key={units}
+              type="number"
+              step={f.step ?? "1"}
+              defaultValue={metric === null ? "" : Math.round(convert.show(metric, units) * 10) / 10}
+              onChange={(e) => setBody((b) => ({ ...b, [name]: e.target.value === "" ? null : convert.save(Number(e.target.value), units) }))}
+              className={`${input} num ${width}`}
+            />
+            <input type="hidden" name={f.name} value={metric === null ? "" : Math.round(metric * 100) / 100} />
+            <span className="text-sm text-muted">{convert.unit(units)}</span>
+          </span>
+          {f.hint && <span className="block text-sm text-muted">{f.hint}</span>}
+        </label>
+      );
+    }
     return (
       <label key={f.name} className="block space-y-2">
         <span className="block text-sm font-medium">{f.label}</span>

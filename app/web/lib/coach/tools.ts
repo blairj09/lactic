@@ -23,6 +23,7 @@ import type { StoredRide } from "../activities";
 import type { StoredFeedback, StoredPlanDay, TrainingState } from "../training";
 import { todayOptions } from "../today-options";
 import type { Persona } from "./persona";
+import { CM_PER_IN, LB_PER_KG, M_PER_MILE, type UnitSystem } from "../units";
 import { CHANGE_WINDOW_DAYS, resolveChange, type PlanChange, type Proposal } from "./changes";
 
 export interface RecoveryDay {
@@ -51,6 +52,8 @@ export interface CoachData {
   memory: MemoryFact[];
   /** How the coach talks (Settings); the defaults when missing. */
   persona?: Persona;
+  /** The rider's units (Settings). With imperial, results carry lb, in, mi and °F copies to quote. */
+  units?: UnitSystem;
 }
 
 export interface MemoryFact {
@@ -308,10 +311,12 @@ export function status(data: CoachData) {
   const weighIn = weighInOn(data.body, today, tz);
   return {
     today: `${today} (${weekday(today)})`,
+    units: unitsNote(data),
     ftp: athlete.ftp,
     weightKg: weight,
+    ...lb(data, "weightLb", weight),
     wattsPerKg: athlete.ftp && weight ? round(athlete.ftp / weight, 2) : null,
-    weighInToday: weighIn ? { weightKg: round(weighIn.weightKg, 1), bodyFatPercent: weighIn.bodyFatPercent === null ? null : round(weighIn.bodyFatPercent, 1) } : null,
+    weighInToday: weighIn ? { weightKg: round(weighIn.weightKg, 1), ...lb(data, "weightLb", weighIn.weightKg), bodyFatPercent: weighIn.bodyFatPercent === null ? null : round(weighIn.bodyFatPercent, 1) } : null,
     fitness: round(state.fitness),
     fatigue: round(state.fatigue),
     form: round(state.form),
@@ -368,7 +373,7 @@ function getRides(data: CoachData, args: Record<string, unknown>) {
     const day = localDate(r.startedAt, tz);
     return (!from || day >= from) && (!to || day <= to);
   });
-  return { count: rides.length, rides: rides.slice(0, limit).map((r) => ({ ...rideSummary(r, tz), afterwards: afterwards(data.state, r.id) })) };
+  return { count: rides.length, rides: rides.slice(0, limit).map((r) => ({ ...rideSummary(r, tz, data.units), afterwards: afterwards(data.state, r.id) })) };
 }
 
 function getRide(data: CoachData, id: string) {
@@ -378,7 +383,7 @@ function getRide(data: CoachData, id: string) {
   const day = localDate(ride.startedAt, tz);
   const stored = data.planDays.find((d) => d.activityId === ride.id);
   return {
-    ...rideSummary(ride, tz),
+    ...rideSummary(ride, tz, data.units),
     afterwards: afterwards(data.state, ride.id),
     bestPower: ride.powerCurve ? curveSummary(ride.powerCurve) : null,
     ftpThatDay: ftpOn(day, data.state.athlete.ftpHistory, data.state.athlete.ftp),
@@ -536,6 +541,7 @@ function getRecovery(data: CoachData, days: number) {
           awakeHours: h(d.awakeHours),
           breathsPerMin: h(d.respiratoryRate),
           wristTempC: d.wristTempC === null || d.wristTempC === undefined ? undefined : round(d.wristTempC, 2),
+          wristTempF: imperial(data) && d.wristTempC != null ? round((d.wristTempC * 9) / 5 + 32, 1) : undefined,
           // That day's exertion (the night before is in the same row's sleep).
           exertion: exertionByDay.get(d.day)?.exertion,
         };
@@ -555,10 +561,11 @@ function getBody(data: CoachData, days: number) {
   const tz = data.state.athlete.timezone;
   return {
     currentWeightKg: data.state.athlete.weightKg,
-    trend30Days: { weightKg: trend.weightKg === null ? null : round(trend.weightKg, 1), bodyFatPercent: trend.bodyFatPercent === null ? null : round(trend.bodyFatPercent, 1) },
+    ...lb(data, "currentWeightLb", data.state.athlete.weightKg),
+    trend30Days: { weightKg: trend.weightKg === null ? null : round(trend.weightKg, 1), ...lb(data, "weightLb", trend.weightKg), bodyFatPercent: trend.bodyFatPercent === null ? null : round(trend.bodyFatPercent, 1) },
     weighIns: data.body
       .filter((b) => b.measuredAt.getTime() >= since)
-      .map((b) => ({ date: localDate(b.measuredAt, tz), weightKg: round(b.weightKg, 1), bodyFatPercent: b.bodyFatPercent === null ? null : round(b.bodyFatPercent, 1), bmi: b.bmi })),
+      .map((b) => ({ date: localDate(b.measuredAt, tz), weightKg: round(b.weightKg, 1), ...lb(data, "weightLb", b.weightKg), bodyFatPercent: b.bodyFatPercent === null ? null : round(b.bodyFatPercent, 1), bmi: b.bmi })),
   };
 }
 
@@ -586,7 +593,9 @@ function getAthlete(data: CoachData) {
     thresholdHr: a.thresholdHr,
     maxHr: a.maxHr,
     weightKg: a.weightKg,
+    ...lb(data, "weightLb", a.weightKg),
     heightCm: a.heightCm,
+    ...(imperial(data) && a.heightCm !== null ? { heightIn: round(a.heightCm / CM_PER_IN, 1) } : {}),
     age: a.birthDate ? ageOn(a.birthDate, data.state.today) : null,
     sex: a.sex,
     timezone: a.timezone,
@@ -610,7 +619,7 @@ function getDayOptions(data: CoachData, date: string, minutes?: number) {
   };
 }
 
-function rideSummary(r: StoredRide, tz: string) {
+function rideSummary(r: StoredRide, tz: string, units?: UnitSystem) {
   return {
     id: r.id,
     date: localDate(r.startedAt, tz),
@@ -619,6 +628,7 @@ function rideSummary(r: StoredRide, tz: string) {
     source: r.source,
     minutes: Math.round(r.durationSeconds / 60),
     km: r.distanceMeters === null ? null : round(r.distanceMeters / 1000, 1),
+    ...(units === "imperial" && r.distanceMeters !== null ? { miles: round(r.distanceMeters / M_PER_MILE, 1) } : {}),
     averageWatts: r.averagePower === null ? null : round(r.averagePower),
     normalizedWatts: r.normalizedPower === null ? null : round(r.normalizedPower),
     intensityFactor: r.intensityFactor === null ? null : round(r.intensityFactor, 2),
@@ -778,6 +788,19 @@ const weekday = (date: string) => WEEKDAYS[(new Date(`${date}T00:00:00Z`).getUTC
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 const opt = (value: number | undefined, digits = 0) => (value === undefined ? null : round(value, digits));
 const round = (value: number, digits = 0) => Math.round(value * 10 ** digits) / 10 ** digits;
+
+const imperial = (data: CoachData) => data.units === "imperial";
+
+/** A pound copy of a kilo value for imperial riders, so the coach quotes it rather than converting. */
+function lb(data: CoachData, key: string, kg: number | null | undefined): Record<string, number> {
+  return imperial(data) && kg != null ? { [key]: round(kg * LB_PER_KG, 1) } : {};
+}
+
+function unitsNote(data: CoachData) {
+  return imperial(data)
+    ? "imperial: say weights in lb, heights in inches, distances in miles and temperatures in °F, quoting the weightLb, heightIn, miles and wristTempF fields. Power stays W and W/kg."
+    : "metric: kg, cm, km and °C. Power in W and W/kg.";
+}
 
 function dateArg(value: unknown): string | undefined {
   if (value === undefined || value === null || value === "") return undefined;

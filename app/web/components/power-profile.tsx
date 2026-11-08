@@ -4,6 +4,7 @@ import { Dash } from "@/components/ui";
 import type { PowerCurve } from "@/lib/engine/power";
 import { powerProfile, PROFILE_CATEGORIES, type RiderType } from "@/lib/engine/profile";
 import { formatDuration } from "@/lib/format";
+import { formatWeight, readUnits } from "@/lib/units";
 
 const TYPE_MEANING: Record<RiderType, string> = {
   sprinter: "Your short efforts rate highest: a sprinter.",
@@ -88,7 +89,7 @@ export default function PowerProfile({
       </table>
       <p className="text-sm text-muted">
         Rated on Allen and Coggan&apos;s {sex === "female" ? "women's" : "men's"} table, {PROFILE_CATEGORIES[0].toLowerCase()} at the center to{" "}
-        {PROFILE_CATEGORIES.at(-1)!.toLowerCase()} at the edge. Threshold is 95% of your best 20 minutes. W/kg uses {weightKg.toFixed(1)} kg.
+        {PROFILE_CATEGORIES.at(-1)!.toLowerCase()} at the edge. Threshold is 95% of your best 20 minutes. W/kg uses {formatWeight(weightKg, readUnits())}.
       </p>
     </div>
   );

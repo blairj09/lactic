@@ -24,6 +24,15 @@ describe("coach tools", () => {
     expect(power.bestPower.find((p: { duration: string }) => p.duration === "20min")).toMatchObject({ watts: 240, wattsPerKg: 3.2 });
   });
 
+  it("gives imperial riders lb and miles to quote, so it never converts", () => {
+    const metric = JSON.parse(runTool(data, "get_athlete", {}).content);
+    expect(metric.weightLb).toBeUndefined();
+    const imperial = { ...data, units: "imperial" as const };
+    expect(JSON.parse(runTool(imperial, "get_athlete", {}).content).weightLb).toBe(Math.round(metric.weightKg * 2.20462 * 10) / 10);
+    const ride = JSON.parse(runTool(imperial, "get_rides", {}).content).rides[0];
+    if (ride.km !== null) expect(ride.miles).toBeCloseTo(ride.km / 1.609344, 0);
+  });
+
   it("returns errors as text the coach can act on", () => {
     expect(runTool(data, "get_ride", { id: "nope" }).content).toMatch(/^Error: No ride/);
     expect(runTool(data, "get_rides", { from: "last week" }).content).toMatch(/^Error: Dates/);

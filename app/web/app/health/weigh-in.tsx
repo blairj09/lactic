@@ -7,6 +7,8 @@ import { isWebBluetoothAvailable } from "@/lib/ble/sensor-hub";
 import type { ScaleProfile } from "@/lib/scale/bodypod";
 import { weighIn, type WeighInUpdate } from "@/lib/scale/scale";
 import { saveWeighIn, type ActionResult } from "../actions";
+import { weightIn, weightUnit } from "@/lib/units";
+import { useUnits } from "@/lib/use-units";
 
 export const STAGE_TEXT: Record<WeighInUpdate["stage"], string> = {
   picking: "Tap the scale with your foot to wake it, then choose your Body Pod in the list. It's remembered after this.",
@@ -19,6 +21,7 @@ export const STAGE_TEXT: Record<WeighInUpdate["stage"], string> = {
 };
 
 export default function WeighIn({ profile }: { profile: ScaleProfile }) {
+  const units = useUnits();
   const [busy, setBusy] = useState(false);
   const [update, setUpdate] = useState<WeighInUpdate | null>(null);
   const [result, setResult] = useState<ActionResult | null>(null);
@@ -70,8 +73,8 @@ export default function WeighIn({ profile }: { profile: ScaleProfile }) {
       {update && (
         <div className="space-y-1">
           <p className="num text-5xl font-medium tracking-tight">
-            {update.liveKg === null ? <span className="text-faint">–</span> : update.liveKg.toFixed(1)}
-            <span className="ml-1 text-base font-normal tracking-normal text-muted">kg</span>
+            {update.liveKg === null ? <span className="text-faint">–</span> : weightIn(update.liveKg, units).toFixed(1)}
+            <span className="ml-1 text-base font-normal tracking-normal text-muted">{weightUnit(units)}</span>
           </p>
           <p className="text-sm text-muted" aria-live="polite">
             {STAGE_TEXT[update.stage]}

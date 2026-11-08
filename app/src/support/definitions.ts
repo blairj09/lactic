@@ -28,10 +28,10 @@ export const SUPPORT_TOOLS: FnTool[] = [
   }),
   fn(
     "propose_app_change",
-    "Proposes a settings change, shown to the athlete with Apply and Dismiss; nothing changes until they apply it. setting is one of: power_source (value trainer or powerMeter: whose power is shown, recorded and steered by), upload_rides (value true/false: send rides recorded in Lactic to intervals.icu), forget_device (device), rename_device (device, name). Pairing new gear and API keys can't be proposed: point the athlete to Settings.",
+    "Proposes a settings change, shown to the athlete with Apply and Dismiss; nothing changes until they apply it. setting is one of: power_source (value trainer or powerMeter: whose power is shown, recorded and steered by), upload_rides (value true/false: send rides recorded in Lactic to intervals.icu), units (value metric or imperial: kg/cm/km/°C or lb/in/mi/°F everywhere in the app), forget_device (device), rename_device (device, name). Pairing new gear and API keys can't be proposed: point the athlete to Settings.",
     {
-      setting: { type: "string", enum: ["power_source", "upload_rides", "forget_device", "rename_device"] },
-      value: { description: "For power_source: trainer or powerMeter. For upload_rides: true or false." },
+      setting: { type: "string", enum: ["power_source", "upload_rides", "units", "forget_device", "rename_device"] },
+      value: { description: "For power_source: trainer or powerMeter. For upload_rides: true or false. For units: metric or imperial." },
       device,
       name: { type: "string" },
       reason: { type: "string", description: "One sentence to the athlete on why" },

@@ -62,8 +62,8 @@ export const METRICS = {
     title: "Wrist temperature",
     line: "Overnight wrist temperature against your own normal.",
     about: [
-      "Apple Watch measures wrist temperature while you sleep. Only the change against your own normal means anything, since the raw reading depends on the room and the bedding. A rise of 0.5 °C or more can mean illness, heavy training load, alcohol or a hot room.",
-      "It doesn't change the recovery score; when it's 0.3 °C or more off your normal, the score shows it beside the reasons.",
+      "Apple Watch measures wrist temperature while you sleep. Only the change against your own normal means anything, since the raw reading depends on the room and the bedding. A rise of 0.5 °C (0.9 °F) or more can mean illness, heavy training load, alcohol or a hot room.",
+      "It doesn't change the recovery score; when it's 0.3 °C (0.5 °F) or more off your normal, the score shows it beside the reasons.",
     ],
   },
   fitness: {

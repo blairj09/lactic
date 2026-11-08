@@ -10,6 +10,7 @@ import type { Proposal } from "./changes";
 import { titleFrom } from "./chat";
 import { toPersona, type Persona } from "./persona";
 import type { CoachData, MemoryFact, MemoryOp, RecoveryDay } from "./tools";
+import { readUnits } from "../units";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -45,7 +46,7 @@ export async function loadCoachData(supabase: Supabase): Promise<CoachData> {
     loadMemory(supabase),
     loadPersona(supabase),
   ]);
-  return { state, planDays, recoveryDays, body, memory, persona };
+  return { state, planDays, recoveryDays, body, memory, persona, units: readUnits() };
 }
 
 async function loadRecoveryDays(supabase: Supabase, since: string): Promise<RecoveryDay[]> {

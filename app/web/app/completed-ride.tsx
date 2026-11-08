@@ -8,6 +8,7 @@ import { ZONE_LABELS } from "@/lib/engine/library";
 import { completion, plannedTargets, smooth } from "@/lib/engine/ride-detail";
 import { formatDuration, SOURCE_LABEL } from "@/lib/format";
 import type { plannedOn, StoredFeedback } from "@/lib/training";
+import { formatDistance, readUnits } from "@/lib/units";
 
 const MARK_TONE: Record<DayMark, "positive" | "warning" | "negative" | "neutral"> = {
   done: "positive",
@@ -58,7 +59,7 @@ export default function CompletedRide({
       </p>
 
       <StatStrip cols={4} phone={2}>
-        <Stat label="Time" value={formatDuration(ride.durationSeconds)} sub={ride.distanceMeters ? `${(ride.distanceMeters / 1000).toFixed(1)} km` : undefined} />
+        <Stat label="Time" value={formatDuration(ride.durationSeconds)} sub={ride.distanceMeters ? formatDistance(ride.distanceMeters, readUnits()) : undefined} />
         <Stat
           label="Training stress"
           value={ride.trainingStress === null ? null : Math.round(ride.trainingStress)}
