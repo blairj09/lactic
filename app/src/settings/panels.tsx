@@ -5,6 +5,7 @@ import { button, Result } from "@/components/ui";
 import { scanning, simEnabled, SIM_SETTING } from "~/bluetooth/web-bluetooth";
 import { appInfo, fileManagerName, invoke, isDesktop, openExternal, type AppInfo } from "~/platform/native";
 import { setSetting } from "~/settings/store";
+import { CheckForUpdates } from "~/updates/check-button";
 
 export function SimulatorSwitch() {
   const [on, setOn] = useState(simEnabled());
@@ -66,6 +67,7 @@ export function AboutPanel() {
         <dt className="text-muted">Database</dt>
         <dd className="truncate">{path ?? (isDesktop ? "…" : "In this browser (development)")}</dd>
       </dl>
+      <CheckForUpdates />
       {isDesktop && (
         <div className="flex flex-wrap gap-2">
           <button type="button" className={button.small} onClick={() => void backup()}>

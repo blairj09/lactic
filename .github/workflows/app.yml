@@ -45,8 +45,10 @@ jobs:
         working-directory: app/src-tauri
 
   package:
-    # The installable apps, unsigned for now, attached to the run:
-    # a .dmg for Apple silicon Macs, a Windows installer, and a Linux AppImage and .deb.
+    # The installable apps, attached to the run: a .dmg for Apple silicon Macs, a Windows
+    # installer, and a Linux AppImage and .deb. Not code-signed yet, but with the release key
+    # (TAURI_SIGNING_PRIVATE_KEY) each also gets an update signature (.sig) and the Mac its
+    # Lactic.app.tar.gz, which installed copies download to update themselves.
     needs: check
     strategy:
       fail-fast: false
@@ -54,19 +56,30 @@ jobs:
         include:
           - os: macos-latest
             name: Lactic-macOS
-            bundles: dmg
-            files: app/src-tauri/target/release/bundle/dmg/*.dmg
+            bundles: app,dmg
+            files: |
+              app/src-tauri/target/release/bundle/dmg/*.dmg
+              app/src-tauri/target/release/bundle/macos/*.app.tar.gz
+              app/src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
           - os: windows-latest
             name: Lactic-Windows
             bundles: nsis
-            files: app/src-tauri/target/release/bundle/nsis/*.exe
+            files: |
+              app/src-tauri/target/release/bundle/nsis/*.exe
+              app/src-tauri/target/release/bundle/nsis/*.exe.sig
           - os: ubuntu-22.04
             name: Lactic-Linux
             bundles: appimage,deb
             files: |
               app/src-tauri/target/release/bundle/appimage/*.AppImage
+              app/src-tauri/target/release/bundle/appimage/*.AppImage.sig
               app/src-tauri/target/release/bundle/deb/*.deb
+              app/src-tauri/target/release/bundle/deb/*.deb.sig
     runs-on: ${{ matrix.os }}
+    env:
+      # Absent on pull requests from forks: those builds skip the update files.
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -83,7 +96,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: app/src-tauri
-      - run: npx tauri build --bundles ${{ matrix.bundles }}
+      - run: npx tauri build --bundles ${{ matrix.bundles }} ${{ env.TAURI_SIGNING_PRIVATE_KEY != '' && '--config src-tauri/tauri.updater.conf.json' || '' }}
         working-directory: app
       - uses: actions/upload-artifact@v4
         with:
@@ -110,6 +123,7 @@ jobs:
         id: version
         run: |
           version=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME but tauri.conf.json says $version"; exit 1; }
@@ -120,6 +134,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+      - name: Update files (latest.json), which installed copies check on every start
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          # The Mac update bundle comes out as Lactic.app.tar.gz; give it the version and arch.
+          mv dist/Lactic.app.tar.gz "dist/Lactic_${VERSION}_aarch64.app.tar.gz"
+          mv dist/Lactic.app.tar.gz.sig "dist/Lactic_${VERSION}_aarch64.app.tar.gz.sig"
+          node app/scripts/update-manifest.mjs dist "$VERSION" "$GITHUB_REPOSITORY" > dist/latest.json
+          cat dist/latest.json
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
       - uses: softprops/action-gh-release@v2
         if: steps.version.outputs.skip != 'true'
         with:
@@ -131,9 +155,14 @@ jobs:
             dist/**/*.exe
             dist/**/*.AppImage
             dist/**/*.deb
+            dist/**/*.app.tar.gz
+            dist/**/*.sig
+            dist/latest.json
           fail_on_unmatched_files: true
           generate_release_notes: true
           body: |
+            Already have Lactic? Versions with in-app updates offer this one themselves when they start: choose Update and restart.
+
             ## Download
 
             - **Mac (Apple silicon):** `Lactic_*_aarch64.dmg`. Drag Lactic to Applications, then run `xattr -cr /Applications/Lactic.app` once in Terminal (the app isn't signed yet).

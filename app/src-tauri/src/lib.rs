@@ -35,6 +35,11 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        // Updates: the app checks GitHub Releases' latest.json, downloads the signed build for
+        // this computer, installs it and restarts (src/updates/). Signed with the release key;
+        // the public half is in tauri.conf.json.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
