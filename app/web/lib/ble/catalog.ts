@@ -1,6 +1,6 @@
 // Every kind of Bluetooth device the app pairs with: what Chrome's picker filters on, and how to wake it.
 
-import { BODY_POD } from "../scale/bodypod";
+import { SCALE_REQUEST } from "../scale/models";
 import type { DeviceKey } from "./devices";
 import { GATT } from "./protocol";
 
@@ -38,9 +38,9 @@ export const DEVICE_KINDS: DeviceKind[] = [
   {
     key: "scale",
     label: "Scale",
-    pick: "your Body Pod",
-    wake: "Tap the scale with your foot to wake it.",
-    request: { filters: [{ services: [BODY_POD.service] }, { namePrefix: "Body Pod" }, { namePrefix: "Hume" }], optionalServices: [BODY_POD.service] },
+    pick: "your scale",
+    wake: "Step on or tap the scale to wake it.",
+    request: SCALE_REQUEST,
   },
 ];
 

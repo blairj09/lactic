@@ -170,7 +170,7 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
           ) : device === null ? null : skips.weigh ? (
             <p>Skipped for today.</p>
           ) : !device.bluetooth ? (
-            <p>Weigh in on your Body Pod from the Lactic app.</p>
+            <p>Weigh in on your smart scale from the Lactic app.</p>
           ) : !profile ? (
             <p>
               Add height, birth date and sex in{" "}
@@ -187,7 +187,7 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
           ) : weigh.phase === "failed" ? (
             <Result ok={false}>{weigh.message}</Result>
           ) : (
-            <p>Tap the Body Pod with your foot, then step on.</p>
+            <p>Tap or step on the scale to wake it, then step on.</p>
           )}
           {!weighDone && device?.bluetooth && profile && !skips.weigh && weigh.phase !== "running" && (
             <Actions>

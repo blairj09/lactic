@@ -40,6 +40,18 @@ export function bodyComposition(input: { weightKg: number; heightCm: number; mal
   return { bmi, fatFreeMassKg, fatMassKg: w - fatFreeMassKg, bodyFatPercent: ((w - fatFreeMassKg) / w) * 100 };
 }
 
+/**
+ * Body composition from a body fat percentage the scale worked out itself (standard Bluetooth body
+ * composition scales). Those use the maker's own equations; Lactic keeps their number as reported.
+ */
+export function bodyCompositionFromReported(input: { weightKg: number; heightCm: number | null; bodyFatPercent: number | null }): Omit<BodyComposition, "bmi"> & { bmi: number | null } {
+  const { weightKg: w, heightCm: h, bodyFatPercent: bf } = input;
+  const bmi = h ? w / (h / 100) ** 2 : null;
+  if (bf === null || !(bf > 2 && bf < 75)) return { bmi, fatFreeMassKg: null, fatMassKg: null, bodyFatPercent: null };
+  const fatMassKg = (w * bf) / 100;
+  return { bmi, fatFreeMassKg: w - fatMassKg, fatMassKg, bodyFatPercent: bf };
+}
+
 /** Whole years between a birth date and a day (both YYYY-MM-DD). */
 export function ageOn(birthDate: string, day: string): number {
   const [by, bm, bd] = birthDate.split("-").map(Number);

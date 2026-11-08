@@ -229,16 +229,15 @@ export default function HealthView({
             />
           </StatStrip>
           <Panel>
-            {ready ? (
-              <WeighIn profile={{ male: athlete.sex === "male", heightCm: athlete.heightCm!, age: ageOn(athlete.birthDate!, today) }} />
-            ) : (
-              <Notice>
+            <WeighIn profile={ready ? { male: athlete.sex === "male", heightCm: athlete.heightCm!, age: ageOn(athlete.birthDate!, today) } : null} />
+            {!ready && (
+              <p className="mt-3 text-sm text-muted">
                 Add your height, birth date and sex in{" "}
                 <Link href="/settings" className="underline underline-offset-4">
                   Settings
                 </Link>{" "}
-                to weigh in.
-              </Notice>
+                for body composition.
+              </p>
             )}
           </Panel>
           <Panel title={`Last ${WEIGHT_DAYS} days`} meta={recent.length ? `${recent.length} weigh-in${recent.length === 1 ? "" : "s"}` : undefined} className="min-w-0">

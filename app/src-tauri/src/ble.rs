@@ -26,11 +26,16 @@ pub struct Ble {
 }
 
 #[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 struct Advert {
     id: String,
     name: Option<String>,
     rssi: Option<i16>,
     services: Vec<String>,
+    /// By service UUID. Xiaomi scales broadcast their weight here.
+    service_data: HashMap<String, Vec<u8>>,
+    /// By company id.
+    manufacturer_data: HashMap<u16, Vec<u8>>,
 }
 
 #[derive(Serialize, Clone)]
@@ -80,12 +85,23 @@ impl Ble {
             let mut events = events;
             while let Some(event) = events.next().await {
                 match event {
-                    CentralEvent::DeviceDiscovered(id) | CentralEvent::DeviceUpdated(id) | CentralEvent::ServicesAdvertisement { id, .. } => {
+                    CentralEvent::DeviceDiscovered(id)
+                    | CentralEvent::DeviceUpdated(id)
+                    | CentralEvent::ServicesAdvertisement { id, .. }
+                    | CentralEvent::ServiceDataAdvertisement { id, .. }
+                    | CentralEvent::ManufacturerDataAdvertisement { id, .. } => {
                         if let Ok(p) = a2.peripheral(&id).await {
                             if let Ok(Some(props)) = p.properties().await {
                                 let _ = app2.emit(
                                     "ble:advert",
-                                    Advert { id: p.id().to_string(), name: props.local_name, rssi: props.rssi, services: props.services.iter().map(|u| u.to_string()).collect() },
+                                    Advert {
+                                        id: p.id().to_string(),
+                                        name: props.local_name,
+                                        rssi: props.rssi,
+                                        services: props.services.iter().map(|u| u.to_string()).collect(),
+                                        service_data: props.service_data.iter().map(|(u, v)| (u.to_string(), v.clone())).collect(),
+                                        manufacturer_data: props.manufacturer_data,
+                                    },
                                 );
                             }
                         }
@@ -130,7 +146,7 @@ impl Ble {
         if started_scan && *self.scanning.lock().await == 0 {
             let _ = adapter.stop_scan().await;
         }
-        found.ok_or_else(|| "Device not found. Wake it up (pedal, or put the strap on) and try again.".into())
+        found.ok_or_else(|| "Device not found. Wake it up (pedal, put the strap on, or step on the scale) and try again.".into())
     }
 }
 
