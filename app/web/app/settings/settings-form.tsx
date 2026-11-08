@@ -31,7 +31,7 @@ const GROUPS: { title: string; description: string; fields: NumberField[] }[] = 
 ];
 
 /** One save for every setting; sections are a label column beside their fields. */
-export default function SettingsForm({ values }: { values: Values }) {
+export default function SettingsForm({ values, ftpSource = null }: { values: Values; ftpSource?: string | null }) {
   const [state, action, pending] = useActionState(saveSettings, null);
   // Live copies of the training inputs so the zones follow what's typed, before saving.
   const [ftp, setFtp] = useState(values.ftp_watts);
@@ -89,6 +89,7 @@ export default function SettingsForm({ values }: { values: Values }) {
         <div className="space-y-4">
           <h3 className="text-xs font-medium uppercase tracking-wide text-faint">Power</h3>
           {numberField("ftp_watts", setFtp)}
+          {ftpSource && ftp === values.ftp_watts && <p className="-mt-2 text-xs text-muted">{ftpSource}</p>}
           <Zones title="Power zones" unit="W" zones={ftp && ftp > 0 ? powerZones(ftp) : null} empty="Add an FTP to see zones." />
         </div>
         <div className="space-y-4">
