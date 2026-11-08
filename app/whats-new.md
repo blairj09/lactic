@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- A new startup screen: the Lactic logo builds one interval at a time while the app gets ready.
+
 ## 0.1.3
 
 - Lactic now tells you when there's a new version and installs it for you with one click, then shows what changed.
