@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- A new startup screen: the Lactic logo builds one interval at a time while the app gets ready.
 - Weigh in on many more smart scales: Xiaomi Mi scales, Renpho and other QN scales, Etekcity ESF-551 and scales with the standard Bluetooth weight profile, as well as the Hume Body Pod.
 - Fewer Mac keychain password prompts: your API keys now share one keychain entry, so Lactic asks at most once after each update.
 
