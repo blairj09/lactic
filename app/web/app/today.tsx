@@ -41,6 +41,7 @@ export default function TodayView({
   review,
   healthLinked = false,
   todayStream = null,
+  intervalsConnected = false,
 }: {
   state: TrainingState;
   /** Null when weigh-ins failed to load. */
@@ -56,6 +57,8 @@ export default function TodayView({
   healthLinked?: boolean;
   /** The stored stream of today's ride, once there is one. */
   todayStream?: StoredStream | null;
+  /** intervals.icu is connected, so a workout can go to the bike computer. */
+  intervalsConnected?: boolean;
 }) {
   const { athlete, rides, recovery, today, series } = state;
   const now = series[series.length - 1];
@@ -82,7 +85,7 @@ export default function TodayView({
       {review && <WeekReviewCard {...review} />}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <TodayWorkout state={state} ridden={ridden} stream={todayStream} />
+        <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} />
 
         {/* Recovery and weight are in Morning; fitness history is on Progress and FTP lives in Settings, so this column only
             carries form, an FTP nudge when the estimate moves, and the last ride. */}
@@ -150,7 +153,7 @@ export function ridesOn(state: TrainingState, day: string) {
 }
 
 /** Today's session: the plan's or the one you chose, and how the last ride felt; once ridden, the ride. */
-function TodayWorkout({ state, ridden, stream }: { state: TrainingState; ridden: ReturnType<typeof ridesOn>; stream: StoredStream | null }) {
+function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: TrainingState; ridden: ReturnType<typeof ridesOn>; stream: StoredStream | null; intervalsConnected: boolean }) {
   const { todayPlan, todayStored, today, rides, athlete } = state;
   const chosen = todayStored?.chosen ?? null;
   const planned = todayPlan?.session ?? null;
@@ -212,13 +215,13 @@ function TodayWorkout({ state, ridden, stream }: { state: TrainingState; ridden:
     body = (
       <div className="space-y-4">
         <WorkoutProfile workout={outside.workout} height={88} details ftp={athlete.ftp} />
-        <RideChoice day={today} outside outsideNote="On your bike computer, in place of the plan's workout." />
+        <RideChoice day={today} outside connected={intervalsConnected} outsideNote="in place of the plan's workout" />
       </div>
     );
   } else if (chosen) {
     body = (
       <div className="space-y-4">
-        <ChosenSession session={chosen.session} day={today} ftp={athlete.ftp} action={<RideChoice day={today} outside={Boolean(outside)} href={`/ride?day=${today}`} />} />
+        <ChosenSession session={chosen.session} day={today} ftp={athlete.ftp} action={<RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} href={`/ride?day=${today}`} />} />
       </div>
     );
   } else if (!athlete.ftp) {
@@ -236,7 +239,7 @@ function TodayWorkout({ state, ridden, stream }: { state: TrainingState; ridden:
         <SessionLine session={planned} />
         {todayPlan?.why && <p className="text-sm text-muted">Coach: {todayPlan.why}</p>}
         <WorkoutProfile workout={planned.workout} height={88} details ftp={athlete.ftp} />
-        <RideChoice day={today} outside={Boolean(outside)} />
+        <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />
       </div>
     ) : (
       <p className="text-[15px] text-muted">Nothing planned. Say how you feel above if you want to ride anyway.</p>
