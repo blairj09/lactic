@@ -1,7 +1,7 @@
 // Send feedback: a short form from the top bar (and Settings). The rider picks what it's about,
 // writes a few lines and sends it, with no account needed; or opens it as a GitHub issue themselves.
-// A picture of the screen they were on is attached when the dialog opens (they can remove it or
-// mark it up), and they can add, paste or drop more images, up to three. Version and OS always go
+// "Include screenshot" takes a picture of the screen behind the dialog and opens it for markup;
+// Attach adds it. They can also add, paste or drop images, up to three. Version and OS always go
 // along and are shown. The app check (gear, connections, recent activity) goes only if they tick
 // it, and they can read every line of it first.
 
@@ -122,27 +122,22 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
   const picker = useRef<HTMLInputElement>(null);
   const [capturing, setCapturing] = useState(false);
 
-  /** Attaches a picture of the screen behind the dialog, first in the row. */
-  async function addScreen() {
+  /** A screenshot waiting in the markup view; it's attached only when they press Attach. */
+  const [pending, setPending] = useState<Shot | null>(null);
+
+  /** Takes a picture of the screen behind the dialog and opens it for markup. */
+  async function includeScreen() {
     setCapturing(true);
     setShotError(null);
     const file = await captureScreen();
-    if (file) {
-      try {
-        const shot = { ...(await toShot(file)), screen: true };
-        setShots((list) => (list.length >= MAX_SCREENSHOTS ? list : [shot, ...list]));
-      } catch {
-        setShotError("Couldn't capture this screen. You can add an image instead.");
-      }
-    } else setShotError("Couldn't capture this screen. You can add an image instead.");
+    try {
+      if (!file) throw new Error();
+      setPending({ ...(await toShot(file)), screen: true });
+    } catch {
+      setShotError("Couldn't take a screenshot. You can add an image instead.");
+    }
     setCapturing(false);
   }
-  const captured = useRef(false);
-  useEffect(() => {
-    if (captured.current) return;
-    captured.current = true;
-    void addScreen();
-  }, []);
 
   async function addFiles(files: Iterable<File>) {
     setShotError(null);
@@ -282,9 +277,9 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
                   </div>
                 ))}
                 {capturing && <span className="flex h-16 w-24 items-center justify-center rounded-md border border-dashed border-line text-xs text-muted">Capturing…</span>}
-                {!capturing && shots.length < MAX_SCREENSHOTS && !shots.some((s) => s.screen) && (
-                  <button type="button" className={button.small} onClick={() => void addScreen()}>
-                    Add this screen
+                {!capturing && shots.length < MAX_SCREENSHOTS && (
+                  <button type="button" className={button.small} onClick={() => void includeScreen()}>
+                    Include screenshot
                   </button>
                 )}
                 {shots.length < MAX_SCREENSHOTS && (
@@ -303,9 +298,22 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
                     e.target.value = "";
                   }}
                 />
-                {shots.length === 0 && !capturing ? <span className="text-muted">or paste one in</span> : shots.length > 0 && <span className="text-muted">{shots.some((s) => s.screen) ? "This screen is attached. Click it to circle the problem." : "Click one to circle the problem."}</span>}
+                {shots.length === 0 && !capturing ? <span className="text-muted">or paste one in</span> : shots.length > 0 && <span className="text-muted">Click one to mark it up again.</span>}
               </div>
               {shotError && <Result ok={false}>{shotError}</Result>}
+              {pending && (
+                <Annotate
+                  src={pending.original}
+                  initial={[]}
+                  doneLabel="Attach"
+                  onCancel={() => setPending(null)}
+                  onDone={(marks) => {
+                    const shot = pending;
+                    setPending(null);
+                    void flatten(shot, marks).then((s) => setShots((list) => (list.length >= MAX_SCREENSHOTS ? list : [...list, s])));
+                  }}
+                />
+              )}
               {editing !== null && shots[editing] && (
                 <Annotate
                   src={shots[editing].original}
