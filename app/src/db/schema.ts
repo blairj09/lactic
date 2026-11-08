@@ -290,6 +290,8 @@ export const TABLES: Record<string, Table> = {
       checkin: { type: "json" },
       activity_id: { type: "uuid" },
       feel_after: { type: "int" },
+      // A missed key session moved to this day: the day it was planned for.
+      moved_from: { type: "date" },
       updated_at: now,
     },
     primaryKey: ["user_id", "day"],

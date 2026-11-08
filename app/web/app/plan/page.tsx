@@ -309,7 +309,7 @@ function WeekView({ week, state, moveTargets }: { week: PlanWeek; state: Trainin
               rides={rides}
               timeZone={tz}
               mark={marks.get(day.date) ?? null}
-              plannedThen={past ? (plannedOn(state, day.date)?.session ?? null) : null}
+              plannedThen={past ? (plannedOn(state, day.date)?.session ?? day.movedTo?.session ?? null) : null}
               outdoor={day.date <= addDays(state.today, WORKOUT_DAYS - 1) ? { ride: state.outdoor.find((o) => o.date === day.date) ?? null } : null}
               editable={!(day.role === "event" && day.goal) && moveTargets.some((t) => t.date === day.date)}
             />
@@ -460,6 +460,7 @@ function DayCell({
             {day.role === "long" && " (long)"}
           </div>
           {structure && <div className="text-xs">{structure}</div>}
+          {day.movedFrom && <div className="text-xs text-muted">{movedLine(day.movedFrom)}</div>}
           <div className="num text-xs text-muted">
             {Math.round(day.session.duration / 60)} min · {Math.round(day.session.stress)} TSS
             {day.role === "key" && ` · L${day.session.level}`}
@@ -504,6 +505,7 @@ function DayRides({ rides, day, timeZone }: { rides: TrainingState["rides"]; day
   });
 }
 
+const movedLine = (m: NonNullable<PlanDay["movedFrom"]>) => `Moved from ${formatDate(m.date, true).split(",")[0]}, which you missed${m.shortened ? "; shortened to fit" : ""}`;
 const phaseName = (w: PlanWeek) => w.beforePlan ? "Before the plan" : `${PHASE_LABELS[w.phase]}${w.breakNote === "break" ? " (break)" : w.recoveryWeek ? " (recovery)" : ""}`;
 const ridingLabel = (b: Break) => (b.riding === "limited" ? `up to ${b.minutes} min a day` : BREAK_RIDING_LABELS[b.riding].toLowerCase());
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);

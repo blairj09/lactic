@@ -124,7 +124,7 @@ export function athlete(o: AthleteOptions = {}): CoachData {
   const checkin: CheckinRecord | null = o.checkin
     ? { feel: o.checkin.feel, sick: o.checkin.sick ?? false, minutes: o.checkin.minutes ?? null, notes: o.checkin.notes ?? "", recovery: rec?.score ?? null, form: yesterday.form, recommended: "asPlanned", reasons: [], coach: null, at: `${today}T15:00:00Z` }
     : null;
-  const todayStored: StoredPlanDay | null = checkin ? { day: today, planned: null, chosen: null, checkin, activityId: null, feelAfter: null } : null;
+  const todayStored: StoredPlanDay | null = checkin ? { day: today, planned: null, chosen: null, checkin, activityId: null, feelAfter: null, movedFrom: null } : null;
 
   const state = {
     athlete: {
@@ -164,6 +164,7 @@ export function athlete(o: AthleteOptions = {}): CoachData {
     basePlan: plan,
     picks: [],
     outdoor: [],
+    moves: [],
     changedDays: [],
     todayPlan,
     todayStored,
