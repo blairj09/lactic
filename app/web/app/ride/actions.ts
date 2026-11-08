@@ -30,10 +30,31 @@ export async function saveCustomWorkout(input: { id?: string; workout: unknown }
 export async function deleteCustomWorkout(id: string): Promise<{ ok: boolean; message: string }> {
   try {
     if (!UUID.test(id)) throw new Error("Bad workout id");
-    const { error } = await (await createClient()).from("custom_workouts").delete().eq("id", id);
+    const supabase = await createClient();
+    const { error } = await supabase.from("custom_workouts").delete().eq("id", id);
     if (error) throw new Error(error.message);
+    await supabase.from("workout_favorites").delete().eq("workout_key", `custom:${id}`);
     revalidatePath("/ride");
     return { ok: true, message: "Removed from My workouts." };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+const FAVORITE_KEY = /^(library:[a-z0-9-]{1,60}|custom:[0-9a-f-]{36})$/i;
+
+/** Adds a workout to favorites or takes it off. `key` is `library:<id>` or `custom:<id>`. */
+export async function setFavorite(key: string, favorite: boolean): Promise<{ ok: boolean; message: string }> {
+  try {
+    if (!FAVORITE_KEY.test(key)) throw new Error("Bad workout key");
+    const supabase = await createClient();
+    const { error } = favorite
+      ? await supabase.from("workout_favorites").upsert({ workout_key: key, updated_at: new Date().toISOString() }, { onConflict: "user_id,workout_key", ignoreDuplicates: true })
+      : await supabase.from("workout_favorites").delete().eq("workout_key", key);
+    if (error) throw new Error(error.message);
+    revalidatePath("/ride");
+    revalidatePath("/plan");
+    return { ok: true, message: favorite ? "Added to favorites." : "Removed from favorites." };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

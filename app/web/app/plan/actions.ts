@@ -28,6 +28,7 @@ import { planAhead, recordCheckin, recordChoice } from "@/lib/coach/conversation
 import { changeableDay } from "@/lib/coach/changes";
 import { localDate } from "@/lib/engine/activity";
 import { editedSession } from "@/lib/engine/overrides";
+import { favoriteLibraryIds, libraryWorkout, librarySession } from "@/lib/engine/workout-library";
 import { readWorkout } from "@/lib/engine/workout-edit";
 import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
 import { loadTrainingState, saveKeptWeek, type CheckinRecord, type TrainingState } from "@/lib/training";
@@ -193,6 +194,7 @@ export async function previewPlan(_: PlanPreview | null, form: FormData): Promis
       fatigue: state.fatigue,
       levels: state.levels,
       rampRate: state.athlete.rampRate,
+      favorites: favoriteLibraryIds(state.favorites),
     });
     const end = plan.target ? plan.forecast.find((d) => d.date === plan.target!.date) : plan.forecast.find((d) => d.date === frame.end);
     return {
@@ -368,6 +370,19 @@ export async function saveDayWorkout(date: string, raw: unknown): Promise<Action
     const day = editableDay(state, date);
     await writeDays(supabase, state, [{ date, session: workout && editedSession(workout, day.session, state.levels) }]);
     return `${workout ? `Saved “${workout.name}”` : "Made it a rest day"}.${await pushChangedPlan(supabase)}`;
+  });
+}
+
+/** Puts a starter library workout on a day as its session (keeping its zone and level), then sends the plan to intervals.icu. */
+export async function saveDayLibrary(date: string, id: string): Promise<ActionResult> {
+  return attempt(async () => {
+    const entry = libraryWorkout(id);
+    if (!entry) throw new Error("That workout isn't in the library");
+    const supabase = await createClient();
+    const state = await loadTrainingState(supabase);
+    editableDay(state, date);
+    await writeDays(supabase, state, [{ date, session: librarySession(entry) }]);
+    return `Saved “${entry.workout.name}”.${await pushChangedPlan(supabase)}`;
   });
 }
 

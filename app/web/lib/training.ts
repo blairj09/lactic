@@ -4,6 +4,8 @@
 import { loadAthlete, loadRides, type Athlete, type StoredRide } from "./activities";
 import { dailyStress, localDate } from "./engine/activity";
 import { DIFFICULTIES, type Difficulty } from "./engine/feedback";
+import { loadFavorites } from "./favorites";
+import { favoriteLibraryIds } from "./engine/workout-library";
 import { applyOutcomes, outcomeFromRides, seedLevels, type Outcome } from "./engine/levels";
 import { ZONE_LABELS, ZONES, type Levels, type Session } from "./engine/library";
 import { addDays, fitnessSeries, type FitnessDay } from "./engine/pmc";
@@ -87,6 +89,8 @@ export interface TrainingState {
   activePlan: SavedPlan | null;
   breaks: Break[];
   levels: Levels;
+  /** Favorite workout keys (`library:<id>`, `custom:<id>`). */
+  favorites: string[];
   /** What levels start from and the outcomes that moved them, so levels on an earlier day can be worked out (levelsOn). */
   levelSeed: Levels;
   levelOutcomes: Outcome[];
@@ -220,7 +224,7 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
   const tz = athlete.timezone;
   const today = localDate(new Date(), tz);
   const daytime = loadDaytime(supabase, athlete, today).catch((e) => (console.error(e), null));
-  const [[rides, goals, plans, breaks, feedbackRows], recovery, daytimeData, allDays, picks, outdoor, keptRow] = await Promise.all([
+  const [[rides, goals, plans, breaks, feedbackRows], recovery, daytimeData, allDays, picks, outdoor, keptRow, favorites] = await Promise.all([
     early,
     // Riders who don't track recovery get none, even if some sleep data arrived (intervals.icu wellness), so neither
     // Today's options nor the coach go by a score they never see.
@@ -230,6 +234,8 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     loadPicks(supabase, today),
     loadOutdoor(supabase, today),
     loadKeptWeek(supabase, weekStart(today)),
+    // Favorites are optional: the plan builds the same without them.
+    loadFavorites(supabase).catch((e) => (console.error(e), [] as string[])),
   ]);
   const feedback = feedbackFor(feedbackRows, rides, addDays(today, -LEVEL_WINDOW_DAYS), tz);
   const ahead = allDays.filter((d) => d.day >= today);
@@ -283,6 +289,7 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     fatigue: yesterday.fatigue,
     levels,
     rampRate: athlete.rampRate,
+    favorites: favoriteLibraryIds(favorites),
   });
   // This week's skeleton stays as it was when the week began; a rebuild that's moved past the drift limit is offered
   // as a re-plan instead (stability.ts). Changing what the plan is built from re-plans the week at once.
@@ -354,6 +361,7 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     storedDays,
     feedback,
     rideLinks,
+    favorites,
   };
 }
 

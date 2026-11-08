@@ -177,6 +177,7 @@ export function athlete(o: AthleteOptions = {}): CoachData {
     storedDays: todayStored ? [todayStored] : [],
     feedback,
     rideLinks: new Map(),
+    favorites: [],
   } satisfies TrainingState;
   return { state, planDays: todayStored ? [todayStored] : [], recoveryDays, body, memory: o.memory ?? [] };
 }
