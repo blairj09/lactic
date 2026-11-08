@@ -85,6 +85,8 @@ pub fn run() {
             db::db_batch,
             db::db_path,
             db::db_backup,
+            db::db_restore,
+            db::db_forget_previous,
             secrets::secret_set,
             secrets::secret_delete,
             secrets::secret_status,

@@ -7,6 +7,7 @@ import { fileManagerName, invoke, isDesktop } from "~/platform/native";
 import { setSetting } from "~/settings/store";
 import { ExportEverythingButton } from "~/data/export-buttons";
 import { DeleteDataButton } from "~/data/delete-panel";
+import { RestoreButton, RestoredCard } from "~/data/restore-panel";
 
 export function SimulatorSwitch() {
   const [on, setOn] = useState(simEnabled());
@@ -60,6 +61,7 @@ export function DataPanel() {
 
   return (
     <div className="space-y-4 text-sm sm:col-span-2">
+      <RestoredCard />
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5">
         <dt className="text-muted">Database</dt>
         <dd className="truncate">{path ?? (isDesktop ? "…" : "In this browser (development)")}</dd>
@@ -72,16 +74,23 @@ export function DataPanel() {
         <ExportEverythingButton />
       </div>
       {isDesktop && (
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={button.small} onClick={() => void backup()}>
-            Back up…
-          </button>
-          <button type="button" className={button.small} onClick={() => void reveal()}>
-            Show in {fileManagerName() === "your file manager" ? "folder" : fileManagerName()}
-          </button>
+        <div className="space-y-2 border-t border-line pt-4">
+          <p className="text-muted">
+            Moving to a new computer? Back up here and copy the file across. On the new computer, install Lactic and choose Restore from a backup when it
+            opens, or here in Your data. A backup is also a good copy to keep.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className={button.small} onClick={() => void backup()}>
+              Back up…
+            </button>
+            <RestoreButton />
+            <button type="button" className={button.small} onClick={() => void reveal()}>
+              Show in {fileManagerName() === "your file manager" ? "folder" : fileManagerName()}
+            </button>
+          </div>
+          {result && <Result ok={result.ok}>{result.message}</Result>}
         </div>
       )}
-      {result && <Result ok={result.ok}>{result.message}</Result>}
       <div className="space-y-2 border-t border-line pt-4">
         <p className="text-muted">Starting over, or done with Lactic? Delete every ride, plan, setting and saved key from this computer.</p>
         <DeleteDataButton />

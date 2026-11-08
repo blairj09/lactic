@@ -6,6 +6,7 @@
 import { TABLES } from "~/db/schema";
 import { sql } from "~/db/sql";
 import { ALL_SECRETS, deleteSecret } from "~/platform/secrets";
+import { invoke, isDesktop } from "~/platform/native";
 
 /** The word typed to confirm. */
 export const CONFIRM_WORD = "delete";
@@ -15,6 +16,8 @@ export async function deleteEverything(): Promise<void> {
   await sql().batch(Object.keys(TABLES).map((t) => ({ sql: `DELETE FROM "${t}"` })));
   // Rewrites the file without the deleted rows' old pages.
   await sql().script("VACUUM");
+  // The copy a restore keeps of what it replaced.
+  if (isDesktop) await invoke("db_forget_previous");
   for (const name of ALL_SECRETS) await deleteSecret(name);
   try {
     localStorage.clear();
