@@ -5,6 +5,7 @@ import { button, Result } from "@/components/ui";
 import { scanning, simEnabled, SIM_SETTING } from "~/bluetooth/web-bluetooth";
 import { fileManagerName, invoke, isDesktop } from "~/platform/native";
 import { setSetting } from "~/settings/store";
+import { ExportEverythingButton } from "~/data/export-buttons";
 
 export function SimulatorSwitch() {
   const [on, setOn] = useState(simEnabled());
@@ -62,6 +63,13 @@ export function DataPanel() {
         <dt className="text-muted">Database</dt>
         <dd className="truncate">{path ?? (isDesktop ? "…" : "In this browser (development)")}</dd>
       </dl>
+      <div className="space-y-2">
+        <p className="text-muted">
+          Export everything as a zip: each ride as a FIT file for Garmin Connect, Strava or any training app, a spreadsheet of your rides, and your plan,
+          recovery, weight and coach chats as JSON. API keys stay out.
+        </p>
+        <ExportEverythingButton />
+      </div>
       {isDesktop && (
         <div className="flex flex-wrap gap-2">
           <button type="button" className={button.small} onClick={() => void backup()}>
