@@ -1,5 +1,6 @@
 // Database reads and writes for the coach chat: what the coach can see, and the conversation.
 
+import { features } from "../features";
 import { loadBodyMeasurements } from "../body-data";
 import { addDays } from "../engine/pmc";
 import { loadPlanDays, loadTrainingState } from "../training";
@@ -46,7 +47,7 @@ export async function loadCoachData(supabase: Supabase): Promise<CoachData> {
     loadMemory(supabase),
     loadPersona(supabase),
   ]);
-  return { state, planDays, recoveryDays, body, memory, persona, units: readUnits() };
+  return { state, planDays, recoveryDays, body, memory, persona, units: readUnits(), features: features() };
 }
 
 async function loadRecoveryDays(supabase: Supabase, since: string): Promise<RecoveryDay[]> {

@@ -19,6 +19,7 @@ import { ProposalCard } from "./coach/proposal-card";
 import { STAGE_TEXT } from "./health/weigh-in";
 import { FeelStep, TodayOptions, type CheckinAnswers } from "./checkin";
 import { formatWeight } from "@/lib/units";
+import { useFeatures } from "@/lib/use-features";
 import { useUnits } from "@/lib/use-units";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
 
@@ -61,6 +62,8 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
   const router = useRouter();
   // Bluetooth and remembered devices are only known in the browser.
   const units = useUnits();
+  // Recovery and the weigh-in are steps only for riders who track them.
+  const tracking = useFeatures();
   const [device, setDevice] = useState<{ bluetooth: boolean; scale: boolean; silent: boolean } | null>(null);
   const [skips, setSkips] = useState<Skips>({});
   const [weigh, setWeigh] = useState<Weigh>({ phase: "idle" });
@@ -83,9 +86,9 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
   // the shortcut is set up; without it there's nothing to wait for. Without Bluetooth (the phone) the
   // weigh-in can still arrive from the Mac, so it waits for that or a skip.
   const fromHealth = Boolean(recovery.healthLinked);
-  const recoveryReady = recoveryDone || skips.recovery || !fromHealth;
+  const recoveryReady = !tracking.recovery || recoveryDone || skips.recovery || !fromHealth;
   const weighDone = Boolean(weighed) || weigh.phase === "saved";
-  const weighReady = weighDone || skips.weigh || (device !== null && device.bluetooth && !profile);
+  const weighReady = !tracking.weight || weighDone || skips.weigh || (device !== null && device.bluetooth && !profile);
   const waitingOn = [!recoveryReady && ("recovery" as const), !weighReady && ("weigh" as const)].filter((s) => s !== false);
   const pending = waitingOn.map((s) => (s === "weigh" ? "weigh-in" : s)).join(" and ");
 
@@ -112,21 +115,24 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
 
   // Waiting on the recovery source: look again each minute, since nights arrive in the background.
   useEffect(() => {
-    if (!fromHealth || recoveryDone || skips.recovery) return;
+    if (!tracking.recovery || !fromHealth || recoveryDone || skips.recovery) return;
     const id = setInterval(() => router.refresh(), 60_000);
     return () => clearInterval(id);
-  }, [fromHealth, recoveryDone, skips.recovery, router]);
+  }, [tracking.recovery, fromHealth, recoveryDone, skips.recovery, router]);
 
   // The scale starts listening on its own, if it reconnects without a click.
   useEffect(() => {
-    if (!device || autoStarted.current.weigh || weighDone || skips.weigh || !profile) return;
+    if (!tracking.weight || !device || autoStarted.current.weigh || weighDone || skips.weigh || !profile) return;
     if (!device.bluetooth || !device.scale || !device.silent || weigh.phase !== "idle") return;
     autoStarted.current.weigh = true;
     void startWeigh();
-  }, [device, weighDone, skips.weigh, profile, weigh.phase, startWeigh]);
+  }, [tracking.weight, device, weighDone, skips.weigh, profile, weigh.phase, startWeigh]);
 
 
   const weighedKg = weighed?.weightKg ?? (weigh.phase === "saved" ? weigh.kg : null);
+  const stepCount = 1 + Number(tracking.recovery) + Number(tracking.weight);
+  const feelStep = stepCount;
+  const weighStep = 1 + Number(tracking.recovery);
 
   return (
     <Panel
@@ -139,7 +145,8 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
         ) : undefined
       }
     >
-      <ol className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line sm:grid-cols-3">
+      <ol className={`grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line ${STEP_COLUMNS[stepCount]}`}>
+        {tracking.recovery && (
         <Step n={1} title="Recovery" state={recoveryDone ? "done" : recoveryReady ? (skips.recovery ? "skipped" : "settled") : "active"}>
           {recoveryDone ? (
             <p>{recovery.line ?? "Last night is in."}</p>
@@ -161,8 +168,10 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
             </Actions>
           )}
         </Step>
+        )}
 
-        <Step n={2} title="Weigh in" state={weighDone ? "done" : weighReady ? (skips.weigh ? "skipped" : "settled") : "active"}>
+        {tracking.weight && (
+        <Step n={weighStep} title="Weigh in" state={weighDone ? "done" : weighReady ? (skips.weigh ? "skipped" : "settled") : "active"}>
           {weighDone ? (
             <p>
               <span className="num text-ink">{formatWeight(weighedKg!, units)}</span>
@@ -204,8 +213,9 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
             </Actions>
           )}
         </Step>
+        )}
 
-        <Step n={3} title="How you feel" state={"settled" in today ? "settled" : today.answers ? "done" : "active"}>
+        <Step n={feelStep} title="How you feel" state={"settled" in today ? "settled" : today.answers ? "done" : "active"}>
           {"settled" in today ? (
             <p>{today.settled}</p>
           ) : (
@@ -256,6 +266,8 @@ function Step({ n, title, state, children }: { n: number; title: string; state: 
     </li>
   );
 }
+
+const STEP_COLUMNS: Record<number, string> = { 1: "", 2: "sm:grid-cols-2", 3: "sm:grid-cols-3" };
 
 const Actions = ({ children }: { children: React.ReactNode }) => <div className="flex flex-wrap items-center gap-3 pt-1">{children}</div>;
 

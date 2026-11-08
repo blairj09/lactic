@@ -2,6 +2,7 @@
 // engine; the tools only select and summarize. Proposals are checked by the engine (changes.ts) and
 // shown to you with an Apply button; the coach can't write anything itself.
 
+import { ALL_FEATURES, FEATURE_LABELS, type Feature, type Features } from "../features";
 import { ftpOn, localDate } from "../engine/activity";
 import { ageOn, bodyTrend } from "../engine/body";
 import { FEEL_LABELS, type CheckinResult, type Feel, type OptionId } from "../engine/checkin";
@@ -54,6 +55,8 @@ export interface CoachData {
   persona?: Persona;
   /** The rider's units (Settings). With imperial, results carry lb, in, mi and °F copies to quote. */
   units?: UnitSystem;
+  /** What the rider tracks besides rides and the plan (Settings); everything when missing. */
+  features?: Features;
 }
 
 export interface MemoryFact {
@@ -175,6 +178,17 @@ export const MEMORY_TOOLS = [
   fn("forget", "Remove a saved fact that's no longer true, by its id from the memory list.", { id: { type: "string" } }, ["id"]),
 ];
 
+/** Each tool that only makes sense while the rider tracks something. */
+const FEATURE_TOOLS: Record<string, Feature> = { get_recovery: "recovery", get_body: "weight" };
+
+/** `tools` without the ones for what the rider doesn't track. */
+export function forFeatures<T extends { function: { name: string } }>(tools: T[], f: Features = ALL_FEATURES): T[] {
+  return tools.filter((t) => {
+    const needs = FEATURE_TOOLS[t.function.name];
+    return !needs || f[needs];
+  });
+}
+
 /** Tools that only read, for the weekly planning run. */
 export const READ_TOOL_NAMES = ["get_rides", "get_ride", "get_fitness", "get_plan", "get_events", "get_recovery", "get_body", "get_power", "get_athlete", "get_workouts"];
 
@@ -208,6 +222,8 @@ export type ToolResult = { content: string; proposal?: Proposal; memory?: Memory
 /** Runs one tool call. Errors come back as text so the coach can correct itself. */
 export function runTool(data: CoachData, name: string, args: Record<string, unknown>): ToolResult {
   try {
+    const needs = FEATURE_TOOLS[name];
+    if (needs && !(data.features ?? ALL_FEATURES)[needs]) throw new Error(`The athlete doesn't track ${FEATURE_LABELS[needs]} in Lactic (Settings → What you track)`);
     const out = (value: unknown) => ({ content: JSON.stringify(value) });
     switch (name) {
       case "get_rides":
@@ -308,23 +324,28 @@ export function status(data: CoachData) {
   const score = state.recovery?.score;
   const last7 = state.rides.filter((r) => localDate(r.startedAt, tz) > addDays(today, -7));
   const weight = athlete.weightKg;
-  const weighIn = weighInOn(data.body, today, tz);
+  const tracking = data.features ?? ALL_FEATURES;
+  const weighIn = tracking.weight ? weighInOn(data.body, today, tz) : undefined;
+  const off = (Object.keys(FEATURE_LABELS) as Feature[]).filter((f) => !tracking[f]);
   return {
     today: `${today} (${weekday(today)})`,
     units: unitsNote(data),
+    ...(off.length
+      ? { notTracked: `The athlete chose not to track ${off.map((f) => FEATURE_LABELS[f]).join(" or ")} in Lactic. Don't mention it, ask for it or wait for it; they can turn it on in Settings → What you track.` }
+      : {}),
     ftp: athlete.ftp,
     weightKg: weight,
     ...lb(data, "weightLb", weight),
     wattsPerKg: athlete.ftp && weight ? round(athlete.ftp / weight, 2) : null,
-    weighInToday: weighIn ? { weightKg: round(weighIn.weightKg, 1), ...lb(data, "weightLb", weighIn.weightKg), bodyFatPercent: weighIn.bodyFatPercent === null ? null : round(weighIn.bodyFatPercent, 1) } : null,
+    weighInToday: !tracking.weight ? undefined : weighIn ? { weightKg: round(weighIn.weightKg, 1), ...lb(data, "weightLb", weighIn.weightKg), bodyFatPercent: weighIn.bodyFatPercent === null ? null : round(weighIn.bodyFatPercent, 1) } : null,
     fitness: round(state.fitness),
     fatigue: round(state.fatigue),
     form: round(state.form),
-    recovery: score ? { score: score.score, reasons: score.reasons } : state.recovery?.today
+    recovery: !tracking.recovery ? undefined : score ? { score: score.score, reasons: score.reasons } : state.recovery?.today
         ? `In for today (see recoveryToday); no score until the HRV baseline has ${MINIMUM_BASELINE_DAYS} nights (${state.recovery.baselineDays} so far)`
         : "No recovery data today",
-    yesterdayExertion: yesterdayExertion(state),
-    recoveryToday: state.recovery?.today
+    yesterdayExertion: tracking.recovery ? yesterdayExertion(state) : undefined,
+    recoveryToday: tracking.recovery && state.recovery?.today
       ? { hrvMs: opt(state.recovery.today.hrv), restingHr: opt(state.recovery.today.restingHeartRate), sleepHours: opt(state.recovery.today.sleepHours, 1) }
       : null,
     phase: week ? `${PHASE_LABELS[week.phase]}${week.recoveryWeek ? " (recovery week)" : ""}${week.breakNote === "reentry" ? " (first week back from a break)" : ""}` : null,

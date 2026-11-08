@@ -1,11 +1,11 @@
 // First run: a few short steps, each one skippable but the first, and every one of them also in
 // Settings later. The aim is riding a planned workout within five minutes of opening the app.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { button, Result } from "@/components/ui";
 import { MarkTile, Wordmark } from "~/app/brand";
-import { setSetting } from "~/settings/store";
+import { getSetting, setSetting } from "~/settings/store";
 import { ProfileForm, saveProfile, useProfile } from "~/setup/profile";
 import { defaultWeek, saveWeek, WeekForm } from "~/setup/week";
 import { GearSetup } from "~/setup/gear";
@@ -13,25 +13,36 @@ import { RidesSetup } from "~/setup/rides";
 import { CoachSetupPanel } from "~/setup/coach";
 import { revalidatePath } from "~/shims/next-cache";
 import { startTour } from "~/tour/store";
+import { FeatureChoice } from "~/setup/features";
+import { saveFeatures } from "~/settings/features";
+import { FEATURES_SETTING, parseFeatures, type Features } from "@/lib/features";
 
 const STEPS = [
   { id: "you", title: "About you", line: "So your zones and plan fit you." },
   { id: "week", title: "Your week and goal", line: "Lactic plans around the time you have." },
+  { id: "track", title: "What to track", line: "Rides and your plan are always on. Add these if you want them." },
   { id: "gear", title: "Your gear", line: "Wake your trainer and sensors and Lactic finds them." },
   { id: "rides", title: "Your rides and sleep", line: "Your history sets your fitness from day one. Sleep gives you a daily recovery score." },
   { id: "coach", title: "Your coach", line: "Pick a coach, or go without." },
 ] as const;
 type StepId = (typeof STEPS)[number]["id"];
 
-function Frame({ step, children, footer }: { step: number; children: React.ReactNode; footer: React.ReactNode }) {
+/** A step's title and line for what the rider chose to track. */
+function stepText(step: number, tracking: Features) {
   const s = STEPS[step];
+  if (s.id === "rides" && !tracking.recovery) return { title: "Your rides", line: "Your history sets your fitness from day one." };
+  return s;
+}
+
+function Frame({ step, tracking, children, footer }: { step: number; tracking: Features; children: React.ReactNode; footer: React.ReactNode }) {
+  const s = stepText(step, tracking);
   return (
     <div className="min-h-screen bg-ground">
       <div className="lactic-drag lactic-titlebar flex h-12 items-center px-5">
         <Wordmark />
       </div>
       <div className="mx-auto max-w-2xl px-5 pt-6 pb-28">
-        <ol className="mb-8 grid grid-cols-5 gap-1.5" aria-label="Setup progress">
+        <ol className="mb-8 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${STEPS.length}, minmax(0, 1fr))` }} aria-label="Setup progress">
           {STEPS.map((x, i) => (
             <li key={x.id} className={`h-1 rounded-full ${i <= step ? "bg-accent" : "bg-line"}`} aria-current={i === step ? "step" : undefined} />
           ))}
@@ -107,6 +118,13 @@ export default function Onboarding() {
 
   const profile = useProfile();
   const [week, setWeek] = useState(defaultWeek);
+  // New riders opt in to each; coming back to setup shows what they picked.
+  const [tracking, setTracking] = useState<Features>({ recovery: false, weight: false });
+  useEffect(() => {
+    void getSetting<unknown>(FEATURES_SETTING, null).then((saved) => {
+      if (saved !== null) setTracking(parseFeatures(saved));
+    });
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -154,31 +172,37 @@ export default function Onboarding() {
   switch (STEPS[index].id) {
     case "you":
       return (
-        <Frame step={index} footer={footer(continueButton(() => void save(() => saveProfile(profile.values))), false)}>
+        <Frame step={index} tracking={tracking} footer={footer(continueButton(() => void save(() => saveProfile(profile.values))), false)}>
           {profile.loaded && <ProfileForm values={profile.values} onChange={profile.setValues} error={error} />}
         </Frame>
       );
     case "week":
       return (
-        <Frame step={index} footer={footer(continueButton(() => void save(() => saveWeek(week)), "Build my plan"))}>
+        <Frame step={index} tracking={tracking} footer={footer(continueButton(() => void save(() => saveWeek(week)), "Build my plan"))}>
           <WeekForm values={week} onChange={setWeek} error={error} />
+        </Frame>
+      );
+    case "track":
+      return (
+        <Frame step={index} tracking={tracking} footer={footer(continueButton(() => void save(async () => (await saveFeatures(tracking), { ok: true, message: "" }))), false)}>
+          <FeatureChoice values={tracking} onChange={setTracking} />
         </Frame>
       );
     case "gear":
       return (
-        <Frame step={index} footer={footer(continueButton(next))}>
-          <GearSetup />
+        <Frame step={index} tracking={tracking} footer={footer(continueButton(next))}>
+          <GearSetup scale={tracking.weight} />
         </Frame>
       );
     case "rides":
       return (
-        <Frame step={index} footer={footer(continueButton(next))}>
-          <RidesSetup />
+        <Frame step={index} tracking={tracking} footer={footer(continueButton(next))}>
+          <RidesSetup sleep={tracking.recovery} />
         </Frame>
       );
     case "coach":
       return (
-        <Frame step={index} footer={footer(continueButton(next, "Finish"), false)}>
+        <Frame step={index} tracking={tracking} footer={footer(continueButton(next, "Finish"), false)}>
           <CoachSetupPanel />
           {error && <Result ok={false}>{error}</Result>}
         </Frame>

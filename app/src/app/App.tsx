@@ -9,6 +9,7 @@ import { ServerPage } from "./server-page";
 import { setNavigator } from "~/shims/next-navigation";
 import { refreshCoachMode, useCoachMode } from "./coach-mode";
 import { getSetting } from "~/settings/store";
+import { loadFeatures } from "~/settings/features";
 import { startBackground } from "~/integrations/background";
 import "~/integrations/apple-health";
 import { BluetoothPicker } from "~/bluetooth/picker";
@@ -52,7 +53,11 @@ function Shell() {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   useEffect(() => {
     void refreshCoachMode();
-    void getSetting("onboarding.done", false).then(setOnboarded);
+    // What the rider tracks is read before the first screen, so nothing they turned off flashes up.
+    void loadFeatures()
+      .catch(() => {})
+      .then(() => getSetting("onboarding.done", false))
+      .then(setOnboarded);
     const onSettings = (e: Event) => {
       const key = (e as CustomEvent<string>).detail;
       if (key === "onboarding.done") void getSetting("onboarding.done", false).then(setOnboarded);

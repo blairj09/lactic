@@ -4,6 +4,7 @@ import Nav from "@/components/nav";
 import { Page } from "@/components/ui";
 import { isMetric, metricHref, METRICS, rangeFrom } from "../metrics";
 import MetricDetail from "./metric-detail";
+import { features, hasHealth } from "@/lib/features";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,9 @@ export default async function MetricPage({ params, searchParams }: { params: Pro
   const days = rangeFrom((await searchParams).days);
   // VO2 max moved to Progress; old links follow it.
   if (metric === "fitness") redirect(metricHref(metric, days));
+  // Weight and the recovery metrics are only there while the rider tracks them.
+  const tracking = features();
+  if (!(metric === "body" ? tracking.weight : tracking.recovery)) redirect(hasHealth(tracking) ? "/health" : "/");
   return (
     <>
       <Nav current="/health" />

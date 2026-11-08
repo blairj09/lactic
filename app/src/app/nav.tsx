@@ -7,6 +7,8 @@ import { Wordmark } from "./brand";
 import { useCoachMode } from "./coach-mode";
 import { FeedbackButton } from "~/feedback/dialog";
 import { isDemo } from "~/demo/flag";
+import { hasHealth } from "@/lib/features";
+import { useFeatures } from "@/lib/use-features";
 
 const LINKS = [
   { href: "/", label: "Today" },
@@ -17,6 +19,9 @@ const LINKS = [
 
 export default function Nav({ current }: { current: string }) {
   const mode = useCoachMode();
+  const tracking = useFeatures();
+  // Health has nothing to show when the rider tracks neither recovery nor weight.
+  const links = LINKS.filter((l) => l.href !== "/health" || hasHealth(tracking));
   return (
     <header className="lactic-drag lactic-titlebar sticky top-0 z-30 border-b border-line bg-ground">
       <div className="mx-auto flex h-12 w-full max-w-6xl items-center gap-6 px-4 sm:px-6">
@@ -24,7 +29,7 @@ export default function Nav({ current }: { current: string }) {
           <Wordmark />
         </Link>
         <nav aria-label="Main" className="flex items-center gap-1">
-          {LINKS.map(({ href, label }) => (
+          {links.map(({ href, label }) => (
             <Link
               key={href}
               href={href}

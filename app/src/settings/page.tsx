@@ -24,6 +24,8 @@ import { DataPanel, SimulatorSwitch } from "./panels";
 import { TakeTour } from "~/tour/take-tour";
 import { FeedbackSetting } from "~/feedback/dialog";
 import { AboutSetting } from "~/updates/check-button";
+import { FeatureSetting } from "~/setup/features";
+import { features } from "@/lib/features";
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
@@ -36,6 +38,7 @@ const SECTIONS = [
 
 export default async function SettingsPage() {
   const supabase = createClient();
+  const tracking = features();
   const [athlete, icu, setup, persona, memory] = await Promise.all([loadAthlete(supabase), loadIntervals(supabase), coachSetup(), loadPersona(supabase), loadMemory(supabase)]);
   return (
     <>
@@ -74,6 +77,9 @@ export default async function SettingsPage() {
           <Section id="appearance" title="Appearance" description="Light or dark, and metric or imperial units.">
             <ThemeSetting />
             <UnitsSetting />
+          </Section>
+          <Section id="tracking" title="What you track" description="Besides rides and your plan. Each one you turn off leaves Today, Health, setup and the coach.">
+            <FeatureSetting />
           </Section>
           <Section id="tour" title="Getting started" description="A short walk through each screen.">
             <TakeTour />
@@ -119,11 +125,13 @@ export default async function SettingsPage() {
               )}
             </div>
           </Section>
-          <Section id="health" title="Sleep and recovery" description="Sleep, HRV and resting heart rate from Apple Health, or your watch or ring through intervals.icu.">
-            <div className="sm:col-span-2">
-              <HealthSetup heading={false} />
-            </div>
-          </Section>
+          {tracking.recovery && (
+            <Section id="health" title="Sleep and recovery" description="Sleep, HRV and resting heart rate from Apple Health, or your watch or ring through intervals.icu.">
+              <div className="sm:col-span-2">
+                <HealthSetup heading={false} />
+              </div>
+            </Section>
+          )}
           <Section title="Import FIT files" description="From Zwift (Documents/Zwift/Activities), Garmin Connect or your bike computer. Duplicates are skipped.">
             <div className="sm:col-span-2">
               <FitImport />

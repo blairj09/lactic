@@ -5,7 +5,8 @@
 
 import { appTools } from "@/lib/coach/app-tools";
 import { applyMemory, loadCoachData } from "@/lib/coach/store";
-import { MEMORY_TOOLS, runTool, status, TOOLS } from "@/lib/coach/tools";
+import { forFeatures, MEMORY_TOOLS, runTool, status, TOOLS } from "@/lib/coach/tools";
+import { features } from "@/lib/features";
 import { createClient } from "~/db/supabase-client";
 import { invoke, isDesktop, listen } from "~/platform/native";
 import { revalidatePath } from "~/shims/next-cache";
@@ -26,7 +27,7 @@ const OVERVIEW = {
 /** The tools in MCP's shape. */
 export function mcpTools() {
   const fromFn = (t: FnTool) => ({ name: t.function.name, description: t.function.description, inputSchema: t.function.parameters });
-  return [OVERVIEW, ...(TOOLS as FnTool[]).map(fromFn), ...(MEMORY_TOOLS as FnTool[]).map(fromFn), ...(appTools()?.tools ?? []).map(fromFn)];
+  return [OVERVIEW, ...forFeatures(TOOLS as FnTool[], features()).map(fromFn), ...(MEMORY_TOOLS as FnTool[]).map(fromFn), ...(appTools()?.tools ?? []).map(fromFn)];
 }
 
 const text = (s: string, isError = false) => ({ content: [{ type: "text", text: s }], ...(isError ? { isError: true } : {}) });

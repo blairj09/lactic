@@ -16,7 +16,7 @@ import type { OptionId } from "../engine/checkin";
 import { attachmentNames, turnsForModel, type Attachment } from "./attachments";
 import { appTools } from "./app-tools";
 import { APP_GUIDE } from "./app-guide";
-import { MEMORY_TOOLS, PICK_TOOLS, READ_TOOL_NAMES, runTool, status, TODAY_TOOLS, TOOLS, type CoachData, type MemoryOp } from "./tools";
+import { forFeatures, MEMORY_TOOLS, PICK_TOOLS, READ_TOOL_NAMES, runTool, status, TODAY_TOOLS, TOOLS, type CoachData, type MemoryOp } from "./tools";
 
 export interface ChatTurn {
   role: "user" | "assistant";
@@ -103,7 +103,7 @@ export async function coachChat(complete: Complete, data: CoachData, history: Ch
     { role: "system", content: system(CHAT, data, summary, page) },
     ...turnsForModel(history.slice(-HISTORY_MESSAGES)).map((m) => ({ role: m.role, content: m.content })),
   ];
-  return run(complete, data, messages, [...TOOLS, ...MEMORY_TOOLS, ...(appTools()?.tools ?? [])], hooks);
+  return run(complete, data, messages, [...forFeatures(TOOLS, data.features), ...MEMORY_TOOLS, ...(appTools()?.tools ?? [])], hooks);
 }
 
 /** This morning's brief, from the status, the tools and the recent conversation, with any plan changes it proposes. */
@@ -113,7 +113,7 @@ export async function morningBrief(complete: Complete, data: CoachData, history:
     ...turnsForModel(history.slice(-6)).map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: "Write today's morning brief." },
   ];
-  return run(complete, data, messages, [...TOOLS, ...TODAY_TOOLS], hooks);
+  return run(complete, data, messages, [...forFeatures(TOOLS, data.features), ...TODAY_TOOLS], hooks);
 }
 
 const PLAN_WEEK = `You are the cycling coach inside Lactic, a training app for one athlete. Choose the workout for each key day listed below, so every session has a purpose.
@@ -133,7 +133,7 @@ export async function planWeek(complete: Complete, data: CoachData, days: PlanDa
     { role: "system", content: system(PLAN_WEEK, data, summary) },
     { role: "user", content: review ? `${list}\n\nLast week's review:\n${JSON.stringify(reviewSummary(review))}` : list },
   ];
-  const tools = [...TOOLS.filter((t) => READ_TOOL_NAMES.includes(t.function.name)), ...PICK_TOOLS];
+  const tools = [...forFeatures(TOOLS, data.features).filter((t) => READ_TOOL_NAMES.includes(t.function.name)), ...PICK_TOOLS];
   return run(complete, data, messages, tools, hooks, Math.max(MAX_TURNS, days.length + 6));
 }
 

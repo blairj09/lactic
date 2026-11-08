@@ -5,6 +5,8 @@
 // Never returned: API keys or tokens (only whether one is saved). Never done: deleting data,
 // raw Bluetooth writes, trainer control. While a ride is under way, only check_app runs.
 
+import { features } from "@/lib/features";
+import { saveFeatures } from "~/settings/features";
 import { readUnits, setUnits } from "@/lib/units";
 import { appTools, checkAppSetting, COACH_MODE_LABELS, describeAppSetting, formatProfile, GEAR_LABELS, registerAppTools, type AppSetting, type AppTools, type GearKey } from "@/lib/coach/app-tools";
 import type { Proposal } from "@/lib/coach/changes";
@@ -163,6 +165,8 @@ export async function checkApp(area: Area | "all" = "all") {
   const build: Record<Area, () => Promise<unknown>> = { bluetooth: bluetoothReport, intervals: intervalsReport, health: healthReport, coach: coachReport };
   for (const a of areas) report[a] = await build[a]().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
   report.riding = isRiding();
+  // Riders choose whether to track recovery and weight; what's off is hidden on purpose, not broken.
+  report.tracking = { ...features(), note: "Off means hidden by the rider's choice (Settings → What you track), not a fault." };
   report.activityLog = recentEvents({ area: area === "all" ? undefined : (area as LogArea), limit: area === "all" ? 40 : 30 }).map((e) => `${e.at} ${e.area} ${e.level}: ${e.message}`);
   report.guide = Object.fromEntries(areas.map((a) => [a, GUIDE[a] ?? []]));
   if (area === "all") report.howLacticWorks = APP_GUIDE;
@@ -275,6 +279,8 @@ async function currentValue(s: AppSetting): Promise<string | null> {
     }
     case "units":
       return readUnits();
+    case "tracking":
+      return features()[s.feature] ? "tracked" : "not tracked";
     default: {
       const saved = remembered(s.device);
       if (!saved) throw new Error(`No ${GEAR_LABELS[s.device]} is paired`);
@@ -308,6 +314,9 @@ async function apply(setting: AppSetting): Promise<string> {
     }
     case "units":
       setUnits(setting.value);
+      break;
+    case "tracking":
+      await saveFeatures({ ...features(), [setting.feature]: setting.value });
       break;
     case "forget_device":
       await forgetDevice(setting.device);

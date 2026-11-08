@@ -13,6 +13,7 @@
 import type { ToolResult } from "./tools";
 import { DETAIL_LABELS, TONE_LABELS, type Persona } from "./persona";
 import { heightToCm, weightToKg, type UnitSystem } from "../units";
+import { FEATURE_LABELS, type Feature } from "../features";
 
 export type GearKey = "trainer" | "powerMeter" | "heartRate" | "scale";
 
@@ -23,6 +24,7 @@ export type AppSetting =
   | { setting: "rename_device"; device: GearKey; name: string }
   | { setting: "upload_rides"; value: boolean }
   | { setting: "units"; value: UnitSystem }
+  | { setting: "tracking"; feature: Feature; value: boolean }
   | { setting: "profile"; field: ProfileNumber; value: number }
   | { setting: "profile"; field: "birth_date" | "timezone"; value: string }
   | { setting: "profile"; field: "sex"; value: "male" | "female" | null }
@@ -31,7 +33,7 @@ export type AppSetting =
   | { setting: "coach_model"; value: string }
   | { setting: "ai_limit"; value: number | null };
 
-export const APP_SETTINGS = ["power_source", "upload_rides", "units", "forget_device", "rename_device", "profile", "coach_voice", "coach_mode", "coach_model", "ai_limit"] as const;
+export const APP_SETTINGS = ["power_source", "upload_rides", "units", "tracking", "forget_device", "rename_device", "profile", "coach_voice", "coach_mode", "coach_model", "ai_limit"] as const;
 
 export type CoachMode = "none" | "builtin" | "external";
 export const COACH_MODE_LABELS: Record<CoachMode, string> = { builtin: "the built-in coach", external: "an AI app you already use (MCP)", none: "no coach" };
@@ -151,6 +153,11 @@ export function checkAppSetting(raw: Record<string, unknown>): AppSetting {
     case "units":
       if (raw.value !== "metric" && raw.value !== "imperial") throw new Error("value is metric or imperial");
       return { setting, value: raw.value };
+    case "tracking": {
+      const feature = String(raw.feature ?? "") as Feature;
+      if (feature !== "recovery" && feature !== "weight") throw new Error("feature is recovery or weight");
+      return { setting, feature, value: bool() };
+    }
     case "forget_device":
       return { setting, device: needDevice() };
     case "rename_device": {
@@ -191,6 +198,8 @@ export function describeAppSetting(s: AppSetting): string {
       return `${s.value ? "Send" : "Stop sending"} rides recorded in Lactic to intervals.icu`;
     case "units":
       return s.value === "imperial" ? "Units: imperial (lb, in, mi, °F)" : "Units: metric (kg, cm, km, °C)";
+    case "tracking":
+      return `${s.value ? "Track" : "Stop tracking"} ${FEATURE_LABELS[s.feature]}${s.value ? "" : " (hides it on Today, Health and in setup; saved data stays)"}`;
     case "forget_device":
       return `Forget the paired ${GEAR_LABELS[s.device]} (pair it again from Settings)`;
     case "rename_device":

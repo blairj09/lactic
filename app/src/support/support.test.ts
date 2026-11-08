@@ -76,6 +76,22 @@ describe("settings the coach can propose", () => {
     expect(store.get("lactic:units")).toBe("imperial");
   });
 
+  it("turns tracking off and on once the athlete applies it", async () => {
+    const { features } = await import("@/lib/features");
+    expect(() => checkAppSetting({ setting: "tracking", feature: "steps", value: false })).toThrow(/recovery or weight/);
+    const r = await runSupportTool("propose_app_change", { setting: "tracking", feature: "weight", value: false, reason: "You don't own a scale" });
+    expect(r.proposal?.summary).toBe("Stop tracking weight (hides it on Today, Health and in setup; saved data stays) (now tracked)");
+    expect(features().weight).toBe(true);
+    await applyChange(localClient as never, r.proposal!.change as never);
+    expect(features()).toEqual({ recovery: true, weight: false });
+    const { loadFeatures } = await import("~/settings/features");
+    expect(await loadFeatures()).toEqual({ recovery: true, weight: false });
+    expect(mcpTools().some((t) => t.name === "get_body")).toBe(false);
+    const back = await runSupportTool("propose_app_change", { setting: "tracking", feature: "weight", value: true, reason: "New scale" });
+    await applyChange(localClient as never, back.proposal!.change as never);
+    expect(features().weight).toBe(true);
+  });
+
   it("goes through Apply over MCP, like plan changes", async () => {
     const r = await callTool("propose_app_change", { setting: "power_source", value: "powerMeter", reason: "Pedals read truer" });
     expect(textOf(r)).toContain("Apply");
