@@ -147,7 +147,7 @@ export default function RaceSetup({
       </Step>
 
       <Step n={3} title="Riders to compare with" done={rivals.length > 0}>
-        <p className="text-sm text-muted">Best: their original file from their device or intervals.icu, which keeps its times. Quickest: on Strava, open their race, then ⋯ → Export GPX. Strava leaves out the times, so add the results too and Lactic pins it to their lap times. No power or heart rate needed.</p>
+        <p className="text-sm text-muted">Best: a file that keeps its times. That's their original file from their device or intervals.icu, or an export from their Strava race with the free Sauce for Strava browser extension. Quickest: on Strava, open their race, then ⋯ → Export GPX. Strava leaves out the times there, so add the results too and Lactic pins it to their lap times. No power or heart rate needed.</p>
         {rivals.length > 0 && (
           <ul className="divide-y divide-line rounded-md border border-line">
             {rivals.map((r) => (
@@ -155,7 +155,7 @@ export default function RaceSetup({
                 <span className="min-w-0">
                   <span className="font-medium">{r.name}</span>
                   <span className="text-muted"> · {r.points.toLocaleString()} points{r.timed ? ", with times" : ", no times in the file"}</span>
-                  {!r.timed && <span className="block text-xs text-muted">For exact section times, ask them for their original file (Garmin, Wahoo, Hammerhead or intervals.icu export) and add it in place of this one.</span>}
+                  {!r.timed && <span className="block text-xs text-muted">For exact section times, export their race with Sauce for Strava, or ask them for their original file (Garmin, Wahoo, Hammerhead or intervals.icu export), and add it in place of this one.</span>}
                 </span>
                 <button type="button" className={button.ghost} disabled={pending} onClick={() => run(() => deleteRival(r.id))}>
                   Remove

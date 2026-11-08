@@ -329,8 +329,8 @@ function TimingNote({ who, level, notes }: { who: string; level: "high" | "mediu
             <p key={n}>{n}</p>
           ))}
           <p className="text-ink">
-            For exact section times, ask {who} for their original ride file: from Garmin Connect (⚙ → Export Original), Wahoo, Hammerhead or intervals.icu (Actions → Download original).
-            Strava strips the times from other people&apos;s rides, but the original keeps them. Add it under Riders to compare with, in place of this one.
+            For exact section times, export {who}&apos;s race from Strava with the free Sauce for Strava browser extension (it keeps the times), or ask them for their original ride file: from Garmin Connect (⚙ → Export Original), Wahoo, Hammerhead or intervals.icu (Actions → Download original).
+            Strava&apos;s own Export GPX strips the times from other people&apos;s rides. Add it under Riders to compare with, in place of this one.
           </p>
         </div>
       )}

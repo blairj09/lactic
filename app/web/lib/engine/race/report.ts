@@ -182,14 +182,14 @@ function medianSpeeds(list: (SectionSpeeds | null)[]): SectionSpeeds | null {
 
 /** Where a rival's laps are, with their clock: from their results row, their file's times, or one point a second. */
 function rivalLaps(p: Projected, course: Course, lapCount: number, ownGunAbs: number, row: ResultRow | null): { laps: Laps; timing: Timing; confidence: Confidence } {
-  const { laps, timing, ends, onGrid } = rivalClock(p, course, lapCount, ownGunAbs, row);
+  const { laps, timing, ends, onGrid, separate } = rivalClock(p, course, lapCount, ownGunAbs, row);
   const startsLate = !onGrid || Number.isNaN(laps.at[0][0]);
   const last = laps.at[laps.at.length - 1];
   const endsEarly = !last || Number.isNaN(last[last.length - 1]);
-  return { laps, timing, confidence: timingConfidence(p, timing, ends, row, startsLate, endsEarly) };
+  return { laps, timing, confidence: timingConfidence(p, timing, ends, row, startsLate, endsEarly, separate) };
 }
 
-function rivalClock(p: Projected, course: Course, lapCount: number, ownGunAbs: number, row: ResultRow | null): { laps: Laps; timing: Timing; ends: Crossing[]; onGrid: boolean } {
+function rivalClock(p: Projected, course: Course, lapCount: number, ownGunAbs: number, row: ResultRow | null): { laps: Laps; timing: Timing; ends: Crossing[]; onGrid: boolean; separate: boolean } {
   const start = motionStart(p);
   const all = crossings(p, course.gate);
   const startT = p.t[start];
@@ -200,18 +200,19 @@ function rivalClock(p: Projected, course: Course, lapCount: number, ownGunAbs: n
   if (row && row.laps.length) {
     const clock = clockFromLaps(ends, row.laps);
     // A file that starts on the grid: lap 1 starts at its first sustained movement.
-    return { laps: lapsOf(p, course, ends, row.laps.length, clock, start, onGrid && p.timed), timing: "results", ends, onGrid: onGrid && p.timed };
+    return { laps: lapsOf(p, course, ends, row.laps.length, clock, start, onGrid && p.timed), timing: "results", ends, onGrid: onGrid && p.timed, separate: false };
   }
   if (p.timed) {
     // Same start (a mass start, clocks within two minutes): one clock for both. Otherwise, their own gun.
-    const gun = Math.abs(startT - ownGunAbs) < 120 ? ownGunAbs : startT;
-    return { laps: lapsOf(p, course, ends, lapCount, (t) => t - gun, start, onGrid), timing: "recorded", ends, onGrid };
+    const separate = Math.abs(startT - ownGunAbs) >= 120;
+    const gun = separate ? startT : ownGunAbs;
+    return { laps: lapsOf(p, course, ends, lapCount, (t) => t - gun, start, onGrid), timing: "recorded", ends, onGrid, separate };
   }
-  return { laps: lapsOf(p, course, ends, lapCount, (t) => t - start, start, onGrid), timing: "estimated", ends, onGrid };
+  return { laps: lapsOf(p, course, ends, lapCount, (t) => t - start, start, onGrid), timing: "estimated", ends, onGrid, separate: false };
 }
 
 /** How well a rival's file pins down their time inside each lap (see Confidence). */
-export function timingConfidence(p: Projected, timing: Timing, ends: Crossing[], row: ResultRow | null, startsLate: boolean, endsEarly: boolean): Confidence {
+export function timingConfidence(p: Projected, timing: Timing, ends: Crossing[], row: ResultRow | null, startsLate: boolean, endsEarly: boolean, separate = false): Confidence {
   const n = p.x.length;
   const step: number[] = [];
   for (let i = 1; i < n; i++) step.push(Math.hypot(p.x[i] - p.x[i - 1], p.y[i] - p.y[i - 1]));
@@ -248,6 +249,7 @@ export function timingConfidence(p: Projected, timing: Timing, ends: Crossing[],
     notes.push("Their file has no times and there are no results to pin it to, so it assumes one point a second. Add the results to fix the laps.");
   }
   if (gaps) notes.push(`It skips ahead in ${gaps} place${gaps === 1 ? "" : "s"} (dropped points or a pause), so time there is spread across the gap.`);
+  if (separate) notes.push("They started at a different time from you (another wave or category?), so the gap counts from each rider's own start and lap 1 compares two different starts.");
   if (startsLate) notes.push("Their file starts after the gun, so the start of lap 1 isn't compared.");
   if (endsEarly) notes.push("Their file stops before the finish, so the end of the last lap isn't compared.");
   if (gaps > 3 && level === "medium") level = "low";
@@ -327,7 +329,7 @@ function compare(id: string, name: string, timing: Timing, confidence: Confidenc
 
   const laps: LapRow[] = own.at.map((_, k) => {
     const o = ownRow?.laps[k] ?? own.seconds[k];
-    const r = row?.laps[k] ?? rival.seconds[k] ?? null;
+    const r = row?.laps[k] ?? (rival.seconds[k] == null ? null : r1(rival.seconds[k] as number));
     return { lap: k + 1, own: o ?? null, rival: r, delta: o != null && r != null ? r1(o - r) : null };
   });
 

@@ -150,6 +150,17 @@ describe("race report", () => {
     expect(stretches(c, report.sections)[0].seconds).toBeGreaterThan(15);
   });
 
+  it("compares a rider from another wave from their own start", () => {
+    const own = ride(3, slowHairpin);
+    const rival = ride(3, steady, 1_794_067_000 + 1800);
+    const c = raceReport({ own, rivals: [{ id: "r", name: "B Winner", track: rival }] }).comparisons.find((x) => x.id === "r")!;
+    expect(c.timing).toBe("recorded");
+    expect(c.confidence.notes.some((n) => n.includes("different time"))).toBe(true);
+    expect(c.finishGap).toBeGreaterThan(18);
+    expect(c.finishGap).toBeLessThan(26);
+    expect(c.laps.every((l) => l.rival === null || Number.isInteger(l.rival * 10))).toBe(true);
+  });
+
   it("finds the climb, and a one-off loss on one lap", () => {
     const own = ride(4, (d, lap) => (onClimb(d) ? 4 : lap === 1 && inHairpin(d) ? 1.5 : 6));
     const rival = ride(4, steady);
