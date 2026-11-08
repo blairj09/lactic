@@ -8,6 +8,9 @@ const DEV_PREFIX = "lactic.secret.";
 
 export const placeholder = (name: string) => `keychain:${name}`;
 
+/** The intervals.icu API key. */
+export const SECRET_INTERVALS = "intervals";
+
 export async function saveSecret(name: string, value: string) {
   if (isDesktop) return invoke<void>("secret_set", { name, value: value.trim() });
   localStorage.setItem(DEV_PREFIX + name, value.trim());
