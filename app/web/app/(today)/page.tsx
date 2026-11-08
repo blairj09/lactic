@@ -79,6 +79,7 @@ export default async function Today() {
           healthLinked={Boolean(healthToken?.lastUsedAt)}
           review={review}
           todayStream={todayStream}
+          intervalsConnected={Boolean(icu)}
           brief={
             coachEnabled
               ? { message: brief, stale: briefStale(brief, briefInputs(state, Boolean(body && weighInOn(body, today, athlete.timezone)))) }

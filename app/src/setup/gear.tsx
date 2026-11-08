@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { button, Notice, Pill } from "@/components/ui";
 import { WatchHeartRateHelp } from "@/components/watch-hr-help";
 import { DEVICES_CHANGED, remembered, rememberDevice, forgetDevice, type DeviceKey } from "@/lib/ble/devices";
+import { identifyScale, SCALE_FAMILIES, SCALE_FAMILY_ORDER } from "@/lib/scale/models";
 import { fullUuid } from "~/bluetooth/backend";
 import { useNearby } from "~/bluetooth/picker";
 import { ble, grant, scanning, simEnabled, type Seen } from "~/bluetooth/web-bluetooth";
@@ -13,12 +14,35 @@ const SLOTS: { key: DeviceKey; label: string; service: number; wake: string; not
   { key: "trainer", label: "Smart trainer", service: 0x1826, wake: "Spin the pedals to wake it." },
   { key: "powerMeter", label: "Power meter", service: 0x1818, wake: "Turn the cranks a few times.", note: "Optional. Most smart trainers measure power themselves." },
   { key: "heartRate", label: "Heart rate", service: 0x180d, wake: "Put the strap on (most wake on skin), or turn on heart rate broadcast on your watch." },
-  { key: "scale", label: "Smart scale", service: 0xfff0, wake: "Tap the scale with your foot.", note: "Hume Body Pod for now. Others coming." },
+  { key: "scale", label: "Smart scale", service: 0xfff0, wake: "Step on the scale, or tap it with your foot, to wake it.", note: "Optional. Body Pod, Xiaomi, Renpho, Etekcity and standard Bluetooth scales." },
 ];
 
 function fits(slot: (typeof SLOTS)[number], d: Seen) {
-  if (d.services.map(fullUuid).includes(fullUuid(slot.service))) return true;
-  return slot.key === "scale" && /^(Body Pod|Hume)/.test(d.name ?? "");
+  // Scales differ too much to go by one service: recognise them by name, services or broadcast data.
+  if (slot.key === "scale") return identifyScale(d) !== null;
+  return d.services.map(fullUuid).includes(fullUuid(slot.service));
+}
+
+/** "Use MIBCS (Xiaomi Mi scale)": scale names are often a model code, so say what it is. */
+function pickLabel(slot: (typeof SLOTS)[number], d: Seen) {
+  const name = d.name ?? "unnamed device";
+  const family = slot.key === "scale" ? identifyScale(d) : null;
+  return family && family !== "bodyPod" && !name.toLowerCase().includes(SCALE_FAMILIES[family].label.split(" ")[0].toLowerCase()) ? `Use ${name} (${SCALE_FAMILIES[family].label})` : `Use ${name}`;
+}
+
+/** The scales Lactic reads, for anyone wondering whether theirs will work. */
+function ScaleList() {
+  return (
+    <details className="text-sm text-muted">
+      <summary className="cursor-pointer select-none hover:text-ink">Which scales work?</summary>
+      <ul className="mt-2 list-disc space-y-1 pl-5">
+        {SCALE_FAMILY_ORDER.map((f) => (
+          <li key={f}>{SCALE_FAMILIES[f].examples}.</li>
+        ))}
+      </ul>
+      <p className="mt-2">Withings, Garmin Index, Eufy and other scales that sync to their own cloud reach Lactic through intervals.icu or Apple Health instead.</p>
+    </details>
+  );
 }
 
 function useRemembered() {
@@ -84,13 +108,14 @@ export function GearSetup() {
                 <div className="flex flex-wrap gap-2">
                   {options.map((d) => (
                     <button key={d.id} type="button" className={button.small} onClick={() => use(slot.key, d)}>
-                      Use {d.name ?? "unnamed device"}
+                      {pickLabel(slot, d)}
                     </button>
                   ))}
                 </div>
               )}
               {!chosen && options.length === 0 && slot.note && <p className="text-sm text-faint">{slot.wake}</p>}
               {!chosen && slot.key === "heartRate" && <WatchHeartRateHelp />}
+              {slot.key === "scale" && !chosen && <ScaleList />}
             </li>
           );
         })}

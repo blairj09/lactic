@@ -65,7 +65,7 @@ A daily recovery score from sleep, HRV and resting heart rate, plus sleep stages
 | **Apple Watch** | An iPhone Shortcut saves your nights to a synced folder (iCloud Drive, Dropbox, Google Drive, Nextcloud or Syncthing). Lactic picks them up. |
 | **Garmin, Oura, WHOOP** (and Polar, Coros, Suunto) | Link it to [intervals.icu](https://intervals.icu), then connect intervals.icu to Lactic. |
 | **Android** (Samsung, Pixel Watch, Fitbit) | [Health Sync](https://play.google.com/store/apps/details?id=nl.appyhapps.healthsync) sends Health Connect to intervals.icu. Lactic walks you through it. |
-| **Smart scale** | Hume Body Pod over Bluetooth, or type your weight in. |
+| **Smart scale** | Over Bluetooth: Hume Body Pod, Xiaomi Mi scales, Renpho and other QN scales, Etekcity ESF-551, and standard Bluetooth scales (Omron, A&D, Beurer, Sanitas and others). Withings and Garmin Index come in through intervals.icu or Apple Health. Or type your weight in. |
 
 **intervals.icu** also brings in your ride history from Zwift, Garmin, Wahoo and most other apps, so your fitness is right from day one. Rides and planned workouts sync back.
 
@@ -141,7 +141,7 @@ site/               lactic.fit
 
 Lactic is built by riders, in the open. Issues and pull requests are welcome, whether that's a bug on your trainer, support for new gear or a health source, or a better workout.
 
-The quickest way to tell us something is the speech bubble at the top of the app: write a note, add a screenshot and circle the problem, and send. No GitHub account needed; it arrives here as an issue.
+The quickest way to tell us something is the speech bubble at the top of the app: it attaches a picture of the screen you're on, so write a note, circle the problem and send. No GitHub account needed; it arrives here as an issue.
 
 Before you open a pull request, run the checks in `app/`:
 

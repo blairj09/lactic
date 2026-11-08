@@ -1,7 +1,9 @@
 // Send feedback: a short form from the top bar (and Settings). The rider picks what it's about,
 // writes a few lines and sends it, with no account needed; or opens it as a GitHub issue themselves.
-// Screenshots are optional: add, paste or drop up to three. Version and OS always go along and are shown. The app check (gear, connections, recent activity)
-// goes only if they tick it, and they can read every line of it first.
+// A picture of the screen they were on is attached when the dialog opens (they can remove it or
+// mark it up), and they can add, paste or drop more images, up to three. Version and OS always go
+// along and are shown. The app check (gear, connections, recent activity) goes only if they tick
+// it, and they can read every line of it first.
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { button, Result, Segmented } from "@/components/ui";
@@ -10,9 +12,10 @@ import { appInfo, openExternal } from "~/platform/native";
 import { buildIssue, diagnosticsText, githubBody, githubIssueUrl, KINDS, MAX_MESSAGE, MAX_SCREENSHOT_BYTES, MAX_SCREENSHOTS, RELAY_URL, relayPayload, systemLine, type FeedbackKind, type Screenshot, type SystemInfo } from "./report";
 
 import { Annotate, drawMarks, type Mark } from "./annotate";
+import { captureScreen, FEEDBACK_UI } from "./capture";
 
 /** `original` is the shrunk image before any marks, so marks stay editable. */
-type Shot = Screenshot & { preview: string; original: string; marks: Mark[] };
+type Shot = Screenshot & { preview: string; original: string; marks: Mark[]; screen?: boolean };
 
 /** Draws the marks onto the original and re-encodes it, staying under the size limit. */
 async function flatten(shot: Shot, marks: Mark[]): Promise<Shot> {
@@ -117,6 +120,29 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
   const [shotError, setShotError] = useState<string | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
   const picker = useRef<HTMLInputElement>(null);
+  const [capturing, setCapturing] = useState(false);
+
+  /** Attaches a picture of the screen behind the dialog, first in the row. */
+  async function addScreen() {
+    setCapturing(true);
+    setShotError(null);
+    const file = await captureScreen();
+    if (file) {
+      try {
+        const shot = { ...(await toShot(file)), screen: true };
+        setShots((list) => (list.length >= MAX_SCREENSHOTS ? list : [shot, ...list]));
+      } catch {
+        setShotError("Couldn't capture this screen. You can add an image instead.");
+      }
+    } else setShotError("Couldn't capture this screen. You can add an image instead.");
+    setCapturing(false);
+  }
+  const captured = useRef(false);
+  useEffect(() => {
+    if (captured.current) return;
+    captured.current = true;
+    void addScreen();
+  }, []);
 
   async function addFiles(files: Iterable<File>) {
     setShotError(null);
@@ -184,7 +210,7 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-3 py-10" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div {...{ [FEEDBACK_UI]: "" }} className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-3 py-10" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div
         role="dialog"
         aria-modal="true"
@@ -241,13 +267,13 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
               <div className="flex flex-wrap items-center gap-2">
                 {shots.map((shot, i) => (
                   <div key={i} className="relative">
-                    <button type="button" title="Mark it up" aria-label={`Mark up screenshot ${i + 1}`} onClick={() => setEditing(i)} className="group block">
+                    <button type="button" title="Mark it up" aria-label={shot.screen ? "Mark up the screen capture" : `Mark up screenshot ${i + 1}`} onClick={() => setEditing(i)} className="group block">
                       <img src={shot.preview} alt="" className="h-16 w-24 rounded-md border border-line object-cover group-hover:opacity-80" />
                       <span className="absolute inset-x-0 bottom-1 text-center text-[11px] font-medium text-white opacity-0 drop-shadow group-hover:opacity-100">Mark up</span>
                     </button>
                     <button
                       type="button"
-                      aria-label={`Remove screenshot ${i + 1}`}
+                      aria-label={shot.screen ? "Remove the screen capture" : `Remove screenshot ${i + 1}`}
                       onClick={() => setShots((list) => list.filter((_, j) => j !== i))}
                       className="absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full border border-line bg-ground text-xs text-muted hover:text-ink"
                     >
@@ -255,9 +281,15 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
                     </button>
                   </div>
                 ))}
+                {capturing && <span className="flex h-16 w-24 items-center justify-center rounded-md border border-dashed border-line text-xs text-muted">Capturing…</span>}
+                {!capturing && shots.length < MAX_SCREENSHOTS && !shots.some((s) => s.screen) && (
+                  <button type="button" className={button.small} onClick={() => void addScreen()}>
+                    Add this screen
+                  </button>
+                )}
                 {shots.length < MAX_SCREENSHOTS && (
                   <button type="button" className={button.small} onClick={() => picker.current?.click()}>
-                    Add screenshot
+                    Add image
                   </button>
                 )}
                 <input
@@ -271,7 +303,7 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
                     e.target.value = "";
                   }}
                 />
-                {shots.length === 0 ? <span className="text-muted">or paste one in</span> : <span className="text-muted">Click one to circle the problem.</span>}
+                {shots.length === 0 && !capturing ? <span className="text-muted">or paste one in</span> : shots.length > 0 && <span className="text-muted">{shots.some((s) => s.screen) ? "This screen is attached. Click it to circle the problem." : "Click one to circle the problem."}</span>}
               </div>
               {shotError && <Result ok={false}>{shotError}</Result>}
               {editing !== null && shots[editing] && (
@@ -302,7 +334,7 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
               )}
             </div>
 
-            <p className="text-sm text-muted">Feedback becomes a public issue on GitHub, without your name. Don't include anything private, in the note or the screenshots.</p>
+            <p className="text-sm text-muted">Feedback becomes a public issue on GitHub, without your name. Check the note and pictures for anything private before sending.</p>
             {sent && !sent.ok && <Result ok={false}>Couldn't send it: {sent.message} You can open it on GitHub instead.</Result>}
             {note && <Result ok>{note}</Result>}
 

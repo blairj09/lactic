@@ -250,11 +250,21 @@ export function ble(): BleBackend {
     backend = combined(hasNativeBluetooth ? nativeBackend() : noBackend(), simBackend(), simEnabled);
     backend.onAdvert((ad) => {
       const prev = seen.get(ad.id);
-      seen.set(ad.id, { ...ad, name: ad.name ?? prev?.name ?? null, services: ad.services.length ? ad.services : (prev?.services ?? []), at: Date.now() });
+      seen.set(ad.id, {
+        ...ad,
+        name: ad.name ?? prev?.name ?? null,
+        services: ad.services.length ? ad.services : (prev?.services ?? []),
+        serviceData: ad.serviceData && Object.keys(ad.serviceData).length ? ad.serviceData : prev?.serviceData,
+        manufacturerData: ad.manufacturerData && Object.keys(ad.manufacturerData).length ? ad.manufacturerData : prev?.manufacturerData,
+        at: Date.now(),
+      });
       seenListeners.forEach((cb) => cb());
       const d = devices.get(ad.id);
       if (d?.watchingAdvertisements) {
-        const e = Object.assign(new Event("advertisementreceived"), { device: d, name: ad.name, rssi: ad.rssi, uuids: ad.services });
+        const view = (bytes: number[]) => new DataView(Uint8Array.from(bytes).buffer);
+        const serviceData = new Map(Object.entries(ad.serviceData ?? {}).map(([u, v]) => [fullUuid(u), view(v)]));
+        const manufacturerData = new Map(Object.entries(ad.manufacturerData ?? {}).map(([id, v]) => [Number(id), view(v)]));
+        const e = Object.assign(new Event("advertisementreceived"), { device: d, name: ad.name, rssi: ad.rssi, uuids: ad.services, serviceData, manufacturerData });
         d.dispatchEvent(e);
       }
     });

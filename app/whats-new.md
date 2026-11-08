@@ -7,6 +7,11 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - A new startup screen: the Lactic logo builds one interval at a time while the app gets ready.
+- Weigh in on many more smart scales: Xiaomi Mi scales, Renpho and other QN scales, Etekcity ESF-551 and scales with the standard Bluetooth weight profile, as well as the Hume Body Pod.
+
+## 0.1.4
+
+- Feedback now attaches a picture of the screen you're on, ready to circle the problem. Remove it or add your own images if you like.
 
 ## 0.1.3
 

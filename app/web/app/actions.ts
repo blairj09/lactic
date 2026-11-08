@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { loadAthlete, recomputeStress, storeRides, type NewRide, type RideStream } from "@/lib/activities";
 import { localDate, SOURCE_PRIORITY, summarizeRide } from "@/lib/engine/activity";
-import { bodyComposition, type SegmentImpedance } from "@/lib/engine/body";
+import { bodyComposition, bodyCompositionFromReported, type SegmentImpedance } from "@/lib/engine/body";
 import * as intervals from "@/lib/intervals/client";
 import { WORKOUT_DAYS } from "@/lib/intervals/calendar";
 import { pushPlan } from "@/lib/intervals/push";
@@ -338,29 +338,49 @@ function checkSegments(z: unknown): SegmentImpedance | undefined {
   return Object.fromEntries(SEGMENT_KEYS.map((k) => [k, record[k]])) as unknown as SegmentImpedance;
 }
 
-/** A weigh-in from the Body Pod: stores it with body composition and makes it the current weight. */
-export async function saveWeighIn(input: { measuredAt: string; weightKg: number; impedance: { "50"?: unknown; "250"?: unknown } }): Promise<ActionResult> {
+const SCALE_SOURCES = ["body_pod", "ble_scale", "mi_scale", "qn_scale", "etekcity"];
+
+/**
+ * A weigh-in from a smart scale: stores it with body composition and makes it the current weight.
+ * Body fat comes from the Body Pod's segment impedance (the engine's equation) or, for standard
+ * body composition scales, the scale's own number. Foot-to-foot impedance is kept raw.
+ */
+export async function saveWeighIn(input: {
+  measuredAt: string;
+  weightKg: number;
+  impedance: { "50"?: unknown; "250"?: unknown };
+  source?: string;
+  bodyFatPercent?: number | null;
+  footImpedanceOhms?: number | null;
+}): Promise<ActionResult> {
   return attempt(async () => {
     const measuredAt = new Date(input?.measuredAt);
     const weightKg = Number(input?.weightKg);
     if (Number.isNaN(measuredAt.getTime()) || !(weightKg >= 20 && weightKg <= 300)) throw new Error("Bad weigh-in");
     const impedance = { "50": checkSegments(input.impedance?.["50"]), "250": checkSegments(input.impedance?.["250"]) };
+    const source = SCALE_SOURCES.includes(input.source ?? "body_pod") ? (input.source ?? "body_pod") : "ble_scale";
+    const reportedFat = typeof input.bodyFatPercent === "number" && Number.isFinite(input.bodyFatPercent) ? input.bodyFatPercent : null;
+    const feet = typeof input.footImpedanceOhms === "number" && input.footImpedanceOhms > 0 && input.footImpedanceOhms < 10_000 ? input.footImpedanceOhms : null;
 
     const supabase = await createClient();
     const athlete = await loadAthlete(supabase);
-    if (athlete.heightCm === null || athlete.sex === null) throw new Error("Add your height and sex in Settings first");
-    const body = bodyComposition({ weightKg, heightCm: athlete.heightCm, male: athlete.sex === "male", impedance50kHz: impedance["50"] });
+    const segments = Boolean(impedance["50"] || impedance["250"]);
+    if (segments && (athlete.heightCm === null || athlete.sex === null)) throw new Error("Add your height and sex in Settings first");
+    const body =
+      segments && athlete.heightCm !== null
+        ? bodyComposition({ weightKg, heightCm: athlete.heightCm, male: athlete.sex === "male", impedance50kHz: impedance["50"] })
+        : bodyCompositionFromReported({ weightKg, heightCm: athlete.heightCm, bodyFatPercent: reportedFat });
     const round = (v: number | null, places: number) => (v === null ? null : Math.round(v * 10 ** places) / 10 ** places);
     const { error } = await supabase.from("body_measurements").upsert(
       {
         user_id: athlete.userId,
         measured_at: measuredAt.toISOString(),
-        source: "body_pod",
+        source,
         weight_kg: round(weightKg, 2),
         bmi: round(body.bmi, 1),
         body_fat_pct: round(body.bodyFatPercent, 1),
         fat_free_mass_kg: round(body.fatFreeMassKg, 2),
-        impedance: impedance["50"] || impedance["250"] ? impedance : null,
+        impedance: segments ? impedance : feet !== null ? { feet50kHz: feet } : null,
       },
       { onConflict: "user_id,measured_at" },
     );
@@ -370,9 +390,9 @@ export async function saveWeighIn(input: { measuredAt: string; weightKg: number;
       .upsert({ user_id: athlete.userId, weight_kg: round(weightKg, 2), updated_at: new Date().toISOString() }, { onConflict: "user_id" });
     if (settingsError) throw settingsError;
     refresh();
-    return body.bodyFatPercent === null
-      ? `Saved ${formatWeight(weightKg, readUnits())}. No body composition this time: the scale needs bare, slightly damp feet and both hands on the handle.`
-      : `Saved ${formatWeight(weightKg, readUnits())}, ${body.bodyFatPercent.toFixed(1)}% body fat.`;
+    const saved = formatWeight(weightKg, readUnits());
+    if (body.bodyFatPercent !== null) return `Saved ${saved}, ${body.bodyFatPercent.toFixed(1)}% body fat.`;
+    return source === "body_pod" ? `Saved ${saved}. No body composition this time: the scale needs bare, slightly damp feet and both hands on the handle.` : `Saved ${saved}.`;
   });
 }
 
@@ -417,9 +437,18 @@ export async function pushIntervalsPlan(): Promise<ActionResult> {
 const DAY = /^\d{4}-\d\d-\d\d$/;
 
 /** Writes an outdoor-day change, then sends the calendar so the Karoo gets it on its next sync. */
-async function changeOutdoor(day: string, write: (supabase: Awaited<ReturnType<typeof createClient>>) => Promise<{ error: { message: string } | null }>, done: string): Promise<ActionResult> {
+async function changeOutdoor(
+  day: string,
+  write: (supabase: Awaited<ReturnType<typeof createClient>>) => Promise<{ error: { message: string } | null }>,
+  done: string,
+  toOutside = true,
+): Promise<ActionResult> {
   try {
     const supabase = await createClient();
+    // intervals.icu is the only way to the bike computer, so don't mark a day outside without it.
+    if (toOutside && !(await intervals.loadConnection(supabase))) {
+      return { ok: false, message: "Connect intervals.icu in Settings first. It's how the workout reaches your bike computer." };
+    }
     const state = await loadTrainingState(supabase);
     if (!DAY.test(day) || day < state.today || day > addDays(state.today, WORKOUT_DAYS - 1)) {
       throw new Error(`Pick a day in the next ${WORKOUT_DAYS} days.`);
@@ -428,10 +457,10 @@ async function changeOutdoor(day: string, write: (supabase: Awaited<ReturnType<t
     if (error) throw new Error(error.message);
     refresh();
     const connection = await intervals.loadConnection(supabase);
-    if (!connection) return { ok: true, message: `${done} Connect intervals.icu in Settings to get it onto the Karoo.` };
+    if (!connection) return { ok: true, message: done };
     const after = await loadTrainingState(supabase);
     await pushPlan(connection.apiKey, after.plan, after.goals, after.today, after.outdoor);
-    return { ok: true, message: `${done} It's on your intervals.icu calendar; the Karoo picks it up when it next syncs.` };
+    return { ok: true, message: `${done} It's on your intervals.icu calendar; your bike computer gets it on its next sync.` };
   } catch (e) {
     console.error("outdoor ride change failed:", e);
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
@@ -447,6 +476,7 @@ export async function setOutdoor(day: string, outside: boolean): Promise<ActionR
         ? await supabase.from("outdoor_rides").upsert({ day, workout: null }, { onConflict: "user_id,day" })
         : await supabase.from("outdoor_rides").delete().eq("day", day),
     outside ? "Riding outside." : "Back indoors.",
+    outside,
   );
 }
 

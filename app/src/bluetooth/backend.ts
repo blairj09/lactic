@@ -19,6 +19,10 @@ export interface Advert {
   name: string | null;
   rssi: number | null;
   services: string[];
+  /** By service UUID: some scales broadcast their weight here. */
+  serviceData?: Record<string, number[]>;
+  /** By company id. */
+  manufacturerData?: Record<string, number[]>;
 }
 
 export interface Notification {
