@@ -84,8 +84,10 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .app-tabs { display: flex; gap: 4px; color: var(--body); font-weight: 500; min-width: 0; overflow: hidden; }
 .app-tabs span { padding: 6px 10px; border-radius: 7px; }
 .app-tabs .on { background: #e7e9ee; color: var(--ink); }
-.app-ride { margin-left: auto; background: var(--ink); color: #fff; font-weight: 600; padding: 7px 14px; border-radius: 7px; }
-@media (max-width: 560px) { .app-tabs span:not(.on) { display: none; } }
+.app-coach-btn { margin-left: auto; border: 1px solid #d6dbe4; background: var(--surface); padding: 6px 12px; border-radius: 7px; font-weight: 500; color: var(--ink); white-space: nowrap; }
+.app-coach-btn .kbd { font-size: 11px; color: var(--muted); margin-left: 4px; }
+.app-ride { background: var(--ink); color: #fff; font-weight: 600; padding: 7px 14px; border-radius: 7px; }
+@media (max-width: 560px) { .app-tabs, .app-coach-btn .kbd { display: none; } }
 .app-gear { color: var(--muted); display: grid; place-items: center; }
 .app-main { flex: 999 1 520px; min-width: 0; padding: 22px 24px 26px; display: grid; gap: 14px; background: var(--ground); align-content: start; }
 .today-title { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
@@ -112,7 +114,8 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .fake-btn { background: var(--ink); color: #fff; padding: 8px 14px; border-radius: 7px; font-weight: 600; font-size: 14px; }
 .fake-btn.ghost { background: var(--surface); color: var(--ink); border: 1px solid #d6dbe4; }
 .app-coach { flex: 1 1 300px; min-width: 0; padding: 0 20px 20px; display: grid; gap: 14px; align-content: start; background: var(--ground); border-left: 1px solid var(--line); }
-.drawer-title { margin: 0 -20px; padding: 14px 20px; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 600; }
+.drawer-icons { display: flex; gap: 14px; color: var(--muted); }
+.drawer-title { display: flex; justify-content: space-between; align-items: center; margin: 0 -20px; padding: 14px 20px; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 600; }
 .bubble.me { justify-self: end; max-width: 88%; background: #e7e9ee; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.45; }
 .coach-text { font-size: 14px; line-height: 1.55; color: var(--ink); }
 .proposal { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 8px; font-size: 13px; }
@@ -121,7 +124,9 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .coach-actions { display: flex; gap: 8px; }
 .coach-actions span { font-size: 12px; font-weight: 600; padding: 6px 11px; border-radius: 6px; border: 1px solid #d6dbe4; background: var(--surface); }
 .coach-actions .yes { background: var(--ink); color: #fff; border-color: var(--ink); }
-.chat-input { border: 1px solid #d6dbe4; background: var(--surface); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: #9aa1ad; margin-top: 6px; }
+.chat-input { display: flex; align-items: center; gap: 10px; border: 1px solid #d6dbe4; background: var(--surface); border-radius: 8px; padding: 8px 8px 8px 12px; font-size: 13px; color: #9aa1ad; margin-top: 6px; }
+.chat-input span:first-of-type { flex: 1; }
+.chat-input .send { width: 24px; height: 24px; border-radius: 50%; background: #e7e9ee; color: var(--muted); display: grid; place-items: center; }
 
 /* Beliefs band */
 .beliefs { background: var(--night); color: #f2f3f5; }
