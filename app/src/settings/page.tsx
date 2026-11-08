@@ -119,7 +119,7 @@ export default async function SettingsPage() {
               )}
             </div>
           </Section>
-          <Section id="health" title="Sleep and recovery" description="Sleep, HRV and resting heart rate from your watch or ring.">
+          <Section id="health" title="Sleep and recovery" description="Sleep, HRV and resting heart rate from Apple Health, or your watch or ring through intervals.icu.">
             <div className="sm:col-span-2">
               <HealthSetup heading={false} />
             </div>

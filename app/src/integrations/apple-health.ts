@@ -7,10 +7,25 @@ import { createClient } from "~/db/supabase-client";
 import { invoke, isDesktop } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
+import { provideRecoverySetup } from "@/lib/recovery-source";
 import { registerJob } from "./background";
 
 export const SOURCE = "apple_health";
 const FOLDER_SETTING = "health.folder";
+/** The source picked in Sleep and recovery setup: "apple", or "watch" / "android" (both through intervals.icu). */
+export const SOURCE_SETTING = "health.source";
+
+// Today names the rider's recovery source from this.
+provideRecoverySetup(async () => {
+  const [picked, last] = await Promise.all([
+    getSetting<string | null>(SOURCE_SETTING, null),
+    getSetting<{ nights: number; days: number } | null>("health.lastImport", null),
+  ]);
+  return {
+    picked: picked === "apple" ? "apple" : picked === "watch" || picked === "android" ? "intervals" : null,
+    appleReceiving: Boolean(last && (last.nights > 0 || last.days > 0)),
+  };
+});
 
 interface Entry {
   name: string;

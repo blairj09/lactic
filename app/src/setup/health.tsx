@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { button, Pill, Result, Segmented } from "@/components/ui";
-import { healthFolder, importHealthFolder, setHealthFolder } from "~/integrations/apple-health";
+import { healthFolder, importHealthFolder, setHealthFolder, SOURCE_SETTING } from "~/integrations/apple-health";
 import { isDesktop, openExternal, os } from "~/platform/native";
-import { getSetting } from "~/settings/store";
+import { getSetting, setSetting } from "~/settings/store";
 
 type Source = "apple" | "watch" | "android";
 
@@ -57,7 +57,13 @@ export function HealthSetup({ heading = true }: { heading?: boolean }) {
   const [source, setSource] = useState<Source>(() => (os() === "macos" ? "apple" : "watch"));
   useEffect(() => {
     if (receiving) setSource("apple");
+    else void getSetting<Source | null>(SOURCE_SETTING, null).then((s) => s && setSource(s));
   }, [receiving]);
+  // Saved so Today can name the source ("Connect Apple Health") instead of a general line.
+  const pick = (s: Source) => {
+    setSource(s);
+    void setSetting(SOURCE_SETTING, s);
+  };
   const link = (href: string, text: string) => (
     <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal(href)}>
       {text}
@@ -76,7 +82,7 @@ export function HealthSetup({ heading = true }: { heading?: boolean }) {
       <Segmented
         label="Where your sleep is recorded"
         value={source}
-        onChange={setSource}
+        onChange={pick}
         options={[
           { value: "apple", label: "Apple Watch" },
           { value: "watch", label: "Garmin, Oura, WHOOP" },

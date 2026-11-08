@@ -15,6 +15,7 @@ import { PHASE_LABELS, weekStart } from "@/lib/engine/plan";
 import { loadConnection as loadIntervals } from "@/lib/intervals/client";
 import { createClient } from "@/lib/supabase/server";
 import { loadIngestToken } from "@/lib/recovery-data";
+import { loadRecoverySetup, recoverySourceInfo } from "@/lib/recovery-source";
 import TodayView, { ridesOn } from "../today";
 
 export const dynamic = "force-dynamic";
@@ -38,11 +39,12 @@ export default async function Today() {
     ] as const);
   });
   dated.catch(() => {}); // Reported by loadTrainingState, which loads the same athlete.
-  const [state, icu, body, healthToken, [briefDay, earlyBrief, earlyReview]] = await Promise.all([
+  const [state, icu, body, healthToken, recoverySetup, [briefDay, earlyBrief, earlyReview]] = await Promise.all([
     loadTrainingState(supabase),
     optional(loadIntervals(supabase)),
     optional(loadBodyMeasurements(supabase, new Date(Date.now() - 40 * 86_400_000))),
     optional(loadIngestToken(supabase)),
+    loadRecoverySetup(),
     dated,
   ]);
   const { athlete, rides, today } = state;
@@ -66,6 +68,8 @@ export default async function Today() {
   const due = (c: { lastSyncedAt: Date | null } | null) => Boolean(c && (!c.lastSyncedAt || Date.now() - c.lastSyncedAt.getTime() > 30 * 60_000));
   const syncDue: "intervals"[] = due(icu) ? ["intervals"] : [];
 
+  const recoverySource = recoverySourceInfo(recoverySetup, Boolean(icu));
+
   const ftpSince = addDays(today, -FTP_WINDOW_DAYS);
   const recentCurves = rides.filter((r) => r.powerCurve && localDate(r.startedAt, athlete.timezone) >= ftpSince).map((r) => r.powerCurve!);
   const estimate = recentCurves.length ? estimateFtp(mergeCurves(...recentCurves)) : null;
@@ -76,7 +80,8 @@ export default async function Today() {
       <Page>
         {syncDue.length > 0 && <AutoSync services={syncDue} />}
         <TodayView state={state} body={body} estimate={estimate} ftpWindowDays={FTP_WINDOW_DAYS} coachEnabled={coachEnabled}
-          healthLinked={Boolean(healthToken?.lastUsedAt)}
+          healthLinked={Boolean(healthToken?.lastUsedAt) || Boolean(recoverySource?.connected)}
+          recoverySource={recoverySource}
           review={review}
           todayStream={todayStream}
           intervalsConnected={Boolean(icu)}

@@ -26,6 +26,7 @@ import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
 import WeekReviewCard from "./week-review";
 import type { WeekReview } from "@/lib/engine/review";
+import type { RecoverySourceInfo } from "@/lib/recovery-source";
 
 /**
  * Today answers "what do I ride, and am I up for it?": Morning (recovery, weight, the brief), then the session, with
@@ -40,6 +41,7 @@ export default function TodayView({
   brief,
   review,
   healthLinked = false,
+  recoverySource = null,
   todayStream = null,
   intervalsConnected = false,
 }: {
@@ -55,6 +57,8 @@ export default function TodayView({
   review?: { review: WeekReview; message: string; thisWeek: string | null } | null;
   /** The Apple Health shortcut has sent data before, so recovery is expected from it. */
   healthLinked?: boolean;
+  /** Where the rider's sleep and recovery come from, once known, and whether it's set up to send nights. */
+  recoverySource?: RecoverySourceInfo | null;
   /** The stored stream of today's ride, once there is one. */
   todayStream?: StoredStream | null;
   /** intervals.icu is connected, so a workout can go to the bike computer. */
@@ -71,7 +75,7 @@ export default function TodayView({
 
       <Morning
         day={today}
-        recovery={{ in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked }}
+        recovery={{ in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource }}
         weighIn={todaysWeighIn ? { weightKg: todaysWeighIn.weightKg, bodyFatPercent: todaysWeighIn.bodyFatPercent } : null}
         profile={
           athlete.heightCm !== null && athlete.sex !== null && athlete.birthDate !== null
