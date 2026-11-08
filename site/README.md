@@ -2,7 +2,7 @@
 
 Static landing page for Lactic, served by its own Vercel project (root directory `site`, framework Other, no build step).
 
-The page is plain HTML + CSS (index.html, styles.css). Design source: the "combined" board on https://claude.ai/artifact/8DJz3W7N3eKyksfbgUAi4i
+The pages are plain HTML + CSS (index.html, download/index.html, styles.css). The downloads page suggests the installer for the visitor's OS; its links go through `api/release.js` (`/api/release?get=mac|windows|appimage|deb`), which redirects to that file in the latest GitHub release. Design source: the "combined" board on https://claude.ai/artifact/8DJz3W7N3eKyksfbgUAi4i
 
 ## Feedback relay
 

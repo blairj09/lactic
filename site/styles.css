@@ -183,3 +183,24 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 
 /* Footer */
 .site-footer .wrap { padding-block: 32px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--muted); }
+
+/* Downloads page */
+.dl-hero .wrap { padding-block: 72px 48px; display: grid; gap: 18px; justify-items: start; }
+.dl-hero h1 { font-size: clamp(48px, 8vw, 112px); line-height: 0.94; letter-spacing: -0.045em; font-weight: 800; font-stretch: 112%; }
+.dl-hero .lede { font-size: 20px; line-height: 1.5; color: var(--body); max-width: 48ch; }
+.dl-pick { display: grid; gap: 10px; justify-items: start; margin-top: 8px; }
+.dl-pick[hidden], .dl-phone[hidden] { display: none; }
+.dl-meta { font-size: 14px; color: var(--muted); font-family: var(--mono); }
+.dl-phone { font-size: 17px; color: var(--body); background: var(--accent-tint); padding: 14px 18px; border-radius: 10px; max-width: 54ch; }
+.dl-all .wrap { padding-block: 24px 96px; display: grid; gap: 24px; }
+.dl-all h2 { font-size: clamp(26px, 3vw, 36px); }
+.dl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(260px, calc((100% - 24px) / 3)), 1fr)); gap: 12px; }
+.dl-card { background: var(--surface); border: 1px solid #e3e6ec; border-radius: 12px; padding: 24px; display: grid; gap: 14px; align-content: start; }
+.dl-card.is-yours { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.dl-card h3 { font-size: 22px; }
+.dl-detail { font-size: 15px; color: var(--muted); }
+.dl-card .btn { font-size: 15px; padding: 11px 16px; justify-self: start; }
+.dl-size { font-family: var(--mono); font-size: 13px; font-weight: 400; color: var(--muted); }
+.dl-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 15px; line-height: 1.55; color: var(--body); }
+.dl-steps code { font-family: var(--mono); font-size: 13px; background: var(--line-soft); padding: 2px 6px; border-radius: 5px; overflow-wrap: anywhere; }
+.dl-foot { font-size: 15px; color: var(--muted); }
