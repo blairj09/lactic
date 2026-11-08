@@ -40,6 +40,23 @@ jobs:
           cache-dependency-path: app/package-lock.json
       - run: npm ci
         working-directory: app
+      - name: Check the API keys
+        env:
+          HAS_OPENROUTER: ${{ secrets.OPENROUTER_API_KEY != '' }}
+          HAS_ANTHROPIC: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          HAS_OPENAI: ${{ secrets.OPENAI_API_KEY != '' }}
+          HAS_GEMINI: ${{ secrets.GEMINI_API_KEY != '' }}
+          MODELS: ${{ inputs.models }},${{ inputs.judge }}
+        run: |
+          missing=""
+          for p in openrouter:OPENROUTER anthropic:ANTHROPIC openai:OPENAI google:GEMINI; do
+            kind=${p%%:*}; name=${p#*:}; has="HAS_$name"
+            if echo "$MODELS" | grep -q "\b$kind:" && [ "${!has}" != "true" ]; then missing="$missing ${name}_API_KEY"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Add$missing in Settings → Secrets and variables → Actions, then run this again." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
       - name: Run the evals
         working-directory: app
         env:
