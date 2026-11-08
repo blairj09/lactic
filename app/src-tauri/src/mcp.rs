@@ -33,11 +33,13 @@ pub struct Mcp {
     next: AtomicU64,
     enabled: AtomicBool,
     app: Mutex<Option<AppHandle>>,
+    /// The AI app that last connected (its clientInfo), so Lactic can say who the coach is.
+    client: Mutex<Option<String>>,
 }
 
 impl Default for Mcp {
     fn default() -> Self {
-        Mcp { info: Mutex::new(None), pending: Mutex::new(HashMap::new()), next: AtomicU64::new(1), enabled: AtomicBool::new(false), app: Mutex::new(None) }
+        Mcp { info: Mutex::new(None), pending: Mutex::new(HashMap::new()), next: AtomicU64::new(1), enabled: AtomicBool::new(false), app: Mutex::new(None), client: Mutex::new(None) }
     }
 }
 
@@ -124,6 +126,11 @@ async fn answer(mcp: &Mcp, m: Value) -> Option<Value> {
     let params = m.get("params").cloned().unwrap_or(Value::Null);
     Some(match method {
         "initialize" => {
+            let info = params.get("clientInfo");
+            let name = info.and_then(|i| i.get("title").or_else(|| i.get("name"))).and_then(|v| v.as_str()).map(str::to_string);
+            if name.is_some() {
+                *mcp.client.lock().await = name;
+            }
             let asked = params.get("protocolVersion").and_then(|v| v.as_str()).unwrap_or(PROTOCOL).to_string();
             rpc_result(
                 &id,
@@ -144,7 +151,7 @@ async fn answer(mcp: &Mcp, m: Value) -> Option<Value> {
                 return Some(rpc_result(&id, json!({ "prompts": [] })));
             }
             if !mcp.enabled.load(Ordering::Relaxed) {
-                return Some(rpc_error(&id, -32001, "The external coach is turned off. In Lactic, open Settings → Coach and choose \"An AI app I already use\"."));
+                return Some(rpc_error(&id, -32001, "The external coach is turned off. In Lactic, open Settings → Coach and choose \"An AI app you already use\", or let AI apps connect alongside the built-in coach."));
             }
             match forward(mcp, method, params).await {
                 Ok(v) => rpc_result(&id, v),
@@ -160,7 +167,8 @@ async fn forward(mcp: &Mcp, method: &str, params: Value) -> Result<Value, Value>
     let n = mcp.next.fetch_add(1, Ordering::Relaxed);
     let (tx, rx) = oneshot::channel();
     mcp.pending.lock().await.insert(n, tx);
-    let _ = app.emit_to("main", "mcp:request", json!({ "requestId": n, "method": method, "params": params }));
+    let client = mcp.client.lock().await.clone();
+    let _ = app.emit_to("main", "mcp:request", json!({ "requestId": n, "method": method, "params": params, "client": client }));
     match tokio::time::timeout(Duration::from_secs(90), rx).await {
         Ok(Ok(r)) => r,
         _ => {
@@ -193,6 +201,8 @@ pub struct McpSetup {
     token: Option<String>,
     command: String,
     claude_config: Option<String>,
+    /// Lactic is in Claude Desktop's MCP servers.
+    claude_added: bool,
 }
 
 /// Where the server is, and what an AI app needs to reach it.
@@ -205,6 +215,7 @@ pub async fn mcp_setup(mcp: State<'_, Arc<Mcp>>) -> Result<McpSetup, String> {
         token: info.map(|i| i.token),
         command,
         claude_config: claude_config_path().map(|p| p.to_string_lossy().into_owned()),
+        claude_added: claude_has_lactic(),
     })
 }
 
@@ -221,6 +232,14 @@ fn claude_config_path() -> Option<PathBuf> {
     // Application Support on a Mac, %APPDATA% on Windows, ~/.config on Linux.
     let base = dirs::config_dir()?.join("Claude");
     Some(base.join("claude_desktop_config.json"))
+}
+
+fn claude_has_lactic() -> bool {
+    let Some(path) = claude_config_path() else { return false };
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .is_some_and(|c| c.get("mcpServers").and_then(|m| m.get("lactic")).is_some())
 }
 
 /// Adds Lactic to Claude Desktop's MCP servers, keeping everything else in its config. Claude

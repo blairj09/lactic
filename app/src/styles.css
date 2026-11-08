@@ -20,7 +20,8 @@ html[data-desktop="macos"] .lactic-titlebar {
 .lactic-drag a,
 .lactic-drag button,
 .lactic-drag summary,
-.lactic-drag input {
+.lactic-drag input,
+.lactic-drag [role="dialog"] {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }

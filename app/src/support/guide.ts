@@ -26,6 +26,6 @@ export const GUIDE: Partial<Record<LogArea, string[]>> = {
   ],
   coach: [
     "If the built-in coach fails, test the model in Settings → Coach. \"The key was turned down\" means the provider's API key is wrong. A model that doesn't use tools can't read training data.",
-    "For an external AI app (Claude Desktop and others), the coach mode must be set to external in Settings → Coach so Lactic's MCP server is on; Claude Desktop needs a restart after Lactic is added.",
+    "For an external AI app (Claude Desktop and others), the coach mode must be set to external in Settings → Coach (or the built-in coach with Let AI apps connect too ticked) so Lactic's MCP server is on; Claude Desktop needs a restart after Lactic is added.",
   ],
 };

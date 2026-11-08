@@ -16,7 +16,7 @@ import { GATT } from "@/lib/ble/protocol";
 import { POWER_SOURCE_PREF, type SensorKind } from "@/lib/ble/sensor-hub";
 import { loadConnection, setUploadRides, testKey } from "@/lib/intervals/client";
 import { isRiding, liveRide } from "@/lib/live-ride";
-import { coachSetup, saveCoachSetup } from "~/ai/settings";
+import { coachSetup, mcpOn, saveCoachSetup } from "~/ai/settings";
 import { knownPrice } from "~/ai/providers";
 import { loadPersona } from "@/lib/coach/store";
 import { DETAIL_LABELS, TONE_LABELS, toPersona } from "@/lib/coach/persona";
@@ -154,7 +154,7 @@ async function coachReport() {
     provider: setup.provider ? { kind: setup.provider.kind, baseUrl: setup.provider.baseUrl, keySaved: setup.provider.hasKey } : null,
     model: setup.chat?.model ?? null,
     lastModelTest: setup.chat?.tested ?? null,
-    mcpServer: setup.mode === "external" ? "on" : "off (turns on when the coach mode is an external AI app)",
+    mcpServer: mcpOn(setup) ? "on" : "off (turns on when the coach mode is an external AI app, or the built-in coach lets AI apps connect too)",
     app: info ? { version: info.version, os: info.os } : null,
   };
 }

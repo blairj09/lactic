@@ -22,7 +22,12 @@ export interface CoachSetup {
   vision?: ModelChoice | null;
   /** Monthly spend limit in US dollars for cloud models; null for none. */
   monthlyCapUsd: number | null;
+  /** With the built-in coach: AI apps can still connect over MCP too. */
+  alongside?: boolean;
 }
+
+/** Whether AI apps can reach Lactic's MCP server with this setup. */
+export const mcpOn = (s: Pick<CoachSetup, "mode" | "alongside">) => s.mode === "external" || (s.mode === "builtin" && Boolean(s.alongside));
 
 export const SECRET_AI = "ai";
 
