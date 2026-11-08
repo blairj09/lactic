@@ -63,6 +63,17 @@ describe("settings the coach can propose", () => {
     expect(() => checkAppSetting({ setting: "forget_device", device: "toaster" })).toThrow(/device is one of/);
     expect(() => checkAppSetting({ setting: "delete_rides" })).toThrow(/setting is one of/);
     expect(describeAppSetting({ setting: "rename_device", device: "trainer", name: "Kicker" })).toBe('Call the trainer "Kicker"');
+    expect(checkAppSetting({ setting: "units", value: "imperial" })).toEqual({ setting: "units", value: "imperial" });
+    expect(() => checkAppSetting({ setting: "units", value: "stone" })).toThrow(/metric or imperial/);
+  });
+
+  it("switches units once the athlete applies it", async () => {
+    store.set("lactic:units", "metric");
+    const r = await runSupportTool("propose_app_change", { setting: "units", value: "imperial", reason: "You think in pounds" });
+    expect(r.proposal?.summary).toBe("Units: imperial (lb, in, mi, °F) (now metric)");
+    expect(store.get("lactic:units")).toBe("metric");
+    expect(await applyChange(localClient as never, r.proposal!.change as never)).toBe("Done: Units: imperial (lb, in, mi, °F).");
+    expect(store.get("lactic:units")).toBe("imperial");
   });
 
   it("goes through Apply over MCP, like plan changes", async () => {
@@ -83,6 +94,8 @@ describe("settings the coach can propose", () => {
     expect(() => checkAppSetting({ setting: "profile", field: "birth_date", value: 1990 })).toThrow(/looks like 1990-05-31/);
     expect(() => checkAppSetting({ setting: "profile", field: "resting_hr", value: 50 })).toThrow(/field is one of/);
     expect(checkAppSetting({ setting: "profile", field: "weight_kg", value: "71.04" })).toEqual({ setting: "profile", field: "weight_kg", value: 71 });
+    expect(checkAppSetting({ setting: "profile", field: "weight_kg", value: 160, unit: "lb" })).toEqual({ setting: "profile", field: "weight_kg", value: 72.6 });
+    expect(checkAppSetting({ setting: "profile", field: "height_cm", value: 70, unit: "in" })).toEqual({ setting: "profile", field: "height_cm", value: 178 });
 
     const proposed = JSON.parse((await runSupportTool("propose_app_change", { setting: "profile", field: "max_hr", value: 188, reason: "From your race" })).content);
     expect(proposed.proposed).toBe("Max heart rate: 188 bpm (now not set)");

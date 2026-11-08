@@ -17,6 +17,7 @@ import { loadRecovery, loadRecoveryTrend } from "@/lib/recovery-data";
 import { createClient } from "@/lib/supabase/server";
 import { METRICS, RANGES, metricHref, type MetricKey } from "../metrics";
 import { ExertionPanel, hoursMinutes, WeighInTable } from "../parts";
+import { readUnits, tempDeltaIn, temperatureUnit, weightIn, weightUnit } from "@/lib/units";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 interface Ctx {
@@ -486,13 +487,17 @@ async function NightlyDetail(ctx: Ctx, metric: MetricKey) {
   const config = NIGHTLY[metric as keyof typeof NIGHTLY];
   const { recovery, trend, pick } = await recoveryData(ctx);
   const window = shownWindow(ctx.today, ctx.days, (w) => [pick(w, config.pick)]);
-  const values = pick(window, config.pick);
+  const units = readUnits();
+  const picked = pick(window, config.pick);
+  // Wrist temp is a change against normal, so it converts as a difference.
+  const values = metric === "wrist-temp" ? picked.map((v) => (v === null ? null : tempDeltaIn(v, units))) : picked;
+  const unit: string = metric === "wrist-temp" ? temperatureUnit(units) : config.unit;
   const stats = seriesStats(values);
   const normal =
     metric === "hrv" ? trend.normals.hrv : metric === "resting-hr" ? trend.normals.restingHeartRate : metric === "breathing" ? trend.normals.respiratoryRate : 0;
   const isTemp = metric === "wrist-temp";
-  const unitGap = config.unit.startsWith("/") ? "" : " ";
-  const show = (v: number | null) => (v === null ? null : `${isTemp ? signedFixed(v) : v.toFixed(config.decimals)}${unitGap}${config.unit}`);
+  const unitGap = unit.startsWith("/") ? "" : " ";
+  const show = (v: number | null) => (v === null ? null : `${isTemp ? signedFixed(v) : v.toFixed(config.decimals)}${unitGap}${unit}`);
   const lastNight = stats.latestIndex === values.length - 1 ? stats.latest : null;
   const vsNormal = (v: number | null) => {
     if (!config.compare) return null;
@@ -510,13 +515,13 @@ async function NightlyDetail(ctx: Ctx, metric: MetricKey) {
           lead
           label="Last night"
           value={lastNight !== null ? (isTemp ? signedFixed(lastNight) : lastNight.toFixed(config.decimals)) : <Dash />}
-          unit={lastNight !== null ? config.unit : undefined}
+          unit={lastNight !== null ? unit : undefined}
           sub={lastNight !== null && config.compare && normal !== null ? `${vsNormal(lastNight)} against normal` : kind ?? undefined}
         />
         <Stat
           label={isTemp ? "Normal" : "Your normal"}
           value={isTemp ? "0.0" : normal !== null ? normal.toFixed(config.decimals) : <Dash />}
-          unit={isTemp || normal !== null ? config.unit : undefined}
+          unit={isTemp || normal !== null ? unit : undefined}
           sub={isTemp ? "Your own wrist-temp normal" : normal !== null ? "Last 60 days" : `After ${needs} nights`}
         />
         <Stat label="Average" value={show(stats.mean) ?? <Dash />} sub={`${stats.count} night${stats.count === 1 ? "" : "s"}`} />
@@ -529,7 +534,7 @@ async function NightlyDetail(ctx: Ctx, metric: MetricKey) {
           values={values}
           normal={normal}
           normalLabel={isTemp ? "Your normal" : undefined}
-          unit={config.unit}
+          unit={unit}
           decimals={config.decimals}
           signed={isTemp}
           height={CHART_HEIGHT}
@@ -671,11 +676,14 @@ async function BodyDetail({ supabase, athlete, today, days }: Ctx) {
   const all = windowDays(today, days);
   const measurements = await loadBodyMeasurements(supabase, new Date(`${addDays(all[0], -1)}T00:00:00Z`));
   const on = (day: string) => weighInOn(measurements, day, tz);
-  const weightsOf = (w: string[]) => w.map((d) => on(d)?.weightKg ?? null);
+  const units = readUnits();
+  const u = weightUnit(units);
+  const inUnits = (v: number | null | undefined) => (v == null ? null : weightIn(v, units));
+  const weightsOf = (w: string[]) => w.map((d) => inUnits(on(d)?.weightKg));
   const window = all.slice(dataStart([weightsOf(all)], Math.min(30, days)));
   const weights = weightsOf(window);
   const fat = window.map((d) => on(d)?.bodyFatPercent ?? null);
-  const lean = window.map((d) => on(d)?.fatFreeMassKg ?? null);
+  const lean = window.map((d) => inUnits(on(d)?.fatFreeMassKg));
   const w = seriesStats(weights);
   const f = seriesStats(fat);
   const l = seriesStats(lean);
@@ -684,20 +692,20 @@ async function BodyDetail({ supabase, athlete, today, days }: Ctx) {
   return (
     <>
       <StatStrip cols={4} phone={2}>
-        <Stat lead label="Weight" value={w.latest !== null ? w.latest.toFixed(1) : <Dash />} unit={w.latest !== null ? "kg" : undefined} sub={w.latestIndex !== null ? dayLabel(window[w.latestIndex]) : "No weigh-ins yet"} />
-        <Stat label="Change" value={w.change !== null ? signedFixed(w.change) : <Dash />} unit={w.change !== null ? "kg" : undefined} sub={w.change !== null ? `Since ${dayLabel(window[weights.findIndex((v) => v !== null)])}` : "Needs two weigh-ins"} />
+        <Stat lead label="Weight" value={w.latest !== null ? w.latest.toFixed(1) : <Dash />} unit={w.latest !== null ? u : undefined} sub={w.latestIndex !== null ? dayLabel(window[w.latestIndex]) : "No weigh-ins yet"} />
+        <Stat label="Change" value={w.change !== null ? signedFixed(w.change) : <Dash />} unit={w.change !== null ? u : undefined} sub={w.change !== null ? `Since ${dayLabel(window[weights.findIndex((v) => v !== null)])}` : "Needs two weigh-ins"} />
         <Stat label="Body fat" value={f.latest !== null ? f.latest.toFixed(1) : <Dash />} unit={f.latest !== null ? "%" : undefined} sub={f.change !== null ? `${signedFixed(f.change)} pts in range` : undefined} />
-        <Stat label="Lean mass" value={l.latest !== null ? l.latest.toFixed(1) : <Dash />} unit={l.latest !== null ? "kg" : undefined} sub={l.change !== null ? `${signedFixed(l.change)} kg in range` : undefined} />
+        <Stat label="Lean mass" value={l.latest !== null ? l.latest.toFixed(1) : <Dash />} unit={l.latest !== null ? u : undefined} sub={l.change !== null ? `${signedFixed(l.change)} ${u} in range` : undefined} />
       </StatStrip>
       <ChartPanel title="Weight" meta={periodLabel(window)}>
-        <TrendChart label="Weight by day" days={window} values={weights} unit="kg" decimals={1} bridge normal={w.mean} normalLabel="Average" height={CHART_HEIGHT} />
+        <TrendChart label="Weight by day" days={window} values={weights} unit={u} decimals={1} bridge normal={w.mean} normalLabel="Average" height={CHART_HEIGHT} />
       </ChartPanel>
       <div className="grid gap-4 md:grid-cols-2">
         <ChartPanel title="Body fat" meta="%">
           <TrendChart label="Body fat by day" days={window} values={fat} unit="%" decimals={1} bridge />
         </ChartPanel>
-        <ChartPanel title="Lean mass" meta="kg">
-          <TrendChart label="Lean mass by day" days={window} values={lean} unit="kg" decimals={1} bridge />
+        <ChartPanel title="Lean mass" meta={u}>
+          <TrendChart label="Lean mass by day" days={window} values={lean} unit={u} decimals={1} bridge />
         </ChartPanel>
       </div>
       <Panel title="Weigh-ins" meta={shown.length ? `${shown.length} weigh-in${shown.length === 1 ? "" : "s"}` : undefined} className="min-w-0">

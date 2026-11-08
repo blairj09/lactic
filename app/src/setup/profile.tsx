@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { saveSettings } from "@/app/actions";
 import { Field, Result, Segmented, input } from "@/components/ui";
 import { createClient } from "~/db/supabase-client";
+import { CM_PER_IN as IN, LB_PER_KG as LB, readUnits, setUnits } from "@/lib/units";
 
 export interface ProfileValues {
   ftp: string;
@@ -18,15 +19,13 @@ export interface ProfileValues {
   timezone: string;
 }
 
-const LB = 2.20462;
-const IN = 2.54;
 const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
 /** A starting FTP from weight, for riders who've never tested: about 2.5 W/kg. */
 export const guessFtp = (kg: number) => Math.round((kg * 2.5) / 5) * 5;
 
 export function useProfile() {
-  const [values, setValues] = useState<ProfileValues>({ ftp: "", ftpUnknown: false, weight: "", units: "metric", maxHr: "", birthDate: "", sex: "", height: "", timezone: zone() });
+  const [values, setValues] = useState<ProfileValues>({ ftp: "", ftpUnknown: false, weight: "", units: readUnits(), maxHr: "", birthDate: "", sex: "", height: "", timezone: zone() });
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     void createClient()
@@ -34,7 +33,7 @@ export function useProfile() {
       .select("*")
       .maybeSingle()
       .then(({ data }) => {
-        const imperial = (localStorage.getItem("lactic.units") ?? "") === "imperial";
+        const imperial = readUnits() === "imperial";
         if (data) {
           setValues((v) => ({
             ...v,
@@ -62,7 +61,7 @@ export async function saveProfile(v: ProfileValues) {
   const ftp = v.ftpUnknown ? guessFtp(kg) : Number(v.ftp);
   if (!(ftp > 50 && ftp < 700)) return { ok: false, message: "FTP should be between 50 and 700 W, or tick “I don't know”." };
   try {
-    localStorage.setItem("lactic.units", v.units);
+    setUnits(v.units);
   } catch {}
   const form = new FormData();
   form.set("ftp_watts", String(Math.round(ftp)));

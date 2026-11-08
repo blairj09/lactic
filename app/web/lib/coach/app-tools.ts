@@ -12,6 +12,7 @@
 
 import type { ToolResult } from "./tools";
 import { DETAIL_LABELS, TONE_LABELS, type Persona } from "./persona";
+import { heightToCm, weightToKg, type UnitSystem } from "../units";
 
 export type GearKey = "trainer" | "powerMeter" | "heartRate" | "scale";
 
@@ -21,6 +22,7 @@ export type AppSetting =
   | { setting: "forget_device"; device: GearKey }
   | { setting: "rename_device"; device: GearKey; name: string }
   | { setting: "upload_rides"; value: boolean }
+  | { setting: "units"; value: UnitSystem }
   | { setting: "profile"; field: ProfileNumber; value: number }
   | { setting: "profile"; field: "birth_date" | "timezone"; value: string }
   | { setting: "profile"; field: "sex"; value: "male" | "female" | null }
@@ -29,7 +31,7 @@ export type AppSetting =
   | { setting: "coach_model"; value: string }
   | { setting: "ai_limit"; value: number | null };
 
-export const APP_SETTINGS = ["power_source", "upload_rides", "forget_device", "rename_device", "profile", "coach_voice", "coach_mode", "coach_model", "ai_limit"] as const;
+export const APP_SETTINGS = ["power_source", "upload_rides", "units", "forget_device", "rename_device", "profile", "coach_voice", "coach_mode", "coach_model", "ai_limit"] as const;
 
 export type CoachMode = "none" | "builtin" | "external";
 export const COACH_MODE_LABELS: Record<CoachMode, string> = { builtin: "the built-in coach", external: "an AI app you already use (MCP)", none: "no coach" };
@@ -88,10 +90,15 @@ function checkProfile(raw: Record<string, unknown>): AppSetting {
     return { setting: "profile", field, value: v };
   }
   const f = PROFILE_NUMBERS[field];
-  const n = typeof raw.value === "string" ? Number(raw.value) : raw.value;
-  if (typeof n !== "number" || !Number.isFinite(n)) throw new Error("value is a number");
+  const given = typeof raw.value === "string" ? Number(raw.value) : raw.value;
+  if (typeof given !== "number" || !Number.isFinite(given)) throw new Error("value is a number");
+  // Riders on imperial give pounds and inches; Lactic stores kg and cm.
+  let n = given;
+  if (raw.unit === "lb" && field === "weight_kg") n = weightToKg(given, "imperial");
+  else if (raw.unit === "in" && field === "height_cm") n = heightToCm(given, "imperial");
+  else if (raw.unit !== undefined && raw.unit !== null && raw.unit !== "" && raw.unit !== f.unit) throw new Error("unit is lb (for weight_kg) or in (for height_cm)");
   if (n < f.min || n > f.max) throw new Error(`${f.label} should be between ${f.min} and ${f.max} ${f.unit}`);
-  return { setting: "profile", field, value: Math.round(n / f.step) * f.step };
+  return { setting: "profile", field, value: Number((Math.round(n / f.step) * f.step).toFixed(2)) };
 }
 
 function checkVoice(raw: Record<string, unknown>): AppSetting {
@@ -141,6 +148,9 @@ export function checkAppSetting(raw: Record<string, unknown>): AppSetting {
       return { setting, value: raw.value };
     case "upload_rides":
       return { setting, value: bool() };
+    case "units":
+      if (raw.value !== "metric" && raw.value !== "imperial") throw new Error("value is metric or imperial");
+      return { setting, value: raw.value };
     case "forget_device":
       return { setting, device: needDevice() };
     case "rename_device": {
@@ -179,6 +189,8 @@ export function describeAppSetting(s: AppSetting): string {
       return `Power source: ${s.value === "powerMeter" ? "power meter" : "trainer"}`;
     case "upload_rides":
       return `${s.value ? "Send" : "Stop sending"} rides recorded in Lactic to intervals.icu`;
+    case "units":
+      return s.value === "imperial" ? "Units: imperial (lb, in, mi, °F)" : "Units: metric (kg, cm, km, °C)";
     case "forget_device":
       return `Forget the paired ${GEAR_LABELS[s.device]} (pair it again from Settings)`;
     case "rename_device":

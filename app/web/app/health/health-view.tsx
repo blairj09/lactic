@@ -15,6 +15,7 @@ import { Dash, Notice, Page, PageHeader, Panel, SectionTitle, Stat, StatStrip } 
 import WeighIn from "./weigh-in";
 import { metricHref } from "./metrics";
 import { ExertionPanel, hoursMinutes, LinkPanel, WeighInTable } from "./parts";
+import { formatWeight, readUnits, tempDeltaIn, temperatureUnit, weightIn, weightUnit } from "@/lib/units";
 
 export const TREND_DAYS = 30;
 export const WEIGHT_DAYS = 90;
@@ -39,6 +40,8 @@ export default function HealthView({
   hasWatch: boolean;
 }) {
   const tz = athlete.timezone;
+  const units = readUnits();
+  const kg = (v: number) => weightIn(v, units);
   const recent = [...measurementsOldestFirst].reverse();
   const ready = athlete.heightCm !== null && athlete.sex !== null && athlete.birthDate !== null;
 
@@ -56,7 +59,7 @@ export default function HealthView({
   const fromMap = (map: Map<string, number>) => trendDays.map((day) => map.get(day) ?? null);
 
   const weightDays = Array.from({ length: WEIGHT_DAYS }, (_, i) => addDays(today, i - (WEIGHT_DAYS - 1)));
-  const weights = weightDays.map((day) => weighInOn(measurementsOldestFirst, day, tz)?.weightKg ?? null);
+  const weights = weightDays.map((day) => weighInOn(measurementsOldestFirst, day, tz)?.weightKg ?? null).map((v) => (v === null ? null : kg(v)));
   const latest = recent[0];
   const weightChange = bodyTrend(measurementsOldestFirst, new Date());
 
@@ -136,8 +139,8 @@ export default function HealthView({
             {wristTemp && <Stat
               label="Wrist temp"
               href={metricHref("wrist-temp")}
-              value={night?.wristTempDeltaC != null ? signedFixed(night.wristTempDeltaC) : <Dash />}
-              unit={night?.wristTempDeltaC != null ? "°C" : undefined}
+              value={night?.wristTempDeltaC != null ? signedFixed(tempDeltaIn(night.wristTempDeltaC, units)) : <Dash />}
+              unit={night?.wristTempDeltaC != null ? temperatureUnit(units) : undefined}
               sub={night?.wristTempDeltaC != null ? "Against normal" : `After ${MINIMUM_TEMP_BASELINE_DAYS} nights`}
             />}
           </StatStrip>
@@ -180,8 +183,8 @@ export default function HealthView({
             {breathing && <TrendPanel href={metricHref("breathing")} title="Breathing rate" note="Breaths per minute asleep">
               <TrendChart label="Breathing rate by night" days={trendDays} values={series((d) => d.respiratoryRate)} normal={normals.respiratoryRate} unit="/min" decimals={1} />
             </TrendPanel>}
-            {wristTemp && <TrendPanel href={metricHref("wrist-temp")} title="Wrist temp" note="Against normal, °C">
-              <TrendChart label="Temperature change by night" days={trendDays} values={series((d) => d.wristTempDeltaC)} normal={0} unit="°C" decimals={1} signed />
+            {wristTemp && <TrendPanel href={metricHref("wrist-temp")} title="Wrist temp" note={`Against normal, ${temperatureUnit(units)}`}>
+              <TrendChart label="Temperature change by night" days={trendDays} values={series((d) => (d.wristTempDeltaC === null ? null : tempDeltaIn(d.wristTempDeltaC, units)))} normal={0} unit={temperatureUnit(units)} decimals={1} signed />
             </TrendPanel>}
             {trend.stages.length > 0 && (
               <div className="md:col-span-2 lg:col-span-3">
@@ -190,8 +193,8 @@ export default function HealthView({
                 </TrendPanel>
               </div>
             )}
-            <TrendPanel href={metricHref("body")} title="Weight" note={`Last ${WEIGHT_DAYS} days, kg`}>
-              <TrendChart label="Weight by day" days={weightDays} values={weights} unit="kg" decimals={1} bridge />
+            <TrendPanel href={metricHref("body")} title="Weight" note={`Last ${WEIGHT_DAYS} days, ${weightUnit(units)}`}>
+              <TrendChart label="Weight by day" days={weightDays} values={weights} unit={weightUnit(units)} decimals={1} bridge />
             </TrendPanel>
           </div>
         </section>
@@ -202,8 +205,8 @@ export default function HealthView({
             <Stat
               label="Weight"
               href={metricHref("body")}
-              value={latest ? latest.weightKg.toFixed(1) : <Dash />}
-              unit={latest ? "kg" : undefined}
+              value={latest ? kg(latest.weightKg).toFixed(1) : <Dash />}
+              unit={latest ? weightUnit(units) : undefined}
               sub={latest ? formatDay(latest.measuredAt, tz) : "No weigh-ins yet"}
             />
             <Stat
@@ -211,13 +214,13 @@ export default function HealthView({
               href={metricHref("body")}
               value={latest?.bodyFatPercent != null ? latest.bodyFatPercent.toFixed(1) : <Dash />}
               unit={latest?.bodyFatPercent != null ? "%" : undefined}
-              sub={latest?.fatFreeMassKg != null ? `${latest.fatFreeMassKg.toFixed(1)} kg lean` : undefined}
+              sub={latest?.fatFreeMassKg != null ? `${formatWeight(latest.fatFreeMassKg, units)} lean` : undefined}
             />
             <Stat
               label="30 days"
               href={metricHref("body")}
-              value={weightChange.weightKg !== null ? signedFixed(weightChange.weightKg) : <Dash />}
-              unit={weightChange.weightKg !== null ? "kg" : undefined}
+              value={weightChange.weightKg !== null ? signedFixed(kg(weightChange.weightKg)) : <Dash />}
+              unit={weightChange.weightKg !== null ? weightUnit(units) : undefined}
               sub={
                 weightChange.bodyFatPercent !== null
                   ? `${signedFixed(weightChange.bodyFatPercent)} pts fat`

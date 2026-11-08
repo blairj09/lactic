@@ -5,6 +5,7 @@ import { Chevron, Dash, Panel } from "@/components/ui";
 import type { BodyMeasurement } from "@/lib/body-data";
 import { formatDay } from "@/lib/format";
 import type { HealthSummary } from "@/lib/health-summary";
+import { readUnits, weightIn, weightUnit } from "@/lib/units";
 
 /** A panel that opens a closer look: the whole surface is the link, with an arrow by the title. */
 export function LinkPanel({ href, title, note, children }: { href: string; title: React.ReactNode; note?: React.ReactNode; children: React.ReactNode }) {
@@ -99,6 +100,7 @@ export function ExertionPanel({ exertion, activity, href }: { exertion: HealthSu
 
 /** Weigh-ins, newest first. */
 export function WeighInTable({ measurements, timeZone }: { measurements: BodyMeasurement[]; timeZone: string }) {
+  const units = readUnits();
   return (
     <>
     {measurements.length === 0 ? (
@@ -125,12 +127,12 @@ export function WeighInTable({ measurements, timeZone }: { measurements: BodyMea
                   </span>
                 </td>
                 <td className="py-2.5 text-right">
-                  {m.weightKg.toFixed(1)}
-                  <span className="ml-1 text-muted">kg</span>
+                  {weightIn(m.weightKg, units).toFixed(1)}
+                  <span className="ml-1 text-muted">{weightUnit(units)}</span>
                 </td>
                 <td className="py-2.5 text-right">{m.bodyFatPercent === null ? <Dash /> : `${m.bodyFatPercent.toFixed(1)}%`}</td>
                 <td className="hidden py-2.5 text-right sm:table-cell">
-                  {m.fatFreeMassKg === null ? <Dash /> : <>{m.fatFreeMassKg.toFixed(1)}<span className="ml-1 text-muted">kg</span></>}
+                  {m.fatFreeMassKg === null ? <Dash /> : <>{weightIn(m.fatFreeMassKg, units).toFixed(1)}<span className="ml-1 text-muted">{weightUnit(units)}</span></>}
                 </td>
                 <td className="hidden py-2.5 text-right sm:table-cell">{m.bmi === null ? <Dash /> : m.bmi.toFixed(1)}</td>
               </tr>
