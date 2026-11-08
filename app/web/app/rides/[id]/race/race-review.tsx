@@ -85,7 +85,13 @@ export default function RaceReview({
           }}
           options={report.comparisons.map((x) => ({ value: x.id, label: x.place ? `${x.name} (${ordinal(x.place)})` : x.name }))}
         />
+        <button type="button" className={button.secondary} onClick={() => document.getElementById("race-files")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+          Add a rider
+        </button>
       </div>
+      {report.comparisons.length === 1 && (
+        <p className="text-sm text-muted">No other riders yet, so this compares every lap with your own best one. Add another rider&apos;s file to see where they gained on you.</p>
+      )}
       {!vsSelf && c.confidence.level !== "high" && <TimingNote who={who} level={c.confidence.level} notes={c.confidence.notes} />}
 
       <StatStrip cols={4} phone={2}>

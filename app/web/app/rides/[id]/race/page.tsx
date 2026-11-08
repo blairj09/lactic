@@ -59,6 +59,7 @@ export default async function RaceReportPage({ params }: { params: Promise<{ id:
         />
         {problem && <Notice>{problem}</Notice>}
         {report && <RaceReview activityId={id} report={report} notes={data.notes} debrief={data.debrief} coachOn={Boolean(coachModel())} />}
+        <div id="race-files" className="scroll-mt-20">
         <Panel title={ready ? "Files and results" : "Set up the report"} meta={ready ? undefined : "Three steps, about a minute"}>
           <RaceSetup
             activityId={id}
@@ -70,6 +71,7 @@ export default async function RaceReportPage({ params }: { params: Promise<{ id:
             ownName={data.ownName}
           />
         </Panel>
+        </div>
       </Page>
     </>
   );
