@@ -2,18 +2,29 @@
 // Releases for latest.json. When a newer signed build is there, the corner prompt (prompt.tsx)
 // offers it; "Update and restart" downloads it, checks its signature, installs it and restarts.
 // Settings → Your data can check by hand. Nothing happens in a browser or a development build.
+// The card lists what's new (the release's notes, from latest.json), and after the restart the
+// new version says once what changed.
 
 import { useSyncExternalStore } from "react";
-import { isDesktop } from "~/platform/native";
+import { appInfo, isDesktop } from "~/platform/native";
+import { getSetting, setSetting } from "~/settings/store";
 
 export type UpdateState =
   | { status: "idle" }
   | { status: "checking" }
   | { status: "current"; checkedAt: number }
-  | { status: "available"; version: string }
+  | { status: "available"; version: string; notes: string[] }
   | { status: "installing"; version: string; downloaded: number; total?: number }
   | { status: "restarting"; version: string }
-  | { status: "error"; message: string; version?: string };
+  | { status: "error"; message: string; version?: string; notes?: string[] };
+
+/** Just installed, shown once after the restart. */
+export interface Installed {
+  version: string;
+  notes: string[];
+}
+
+const INSTALLED = "updates.installed";
 
 /** Updates run only in packaged desktop builds; `tauri dev` has nothing to replace. */
 export const updatesSupported = isDesktop && !import.meta.env.DEV;
@@ -25,6 +36,7 @@ type Pending = Awaited<ReturnType<typeof import("@tauri-apps/plugin-updater").ch
 let state: UpdateState = { status: "idle" };
 let pending: Pending = null;
 let dismissed: string | null = null;
+let installed: Installed | null = null;
 const listeners = new Set<() => void>();
 
 function set(next: UpdateState) {
@@ -54,7 +66,39 @@ export function dismiss() {
   if (state.status !== "available" && state.status !== "error") return;
   if (!state.version) return;
   dismissed = state.version;
-  set({ status: "available", version: state.version });
+  set({ status: "available", version: state.version, notes: state.notes ?? [] });
+}
+
+/** The notes of a release as a list: one line per change, Markdown bullets and links stripped. */
+export function parseNotes(body: string | undefined | null): string[] {
+  if (!body) return [];
+  return body
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => /^[-*]\s+/.test(l))
+    .map((l) => l.replace(/^[-*]\s+/, "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\*\*|__|`/g, "").trim())
+    .filter(Boolean);
+}
+
+/** The version this start updated to, if it did: what the "Updated" card shows until dismissed. */
+export function justInstalled(): Installed | null {
+  return installed;
+}
+
+export async function dismissInstalled() {
+  installed = null;
+  set({ ...state });
+  await setSetting(INSTALLED, null);
+}
+
+async function loadInstalled() {
+  const saved = await getSetting<Installed | null>(INSTALLED, null);
+  if (!saved) return;
+  const { version } = await appInfo();
+  // A different version means the install didn't take; nothing to announce.
+  if (version === saved.version) installed = saved;
+  else await setSetting(INSTALLED, null);
+  set({ ...state });
 }
 
 /**
@@ -71,7 +115,7 @@ export async function checkForUpdate({ quiet = false } = {}): Promise<UpdateStat
     const update = await check({ timeout: 30_000 });
     await pending?.close().catch(() => undefined);
     pending = update;
-    set(update ? { status: "available", version: update.version } : { status: "current", checkedAt: Date.now() });
+    set(update ? { status: "available", version: update.version, notes: parseNotes(update.body) } : { status: "current", checkedAt: Date.now() });
   } catch (e) {
     set(quiet ? (before.status === "available" ? before : { status: "idle" }) : { status: "error", message: describe(e) });
   }
@@ -83,10 +127,14 @@ export async function installUpdate(): Promise<void> {
   const update = pending;
   if (!update) return;
   const version = update.version;
+  const notes = parseNotes(update.body);
   let downloaded = 0;
   let total: number | undefined;
   set({ status: "installing", version, downloaded });
   try {
+    // Saved first: on Windows the installer closes the app before downloadAndInstall returns.
+    // If the install doesn't take, the next start sees the old version and drops it.
+    await setSetting(INSTALLED, { version, notes } satisfies Installed);
     // On Windows the installer takes over here and closes the app itself.
     await update.downloadAndInstall((event) => {
       if (event.event === "Started") total = event.data.contentLength ?? undefined;
@@ -97,13 +145,14 @@ export async function installUpdate(): Promise<void> {
     const { relaunch } = await import("@tauri-apps/plugin-process");
     await relaunch();
   } catch (e) {
-    set({ status: "error", message: describe(e), version });
+    set({ status: "error", message: describe(e), version, notes });
   }
 }
 
 /** Checks now and then every few hours. Returns a stop function. */
 export function startUpdateChecks(): () => void {
   if (!updatesSupported) return () => undefined;
+  void loadInstalled().catch(() => undefined);
   void checkForUpdate({ quiet: true });
   const timer = setInterval(() => void checkForUpdate({ quiet: true }), EVERY);
   return () => clearInterval(timer);

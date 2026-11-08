@@ -140,10 +140,13 @@ jobs:
           # The Mac update bundle comes out as Lactic.app.tar.gz; give it the version and arch.
           mv dist/Lactic.app.tar.gz "dist/Lactic_${VERSION}_aarch64.app.tar.gz"
           mv dist/Lactic.app.tar.gz.sig "dist/Lactic_${VERSION}_aarch64.app.tar.gz.sig"
-          node app/scripts/update-manifest.mjs dist "$VERSION" "$GITHUB_REPOSITORY" > dist/latest.json
+          # What's new, for the update card: the same notes GitHub writes for the release.
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="v$VERSION" -f target_commitish="$GITHUB_SHA" --jq .body > notes.md || : > notes.md
+          node app/scripts/update-manifest.mjs dist "$VERSION" "$GITHUB_REPOSITORY" notes.md > dist/latest.json
           cat dist/latest.json
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
       - uses: softprops/action-gh-release@v2
         if: steps.version.outputs.skip != 'true'
         with:

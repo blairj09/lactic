@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error: plain ESM script for CI, no types
-import { manifest } from "./update-manifest.mjs";
+import { manifest, whatsNew } from "./update-manifest.mjs";
 
 function release(names: string[]) {
   const dir = mkdtempSync(join(tmpdir(), "lactic-release-"));
@@ -38,6 +38,20 @@ describe("update manifest", () => {
     });
     expect(m.platforms["linux-x86_64"].url).toMatch(/\.AppImage$/);
     expect(m.platforms["linux-x86_64-deb"].url).toMatch(/\.deb$/);
+  });
+
+  it("turns GitHub's generated notes into a short list", () => {
+    const generated = [
+      "## What's Changed",
+      "* Today: an Indoors / Outside switch with one Start ride button by @blairj09 in https://github.com/blairj09/lactic/pull/29",
+      "* In-app updates: check on every start (#30) by @blairj09 in https://github.com/blairj09/lactic/pull/30",
+      "",
+      "## New Contributors",
+      "* @someone made their first contribution in https://github.com/blairj09/lactic/pull/31",
+      "",
+      "**Full Changelog**: https://github.com/blairj09/lactic/compare/v0.1.2...v0.1.3",
+    ].join("\n");
+    expect(whatsNew(generated)).toBe("- Today: an Indoors / Outside switch with one Start ride button\n- In-app updates: check on every start");
   });
 
   it("skips unsigned builds and refuses a release with none", () => {
