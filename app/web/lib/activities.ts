@@ -253,6 +253,13 @@ export async function unlinkedRides(supabase: Supabase, since: Date): Promise<Un
   return data.map((r) => ({ id: r.id, userId: r.user_id, source: r.source, startedAt: new Date(r.started_at), durationSeconds: r.duration_seconds }));
 }
 
+/** Start and length of every ride stored since `since`, from any source. */
+export async function rideTimes(supabase: Supabase, since: Date): Promise<{ startedAt: Date; durationSeconds: number }[]> {
+  const { data, error } = await supabase.from("activities").select("started_at, duration_seconds").gte("started_at", since.toISOString());
+  if (error) throw error;
+  return data.map((r) => ({ startedAt: new Date(r.started_at), durationSeconds: r.duration_seconds }));
+}
+
 /** Saves intervals.icu activity ids (ride id -> activity id) on those rides. Returns how many it linked. */
 export async function saveIntervalsLinks(supabase: Supabase, rides: UnlinkedRide[], links: Map<string, string>): Promise<number> {
   // Upsert needs the not-null columns even though only intervals_id changes.

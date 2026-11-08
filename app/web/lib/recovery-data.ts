@@ -16,6 +16,8 @@ export interface RecoveryToday {
   baselineDays: number;
   /** Last night's stages and times, when the source records them. */
   sleep: SleepDetail | null;
+  /** Where last night's numbers came from (apple_health, shortcut, intervals). */
+  source: string | null;
 }
 
 export interface SleepDetail {
@@ -56,7 +58,7 @@ export async function loadRecovery(
   const [{ data, error }, daytime] = await Promise.all([
     supabase
       .from("recovery_days")
-      .select("day, hrv_ms, hrv_kind, resting_hr, sleep_hours, sleep_deep_hours, sleep_rem_hours, sleep_core_hours, sleep_awake_hours, sleep_start, sleep_end, wrist_temp_c, respiratory_rate, sleep_segments")
+      .select("day, hrv_ms, hrv_kind, resting_hr, sleep_hours, sleep_deep_hours, sleep_rem_hours, sleep_core_hours, sleep_awake_hours, sleep_start, sleep_end, wrist_temp_c, respiratory_rate, sleep_segments, source")
       .gte("day", addDays(today, -BASELINE_DAYS))
       .lte("day", today)
       .order("day"),
@@ -91,6 +93,7 @@ export async function loadRecovery(
     score: todayInputs ? recoveryScore(todayInputs, baseline, sleepNeedHours, daytime ? priorLoad(daytime.days, today) : null) : null,
     baselineDays: Math.min(baseline.filter((b) => b.hrv !== undefined).length, MINIMUM_BASELINE_DAYS),
     sleep: row ? sleepDetail(row) : null,
+    source: row?.source ?? null,
   };
 }
 

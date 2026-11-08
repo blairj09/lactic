@@ -1,22 +1,26 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { RAMP_TEST_FACTOR } from "@/lib/engine/ftp";
+import { RAMP_TEST_FACTOR, TWENTY_MINUTE_TEST_FACTOR } from "@/lib/engine/ftp";
 import { button } from "@/components/ui";
 import { setFtp, undoFtp } from "../actions";
 
 /**
- * After a saved ramp test: the FTP it gives. Set only when you confirm, unless FTP is still setup's guess:
- * then the test is the first real number, so it's set straight away, with Undo.
+ * After a saved ramp test or 20-minute test: the FTP it gives. Set only when you confirm, unless FTP is
+ * still setup's guess: then the test is the first real number, so it's set straight away, with Undo.
  */
 export default function RampTestResult({
+  test,
   result,
   current: currentNow,
   guess: guessNow = false,
   onSet,
 }: {
-  result: { watts: number; bestMinute: number };
+  test: "ramp" | "twentyMinute";
+  /** FTP, and the best minute (ramp) or best 20 minutes it came from. */
+  result: { watts: number; best: number };
   current: number;
+  /** FTP is still setup's guess. */
   guess?: boolean;
   onSet: (watts: number) => void;
 }) {
@@ -27,20 +31,22 @@ export default function RampTestResult({
   const [answer, setAnswer] = useState<{ ok: boolean; message: string } | null>(null);
   const [applied, setApplied] = useState(false);
   const applying = useRef(false);
-  const percent = Math.round(RAMP_TEST_FACTOR * 100);
+  const percent = Math.round((test === "ramp" ? RAMP_TEST_FACTOR : TWENTY_MINUTE_TEST_FACTOR) * 100);
+  const basis = test === "ramp" ? `Ramp test: best minute ${result.best} W` : `20-minute test: ${result.best} W for 20 minutes`;
+  const method = test === "ramp" ? "rampTest" : "twentyMinute";
 
   // A guessed FTP: the test sets it (even when it matches the guess, so FTP counts as tested from here on).
   useEffect(() => {
     if (!guess || applying.current) return;
     applying.current = true;
     start(async () => {
-      const saved = await setFtp(result.watts, "rampTest");
+      const saved = await setFtp(result.watts, method);
       if (saved.ok) {
         setApplied(true);
         onSet(result.watts);
       } else setAnswer(saved);
     });
-  }, [guess, result.watts, onSet]);
+  }, [guess, result.watts, method, onSet]);
 
   if (guess) {
     if (answer) return <p className={`text-sm ${answer.ok ? "text-muted" : "text-negative"}`} role="status">{answer.message}</p>;
@@ -48,8 +54,8 @@ export default function RampTestResult({
     return (
       <div className="space-y-2" role="status">
         <p className="num text-sm">
-          Your FTP is now {result.watts} W: {percent}% of your best minute, {result.bestMinute} W. Lactic started from a guess of {current} W, and your
-          workouts now follow the real number.
+          {basis}, so your FTP is now {result.watts} W ({percent}%). Lactic started from a guess of {current} W, and your workouts now follow the real
+          number.
         </p>
         <button
           className={button.small}
@@ -72,7 +78,7 @@ export default function RampTestResult({
   if (result.watts === current) {
     return (
       <p className="num text-sm text-muted">
-        Ramp test: best minute {result.bestMinute} W, so FTP {result.watts} W ({percent}%), the same as now.
+        {basis}, so FTP {result.watts} W ({percent}%), the same as now.
       </p>
     );
   }
@@ -80,7 +86,7 @@ export default function RampTestResult({
   return (
     <div className="space-y-3">
       <p className="num text-sm">
-        Ramp test: best minute {result.bestMinute} W, so FTP {result.watts} W ({percent}%), {change > 0 ? "up" : "down"} {Math.abs(change)} W from{" "}
+        {basis}, so FTP {result.watts} W ({percent}%), {change > 0 ? "up" : "down"} {Math.abs(change)} W from{" "}
         {current} W.
       </p>
       <div className="flex flex-wrap items-center gap-2">
@@ -89,7 +95,7 @@ export default function RampTestResult({
           disabled={pending}
           onClick={() =>
             start(async () => {
-              const saved = await setFtp(result.watts, "rampTest");
+              const saved = await setFtp(result.watts, method);
               setAnswer(saved);
               if (saved.ok) onSet(result.watts);
             })

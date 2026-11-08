@@ -1,3 +1,5 @@
+import { ftpSourceLine } from "@/lib/engine/provenance";
+import { localDate } from "@/lib/engine/activity";
 import Nav from "@/components/nav";
 import { loadAthlete } from "@/lib/activities";
 import { authEnabled, PASSKEY_RP_ID, passkeysWorkOn } from "@/lib/supabase/config";
@@ -60,6 +62,7 @@ export default async function SettingsPage() {
               ))}
             </nav>
             <SettingsForm
+              ftpSource={ftpSourceLine(athlete.ftpHistory, localDate(new Date(), athlete.timezone))}
               values={{
                 ftp_watts: athlete.ftp,
                 threshold_hr: athlete.thresholdHr,
@@ -162,3 +165,4 @@ async function loadPasskeys(supabase: Awaited<ReturnType<typeof createClient>>):
     lastUsedAt: p.last_used_at ?? null,
   }));
 }
+

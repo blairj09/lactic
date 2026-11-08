@@ -7,6 +7,16 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Don't know your FTP? Tick "I don't know" in setup and your plan starts with a ramp test on your first good day. When you finish it, Lactic sets your FTP from the result (with Undo), so every workout after it fits you.
+- No smart scale? Today no longer shows a Weigh in step. It appears once you pair a scale in Settings → Bluetooth or on Health.
+- Starting over or moving on? Settings → Your data → Delete all my data removes every ride, plan, setting and saved key from this computer, after offering an export first.
+- Rides that reached intervals.icu through Strava can't come into Lactic, because Strava doesn't let intervals.icu share them. Settings → intervals.icu now says how many are missing and how to bring them in, and Import FIT files takes Strava's account archive .zip.
+- A starter workout library: 50 workouts for recovery, endurance, tempo, sweet spot, threshold, VO2 max, anaerobic and sprints, plus a ramp test and a 20-minute FTP test. Find it under Ride → Pick a workout → My workouts, or put one on any plan day.
+- Heart the workouts you like, in the library or after a ride, and find them under Favorites. When a favorite fits a key day, the plan picks it.
+- Disconnecting intervals.icu now removes its API key from your computer too. A key pasted in Settings also goes into your system keychain now, not the database.
+- Two races on one weekend? The plan now keeps both, with openers before the first, instead of turning Saturday's race into an openers ride.
+- Your week stays put. Lactic keeps the week as it was planned on Monday instead of reshuffling it as rides come in, and if your fitness has moved enough to change it by more than 15%, the Plan offers a Re-plan button rather than changing it quietly. Easier days now say why, like Recovery week or Fresh for your event.
+- Numbers now say where they came from: measured (a test or your scale), estimated by Lactic from your rides, or synced from Apple Health or intervals.icu, with the date. Look under FTP in Settings and the tiles on Health and Progress.
+- Take your data anywhere: each ride's page has Export FIT for Garmin Connect, Strava or any training app, and Settings → Your data → Export everything saves all your rides, plan, recovery, weight and coach chats in one zip. And your AI key now has a Remove button in Settings → Coach.
 - When your rides say your FTP has gone up, Today offers to use the new number, with Undo if you change your mind. And when your last FTP test is over eight weeks old, one click puts a ramp test on the next good day.
 - Each ride now gets an execution score out of 100. Rides on Lactic are checked block by block, so you can see which interval you cut short or faded in. Rides from elsewhere are scored on time and stress against the plan.
 - Using Claude or another AI app as your coach? Click the coach button in the top bar (or press ⌘K) to see that you chat with it there, whether it's connected and what to ask. The built-in coach can now let AI apps connect too, in Settings → Coach.

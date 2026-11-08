@@ -7,7 +7,7 @@ import { localDate } from "@/lib/engine/activity";
 import { ZONE_LABELS } from "@/lib/engine/library";
 import { addDays } from "@/lib/engine/pmc";
 import { signed } from "@/lib/format";
-import { BREAK_KIND_LABELS, BREAK_RIDING_LABELS, PHASE_LABELS, PLAN_GOAL_LABELS, weekStart, type Break, type PlanDay, type PlanWeek } from "@/lib/engine/plan";
+import { BREAK_KIND_LABELS, BREAK_RIDING_LABELS, PHASE_LABELS, PLAN_GOAL_LABELS, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES, weekStart, type Break, type PlanDay, type PlanWeek } from "@/lib/engine/plan";
 import { createClient } from "@/lib/supabase/server";
 import { complianceDays, loadTrainingState, plannedOn, ridesFor, type TrainingState } from "@/lib/training";
 import { DAY_MARK_LABELS, markDays, weekProgress, type DayMark, type DayResult } from "@/lib/engine/compliance";
@@ -15,7 +15,8 @@ import { templateById } from "@/lib/engine/templates";
 import type { OutdoorRide } from "@/lib/engine/outdoor";
 import { WORKOUT_DAYS } from "@/lib/intervals/calendar";
 import OutdoorToggle from "@/components/outdoor-toggle";
-import { AvailabilityForm, BreakForm, DeleteBreakButton, EndPlanButton, GoalForm, GoalList, PickWorkoutsButton, PlanForm } from "./forms";
+import { driftOffer } from "@/lib/engine/stability";
+import { AvailabilityForm, ReplanChip, BreakForm, DeleteBreakButton, EndPlanButton, GoalForm, GoalList, PickWorkoutsButton, PlanForm } from "./forms";
 import PhaseStrip from "./phase-strip";
 import EditableDay from "./day-editor";
 import EditableEvent from "./event-editor";
@@ -295,6 +296,11 @@ function WeekView({ week, state, moveTargets }: { week: PlanWeek; state: Trainin
       }
     >
       {progress && progress.planned > 0 && <WeekBar progress={progress} />}
+      {week.start === weekStart(state.today) && driftOffer(state.weekDrift) && (
+        <div className="mb-4">
+          <ReplanChip drift={state.weekDrift!} />
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-md bg-line sm:grid-cols-7">
         {week.days.map((day) => {
           const rides = day.date <= state.today ? ridesFor(state, day.date) : [];
@@ -461,6 +467,7 @@ function DayCell({
           </div>
           {structure && <div className="text-xs">{structure}</div>}
           {day.movedFrom && <div className="text-xs text-muted">{movedLine(day.movedFrom)}</div>}
+          {day.rule && <RuleLine rule={day.rule} />}
           <div className="num text-xs text-muted">
             {Math.round(day.session.duration / 60)} min · {Math.round(day.session.stress)} TSS
             {day.role === "key" && ` · L${day.session.level}`}
@@ -477,7 +484,10 @@ function DayCell({
           {outdoor && (outside || !editable) && <OutdoorToggle day={day.date} outside={Boolean(outside)} compact />}
         </>
       ) : (
-        <div className="text-muted">Rest</div>
+        <>
+          <div className="text-muted">Rest</div>
+          {day.rule && <RuleLine rule={day.rule} />}
+        </>
       )}
       {today && rides.length > 0 && (
         <div className="space-y-1 border-t border-rule pt-2">
@@ -503,6 +513,15 @@ function DayRides({ rides, day, timeZone }: { rides: TrainingState["rides"]; day
     </Link>
     );
   });
+}
+
+/** The safety rule that eased a day, with what it does on hover. */
+function RuleLine({ rule }: { rule: NonNullable<PlanDay["rule"]> }) {
+  return (
+    <div className="text-xs text-muted" title={SAFETY_RULE_NOTES[rule]}>
+      Eased: {SAFETY_RULE_LABELS[rule]}
+    </div>
+  );
 }
 
 const movedLine = (m: NonNullable<PlanDay["movedFrom"]>) => `Moved from ${formatDate(m.date, true).split(",")[0]}, which you missed${m.shortened ? "; shortened to fit" : ""}`;

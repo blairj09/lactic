@@ -33,6 +33,7 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
       plannedLabel={day === state.today ? "Today's plan" : `Plan for ${shortDay(day)}`}
       levels={state.levels}
       saved={saved}
+      favorites={state.favorites}
       today={state.today}
     />
   );

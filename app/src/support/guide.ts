@@ -19,6 +19,7 @@ export const GUIDE: Partial<Record<LogArea, string[]>> = {
     "A rate limit message means too many requests: wait about 15 minutes and sync again.",
     "Rides recorded by Zwift or a Karoo reach intervals.icu first and come to Lactic on the next sync (every 20 minutes while the app is open, or Sync now).",
     "The first connection imports two years of history in batches in the background; until it finishes, older rides are missing.",
+    "Rides that reached intervals.icu from Strava can't be read by Lactic: Strava doesn't let intervals.icu share them. Settings → intervals.icu counts them. Fix: link Garmin, Wahoo, Zwift and others (or the Karoo through the Hammerhead dashboard) to intervals.icu directly for new rides, and import Strava's account archive .zip under Import FIT files for past ones.",
     "Rides recorded in Lactic go to intervals.icu only if sending rides is on, and are skipped when Zwift or the Karoo already uploaded the same ride.",
   ],
   health: [

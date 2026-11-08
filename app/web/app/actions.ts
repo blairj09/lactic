@@ -21,6 +21,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { allowedEmail, isAllowedEmail } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { formatWeight, readUnits } from "@/lib/units";
+import { deleteSecret, placeholder, saveSecret, SECRET_INTERVALS } from "~/platform/secrets";
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string };
 
@@ -319,7 +320,14 @@ export async function connectIntervals(_: ActionResult | null, form: FormData): 
     if (!/^[A-Za-z0-9]{10,100}$/.test(apiKey)) throw new Error("That doesn't look like an intervals.icu API key");
     const supabase = await createClient();
     const athlete = await loadAthlete(supabase);
-    await intervals.connect(supabase, athlete.userId, apiKey);
+    // The key goes in the system keychain; the database only holds a placeholder for it.
+    await saveSecret(SECRET_INTERVALS, apiKey);
+    try {
+      await intervals.connect(supabase, athlete.userId, placeholder(SECRET_INTERVALS));
+    } catch (e) {
+      await deleteSecret(SECRET_INTERVALS).catch(() => {});
+      throw e;
+    }
     refresh();
     return "intervals.icu connected. Import your history to fill in your fitness.";
   });
@@ -343,9 +351,10 @@ export async function syncIntervals(mode: "new" | "history" | "reimport"): Promi
       : "";
     const sent = result.sent ? ` Sent ${result.sent} ride${result.sent === 1 ? "" : "s"} recorded here to intervals.icu.` : "";
     const linked = result.linked ? ` Linked ${result.linked} ride${result.linked === 1 ? "" : "s"} to intervals.icu.` : "";
-    const strava = result.fromStrava
-      ? ` ${result.fromStrava} ride${result.fromStrava === 1 ? "" : "s"} in the last 2 years reached intervals.icu from Strava, and its API can't share those: link Zwift and the Karoo to intervals.icu directly, or import their FIT files.`
-      : "";
+    const fromStrava = (n: number, when: string) =>
+      ` ${n} ride${n === 1 ? "" : "s"} ${when} came to intervals.icu from Strava, which doesn't let it share them, so Lactic couldn't bring ${n === 1 ? "it" : "them"} in. Settings → intervals.icu says how to fix this.`;
+    const missing = mode === "new" || connection.backfillBeforeLocal ? 0 : ((await intervals.loadConnection(supabase))?.stravaMissing?.count ?? 0);
+    const strava = result.newFromStrava ? fromStrava(result.newFromStrava, "since the last sync") : missing ? fromStrava(missing, "in the last 2 years") : "";
     return {
       ok: true,
       imported: result.imported,
@@ -380,7 +389,9 @@ export async function disconnectIntervals(): Promise<ActionResult> {
     const connection = await intervals.loadConnection(supabase);
     if (connection) await intervals.disconnect(supabase, connection);
     refresh();
-    return "intervals.icu disconnected. Rides already imported stay.";
+    // Forget the API key too, so nothing of the connection is left behind.
+    await deleteSecret(SECRET_INTERVALS);
+    return "intervals.icu disconnected and its API key removed. Rides already imported stay.";
   });
 }
 
