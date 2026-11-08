@@ -8,7 +8,7 @@ import { knownPrice, PROVIDERS, preset, type ProviderKind } from "~/ai/providers
 import { coachSetup, saveCoachSetup, SECRET_AI, type CoachMode, type CoachSetup, type ModelChoice } from "~/ai/settings";
 import { listModels, testModel, type ModelInfo } from "~/ai/test";
 import { invoke, isDesktop, openExternal } from "~/platform/native";
-import { saveSecret, secretStatus } from "~/platform/secrets";
+import { deleteSecret, saveSecret, secretStatus } from "~/platform/secrets";
 
 const MODES: { mode: CoachMode; title: string; line: string }[] = [
   { mode: "builtin", title: "Built-in coach", line: "Chat with a coach inside Lactic, on an AI model you pick. Use a cloud key, or run a free model on this computer." },
@@ -185,6 +185,17 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
               <Pill tone="positive">Saved {keySaved}</Pill>
               <button type="button" className={button.ghost} onClick={() => setup.provider && void update({ ...setup, provider: { ...setup.provider, hasKey: false } })}>
                 Replace
+              </button>
+              <button
+                type="button"
+                className={button.ghost}
+                onClick={async () => {
+                  await deleteSecret(SECRET_AI);
+                  setKeySaved(null);
+                  if (setup.provider) await update({ ...setup, provider: { ...setup.provider, hasKey: false } });
+                }}
+              >
+                Remove
               </button>
             </div>
           ) : (
