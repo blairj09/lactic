@@ -28,6 +28,7 @@ import { planAhead, recordCheckin, recordChoice } from "@/lib/coach/conversation
 import { changeableDay } from "@/lib/coach/changes";
 import { localDate } from "@/lib/engine/activity";
 import { editedSession } from "@/lib/engine/overrides";
+import { libraryWorkout, librarySession } from "@/lib/engine/workout-library";
 import { readWorkout } from "@/lib/engine/workout-edit";
 import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
 import { loadTrainingState, type CheckinRecord, type TrainingState } from "@/lib/training";
@@ -356,6 +357,19 @@ export async function saveDayWorkout(date: string, raw: unknown): Promise<Action
     const day = editableDay(state, date);
     await writeDays(supabase, state, [{ date, session: workout && editedSession(workout, day.session, state.levels) }]);
     return `${workout ? `Saved “${workout.name}”` : "Made it a rest day"}.${await pushChangedPlan(supabase)}`;
+  });
+}
+
+/** Puts a starter library workout on a day as its session (keeping its zone and level), then sends the plan to intervals.icu. */
+export async function saveDayLibrary(date: string, id: string): Promise<ActionResult> {
+  return attempt(async () => {
+    const entry = libraryWorkout(id);
+    if (!entry) throw new Error("That workout isn't in the library");
+    const supabase = await createClient();
+    const state = await loadTrainingState(supabase);
+    editableDay(state, date);
+    await writeDays(supabase, state, [{ date, session: librarySession(entry) }]);
+    return `Saved “${entry.workout.name}”.${await pushChangedPlan(supabase)}`;
   });
 }
 

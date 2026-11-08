@@ -26,6 +26,16 @@ describe("local supabase client", () => {
     expect((data as { id: string }).id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
+  it("keeps one favorite per workout and removes it", async () => {
+    const add = () => supabase.from("workout_favorites").upsert({ workout_key: "library:tempo-45" }, { onConflict: "user_id,workout_key", ignoreDuplicates: true });
+    expect((await add()).error).toBeNull();
+    expect((await add()).error).toBeNull();
+    const listed = await supabase.from("workout_favorites").select("workout_key");
+    expect(listed.data).toEqual([{ workout_key: "library:tempo-45" }]);
+    await supabase.from("workout_favorites").delete().eq("workout_key", "library:tempo-45");
+    expect((await supabase.from("workout_favorites").select("workout_key")).data).toEqual([]);
+  });
+
   it("upserts on a conflict target and keeps the row's id", async () => {
     const row = { source: "fit", external_id: "a1", name: "One", started_at: "2026-11-01T10:00:00Z", duration_seconds: 3600, power_curve: { "60": 300 }, power_histogram: [1, 2, 3] };
     const first = await supabase.from("activities").upsert([row], { onConflict: "user_id,source,external_id" }).select("id, source, external_id");

@@ -220,6 +220,18 @@ export const TABLES: Record<string, Table> = {
     },
     primaryKey: ["id"],
   },
+  /** Workouts the rider favorited: `library:<id>` for the starter library, `custom:<id>` for My workouts. */
+  workout_favorites: {
+    columns: {
+      id,
+      user_id: user,
+      workout_key: { type: "text", notNull: true },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    unique: [["user_id", "workout_key"]],
+  },
   health_days: {
     columns: {
       user_id: user,

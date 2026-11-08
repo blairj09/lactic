@@ -5,6 +5,7 @@
 import { buildSession, INTERVAL_ZONES, openers, rampTest, ZONE_LABELS, type Levels, type Session, type Zone, MAX_LEVEL, MIN_LEVEL } from "./library";
 import { addDays, fitnessSeries, type FitnessDay } from "./pmc";
 import { pickTemplate, type Focus } from "./templates";
+import { libraryFits, librarySession } from "./workout-library";
 
 export const GOAL_KINDS = ["roadRace", "criterium", "cyclocross", "mountainBike", "track", "timeTrial", "gravel", "granFondo", "hillClimb"] as const;
 export type GoalKind = (typeof GOAL_KINDS)[number];
@@ -128,11 +129,22 @@ export function phaseFocus(phase: Phase, target: Goal | null): Focus[] {
   }
 }
 
-/** A key session in `zone` with a structure that rotates week to week (`slot` spreads a week's key days). */
-function keySession(zone: Zone, level: number, seconds: number, prefer: Focus[], week: string, slot: number): Session {
-  if (zone === "endurance" || zone === "recovery") return buildSession(zone, level, seconds);
+/** How a week picks its key workouts: the structures its phase favors, and the rider's favorite library workouts. */
+interface Picking {
+  focus: Focus[];
+  favorites: readonly string[];
+}
+
+/**
+ * A key session in `zone`: one of your favorite library workouts when one fits the slot and level,
+ * else a structure that rotates week to week (`slot` spreads a week's key days). Favorites rotate the same way.
+ */
+function keySession(zone: Zone, level: number, seconds: number, prefer: Picking, week: string, slot: number): Session {
   const seed = Math.floor(daysBetween("2024-01-01", week) / 7) + slot;
-  return buildSession(zone, level, seconds, { template: pickTemplate(zone, prefer, seed).id });
+  const favorites = prefer.favorites.length ? libraryFits(zone, level, seconds, prefer.favorites) : [];
+  if (favorites.length) return librarySession(favorites[seed % favorites.length]);
+  if (zone === "endurance" || zone === "recovery") return buildSession(zone, level, seconds);
+  return buildSession(zone, level, seconds, { template: pickTemplate(zone, prefer.focus, seed).id });
 }
 
 export type Phase = "base" | "build" | "specialty" | "taper" | "test";
@@ -262,6 +274,8 @@ export interface PlanInput {
   frame?: PlanFrame | null;
   /** Scheduled time away. */
   breaks?: Break[];
+  /** Starter library workouts the rider favorited (ids): key days use one when it fits. */
+  favorites?: readonly string[];
 }
 
 export interface Plan {
@@ -306,6 +320,7 @@ const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T
 export function buildPlan(input: PlanInput): Plan {
   const { today, availability } = input;
   const rampRate = input.rampRate ?? DEFAULT_RAMP_RATE;
+  const favorites = input.favorites ?? [];
   const frame = input.frame ?? null;
   const upcoming = input.goals.filter((g) => g.date >= today).sort((a, b) => a.date.localeCompare(b.date));
   const thisWeek = weekStart(today);
@@ -349,10 +364,10 @@ export function buildPlan(input: PlanInput): Plan {
 
     const days =
       phase === "taper" && target
-        ? taperWeek(start, weekAvail, target, zones, levels, phaseFocus(phase, target))
+        ? taperWeek(start, weekAvail, target, zones, levels, { focus: phaseFocus(phase, target), favorites })
         : phase === "test"
           ? testWeek(start, weekAvail, schedule.end, levels)
-          : loadWeek(start, weekAvail, zones, levels, weekTarget, recoveryWeek, longFloor, week.easyOnly, phaseFocus(phase, target));
+          : loadWeek(start, weekAvail, zones, levels, weekTarget, recoveryWeek, longFloor, week.easyOnly, { focus: phaseFocus(phase, target), favorites });
     for (const goal of weekGoals) if (goal !== target) applyEvent(days, goal, weekAvail, levels);
     // Days outside a saved plan's dates are left open, apart from the events on them.
     for (const day of days) if ((day.date < schedule.firstDay || day.date > schedule.end) && day.role !== "event") Object.assign(day, { role: "rest", session: null });
@@ -511,7 +526,7 @@ function loadWeek(
   recoveryWeek: boolean,
   longFloorMinutes = 60,
   easyOnly: boolean[] = [],
-  prefer: Focus[] = [],
+  prefer: Picking = { focus: [], favorites: [] },
 ): PlanDay[] {
   const days = emptyWeek(start);
   let open = availability.flatMap((m, i) => (m >= MIN_SESSION_MINUTES ? [i] : []));
@@ -577,7 +592,7 @@ function pickKeyDays(candidates: number[], availability: Availability, count: nu
 }
 
 /** Event week of the A goal: one shortened key session early, openers two days out, then the event. */
-function taperWeek(start: string, availability: Availability, goal: Goal, zones: Zone[], levels: Levels, prefer: Focus[]): PlanDay[] {
+function taperWeek(start: string, availability: Availability, goal: Goal, zones: Zone[], levels: Levels, prefer: Picking): PlanDay[] {
   const days = emptyWeek(start);
   const eventIndex = daysBetween(start, goal.date);
   days[eventIndex] = { ...days[eventIndex], role: "event", goal };
