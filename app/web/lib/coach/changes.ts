@@ -6,6 +6,7 @@
 import { addDays } from "../engine/pmc";
 import { BREAK_KIND_LABELS, BREAK_KINDS, BREAK_RIDING, BREAK_RIDING_LABELS, buildPlan, describeDay, type Availability, type Break, type Plan, type PlanDay } from "../engine/plan";
 import { dayOptions, type DayOptionId } from "../engine/overrides";
+import { favoriteLibraryIds } from "../engine/workout-library";
 import { buildSession, MAX_LEVEL, MIN_LEVEL, type Session } from "../engine/library";
 import { checkTweaks, templateById, type Params } from "../engine/templates";
 import type { TrainingState } from "../training";
@@ -41,7 +42,7 @@ export type ChangeEffect =
   | { kind: "break"; break: Omit<Break, "id">; summary: string }
   | { kind: "app"; setting: AppSetting; summary: string };
 
-type State = Pick<TrainingState, "today" | "plan" | "basePlan" | "levels" | "goals" | "athlete" | "fitness" | "fatigue" | "rides" | "activePlan" | "breaks">;
+type State = Pick<TrainingState, "today" | "plan" | "basePlan" | "levels" | "goals" | "athlete" | "fitness" | "fatigue" | "rides" | "activePlan" | "breaks"> & Partial<Pick<TrainingState, "favorites">>;
 
 /** Works out a change against the current plan, or throws with a reason the coach can act on. */
 export function resolveChange(state: State, change: PlanChange): ChangeEffect {
@@ -140,6 +141,7 @@ function describeBreak(state: State, b: Omit<Break, "id">): string {
     fatigue: state.fatigue,
     levels: state.levels,
     rampRate: state.athlete.rampRate,
+    favorites: favoriteLibraryIds(state.favorites ?? []),
   });
   const peak = (plan: Plan) => {
     const day = plan.target ? plan.forecast.find((d) => d.date === plan.target!.date) : plan.forecast[plan.forecast.length - 1];
@@ -173,6 +175,7 @@ function describeSettingsChange(state: State, availability: Availability, rampRa
     fatigue: state.fatigue,
     levels: state.levels,
     rampRate,
+    favorites: favoriteLibraryIds(state.favorites ?? []),
   });
   const hours = (a: Availability) => (a.reduce((x, y) => x + y, 0) / 60).toFixed(1);
   const load = (plan: Plan) => Math.round(average(plan.weeks.slice(0, 4).map((w) => w.stress)));

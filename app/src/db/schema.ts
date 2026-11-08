@@ -309,6 +309,11 @@ export const TABLES: Record<string, Table> = {
     primaryKey: ["user_id", "day"],
     foreignKeys: { activity_id: activity("set null") },
   },
+  // Each week's plan as it stood when the week began (engine/stability.ts), so it stays put as the rides come in.
+  plan_weeks: {
+    columns: { user_id: user, week: { type: "date", notNull: true }, days: { type: "json", notNull: true, default: [] }, inputs: { type: "text" }, created_at: now, updated_at: now },
+    primaryKey: ["user_id", "week"],
+  },
   plan_snapshots: {
     columns: { user_id: user, week: { type: "date", notNull: true }, days: { type: "json", notNull: true, default: [] }, created_at: now, updated_at: now },
     primaryKey: ["user_id", "week"],

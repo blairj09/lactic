@@ -28,10 +28,10 @@ import { planAhead, recordCheckin, recordChoice } from "@/lib/coach/conversation
 import { changeableDay } from "@/lib/coach/changes";
 import { localDate } from "@/lib/engine/activity";
 import { editedSession } from "@/lib/engine/overrides";
-import { libraryWorkout, librarySession } from "@/lib/engine/workout-library";
+import { favoriteLibraryIds, libraryWorkout, librarySession } from "@/lib/engine/workout-library";
 import { readWorkout } from "@/lib/engine/workout-edit";
 import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
-import { loadTrainingState, type CheckinRecord, type TrainingState } from "@/lib/training";
+import { loadTrainingState, saveKeptWeek, type CheckinRecord, type TrainingState } from "@/lib/training";
 import { todayOptions } from "@/lib/today-options";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "../actions";
@@ -44,6 +44,18 @@ async function attempt(work: () => Promise<string>): Promise<ActionResult> {
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/** Takes this week's rebuilt plan in place of the one kept when the week began (stability.ts): the Re-plan chip. */
+export async function replanWeek(): Promise<ActionResult> {
+  return attempt(async () => {
+    const supabase = await createClient();
+    const state = await loadTrainingState(supabase);
+    if (!state.rebuiltWeek) throw new Error("Nothing to re-plan this week.");
+    await saveKeptWeek(supabase, state.athlete.userId, { week: weekStart(state.today), days: state.rebuiltWeek, inputs: state.planInputs });
+    const pushed = await pushChangedPlan(supabase);
+    return `This week is re-planned from your fitness today.${pushed}`;
+  });
 }
 
 /** Adds an event, or updates one when the form carries its id. */
@@ -182,6 +194,7 @@ export async function previewPlan(_: PlanPreview | null, form: FormData): Promis
       fatigue: state.fatigue,
       levels: state.levels,
       rampRate: state.athlete.rampRate,
+      favorites: favoriteLibraryIds(state.favorites),
     });
     const end = plan.target ? plan.forecast.find((d) => d.date === plan.target!.date) : plan.forecast.find((d) => d.date === frame.end);
     return {
