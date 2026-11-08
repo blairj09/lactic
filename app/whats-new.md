@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Rides that reached intervals.icu through Strava can't come into Lactic, because Strava doesn't let intervals.icu share them. Settings → intervals.icu now says how many are missing and how to bring them in, and Import FIT files takes Strava's account archive .zip.
+- Disconnecting intervals.icu now removes its API key from your computer too. A key pasted in Settings also goes into your system keychain now, not the database.
 - Two races on one weekend? The plan now keeps both, with openers before the first, instead of turning Saturday's race into an openers ride.
 - Your week stays put. Lactic keeps the week as it was planned on Monday instead of reshuffling it as rides come in, and if your fitness has moved enough to change it by more than 15%, the Plan offers a Re-plan button rather than changing it quietly. Easier days now say why, like Recovery week or Fresh for your event.
 - Numbers now say where they came from: measured (a test or your scale), estimated by Lactic from your rides, or synced from Apple Health or intervals.icu, with the date. Look under FTP in Settings and the tiles on Health and Progress.
