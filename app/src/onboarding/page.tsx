@@ -78,7 +78,7 @@ function Welcome({ onStart }: { onStart: () => void }) {
           <button type="button" className={`${button.primary} h-11 w-full text-base`} onClick={onStart}>
             Get started
           </button>
-          <p className="text-sm text-faint">About five minutes. Change anything later.</p>
+          <p className="text-sm text-faint">5 minutes and you'll be riding intervals.</p>
         </div>
         {isDesktop && (
           <div className="text-sm text-muted">
