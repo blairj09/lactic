@@ -130,6 +130,26 @@ describe("plan", () => {
     expect(week.days[i + 1].session?.zone).toBe("recovery");
   });
 
+  it("keeps both races on a back-to-back race weekend", () => {
+    const sat: Goal = { id: "sat", name: "Saturday crit", date: "2026-11-21", priority: "B", kind: "criterium" };
+    const sun: Goal = { id: "sun", name: "Sunday road race", date: "2026-11-22", priority: "B", kind: "roadRace" };
+    for (const goals of [[race, sat, sun], [race, sun, sat]]) {
+      const week = plan({ goals }).weeks.find((w) => w.start === "2026-11-16")!;
+      expect(week.days.find((d) => d.date === sat.date)).toMatchObject({ role: "event", goal: sat });
+      expect(week.days.find((d) => d.date === sun.date)).toMatchObject({ role: "event", goal: sun });
+    }
+  });
+
+  it("keeps a B race next to the A race in the taper week", () => {
+    for (const [aDate, bDate] of [["2027-03-20", "2027-03-21"], ["2027-03-21", "2027-03-20"]]) {
+      const a: Goal = { ...race, date: aDate };
+      const b: Goal = { id: "b", name: "Warm-up race", date: bDate, priority: "B", kind: "criterium" };
+      const week = plan({ goals: [a, b] }).weeks.find((w) => w.start === "2027-03-15")!;
+      expect(week.days.find((d) => d.date === a.date)).toMatchObject({ role: "event", goal: a });
+      expect(week.days.find((d) => d.date === b.date)).toMatchObject({ role: "event", goal: b });
+    }
+  });
+
   it("without an A event, plans a few weeks of base", () => {
     const p = plan({ goals: [] });
     expect(p.target).toBeNull();

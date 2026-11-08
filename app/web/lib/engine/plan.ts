@@ -672,8 +672,10 @@ function applyEvent(days: PlanDay[], goal: Goal, availability: Availability, lev
   const i = days.findIndex((d) => d.date === goal.date);
   if (i < 0) return;
   days[i] = { ...days[i], role: "event", goal, session: null };
+  // Back-to-back events (a race weekend) keep every race: the days around one event never replace another.
+  const isEvent = (n: number) => days[n]?.role === "event";
   const easyDay = (n: number, minutes: number, rule: SafetyRule) => {
-    if (n < 0 || n > 6) return;
+    if (n < 0 || n > 6 || isEvent(n)) return;
     days[n] =
       availability[n] >= MIN_SESSION_MINUTES
         ? { ...days[n], role: "easy", session: buildSession("recovery", 1, Math.min(availability[n], minutes) * 60), rule }
@@ -681,7 +683,7 @@ function applyEvent(days: PlanDay[], goal: Goal, availability: Availability, lev
   };
   if (goal.priority !== "C") {
     // An A event the plan isn't peaking for is treated like a B. Openers the day before, and nothing hard in the two days before that.
-    if (i - 1 >= 0)
+    if (i - 1 >= 0 && !isEvent(i - 1))
       days[i - 1] =
         availability[i - 1] >= MIN_SESSION_MINUTES
           ? { ...days[i - 1], role: "openers", session: openers(Math.min(availability[i - 1], 45) * 60), rule: "beforeEvent" }
@@ -697,6 +699,7 @@ function applyEvent(days: PlanDay[], goal: Goal, availability: Availability, lev
 function markAfterEvent(days: PlanDay[], goal: Goal, availability: Availability) {
   const i = days.findIndex((d) => d.date === goal.date);
   for (let n = i + 1; n < 7; n++) {
+    if (days[n].role === "event") continue;
     days[n] =
       availability[n] >= MIN_SESSION_MINUTES && n > i + 1
         ? { ...days[n], role: "easy", session: buildSession("recovery", 1, Math.min(availability[n], 45) * 60), rule: "afterEvent" }
