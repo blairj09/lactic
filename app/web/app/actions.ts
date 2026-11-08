@@ -21,6 +21,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { allowedEmail, isAllowedEmail } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { formatWeight, readUnits } from "@/lib/units";
+import { forgetIntervalsKey } from "~/integrations/intervals-key";
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string };
 
@@ -352,8 +353,9 @@ export async function disconnectIntervals(): Promise<ActionResult> {
     const supabase = await createClient();
     const connection = await intervals.loadConnection(supabase);
     if (connection) await intervals.disconnect(supabase, connection);
+    await forgetIntervalsKey();
     refresh();
-    return "intervals.icu disconnected. Rides already imported stay.";
+    return "intervals.icu disconnected and its API key removed from this computer. Rides already imported stay.";
   });
 }
 

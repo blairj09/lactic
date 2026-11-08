@@ -44,6 +44,7 @@ async function start(root: ReturnType<typeof createRoot>) {
     registerRoutes();
     if (isDemo) await (await import("~/demo/setup")).setupDemo();
     await applyEnv();
+    if (!isDemo) void import("~/integrations/intervals-key").then((m) => m.sweepLeftoverIntervalsKey());
     const { default: App } = await import("~/app/App");
     root.render(createElement(App));
     if (isDemo && window.parent !== window) window.parent.postMessage({ lactic: "ready" }, "*");

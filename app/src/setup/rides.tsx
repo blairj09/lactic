@@ -11,8 +11,9 @@ import { openExternal } from "~/platform/native";
 import { placeholder, saveSecret } from "~/platform/secrets";
 import { notifyChanged } from "~/integrations/background";
 import { HealthSetup } from "./health";
+import { forgetIntervalsKey, SECRET_INTERVALS } from "~/integrations/intervals-key";
 
-export const SECRET_INTERVALS = "intervals";
+export { SECRET_INTERVALS };
 
 export function useIntervalsConnected() {
   const [on, setOn] = useState<boolean | null>(null);
@@ -41,6 +42,8 @@ export function IntervalsConnect({ onConnected, heading = true }: { onConnected?
       notifyChanged("intervals");
       onConnected?.();
     } catch (e) {
+      // Don't keep a key that didn't connect.
+      await forgetIntervalsKey().catch(() => undefined);
       setError(e instanceof Error && /401|403/.test(e.message) ? "intervals.icu turned that key down. Check you copied all of it." : e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
