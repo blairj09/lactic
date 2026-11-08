@@ -51,10 +51,19 @@
         </div>
       </div>
 
+      <div class="tour" id="tour">
+      <div class="tour-sticky">
       <div class="app" id="app-window">
-        <div class="app-bar"><span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span><span class="app-live-note">Live demo with sample data<span class="more">. Click around, ask the coach, or ride with a simulated trainer.</span></span></div>
+        <div class="app-bar">
+          <span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span>
+          <span class="app-live-note">Live demo with sample data<span class="more">. Click around, ask the coach, or ride with a simulated trainer.</span></span>
+          <p class="tour-caption" id="tour-caption" aria-live="polite"></p>
+          <div class="tour-steps" id="tour-steps" aria-label="Demo screens"></div>
+          <button type="button" class="app-release" id="app-release" hidden>Done</button>
+        </div>
         <div class="app-stage">
-          <iframe class="app-live" id="app-live" title="Lactic, running with sample data" src="/demo/"></iframe>
+          <iframe class="app-live" id="app-live" title="Lactic, running with sample data" src="/demo/" tabindex="-1"></iframe>
+          <button type="button" class="app-shield" id="app-shield" aria-label="Use the live demo"><span class="app-try"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 9 5 12 1.8-5.2L21 14Z"/><path d="M7.2 2.2 8 5.1"/><path d="m5.1 8-2.9-.8"/><path d="M14 4.1 12 6"/><path d="m6 12-1.9 2"/></svg><span class="try-click">Click to try the live demo</span><span class="try-tap">Tap to try the live demo</span></span></button>
           <div class="app-loading" id="app-loading" role="status" aria-label="Loading the Lactic demo">
             <div class="boot-mark">
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="15" width="2.8" height="6" /><rect x="4.5" y="10.5" width="2.8" height="10.5" /><rect x="7" y="6.5" width="2.8" height="14.5" /><rect x="9.5" y="3" width="2.8" height="18" /><rect x="12" y="15" width="10" height="6" /></svg>
@@ -62,6 +71,8 @@
             </div>
           </div>
         </div>
+      </div>
+      </div>
       </div>
     </div>
   </section>
@@ -227,20 +238,7 @@
 </dialog>
 
 <script src="/download.js"></script>
-<script>
-  // The app window: the loader covers the demo until its page is up; from there the app shows the
-  // same loader until it has drawn.
-  (function () {
-    var frame = document.getElementById("app-live");
-    var done = function () { document.getElementById("app-loading").hidden = true; };
-    frame.addEventListener("load", done);
-    addEventListener("message", function (e) { if (e.origin === location.origin && e.data && e.data.lactic === "ready") done(); });
-    try {
-      // It may have loaded before this script ran.
-      if (frame.contentDocument && frame.contentDocument.readyState === "complete" && frame.contentWindow.location.href !== "about:blank") done();
-    } catch (e) {}
-  })();
-</script>
+<script src="/hero.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>

@@ -233,3 +233,36 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
   .app-stage { height: 540px; }
   .app-live-note .more { display: none; }
 }
+
+/* The demo doesn't take the page's scroll: a see-through shield covers it until it's clicked (hero.js). */
+.app-shield { position: absolute; inset: 0; z-index: 1; display: flex; align-items: flex-end; justify-content: center; padding: 0 16px 22px; border: 0; margin: 0; background: transparent; cursor: pointer; font: inherit; }
+.app-try { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px -8px rgba(13, 17, 23, 0.45); opacity: 0.9; transform: translateY(0); transition: opacity 0.2s, transform 0.2s, background 0.2s; }
+.app-shield:hover .app-try, .app-shield:focus-visible .app-try { opacity: 1; background: var(--accent); transform: translateY(-2px); }
+.app-shield:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.try-tap { display: none; }
+@media (hover: none) { .try-click { display: none; } .try-tap { display: inline; } }
+.app.is-active .app-shield { display: none; }
+.app.is-active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 -10px 60px -30px rgba(13, 17, 23, 0.35); }
+.app-release { margin-left: auto; flex: none; border: 1px solid #d6dbe4; background: var(--surface); color: var(--ink); font: 600 13px var(--sans); padding: 5px 12px; border-radius: 7px; cursor: pointer; }
+.app-release:hover { border-color: #b9c1ce; }
+.app-release[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .app-try { transition: none; } }
+
+/* Which screen the demo is on: a caption and a strip of steps in the title bar. */
+.tour-caption { display: none; margin: 0 0 0 10px; min-width: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tour-caption b { color: var(--ink); font-weight: 700; margin-right: 4px; }
+.tour-steps { display: flex; gap: 5px; margin-left: auto; flex: none; padding-left: 12px; }
+.tour-step { width: 22px; height: 6px; padding: 0; border: 0; border-radius: 3px; background: #dfe3ea; cursor: pointer; position: relative; }
+.tour-step::before { content: ""; position: absolute; inset: -9px -2px; }
+.tour-step:hover { background: #c3c9d4; }
+.tour-step.on { background: var(--accent); }
+.tour-step:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.app-bar .tour-steps + .app-release { margin-left: 12px; }
+@media (max-width: 560px) { .tour-steps { display: none; } }
+
+/* Big screens: the window stays in view while the page scrolls past it, one screen per stretch of scroll. */
+.tour.is-tour { --stage: min(760px, calc(100vh - 32px - 45px)); --step: max(260px, 45vh); height: calc(var(--stage) + 45px + var(--tour-steps, 5) * var(--step)); }
+.tour.is-tour .tour-sticky { position: sticky; top: 16px; }
+.tour.is-tour .app-stage { height: var(--stage); }
+.tour.is-tour .app-live-note { display: none; }
+.tour.is-tour .tour-caption { display: block; }
