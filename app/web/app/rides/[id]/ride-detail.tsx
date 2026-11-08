@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { ExperimentalTag } from "@/components/experimental-tag";
+import { experiments } from "@/lib/experiments";
 import WorkoutProfile from "@/components/workout-profile";
 import {
   button,
@@ -156,9 +158,10 @@ export default async function RideDetail({
         }
         actions={
           <>
-            {stream?.route && (
-              <Link href={`/rides/${ride.id}/race`} className={button.secondary}>
+            {stream?.route && experiments().race_report && (
+              <Link href={`/rides/${ride.id}/race`} className={`${button.secondary} gap-2`}>
                 Race report
+                <ExperimentalTag />
               </Link>
             )}
             {actions}

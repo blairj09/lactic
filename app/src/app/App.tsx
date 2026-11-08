@@ -10,6 +10,7 @@ import { setNavigator } from "~/shims/next-navigation";
 import { refreshCoachMode, useCoachMode } from "./coach-mode";
 import { getSetting } from "~/settings/store";
 import { loadFeatures } from "~/settings/features";
+import { loadExperiments } from "~/settings/experiments";
 import { startBackground } from "~/integrations/background";
 import "~/integrations/apple-health";
 import { BluetoothPicker } from "~/bluetooth/picker";
@@ -55,7 +56,7 @@ function Shell() {
   useEffect(() => {
     void refreshCoachMode();
     // What the rider tracks is read before the first screen, so nothing they turned off flashes up.
-    void loadFeatures()
+    void Promise.all([loadFeatures(), loadExperiments()])
       .catch(() => {})
       .then(() => getSetting("onboarding.done", false))
       .then(setOnboarded);
