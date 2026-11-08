@@ -13,7 +13,7 @@ import { buildSession, ZONE_LABELS, ZONES, type Session, type Zone } from "../en
 import { checkTweaks, FOCUS_LABELS, FOCUSES, templateById, TEMPLATES, type Focus, type Param, type Params, type Template } from "../engine/templates";
 import { pickFits, type WorkoutPick } from "../engine/picks";
 import { dayOptions } from "../engine/overrides";
-import { BREAK_KIND_LABELS, BREAK_RIDING_LABELS, describeDay, GOAL_KIND_LABELS, goalIntensity, goalMinutes, PHASE_LABELS, PLAN_GOAL_LABELS, type Availability, type Break, type PlanDay } from "../engine/plan";
+import { BREAK_KIND_LABELS, BREAK_RIDING_LABELS, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES, describeDay, GOAL_KIND_LABELS, goalIntensity, goalMinutes, PHASE_LABELS, PLAN_GOAL_LABELS, type Availability, type Break, type PlanDay } from "../engine/plan";
 import { addDays } from "../engine/pmc";
 import { MINIMUM_BASELINE_DAYS } from "../engine/recovery";
 import { MIN_COVERED_MINUTES } from "../engine/exertion";
@@ -744,6 +744,7 @@ function describePlanDay(day: PlanDay | undefined) {
         ...sessionInfo(day.session),
         role: day.role,
         whyThisWorkout: day.why,
+        easedBy: day.rule ? `${SAFETY_RULE_LABELS[day.rule]}: ${SAFETY_RULE_NOTES[day.rule]}` : undefined,
         movedFrom: day.movedFrom ? `${day.movedFrom.date} (missed there, moved here by the plan${day.movedFrom.shortened ? ", shortened to fit" : ""})` : undefined,
       };
 }

@@ -18,12 +18,14 @@ import CompletedRide from "./completed-ride";
 import { todayOptions } from "@/lib/today-options";
 import UseEstimateButton from "./use-estimate-button";
 import FtpBanner from "./ftp-banner";
+import ProvenanceTag from "@/components/provenance";
+import { fromRides } from "@/lib/engine/provenance";
 import { checkFtp } from "@/lib/engine/ftp-check";
 import { ChosenSession, SessionLine } from "./checkin";
 import RideSurvey from "./ride-survey";
 import Morning, { type MorningProps } from "./morning";
 import RaceDayPlan from "./race-day";
-import { GOAL_KIND_LABELS, goalMinutes } from "@/lib/engine/plan";
+import { GOAL_KIND_LABELS, goalMinutes, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES } from "@/lib/engine/plan";
 import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
 import WeekReviewCard from "./week-review";
@@ -113,7 +115,7 @@ export default function TodayView({
           />
           {/* Once today's ride is in, the card beside this is the last ride. */}
           {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} />}
-          <FtpNudge ftp={athlete.ftp} estimate={estimate} windowDays={ftpWindowDays} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} />
+          <FtpNudge ftp={athlete.ftp} estimate={estimate} windowDays={ftpWindowDays} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} today={today} />
         </section>
       </div>
     </>
@@ -250,6 +252,11 @@ function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: Tr
             Moved from {weekdayName(todayPlan.movedFrom.date)}, which you missed{todayPlan.movedFrom.shortened ? ", and shortened to fit today" : ""}.
           </p>
         )}
+        {todayPlan?.rule && (
+          <p className="text-sm text-muted">
+            Eased: {SAFETY_RULE_LABELS[todayPlan.rule].toLowerCase()}. {SAFETY_RULE_NOTES[todayPlan.rule]}
+          </p>
+        )}
         {todayPlan?.why && <p className="text-sm text-muted">Coach: {todayPlan.why}</p>}
         <WorkoutProfile workout={planned.workout} height={88} details ftp={athlete.ftp} />
         <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />
@@ -295,7 +302,7 @@ function nightValues(today: NonNullable<RecoveryToday["today"]>) {
 }
 
 /** FTP lives in Settings; Today only speaks up when there's none, or a recent estimate differs from it. */
-function FtpNudge({ ftp, estimate, windowDays, hasPowerRides }: { ftp: number | null; estimate: FtpEstimate | null; windowDays: number; hasPowerRides: boolean }) {
+function FtpNudge({ ftp, estimate, windowDays, hasPowerRides, today }: { ftp: number | null; estimate: FtpEstimate | null; windowDays: number; hasPowerRides: boolean; today: string }) {
   if (!ftp) {
     return (
       <Stat
@@ -321,6 +328,7 @@ function FtpNudge({ ftp, estimate, windowDays, hasPowerRides }: { ftp: number | 
       label="New FTP estimate"
       value={Math.round(estimate.watts)}
       unit="W"
+      source={<ProvenanceTag source={fromRides(today)} today={today} />}
       sub={
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span>

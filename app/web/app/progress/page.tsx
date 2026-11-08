@@ -43,7 +43,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
           <ProgressView
             data={data}
             initial={{ from: one(params.from), to: one(params.to), compare: one(params.compare) }}
-            fitness={fitness && <FitnessPanel fitness={fitness} />}
+            fitness={fitness && <FitnessPanel fitness={fitness} today={localDate(new Date(), athlete.timezone)} />}
             levels={state && <LevelsPanel state={state} />}
           />
           <Panel title="Rides" meta={`${counted} ride${counted === 1 ? "" : "s"}`} className="min-w-0">

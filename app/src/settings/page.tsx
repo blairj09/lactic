@@ -27,6 +27,8 @@ import { AboutSetting } from "~/updates/check-button";
 import { FeatureSetting } from "~/setup/features";
 import { features } from "@/lib/features";
 import { ScrollToSection } from "./scroll-to-section";
+import { ftpSourceLine } from "@/lib/engine/provenance";
+import { localDate } from "@/lib/engine/activity";
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
@@ -63,6 +65,7 @@ export default async function SettingsPage() {
           ))}
         </nav>
         <SettingsForm
+          ftpSource={ftpSourceLine(athlete.ftpHistory, localDate(new Date(), athlete.timezone))}
           values={{
             ftp_watts: athlete.ftp,
             threshold_hr: athlete.thresholdHr,
@@ -120,6 +123,7 @@ export default async function SettingsPage() {
                     historyDone: icu.backfillDone,
                     historyReachedBack: icu.backfillBeforeLocal ?? null,
                     uploadRides: icu.uploadRides,
+                    stravaMissing: icu.stravaMissing,
                   }}
                 />
               ) : (
@@ -134,7 +138,7 @@ export default async function SettingsPage() {
               </div>
             </Section>
           )}
-          <Section title="Import FIT files" description="From Zwift (Documents/Zwift/Activities), Garmin Connect or your bike computer. Duplicates are skipped.">
+          <Section title="Import FIT files" description="From Zwift (Documents/Zwift/Activities), Garmin Connect or your bike computer, or a whole .zip such as Strava's or Garmin's archive of your account. Duplicates are skipped.">
             <div className="sm:col-span-2">
               <FitImport />
             </div>

@@ -1,5 +1,6 @@
-// Writes a ride recorded here as a FIT activity file, so it can go to intervals.icu like any head
-// unit's file. 1 Hz records of power, heart rate and cadence, one lap and one indoor cycling session.
+// Writes a ride as a FIT activity file, so it can go to intervals.icu like any head unit's file, or
+// be exported to Garmin Connect, Strava and the rest. Records of power, heart rate and cadence (and
+// position where there's a GPS track), one lap and one cycling session.
 // No browser or Node APIs, so it runs and tests anywhere.
 
 import { FIT_SPORT_CYCLING } from "./decode";
@@ -16,12 +17,18 @@ export interface RideSamples {
   watts: number[];
   heartRate: number[];
   cadence: number[];
+  /** Seconds between samples. Default 1. */
+  stepSeconds?: number;
+  /** Indoor (the default) or a road ride outside. */
+  indoor?: boolean;
+  /** GPS points as [lat, lng, ride second]. */
+  route?: [number, number, number?][] | null;
 }
 
-const BASE = { enum: 0x00, uint8: 0x02, uint16: 0x84, uint32: 0x86, uint32z: 0x8c } as const;
+const BASE = { enum: 0x00, uint8: 0x02, uint16: 0x84, sint32: 0x85, uint32: 0x86, uint32z: 0x8c } as const;
 type BaseType = keyof typeof BASE;
-const SIZE: Record<BaseType, number> = { enum: 1, uint8: 1, uint16: 2, uint32: 4, uint32z: 4 };
-const INVALID: Record<BaseType, number> = { enum: 0xff, uint8: 0xff, uint16: 0xffff, uint32: 0xffffffff, uint32z: 0 };
+const SIZE: Record<BaseType, number> = { enum: 1, uint8: 1, uint16: 2, sint32: 4, uint32: 4, uint32z: 4 };
+const INVALID: Record<BaseType, number> = { enum: 0xff, uint8: 0xff, uint16: 0xffff, sint32: 0x7fffffff, uint32: 0xffffffff, uint32z: 0 };
 
 type FieldSpec = [num: number, type: BaseType];
 
@@ -36,6 +43,8 @@ const MESSAGES = {
     fields: [[253, "uint32"], [2, "uint32"], [7, "uint32"], [8, "uint32"], [5, "enum"], [6, "enum"], [25, "uint16"], [26, "uint16"], [0, "enum"], [1, "enum"]],
   },
   activity: { local: 5, global: 34, fields: [[253, "uint32"], [0, "uint32"], [1, "uint16"], [2, "enum"], [3, "enum"], [4, "enum"]] },
+  /** A record with a GPS position. */
+  placed: { local: 6, global: 20, fields: [[253, "uint32"], [7, "uint16"], [3, "uint8"], [4, "uint8"], [0, "sint32"], [1, "sint32"]] },
 } satisfies Record<string, { local: number; global: number; fields: FieldSpec[] }>;
 
 type Message = (typeof MESSAGES)[keyof typeof MESSAGES];
@@ -59,20 +68,33 @@ export function encodeRideFit(ride: RideSamples): Uint8Array {
   };
 
   const start = Math.round(ride.startedAt.getTime() / 1000) - FIT_EPOCH;
-  const seconds = ride.watts.length;
-  const end = start + Math.max(seconds - 1, 0);
+  const step = Math.max(1, Math.round(ride.stepSeconds ?? 1));
+  const samples = Math.max(ride.watts.length, ride.heartRate.length, ride.cadence.length);
+  const seconds = samples * step;
+  const end = start + Math.max(seconds - step, 0);
   const millis = seconds * 1000;
+  const subSport = ride.indoor === false ? 7 : SUB_SPORT_INDOOR_CYCLING; // 7 = road
+  // Each timed GPS point goes on the sample nearest its second.
+  const positions = new Map<number, [number, number]>();
+  for (const [lat, lng, second] of ride.route ?? []) {
+    if (second === undefined || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    const i = Math.round(second / step);
+    if (i >= 0 && i < samples && !positions.has(i)) positions.set(i, [semicircles(lat), semicircles(lng)]);
+  }
   const reading = (v: number | undefined, max: number) => (v !== undefined && Number.isFinite(v) && v >= 0 ? Math.min(Math.round(v), max) : null);
 
   write(MESSAGES.fileId, [4, FIT_MANUFACTURER_DEVELOPMENT, 0, 1, start]);
   write(MESSAGES.event, [start, 0, 0]); // timer start
-  for (let i = 0; i < seconds; i++) {
+  for (let i = 0; i < samples; i++) {
     const hr = reading(ride.heartRate[i], 254);
-    write(MESSAGES.record, [start + i, reading(ride.watts[i], 0xfffe), hr === 0 ? null : hr, reading(ride.cadence[i], 254)]);
+    const values = [start + i * step, reading(ride.watts[i], 0xfffe), hr === 0 ? null : hr, reading(ride.cadence[i], 254)];
+    const at = positions.get(i);
+    if (at) write(MESSAGES.placed, [...values, ...at]);
+    else write(MESSAGES.record, values);
   }
   write(MESSAGES.event, [end, 0, 4]); // timer stop all
   write(MESSAGES.lap, [end, start, millis, millis, 9, 1]);
-  write(MESSAGES.session, [end, start, millis, millis, FIT_SPORT_CYCLING, SUB_SPORT_INDOOR_CYCLING, 0, 1, 8, 1]);
+  write(MESSAGES.session, [end, start, millis, millis, FIT_SPORT_CYCLING, subSport, 0, 1, 8, 1]);
   write(MESSAGES.activity, [end, millis, 1, 0, 26, 1]);
 
   const header = [14, 0x20, 0x54, 0x08, ...[0, 8, 16, 24].map((s) => (body.length >>> s) & 0xff), ...[...".FIT"].map((c) => c.charCodeAt(0))];
@@ -82,6 +104,9 @@ export function encodeRideFit(ride: RideSamples): Uint8Array {
   file.push(fileCrc & 0xff, fileCrc >> 8);
   return Uint8Array.from(file);
 }
+
+/** Degrees to FIT's semicircles. */
+const semicircles = (degrees: number) => Math.round((degrees * 2 ** 31) / 180);
 
 const CRC_TABLE = [0x0000, 0xcc01, 0xd801, 0x1400, 0xf001, 0x3c00, 0x2800, 0xe401, 0xa001, 0x6c00, 0x7800, 0xb401, 0x5000, 0x9c01, 0x8801, 0x4400];
 

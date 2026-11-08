@@ -42,6 +42,8 @@ export interface Session {
   tweaks?: Params;
   /** Set when you edited the workout on the Plan page, so it's no longer one the engine built. */
   edited?: boolean;
+  /** The starter library workout it is (workout-library.ts), when it is one. */
+  library?: string;
 }
 
 const clampLevel = (level: number) => Math.min(Math.max(level, MIN_LEVEL), MAX_LEVEL);
