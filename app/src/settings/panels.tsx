@@ -6,6 +6,7 @@ import { scanning, simEnabled, SIM_SETTING } from "~/bluetooth/web-bluetooth";
 import { fileManagerName, invoke, isDesktop } from "~/platform/native";
 import { setSetting } from "~/settings/store";
 import { ExportEverythingButton } from "~/data/export-buttons";
+import { DeleteDataButton } from "~/data/delete-panel";
 
 export function SimulatorSwitch() {
   const [on, setOn] = useState(simEnabled());
@@ -81,6 +82,10 @@ export function DataPanel() {
         </div>
       )}
       {result && <Result ok={result.ok}>{result.message}</Result>}
+      <div className="space-y-2 border-t border-line pt-4">
+        <p className="text-muted">Starting over, or done with Lactic? Delete every ride, plan, setting and saved key from this computer.</p>
+        <DeleteDataButton />
+      </div>
     </div>
   );
 }
