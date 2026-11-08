@@ -54,6 +54,13 @@ export const remembers: Check = (t) => (t.memory.some((m) => m.op === "add") ? n
 export const forgets = (id: string): Check => (t) => (t.memory.some((m) => m.op === "remove" && m.id === id) ? null : `didn't forget ${id}`);
 export const remembersNothing: Check = (t) => (t.memory.length ? `changed memory: ${JSON.stringify(t.memory)}` : null);
 
+/** Offers to send feedback about Lactic, of this kind when given. */
+export const offersFeedback = (kind?: "problem" | "idea"): Check => (t) =>
+  !t.feedback ? "didn't offer to send feedback" : kind && t.feedback.kind !== kind ? `offered ${t.feedback.kind} feedback, not ${kind}` : null;
+
+/** Doesn't offer to send feedback. */
+export const noFeedback: Check = (t) => (t.feedback ? `offered feedback: "${t.feedback.summary}"` : null);
+
 /** The brief suggests one of these options for today. */
 export const suggestsToday = (...ids: OptionId[]): Check => (t) => (t.today && ids.includes(t.today) ? null : `suggested ${t.today ?? "nothing"} for today, not ${words(ids)}`);
 

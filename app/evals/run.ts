@@ -28,7 +28,7 @@ export async function transcribe(complete: Complete, scenario: Scenario): Promis
       if (kind === "week") return planWeek(recording, data, keyDays(data));
       return coachChat(recording, data, [...(scenario.history ?? []), { role: "user", content: scenario.message ?? "" }], "", {}, scenario.page);
     });
-    Object.assign(t, { reply: answer.message, proposals: answer.proposals, memory: answer.memory, picks: answer.picks, today: answer.today });
+    Object.assign(t, { reply: answer.message, proposals: answer.proposals, memory: answer.memory, picks: answer.picks, today: answer.today, feedback: answer.feedback });
   } catch (e) {
     t.error = e instanceof Error ? e.message : String(e);
   }

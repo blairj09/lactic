@@ -16,13 +16,15 @@ import type { OptionId } from "../engine/checkin";
 import { attachmentNames, turnsForModel, type Attachment } from "./attachments";
 import { appTools } from "./app-tools";
 import { APP_GUIDE } from "./app-guide";
-import { forFeatures, MEMORY_TOOLS, PICK_TOOLS, READ_TOOL_NAMES, runTool, status, TODAY_TOOLS, TOOLS, type CoachData, type MemoryOp } from "./tools";
+import { FEEDBACK_TOOLS, forFeatures, MEMORY_TOOLS, PICK_TOOLS, READ_TOOL_NAMES, runTool, status, TODAY_TOOLS, TOOLS, type CoachData, type FeedbackDraft, type MemoryOp } from "./tools";
 
 export interface ChatTurn {
   role: "user" | "assistant";
   content: string;
   /** Files and images the athlete sent with the message, with what was read from them. */
   attachments?: Attachment[];
+  /** A saved message's extras; `feedback` marks a reply that offered to send feedback. */
+  meta?: Record<string, unknown>;
 }
 
 export interface ChatReply {
@@ -33,6 +35,8 @@ export interface ChatReply {
   picks: WorkoutPick[];
   /** The brief's suggestion among today's options. */
   today?: OptionId;
+  /** Feedback about Lactic the coach offered to send, shown as a button under the reply. */
+  feedback?: FeedbackDraft;
 }
 
 export interface ChatHooks {
@@ -58,6 +62,7 @@ ${RULES}
 - Events are changed on the Plan page. Settings (profile, coach, gear, syncing) you can change for them with propose_app_change, which they apply with a button; see "How Lactic works" below.
 - Questions about Lactic itself (where something is, what it can do, how it looks) are yours to answer too, from "How Lactic works" below. When they ask for light or dark mode, set it with set_appearance and say it's done.
 - When the app has check_app, you can also help with the app itself: Bluetooth gear that won't connect or drops, intervals.icu or Apple Health not syncing, the coach's own setup. Call check_app first and go by what it says (the activity log and the guide included) rather than guessing. You can then try things that change no setting (test_connection, sync_now, reconnect_device, scan_for_devices) and say what you did and what happened. For a settings change use propose_app_change; the athlete applies it with a button. You never see API keys: when a key is wrong, send them to the Settings page to paste a new one. Pairing new gear happens in Settings → Bluetooth. During a ride you can only look.
+- Feedback goes straight to the people who make Lactic. When the athlete is frustrated with Lactic itself (something broken, confusing or annoying in the app) or asks for something it can't do, help first, then call suggest_feedback once with a short summary and mention the button in a few words. Only about the app: frustration with training, a ride, the weather or their legs ("I couldn't hold my intervals today") is coaching, not feedback. Don't offer it for a question the app answers, and offer it at most once in a conversation.
 - When they tell you something lasting about themselves (an injury, a preference, a constraint, how they respond to training), save it with remember, and forget facts that stop being true. Don't save numbers the app already tracks. They can see and edit what you save.
 
 ${APP_GUIDE}`;
@@ -103,7 +108,14 @@ export async function coachChat(complete: Complete, data: CoachData, history: Ch
     { role: "system", content: system(CHAT, data, summary, page) },
     ...turnsForModel(history.slice(-HISTORY_MESSAGES)).map((m) => ({ role: m.role, content: m.content })),
   ];
-  return run(complete, data, messages, [...forFeatures(TOOLS, data.features), ...MEMORY_TOOLS, ...(appTools()?.tools ?? [])], hooks);
+  // Feedback is offered once a conversation: after that the tool isn't there to call.
+  const feedback = feedbackOffered(history) ? [] : FEEDBACK_TOOLS;
+  return run(complete, data, messages, [...forFeatures(TOOLS, data.features), ...MEMORY_TOOLS, ...feedback, ...(appTools()?.tools ?? [])], hooks);
+}
+
+/** True when a reply in `history` already offered to send feedback. */
+export function feedbackOffered(history: ChatTurn[]) {
+  return history.some((m) => m.role === "assistant" && Boolean(m.meta?.feedback));
 }
 
 /** This morning's brief, from the status, the tools and the recent conversation, with any plan changes it proposes. */
@@ -206,6 +218,7 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
   const memory: MemoryOp[] = [];
   const picks: WorkoutPick[] = [];
   let today: OptionId | undefined;
+  let feedback: FeedbackDraft | undefined;
   const allowed = new Set((tools as { function: { name: string } }[]).map((t) => t.function.name));
 
   for (let turn = 0; turn < maxTurns; turn++) {
@@ -214,7 +227,7 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
     messages.push({ role: "assistant", content: reply.content ?? null, tool_calls: reply.tool_calls });
     if (!reply.tool_calls?.length) {
       const message = (reply.content ?? "").trim();
-      if (message) return { message, proposals, memory, picks, today };
+      if (message) return { message, proposals, memory, picks, today, ...(feedback ? { feedback } : {}) };
       messages.push({ role: "user", content: "Please answer in a message." });
       continue;
     }
@@ -228,11 +241,13 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
       if (result.proposal && !proposals.some((p) => JSON.stringify(p.change) === JSON.stringify(result.proposal!.change))) proposals.push(result.proposal);
       if (result.memory) memory.push(result.memory);
       if (result.today) today = result.today;
+      if (result.feedback && !feedback) feedback = result.feedback;
       if (result.pick) picks.splice(0, picks.length, ...picks.filter((p) => p.date !== result.pick!.date), result.pick);
       messages.push({ role: "tool", tool_call_id: call.id, content: result.content });
     }
   }
-  if (proposals.length) return { message: "Here's what I'd change.", proposals, memory, picks, today };
+  if (proposals.length) return { message: "Here's what I'd change.", proposals, memory, picks, today, ...(feedback ? { feedback } : {}) };
+  if (feedback) return { message: "You can send this to the Lactic team with the button below.", proposals, memory, picks, feedback };
   if (picks.length) return { message: "I've picked the workouts for the key days ahead.", proposals, memory, picks };
   throw new Error("The coach didn't finish its answer");
 }
@@ -274,6 +289,7 @@ const STATUS: Record<string, string> = {
   propose_break: "Planning around a break",
   pick_workout: "Picking a workout",
   remember: "Making a note",
+  suggest_feedback: "Writing up feedback",
   forget: "Updating notes",
 };
 

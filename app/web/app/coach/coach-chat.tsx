@@ -7,6 +7,7 @@ import type { Proposal } from "@/lib/coach/changes";
 import type { StoredMessage } from "@/lib/coach/store";
 import { applyProposal, dismissProposal } from "./actions";
 import { ProposalCard } from "./proposal-card";
+import { FeedbackCard } from "./feedback-card";
 import { streamCoach } from "./events";
 import { Prose } from "./prose";
 import { AutoTextarea } from "@/components/auto-textarea";
@@ -197,6 +198,7 @@ export default function CoachChat({
                   }}
                 />
               ))}
+              <FeedbackCard meta={m.meta} />
             </div>
           ),
         )}
