@@ -6,7 +6,7 @@
 // new version says once what changed.
 
 import { useSyncExternalStore } from "react";
-import { appInfo, isDesktop } from "~/platform/native";
+import { isDesktop } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 
 export type UpdateState =
@@ -94,7 +94,8 @@ export async function dismissInstalled() {
 async function loadInstalled() {
   const saved = await getSetting<Installed | null>(INSTALLED, null);
   if (!saved) return;
-  const { version } = await appInfo();
+  // The version the updater compares against (tauri.conf.json), not the crate's.
+  const version = await (await import("@tauri-apps/api/app")).getVersion();
   // A different version means the install didn't take; nothing to announce.
   if (version === saved.version) installed = saved;
   else await setSetting(INSTALLED, null);
