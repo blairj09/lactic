@@ -220,6 +220,18 @@ export const TABLES: Record<string, Table> = {
     },
     primaryKey: ["id"],
   },
+  /** Workouts the rider favorited: `library:<id>` for the starter library, `custom:<id>` for My workouts. */
+  workout_favorites: {
+    columns: {
+      id,
+      user_id: user,
+      workout_key: { type: "text", notNull: true },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    unique: [["user_id", "workout_key"]],
+  },
   health_days: {
     columns: {
       user_id: user,
@@ -245,6 +257,10 @@ export const TABLES: Record<string, Table> = {
       connected_at: now,
       last_synced_at: { type: "ts" },
       upload_rides: { type: "bool", default: true },
+      // Rides in the last two years that reached intervals.icu from Strava and aren't here (its API can't share them).
+      strava_missing: { type: "int" },
+      strava_missing_oldest: { type: "text" },
+      strava_missing_newest: { type: "text" },
       updated_at: now,
     },
     primaryKey: ["user_id"],

@@ -23,6 +23,22 @@ export const canImport = (a: IntervalsActivity) => isRide({ sport_type: a.type ?
 export const stravaRides = (activities: IntervalsActivity[]) => activities.filter((a) => a.source === "STRAVA" && isRide({ sport_type: a.type ?? "" })).length;
 
 /**
+ * Rides intervals.icu got from Strava that no ride stored here covers. Strava doesn't let intervals.icu
+ * share those over its API, so they're missing from fitness and the plan until the rider brings them in
+ * another way (a device linked to intervals.icu directly, or the files from Strava's archive).
+ */
+export function missingStravaRides(activities: IntervalsActivity[], stored: { startedAt: Date; durationSeconds: number }[]): IntervalsActivity[] {
+  return activities
+    .filter((a) => a.source === "STRAVA" && isRide({ sport_type: a.type ?? "" }))
+    .filter((a) => {
+      // Without a UTC start, read the local start in this computer's zone (where the rider usually is).
+      const listed = a.start_date ? a : { ...a, start_date: new Date(a.start_date_local).toISOString() };
+      return !stored.some((r) => sameRide(r, [listed]));
+    })
+    .sort((x, y) => x.start_date_local.localeCompare(y.start_date_local));
+}
+
+/**
  * The next batch walking forward from `after` (exclusive) or back from `before` (exclusive), with the
  * cursor to resume from. Local start times are fixed-format strings, so they compare as text.
  */

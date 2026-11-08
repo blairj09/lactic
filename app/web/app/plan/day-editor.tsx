@@ -8,7 +8,9 @@ import { blankWorkout } from "@/lib/engine/workout-edit";
 import type { Workout } from "@/lib/engine/workout";
 import type { ActionResult } from "../actions";
 import WorkoutEditor from "../ride/workout-editor";
-import { moveDay, resetPlanDay, saveDayWorkout } from "./actions";
+import { moveDay, resetPlanDay, saveDayLibrary, saveDayWorkout } from "./actions";
+import { LIBRARY_CATEGORY_LABELS, WORKOUT_LIBRARY, libraryWorkout } from "@/lib/engine/workout-library";
+import { formatTime } from "../ride/player";
 import Select from "@/components/select";
 import OutdoorToggle from "@/components/outdoor-toggle";
 
@@ -114,6 +116,8 @@ function DayDialog({ day, ftp, moveTargets, onClose }: { day: EditableDayInfo; f
   const [draft, setDraft] = useState<Workout | null>(day.workout);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [moveTo, setMoveTo] = useState("");
+  /** A starter library workout picked for the day; saved as itself while the draft is unedited. */
+  const [picked, setPicked] = useState("");
   // The editor starts folded so the popup leads with the workout and the coach's reason.
   const [editorOpen, setEditorOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -208,7 +212,12 @@ function DayDialog({ day, ftp, moveTargets, onClose }: { day: EditableDayInfo; f
         )}
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-rule pt-4">
-          <button type="button" className={button.primary} disabled={pending || !edited} onClick={() => run(() => saveDayWorkout(day.date, draft))}>
+          <button
+            type="button"
+            className={button.primary}
+            disabled={pending || !edited}
+            onClick={() => run(() => (picked && draft === libraryWorkout(picked)?.workout ? saveDayLibrary(day.date, picked) : saveDayWorkout(day.date, draft)))}
+          >
             {pending ? "Saving…" : draft ? "Save to this day" : "Make it a rest day"}
           </button>
           {draft && day.workout && (
@@ -216,6 +225,23 @@ function DayDialog({ day, ftp, moveTargets, onClose }: { day: EditableDayInfo; f
               Make it a rest day
             </button>
           )}
+          <Select
+            aria-label="Use a library workout"
+            value={picked}
+            onChange={(id) => {
+              const entry = libraryWorkout(id);
+              setPicked(id);
+              if (entry) setDraft(entry.workout);
+            }}
+            className={`${input} h-8 px-2`}
+          >
+            <option value="">Use a library workout…</option>
+            {WORKOUT_LIBRARY.map((w) => (
+              <option key={w.id} value={w.id}>
+                {`${LIBRARY_CATEGORY_LABELS[w.category]}: ${w.workout.name} (${formatTime(w.duration)})`}
+              </option>
+            ))}
+          </Select>
           {day.changed && (
             <button type="button" className={button.ghost} disabled={pending} onClick={() => run(() => resetPlanDay(day.date))}>
               Restore the plan&apos;s workout
