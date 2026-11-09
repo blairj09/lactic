@@ -15,6 +15,8 @@ import Select from "@/components/select";
 import OutdoorToggle from "@/components/outdoor-toggle";
 
 const DRAG_TYPE = "application/x-mycoach-day";
+/** The day being dragged, in case the web view hides custom drag types until drop. */
+let dragging: string | null = null;
 
 export interface EditableDayInfo {
   date: string;
@@ -80,11 +82,16 @@ export default function EditableDay({
           }
         }}
         onDragStart={(e) => {
+          dragging = day.date;
           e.dataTransfer.setData(DRAG_TYPE, day.date);
+          e.dataTransfer.setData("text/plain", day.date);
           e.dataTransfer.effectAllowed = "move";
         }}
+        onDragEnd={() => {
+          dragging = null;
+        }}
         onDragOver={(e) => {
-          if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
+          if (!dragging && !e.dataTransfer.types.includes(DRAG_TYPE)) return;
           e.preventDefault();
           e.dataTransfer.dropEffect = "move";
           setOver(true);
@@ -93,7 +100,9 @@ export default function EditableDay({
         onDrop={(e) => {
           e.preventDefault();
           setOver(false);
-          drop(e.dataTransfer.getData(DRAG_TYPE));
+          const from = e.dataTransfer.getData(DRAG_TYPE) || dragging;
+          dragging = null;
+          if (from) drop(from);
         }}
         title={day.workout ? "Click to edit, drag to move" : "Click to add a workout"}
         className={`${className ?? ""} cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink ${
