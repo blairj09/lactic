@@ -8,6 +8,9 @@ import { getSetting, setSetting } from "~/settings/store";
 
 type Source = "apple" | "watch" | "android";
 
+/** Step-by-step build of the Shortcut that saves Apple Health to the folder. */
+const SHORTCUT_GUIDE = "https://github.com/blairj09/lactic/blob/main/docs/apple-health-shortcut.md";
+
 interface LastImport {
   at: string;
   nights: number;
@@ -113,10 +116,11 @@ export function HealthSetup({ heading = true }: { heading?: boolean }) {
         <>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
             <li>
-              On your iPhone, install {link("https://www.healthyapps.dev", "Health Auto Export")} (or the Lactic Shortcut).
+              On your iPhone, build the free {link(SHORTCUT_GUIDE, "Lactic Shortcut")} (about 10 minutes, once), or install{" "}
+              {link("https://www.healthyapps.dev", "Health Auto Export")}.
             </li>
             <li>
-              Set it to save JSON to <span className="text-ink">{shortFolder ?? "iCloud Drive/Lactic"}</span> each morning. Lactic picks it up from there.
+              Have it save to <span className="text-ink">{shortFolder ?? "iCloud Drive/Lactic"}</span> each morning. Lactic picks it up from there.
             </li>
           </ol>
           <div className="flex flex-wrap items-center gap-3">

@@ -64,7 +64,7 @@ A daily recovery score from sleep, HRV and resting heart rate, plus sleep stages
 
 | Your device | How it gets to Lactic |
 | --- | --- |
-| **Apple Watch** | An iPhone Shortcut saves your nights to a synced folder (iCloud Drive, Dropbox, Google Drive, Nextcloud or Syncthing). Lactic picks them up. |
+| **Apple Watch** | [The Lactic Shortcut](docs/apple-health-shortcut.md) on your iPhone saves your nights to a synced folder (iCloud Drive, Dropbox, Google Drive, Nextcloud or Syncthing). Lactic picks them up. |
 | **Garmin, Oura, WHOOP** (and Polar, Coros, Suunto) | Link it to [intervals.icu](https://intervals.icu), then connect intervals.icu to Lactic. |
 | **Android** (Samsung, Pixel Watch, Fitbit) | [Health Sync](https://play.google.com/store/apps/details?id=nl.appyhapps.healthsync) sends Health Connect to intervals.icu. Lactic walks you through it. |
 | **Smart scale** | Over Bluetooth: Hume Body Pod, Xiaomi Mi scales, Renpho and other QN scales, Etekcity ESF-551, and standard Bluetooth scales (Omron, A&D, Beurer, Sanitas and others). Withings and Garmin Index come in through intervals.icu or Apple Health. Or type your weight in. |
