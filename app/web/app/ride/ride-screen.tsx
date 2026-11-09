@@ -32,6 +32,7 @@ import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type Ride
 import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
+import { isDemo } from "~/demo/flag";
 import type { TracePoint } from "./workout-chart";
 import WorkoutEditor from "./workout-editor";
 import SendToKaroo from "./send-to-karoo";
@@ -981,7 +982,11 @@ export default function RideScreen({
                         )}
                       </>
                     ) : (
-                      <p className="text-sm text-muted">The overlay needs Chrome 116 or later on a desktop.</p>
+                      <p className="text-sm text-muted">
+                        {isDemo
+                          ? "In the app, a small window with the interval, targets and what's next stays on top of whatever else you have open: Zwift, a video, a browser."
+                          : "The overlay needs Chrome 116 or later on a desktop."}
+                      </p>
                     )}
                   </section>
 

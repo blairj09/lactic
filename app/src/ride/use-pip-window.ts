@@ -63,10 +63,13 @@ function useNativePip() {
   return { supported: true, pip, open, close, needsClick: false, fullScreen };
 }
 
-/** The website demo runs in a browser on Chrome's picture-in-picture, but it stands for the desktop
- * app, so the Ride page describes the desktop overlay (which floats over full-screen apps). */
-function useDemoPip(...args: Parameters<typeof useWebPip>) {
-  return { ...useWebPip(...args), needsClick: false, fullScreen: "floats" as OverlayFullScreen };
+/** The website demo runs inside the lactic.fit page (an iframe), where Chrome refuses to open a
+ * picture-in-picture window, so the demo never asks for one: the Ride page says what the overlay
+ * does in the app instead. */
+function useDemoPip() {
+  const close = useCallback(() => {}, []);
+  const open = useCallback(async () => null, []);
+  return { supported: false, pip: null as Window | null, open, close, needsClick: false, fullScreen: "floats" as OverlayFullScreen };
 }
 
 export type { OverlayFullScreen };
