@@ -64,12 +64,26 @@ function useNativePip() {
 }
 
 /** The website demo runs inside the lactic.fit page (an iframe), where Chrome refuses to open a
- * picture-in-picture window, so the demo never asks for one: the Ride page says what the overlay
- * does in the app instead. */
+ * picture-in-picture window, so the demo draws the overlay in the page, floating over a mock riding
+ * game (see overlay-scene). It stands for the desktop app's overlay, which floats over full screen. */
 function useDemoPip() {
-  const close = useCallback(() => {}, []);
-  const open = useCallback(async () => null, []);
-  return { supported: false, pip: null as Window | null, open, close, needsClick: false, fullScreen: "floats" as OverlayFullScreen };
+  const [pip, setPip] = useState<Window | null>(null);
+  const close = useCallback(() => setPip(null), []);
+  // The scene comes down once React has taken the overlay out of its window.
+  useEffect(() => {
+    if (!pip) return;
+    return () => void import("~/demo/overlay-scene").then((m) => m.closeOverlayScene(pip));
+  }, [pip]);
+  const open = useCallback(
+    async (width: number, height: number) => {
+      const { openOverlayScene } = await import("~/demo/overlay-scene");
+      const win = await openOverlayScene(width, height, () => setPip(null));
+      setPip(win);
+      return win;
+    },
+    [],
+  );
+  return { supported: true, pip, open, close, needsClick: false, fullScreen: "floats" as OverlayFullScreen };
 }
 
 export type { OverlayFullScreen };

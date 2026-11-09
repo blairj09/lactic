@@ -68,7 +68,7 @@ export function usePipWindow() {
 }
 
 /** The PiP window starts blank, so it gets a copy of the page's styles (Tailwind included). */
-function copyStyles(target: Document) {
+export function copyStyles(target: Document) {
   for (const sheet of Array.from(document.styleSheets)) {
     try {
       const style = target.createElement("style");
