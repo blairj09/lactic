@@ -13,7 +13,7 @@
   else if (/linux|x11|cros/i.test(platform) || /Linux|X11/.test(ua)) os = "appimage";
 
   var NAMES = {
-    mac: ["Mac", "Apple silicon (M1 or later)"],
+    mac: ["Mac", "Apple silicon or Intel, macOS 11 or later"],
     windows: ["Windows", "Windows 10 or 11, 64-bit"],
     appimage: ["Linux", "AppImage, 64-bit"],
     deb: ["Linux", "Debian and Ubuntu, 64-bit"],
