@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Apple Watch riders: the Lactic Shortcut now has a step-by-step guide, linked from Sleep and recovery setup. It saves your sleep, HRV and resting heart rate from your iPhone to iCloud Drive each morning, free, with no extra app.
+
 ## 0.1.5
 
 - Lactic for Mac is now signed and checked by Apple, so it installs like any other app with no Terminal step, and it runs on Intel Macs too. Your Mac may ask once more for permission to use Lactic's saved keys; choose Always Allow and it remembers it from then on, across updates.
