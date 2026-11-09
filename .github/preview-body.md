@@ -2,7 +2,7 @@
 
 Lactic Preview installs beside Lactic as its own app (orange icon) with its own data, saved keys and Claude Desktop entry, so trying it never touches your real rides or plan. It checks this page for updates, so once it's installed every merge shows up as an update.
 
-**Mac:** open the .dmg, drag Lactic Preview to Applications, then run `xattr -cr "/Applications/Lactic Preview.app"` once. Or in Terminal, in one go:
+**Mac:** open the .dmg, drag Lactic Preview to Applications and open it (it's signed and notarized). Or in Terminal, in one go:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/blairj09/lactic/main/app/scripts/try-preview.sh | bash

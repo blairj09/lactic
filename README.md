@@ -95,7 +95,7 @@ Get the latest version from [**GitHub Releases**](https://github.com/blairj09/la
 
 | Platform | File | First launch |
 | --- | --- | --- |
-| **macOS** (Apple silicon or Intel) | `Lactic_*_universal.dmg` | Drag Lactic to Applications, then run `xattr -cr /Applications/Lactic.app` once in Terminal. |
+| **macOS** (Apple silicon or Intel) | `Lactic_*_universal.dmg` | Drag Lactic to Applications and open it (signed and notarized by Apple). |
 | **Windows** | `Lactic_*_x64-setup.exe` | SmartScreen warns about an unknown publisher: choose **More info → Run anyway**. |
 | **Linux** | `Lactic_*_amd64.AppImage` or `.deb` | `chmod +x Lactic_*.AppImage` and run it, or `sudo apt install ./Lactic_*_amd64.deb`. Bluetooth needs BlueZ; keys are stored via the Secret Service (GNOME Keyring or KWallet). |
 
