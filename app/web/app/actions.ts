@@ -136,6 +136,13 @@ export async function saveAppRide(input: {
     } catch (e) {
       console.error("Couldn't queue the ride for intervals.icu:", e);
     }
+    // Posted to Strava as a Lactic activity, when Strava is connected (an experiment for now).
+    try {
+      const strava = await import("~/integrations/strava");
+      if (ids[0]) await strava.queueStravaRide(ids[0], encodeRideFit({ startedAt: new Date(input.startedAt), ...stream, cadence }));
+    } catch (e) {
+      console.error("Couldn't queue the ride for Strava:", e);
+    }
     refresh();
     rideId = ids[0];
     return "Ride saved.";

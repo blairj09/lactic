@@ -17,6 +17,12 @@ describe("FIT encoding", () => {
     expect(fitCrc([..."123456789"].map((c) => c.charCodeAt(0)))).toBe(0xbb3d);
   });
 
+  it("names Lactic as the product", () => {
+    const bytes = encodeRideFit(ride);
+    const text = String.fromCharCode(...bytes.subarray(0, 80));
+    expect(text).toContain("Lactic\u0000");
+  });
+
   it("writes a file whose header and whole-file checksums hold", () => {
     const bytes = encodeRideFit(ride);
     expect(fitCrc(bytes.subarray(0, 14))).toBe(0);

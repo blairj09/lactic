@@ -9,7 +9,7 @@ import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { logEvent } from "~/support/log";
 
-export type Job = "intervals" | "health";
+export type Job = "intervals" | "health" | "strava";
 const EVERY_MS = 20 * 60_000;
 const jobs: Partial<Record<Job, () => Promise<{ ok: boolean; message: string } | void>>> = {};
 const listeners = new Set<(s: SyncStatus) => void>();

@@ -8,6 +8,7 @@ pub mod files;
 pub mod mcp;
 pub mod net;
 pub mod secrets;
+pub mod strava;
 pub mod window;
 
 use std::sync::{Arc, OnceLock};
@@ -118,6 +119,9 @@ pub fn run() {
             net::http_request,
             net::http_stream,
             net::http_cancel,
+            strava::strava_connect,
+            strava::strava_refresh,
+            strava::strava_disconnect,
             ble::ble_available,
             ble::ble_scan,
             ble::ble_stop_scan,

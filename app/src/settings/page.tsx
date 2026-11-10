@@ -21,6 +21,7 @@ import { CoachSetupPanel } from "~/setup/coach";
 import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
 import { DataPanel, SimulatorSwitch } from "./panels";
+import { StravaSection } from "./strava-panel";
 import { TakeTour } from "~/tour/take-tour";
 import { FeedbackSetting } from "~/feedback/dialog";
 import { AboutSetting } from "~/updates/check-button";
@@ -135,6 +136,7 @@ export default async function SettingsPage() {
               )}
             </div>
           </Section>
+          <StravaSection />
           {tracking.recovery && (
             <Section id="health" title="Sleep and recovery" description="Sleep, HRV and resting heart rate from Apple Health, or your watch or ring through intervals.icu.">
               <div className="sm:col-span-2">
