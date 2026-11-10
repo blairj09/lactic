@@ -68,9 +68,9 @@ export default function ProgressView({
         title="Progress"
         line={
           <>
-            Fitness and power over time. Drag across a chart to zoom in. Recovery and sleep are on{" "}
-            <Link href="/health" className="text-ink underline underline-offset-4">
-              Health
+            Fitness and power over time. Drag across a chart to zoom in. Every ride is on{" "}
+            <Link href="/history" className="text-ink underline underline-offset-4">
+              History
             </Link>
             .
           </>

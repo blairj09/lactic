@@ -11,14 +11,14 @@ export default async function RidePage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   return (
     <>
-      <Nav current="/progress" />
+      <Nav current="/history" />
       <Page>
         <RideDetail
           id={id}
           actions={
             <>
               <ExportRideButton id={id} />
-              <Link href="/progress" className="text-sm text-muted hover:text-ink">
+              <Link href="/history" className="text-sm text-muted hover:text-ink">
                 All rides
               </Link>
             </>

@@ -5,6 +5,7 @@ import CoachButton from "@/app/coach/coach-button";
 const LINKS = [
   { href: "/", label: "Today" },
   { href: "/plan", label: "Plan" },
+  { href: "/history", label: "History" },
   { href: "/progress", label: "Progress" },
   { href: "/health", label: "Health" },
 ];

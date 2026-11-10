@@ -33,7 +33,7 @@ export default async function RaceReportPage({ params }: { params: Promise<{ id:
   if (!experiments().race_report) {
     return (
       <>
-        <Nav current="/progress" />
+        <Nav current="/history" />
         <Page>
           <PageHeader title={ride.name ?? "Race report"} line="Race report" />
           <Notice>
@@ -63,7 +63,7 @@ export default async function RaceReportPage({ params }: { params: Promise<{ id:
 
   return (
     <>
-      <Nav current="/progress" />
+      <Nav current="/history" />
       <Page>
         <PageHeader
           title={ride.name ?? "Race report"}

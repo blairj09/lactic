@@ -37,11 +37,18 @@ export const TOUR_STEPS: TourStep[] = [
     body: "Your plan week by week, with a fitness forecast. Click a day to change it, or drag it to another day. Add events and breaks in Setup.",
   },
   {
+    id: "history",
+    route: "/history",
+    target: "history",
+    title: "History",
+    body: "Every ride on a calendar or as a list, with search and filters. Open a ride for its charts and map.",
+  },
+  {
     id: "progress",
     route: "/progress",
     target: "progress",
     title: "Progress",
-    body: "Fitness, power curve and profile over any range, and every ride. Open a ride for its charts and map.",
+    body: "Fitness, power curve and profile over any range, compared with an earlier one if you like.",
   },
   {
     id: "health",

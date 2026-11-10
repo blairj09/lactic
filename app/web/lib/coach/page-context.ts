@@ -7,7 +7,8 @@ const PAGES: Record<string, string> = {
   "/": "Today: the morning routine (recovery, weigh-in, how they feel), the morning brief with today's options, and today's session",
   "/plan": "Plan: the training plan by week, phases and the fitness forecast (Calendar tab); the plan's dates and goal, events, time available and breaks (Setup tab)",
   "/ride": "Ride: the workout player that controls the trainer",
-  "/progress": "Progress: fitness, fatigue and form, power curve, power profile and power distribution over a date range, VO2 max and fitness age now, and the list of all rides",
+  "/progress": "Progress: fitness, fatigue and form, power curve, power profile and power distribution over a date range, VO2 max and fitness age now, and progression levels",
+  "/history": "History: every ride as a month calendar or a list, with search and filters (source, indoor or outdoor, workout type)",
   "/health": "Health: last night's recovery, HRV, resting HR, sleep stages, breathing rate and wrist temperature from Apple Health, their 30-day trends, and weigh-ins on the scale with the body weight trend",
   "/settings": "Settings: FTP, heart rate, body details, the coach, and connections (intervals.icu, Bluetooth devices, the Apple Health shortcut, FIT import)",
 };

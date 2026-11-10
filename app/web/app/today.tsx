@@ -342,7 +342,7 @@ function FtpNudge({ ftp, estimate, windowDays, hasPowerRides, today }: { ftp: nu
   );
 }
 
-/** The latest ride in one line; the rest are on Progress. */
+/** The latest ride in one line; the rest are on History. */
 function LastRide({ ride, timeZone }: { ride: StoredRide | undefined; timeZone: string }) {
   if (!ride) {
     return (
@@ -368,7 +368,7 @@ function LastRide({ ride, timeZone }: { ride: StoredRide | undefined; timeZone: 
       sub={
         <>
           {ride.name ?? "Ride"} · {formatDay(ride.startedAt, timeZone)} · {formatDuration(ride.durationSeconds)}.{" "}
-          <Link href="/progress" className="text-ink underline underline-offset-4">
+          <Link href="/history" className="text-ink underline underline-offset-4">
             All rides
           </Link>
         </>
