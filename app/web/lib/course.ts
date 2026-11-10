@@ -6,6 +6,7 @@ import { decodeFit } from "./fit/decode";
 import { courseProfile, distances, elevationSamples, fillElevation, summarize, thinTrack, type CourseSummary } from "./engine/course/profile";
 import { bikeRegSearchUrl, findCourseLinks, parseBikeRegSearch, rwgpsTrack, type CourseLink, type EventHit } from "./engine/course/events";
 import { elevationUrl, forecastStale, forecastUrl, parseForecast, samplePoints, type Forecast } from "./engine/course/weather";
+import { PACKS, type Pack } from "./engine/course/pacing";
 import { packTrack, parseGpx, parseTcx, trackFromRecords, unpackTrack, type PackedTrack, type Track } from "./engine/race/track";
 import type { createClient } from "./supabase/server";
 
@@ -19,6 +20,19 @@ export interface StoredCourse {
   summary: CourseSummary;
   elevationSource: "file" | "terrain" | null;
   forecast: Forecast | null;
+  /** A finish time the rider is aiming for, seconds. */
+  targetSeconds: number | null;
+  /** How it's ridden, when the rider said. */
+  pack: Pack | null;
+}
+
+const packFrom = (v: unknown): Pack | null => (PACKS.includes(v as Pack) ? (v as Pack) : null);
+const secondsFrom = (v: unknown): number | null => (typeof v === "number" && v > 0 ? v : null);
+
+export interface CourseBrief {
+  summary: CourseSummary;
+  targetSeconds: number | null;
+  pack: Pack | null;
 }
 
 /** A course file (GPX, TCX or FIT) as a track. Times, power and heart rate don't matter for a course. */
@@ -31,14 +45,28 @@ export function courseFromFile(fileName: string, bytes: Uint8Array): Track {
   throw new Error("That isn't a GPX, TCX or FIT file");
 }
 
-/** Summaries of every event's course, by event id, for the plan. Empty when there are none (or the table isn't there yet). */
-export async function loadCourseSummaries(supabase: Supabase): Promise<Map<string, CourseSummary>> {
-  const { data, error } = await supabase.from("event_courses").select("goal_id, summary");
+/** Summaries of every event's course, with its target time and pack, by event id, for the plan. Empty when there are none (or the table isn't there yet). */
+export async function loadCourseSummaries(supabase: Supabase): Promise<Map<string, CourseBrief>> {
+  const { data, error } = await supabase.from("event_courses").select("goal_id, summary, target_seconds, pack");
   if (error) {
     console.error(error);
     return new Map();
   }
-  return new Map((data ?? []).map((r) => [r.goal_id as string, r.summary as CourseSummary]));
+  return new Map((data ?? []).map((r) => [r.goal_id as string, { summary: r.summary as CourseSummary, targetSeconds: secondsFrom(r.target_seconds), pack: packFrom(r.pack) }]));
+}
+
+/** An event's course track alone, for working out what a target time takes. */
+export async function loadCourseTrack(supabase: Supabase, goalId: string): Promise<Track | null> {
+  const { data, error } = await supabase.from("event_courses").select("track").eq("goal_id", goalId).maybeSingle();
+  if (error || !data) return null;
+  return unpackTrack(data.track as PackedTrack);
+}
+
+/** Sets an event's target finish time and how it's ridden (null clears either). */
+export async function saveCourseTarget(supabase: Supabase, goalId: string, targetSeconds: number | null, pack: Pack | null) {
+  const { data, error } = await supabase.from("event_courses").update({ target_seconds: targetSeconds, pack, updated_at: new Date().toISOString() }).eq("goal_id", goalId).select("id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("Add the event's course first: a target time needs the course to work out.");
 }
 
 export async function loadCourse(supabase: Supabase, goalId: string): Promise<StoredCourse | null> {
@@ -53,6 +81,8 @@ export async function loadCourse(supabase: Supabase, goalId: string): Promise<St
     summary: data.summary as CourseSummary,
     elevationSource: (data.elevation_source as StoredCourse["elevationSource"]) ?? null,
     forecast: (data.forecast as Forecast | null) ?? null,
+    targetSeconds: secondsFrom(data.target_seconds),
+    pack: packFrom(data.pack),
   };
 }
 

@@ -4,7 +4,8 @@
 
 import { goalMinutes, type Goal } from "../plan";
 import { fuelPlan, kitList, type FuelPlan } from "./fuel";
-import { paceCourse, type Pacing, type Rider } from "./pacing";
+import { packOf, paceCourse, type Pack, type Pacing, type Rider } from "./pacing";
+import { droppedTime, targetPlan, type DroppedTime, type TargetPlan } from "./target";
 import { STEP, rises, type CourseProfile } from "./profile";
 import { courseDemands, courseShape, type CourseShape } from "./shape";
 import { compass, forecastOpens, headwindAt, raceWeather, type Forecast, type RaceWeather } from "./weather";
@@ -33,6 +34,12 @@ export interface PreRaceReport {
   /** The event's own duration and the course's estimate, minutes, when they're far apart (over 15%). */
   durationGap: { event: number; estimate: number } | null;
   daysToGo: number;
+  /** How it's ridden, for the draft. */
+  pack: Pack;
+  /** The finish time the rider set, what it takes and whether it's in reach. */
+  target: TargetPlan | null;
+  /** For a group event: the time if dropped on the main climb. */
+  dropped: DroppedTime | null;
 }
 
 const km = (meters: number) => Math.round(meters / 100) / 10;
@@ -74,9 +81,11 @@ export interface PreRaceInput {
   forecast: Forecast | null;
   today: string;
   fmt?: CourseFormatters;
+  /** A finish time to aim for, seconds. */
+  targetSeconds?: number | null;
 }
 
-export function preRaceReport({ goal, profile, rider, forecast, today, fmt = METRIC }: PreRaceInput): PreRaceReport {
+export function preRaceReport({ goal, profile, rider, forecast, today, fmt = METRIC, targetSeconds = null }: PreRaceInput): PreRaceReport {
   const opens = forecastOpens(goal.date);
   const usable = forecast && forecast.date === goal.date && forecast.points.length ? forecast : null;
   const state: ForecastState = today > goal.date ? "past" : today < opens ? "early" : usable ? "ready" : "missing";
@@ -84,13 +93,17 @@ export function preRaceReport({ goal, profile, rider, forecast, today, fmt = MET
   // Pace once without wind to know when you'll be where, then again with the wind on each stretch.
   let pacing = paceCourse(profile, goal, rider);
   let weather: RaceWeather | null = null;
+  let headwind: ReturnType<typeof headwindAt> | undefined;
   if (usable && state === "ready") {
     weather = raceWeather(profile, pacing, usable, start);
     if (weather) {
-      pacing = paceCourse(profile, goal, rider, headwindAt(profile, usable, weather.start));
+      headwind = headwindAt(profile, usable, weather.start);
+      pacing = paceCourse(profile, goal, rider, headwind);
       weather = raceWeather(profile, pacing, usable, start);
     }
   }
+  const target = targetSeconds && targetSeconds > 0 ? targetPlan(profile, goal, rider, targetSeconds, today, { headwind }) : null;
+  const dropped = droppedTime(profile, goal, rider, pacing, { headwind });
   const descents = findDescents(profile);
   const fuel = fuelPlan(goal, profile, pacing, weather, rider.weightKg);
   const summary = { meters: profile.meters, gain: profile.gain, loss: profile.loss, type: profile.type, loop: profile.loop, hasElevation: profile.hasElevation, climbs: profile.climbs };
@@ -106,10 +119,13 @@ export function preRaceReport({ goal, profile, rider, forecast, today, fmt = MET
     forecastOpens: opens,
     fuel,
     kit: kitList(weather, profile, goal, fmt),
-    tips: tips(goal, profile, pacing, descents, weather, fmt),
+    tips: tips(goal, profile, pacing, descents, weather, fmt, dropped),
     shape,
     durationGap: Math.abs(estimate - event) / event > 0.15 ? { event, estimate } : null,
     daysToGo: daysBetween(today, goal.date),
+    pack: packOf(goal),
+    target,
+    dropped,
   };
 }
 
@@ -117,8 +133,18 @@ const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const watts = ([lo, hi]: [number, number]) => `${lo}-${hi} W`;
 
 /** Pacing advice in plain words, from the course, the pacing and the wind. */
-function tips(goal: Goal, p: CourseProfile, pacing: Pacing, descents: Descent[], weather: RaceWeather | null, fmt: CourseFormatters): string[] {
+function tips(goal: Goal, p: CourseProfile, pacing: Pacing, descents: Descent[], weather: RaceWeather | null, fmt: CourseFormatters, dropped: DroppedTime | null): string[] {
   const out: string[] = [];
+  if (pacing.pack === "bunch") {
+    out.push(
+      goal.kind === "criterium"
+        ? "In a crit the power is in the corners and the moves, not the average: stay in the top third, sit in on the straights and save matches for the finish."
+        : "In the bunch the flats cost far less than the numbers here suggest: sit in, stay near the front third, and save efforts for the climbs and the moves that matter.",
+    );
+  } else if (pacing.pack === "group") out.push("In a group, take short, steady turns on the front and sit in the rest: the draft saves about a quarter of your effort at speed.");
+  if (dropped && dropped.cost >= 120) {
+    out.push(`Staying with the group over climb ${dropped.climb} is worth about ${mins(dropped.cost)} min: dropped there, you ride the rest alone. Go into it near the front so you can slide back and still crest with them.`);
+  }
   const climbs = pacing.climbs.filter((c) => c.seconds >= 120);
   const biggest = [...climbs].sort((a, b) => b.seconds * b.grade - a.seconds * a.grade)[0];
   if (!p.hasElevation) out.push("The course file has no heights, so the profile is flat and the times assume it. Export it with elevation for climbs and pacing.");

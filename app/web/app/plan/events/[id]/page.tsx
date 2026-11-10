@@ -16,7 +16,9 @@ import { loadTrainingState, type TrainingState } from "@/lib/training";
 import { distanceIn, distanceUnit, elevationIn, elevationUnit, readUnits, type UnitSystem } from "@/lib/units";
 import CourseField from "../../course-field";
 import CourseView from "./course-view";
-import { RefreshForecast, UseCourseDuration } from "./prep-actions";
+import { RaceTargetForm, RefreshForecast, UseCourseDuration } from "./prep-actions";
+import { defaultPack, PACK_LABELS } from "@/lib/engine/course/pacing";
+import { clock } from "@/lib/engine/course/target";
 
 export const metadata = { title: "Pre-race report · Lactic" };
 export const dynamic = "force-dynamic";
@@ -101,7 +103,15 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
 
   const { forecast, error: forecastError } = await refreshForecast(supabase, stored, goal.date, state.today);
   const profile = courseProfile(stored.track);
-  const report = preRaceReport({ goal, profile, rider: { ftp: state.athlete.ftp, weightKg: state.athlete.weightKg }, forecast, today: state.today, fmt: courseFormatters(units) });
+  const report = preRaceReport({
+    goal: { ...goal, pack: stored.pack },
+    profile,
+    rider: { ftp: state.athlete.ftp, weightKg: state.athlete.weightKg },
+    forecast,
+    today: state.today,
+    fmt: courseFormatters(units),
+    targetSeconds: stored.targetSeconds,
+  });
   const { pacing, fuel } = report;
   const biggest = [...pacing.climbs].sort((a, b) => b.seconds - a.seconds)[0];
 
@@ -119,7 +129,7 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
             unit={elevationUnit(units)}
             sub={stored.elevationSource === "terrain" ? "Heights from the terrain map" : !profile.hasElevation ? "No heights in the file" : `${COURSE_TYPE_LABELS[profile.type]} course`}
           />
-          <Stat label="Your time, about" value={hm(pacing.seconds)} sub={`${Math.round(distanceIn(profile.meters, units) / (pacing.seconds / 3600))} ${distanceUnit(units)}/h${report.weather ? ", with the forecast wind" : ""}`} />
+          <Stat label="Your time, about" value={hm(pacing.seconds)} sub={`${Math.round(distanceIn(profile.meters, units) / (pacing.seconds / 3600))} ${distanceUnit(units)}/h · ${PACK_LABELS[report.pack].toLowerCase()}${report.weather ? ", forecast wind" : ""}`} />
           <Stat label="Climbs" value={pacing.climbs.length} sub={biggest ? `Longest about ${hm(biggest.seconds)}` : "None to speak of"} />
           <Stat label="Race power" value={`${pacing.flatWatts[0]}-${pacing.flatWatts[1]}`} unit="W" sub={`On the flat · ${Math.round(pacing.factor * 100)}% intensity`} />
         </StatStrip>
@@ -143,6 +153,8 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
             <UseCourseDuration goalId={goal.id} minutes={report.durationGap.estimate} label={hm(report.durationGap.estimate * 60)} />
           </div>
         )}
+
+        <TargetPanel report={report} state={state} goal={goal} units={units} target={stored.targetSeconds} pack={stored.pack} />
 
         <Panel title="The course" meta={stored.fileName ?? undefined}>
           <CourseView profile={profile} pacing={pacing} start={goal.startTime ?? null} />
@@ -352,6 +364,85 @@ function TrainingPanel({ report, state, goal }: { report: PreRaceReport; state: 
           </>
         )}
         <p className="text-xs text-muted">The coach sees the course too, so you can ask it about pacing or the climbs.</p>
+      </div>
+    </Panel>
+  );
+}
+
+function TargetPanel({ report, state, goal, units, target, pack }: { report: PreRaceReport; state: TrainingState; goal: Goal; units: UnitSystem; target: number | null; pack: string | null }) {
+  const t = report.target;
+  const fmt = courseFormatters(units);
+  const soloOnly = goal.kind === "timeTrial" || goal.kind === "hillClimb";
+  const planned = state.plan.target?.id === goal.id;
+  const climbs = t ? t.pacing.climbs.filter((c) => c.seconds >= 120).slice(0, 8) : [];
+  const gain = t ? t.neededFtp - t.ftp : 0;
+  return (
+    <Panel title="Your target" meta={report.pacing.assumedFtp ? "Assumes a typical FTP" : undefined}>
+      <div className="space-y-4 text-sm">
+        <RaceTargetForm goalId={goal.id} target={target ? clock(target) : ""} pack={pack ?? ""} usualPack={defaultPack(goal.kind)} soloOnly={soloOnly} />
+        {!t ? (
+          <p className="text-muted">Set a finish time to see the FTP it takes, whether it&apos;s in reach by race day, and the pacing that gets you there. The plan builds toward it when it&apos;s your A event.</p>
+        ) : (
+          <>
+            <p>
+              {t.status === "onTrack" ? (
+                <>
+                  <span className="font-medium">On track.</span> {clock(t.seconds)} takes an FTP of about {t.neededFtp} W and yours is {t.ftp} W, so ride the pacing below and you&apos;ll have a little in hand.
+                </>
+              ) : t.status === "stretch" ? (
+                <>
+                  <span className="font-medium">In reach.</span> {clock(t.seconds)} takes an FTP of about {t.neededFtp} W ({t.neededWkg} W/kg), {gain} W more than now. With {t.weeks} weeks of training a realistic race-day FTP is about {t.raceDayFtp} W, so it&apos;s there if training goes well.
+                  {planned ? " The plan builds toward it: key days that raise FTP say so." : goal.priority === "A" ? " Build a plan to this event and it trains toward it." : " Make it your A event and the plan trains toward it."}
+                </>
+              ) : (
+                <>
+                  <span className="font-medium">A big ask.</span> {clock(t.seconds)} takes an FTP of about {t.neededFtp} W ({t.neededWkg} W/kg), {gain} W more than now. A realistic race-day FTP in {t.weeks} weeks is about {t.raceDayFtp} W, which rides it in about {clock(t.raceDaySeconds)}. Keep {clock(t.seconds)} as a stretch, or aim for {clock(t.raceDaySeconds)}.
+                  {planned ? " The plan still builds toward it." : ""}
+                </>
+              )}
+            </p>
+            <div>
+              <p className="mb-1.5 font-medium">Pacing for {clock(t.seconds)}</p>
+              <p className="mb-2 text-muted">
+                Flat and rolling {t.pacing.flatWatts[0]}-{t.pacing.flatWatts[1]} W
+                {report.pack !== "solo" ? ` (sitting in, the ${report.pack === "bunch" ? "bunch" : "group"} carries you for less)` : ""}, descents about {t.pacing.descentWatts} W.
+              </p>
+              {climbs.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="num w-full min-w-[360px] text-sm">
+                    <thead>
+                      <tr className="border-b border-rule text-left text-xs text-muted">
+                        <th className="py-1.5 pr-3 font-normal">Climb</th>
+                        <th className="py-1.5 pr-3 font-normal">Where</th>
+                        <th className="py-1.5 pr-3 font-normal">Hold</th>
+                        <th className="py-1.5 pr-3 font-normal">Time</th>
+                        <th className="py-1.5 font-normal">At the top by</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {climbs.map((c) => (
+                        <tr key={c.n} className="border-b border-rule">
+                          <td className="py-1.5 pr-3">{c.n}</td>
+                          <td className="py-1.5 pr-3">{fmt.at(c.from)}</td>
+                          <td className="py-1.5 pr-3">
+                            {c.watts[0]}-{c.watts[1]} W
+                          </td>
+                          <td className="py-1.5 pr-3">{hm(c.seconds)}</td>
+                          <td className="py-1.5">{goal.startTime ? clockAt(goal.startTime, Math.round((c.startsAt + c.seconds) / 60)) : clock(c.startsAt + c.seconds)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+        {report.dropped && (
+          <p className="text-muted">
+            Riding {report.pack === "bunch" ? "in the bunch" : "in a group"}, you&apos;d finish in about {hm(report.pacing.seconds)}. Dropped on climb {report.dropped.climb} and riding the rest alone, about {hm(report.dropped.seconds)}: staying with them is worth {hm(report.dropped.cost)}.
+          </p>
+        )}
       </div>
     </Panel>
   );

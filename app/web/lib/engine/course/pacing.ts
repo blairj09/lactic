@@ -27,12 +27,49 @@ export function bikeSetup(kind: GoalKind): BikeSetup {
       return { cda: 0.42, crr: 0.012, bikeKg: 11, maxKmh: 35 };
     case "criterium":
     case "roadRace":
-      // Racing in a bunch: the draft takes a good share of the air off.
-      return { cda: 0.26, crr: 0.0045, bikeKg: 8, maxKmh: 70 };
+      // Low on the drops; the draft comes from how it's ridden (`Pack`).
+      return { cda: 0.3, crr: 0.0045, bikeKg: 8, maxKmh: 70 };
     default:
       return { cda: 0.32, crr: 0.0045, bikeKg: 8.5, maxKmh: 65 };
   }
 }
+
+/** How an event is ridden: alone, in a small group sharing turns, or sitting in a bunch. */
+export type Pack = "solo" | "group" | "bunch";
+
+export const PACKS: Pack[] = ["solo", "group", "bunch"];
+
+export const PACK_LABELS: Record<Pack, string> = { solo: "Solo", group: "Small group", bunch: "Bunch" };
+
+/** How most riders ride each kind of event. Time trials and hill climbs are always solo. */
+export function defaultPack(kind: GoalKind): Pack {
+  switch (kind) {
+    case "roadRace":
+    case "criterium":
+      return "bunch";
+    case "granFondo":
+    case "gravel":
+      return "group";
+    default:
+      return "solo";
+  }
+}
+
+/** The pack an event is ridden in: what the rider chose, or the kind's usual; never a draft in a time trial. */
+export function packOf(goal: Pick<Goal, "kind"> & { pack?: Pack | null }): Pack {
+  if (goal.kind === "timeTrial" || goal.kind === "hillClimb") return "solo";
+  return goal.pack ?? defaultPack(goal.kind);
+}
+
+/**
+ * Share of air drag the draft takes off at full speed: about a quarter to a third rotating in a small
+ * group (you spend some of it on the front), up to about half sitting in a bunch. Published wind
+ * tunnel and field numbers run from 25% to 50% behind one wheel and more deep in a big field.
+ */
+export const DRAFT: Record<Pack, number> = { solo: 0, group: 0.28, bunch: 0.42 };
+
+/** How much of the draft is there at speed `v` (m/s): little below about 15 km/h, all of it from about 35. */
+const draftAt = (v: number) => Math.min(1, Math.max(0, (v - 4) / 6));
 
 const G = 9.81;
 
@@ -43,12 +80,13 @@ export const airDensity = (ele: number) => 1.225 * Math.exp(-Math.max(-400, ele)
  * Steady speed, m/s, holding `watts` on `grade` (a fraction) for a rider and bike of `massKg`, into
  * a `headwind` (m/s; negative is a tailwind). Capped at the setup's fastest descending speed.
  */
-export function speedFor(watts: number, grade: number, massKg: number, setup: BikeSetup, rho: number, headwind = 0): number {
+export function speedFor(watts: number, grade: number, massKg: number, setup: BikeSetup, rho: number, headwind = 0, draft = 0): number {
   const theta = Math.atan(grade);
   const resist = massKg * G * (Math.sin(theta) + setup.crr * Math.cos(theta));
   const power = (v: number) => {
     const air = v + headwind;
-    return v * (resist + 0.5 * rho * setup.cda * air * Math.abs(air)) * (1 / 0.976);
+    const cda = setup.cda * (1 - draft * draftAt(v));
+    return v * (resist + 0.5 * rho * cda * air * Math.abs(air)) * (1 / 0.976);
   };
   let lo = 0.3;
   let hi = setup.maxKmh / 3.6;
@@ -88,9 +126,9 @@ export function climbFraction(seconds: number, hours: number, intensity: Goal["i
 }
 
 /** Seconds to ride a climb at a steady `watts`, by its average grade. */
-export function climbSeconds(climb: Pick<Climb, "from" | "to" | "grade" | "top">, watts: number, massKg: number, setup: BikeSetup): number {
+export function climbSeconds(climb: Pick<Climb, "from" | "to" | "grade" | "top">, watts: number, massKg: number, setup: BikeSetup, draft = 0): number {
   const meters = climb.to - climb.from;
-  const v = speedFor(watts, climb.grade, massKg, setup, airDensity(climb.top));
+  const v = speedFor(watts, climb.grade, massKg, setup, airDensity(climb.top), 0, draft);
   return meters / v;
 }
 
@@ -123,16 +161,33 @@ export interface Pacing {
   watts: number[];
   climbs: PacedClimb[];
   avgKmh: number;
+  /** How it was ridden, for the draft. */
+  pack: Pack;
+}
+
+export interface PaceOptions {
+  /** The wind against the rider at sample `k`, m/s, when there's a forecast. */
+  headwind?: (k: number, seconds: number) => number;
+  /** Ride solo from this many meters in (dropped from the group). */
+  soloFrom?: number;
+  /** Pace for this FTP instead of the rider's (what a target time needs). */
+  ftp?: number;
 }
 
 const band = (watts: number): [number, number] => [Math.round((watts * 0.95) / 5) * 5, Math.round(watts / 5) * 5];
 
 /**
- * Pacing and timing for a course. `headwind(k, seconds)` gives the wind against the rider at sample
- * `k`, in m/s, when there's a forecast.
+ * Pacing and timing for a course, ridden in the event's pack (`goal.pack`, or the kind's usual).
+ * `headwind(k, seconds)` gives the wind against the rider at sample `k`, in m/s, when there's a
+ * forecast; a bare function is the same as `{ headwind }`.
  */
-export function paceCourse(profile: CourseProfile, goal: Goal, rider: Rider, headwind?: (k: number, seconds: number) => number): Pacing {
-  const r = riderOf(rider);
+export function paceCourse(profile: CourseProfile, goal: Goal & { pack?: Pack | null }, rider: Rider, options: PaceOptions | PaceOptions["headwind"] = {}): Pacing {
+  const opts: PaceOptions = typeof options === "function" ? { headwind: options } : options;
+  const { headwind } = opts;
+  const base = riderOf(rider);
+  const r = opts.ftp && opts.ftp > 0 ? { ...base, ftp: opts.ftp } : base;
+  const pack = packOf(goal);
+  const soloFrom = opts.soloFrom ?? Infinity;
   const setup = bikeSetup(goal.kind);
   const mass = r.weightKg + setup.bikeKg;
   const intensity = goalIntensity(goal);
@@ -151,16 +206,18 @@ export function paceCourse(profile: CourseProfile, goal: Goal, rider: Rider, hea
     const flat = r.ftp * Math.max(0.55, factor - 0.02);
     const descent = Math.round(r.ftp * 0.4);
     const fractions = climbs.map((c) => {
-      const first = climbSeconds(c, r.ftp * factor, mass, setup);
+      const d = c.from >= soloFrom ? 0 : DRAFT[pack];
+      const first = climbSeconds(c, r.ftp * factor, mass, setup, d);
       const f = climbFraction(first, hours, intensity);
-      return climbFraction(climbSeconds(c, r.ftp * f, mass, setup), hours, intensity);
+      return climbFraction(climbSeconds(c, r.ftp * f, mass, setup, d), hours, intensity);
     });
     const at: number[] = [0];
     const watts: number[] = [];
     for (let k = 0; k < n - 1; k++) {
       const g = profile.grade[k];
       const w = climbAt[k] >= 0 ? r.ftp * fractions[climbAt[k]] : g < -0.02 ? descent : g > 0.02 ? flat * 1.05 : flat;
-      const v = speedFor(w, g, mass, setup, airDensity(profile.ele[k]), headwind ? headwind(k, at[k]) : 0);
+      const draft = k * STEP >= soloFrom ? 0 : DRAFT[pack];
+      const v = speedFor(w, g, mass, setup, airDensity(profile.ele[k]), headwind ? headwind(k, at[k]) : 0, draft);
       watts.push(Math.round(w));
       at.push(at[k] + STEP / v);
     }
@@ -186,6 +243,7 @@ export function paceCourse(profile: CourseProfile, goal: Goal, rider: Rider, hea
       watts,
       climbs: paced,
       avgKmh: Math.round((profile.meters / seconds) * 36) / 10,
+      pack,
     };
     hours = seconds / 3600;
   }

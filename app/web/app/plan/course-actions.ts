@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { courseFromFile, courseFromUrl, findEventCourse, loadCourse, refreshForecast, removeCourse, saveCourse, searchEvents } from "@/lib/course";
+import { courseFromFile, courseFromUrl, findEventCourse, loadCourse, refreshForecast, removeCourse, saveCourse, saveCourseTarget, searchEvents } from "@/lib/course";
+import { PACK_LABELS, PACKS, type Pack } from "@/lib/engine/course/pacing";
+import { clock, parseFinishTime } from "@/lib/engine/course/target";
 import type { CourseLink, EventHit } from "@/lib/engine/course/events";
 import { COURSE_TYPE_LABELS, type CourseSummary } from "@/lib/engine/course/profile";
 import { localDate } from "@/lib/engine/activity";
@@ -74,6 +76,19 @@ export async function applyCourseDuration(goalId: string, minutes: number): Prom
     const { error } = await (await createClient()).from("training_goals").update({ duration_minutes: m }).eq("id", goalId);
     if (error) throw error;
     return `Event duration set to ${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} min.`;
+  });
+}
+
+/** Sets an event's target finish time ("4:30", blank to clear) and how it's ridden ("" for the kind's usual). */
+export async function saveRaceTarget(goalId: string, target: string, pack: string): Promise<ActionResult> {
+  return attempt(async () => {
+    check(goalId);
+    const seconds = target.trim() ? parseFinishTime(target) : null;
+    if (target.trim() && seconds === null) throw new Error("Give the time as hours and minutes, like 4:30");
+    const p = PACKS.includes(pack as Pack) ? (pack as Pack) : null;
+    await saveCourseTarget(await createClient(), goalId, seconds, p);
+    const how = p ? ` Riding it: ${PACK_LABELS[p].toLowerCase()}.` : "";
+    return seconds ? `Target set: ${clock(seconds)}.${how}` : `Target cleared.${how}`;
   });
 }
 
