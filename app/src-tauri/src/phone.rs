@@ -265,13 +265,21 @@ async fn answer(app: &AppHandle, phone: &Phone, device: &str, pairing: bool, key
         return Err("Finish pairing first".into());
     }
     {
+        // The ride remote asks every second; note the time at most once a minute.
         let mut saved = phone.saved.lock().await;
-        if let Some(d) = saved.devices.iter_mut().find(|d| d.id == device) {
-            d.last_seen = Some(now_ms());
+        let now = now_ms();
+        let stale = match saved.devices.iter_mut().find(|d| d.id == device) {
+            Some(d) if d.last_seen.map_or(true, |t| now - t >= 60_000) => {
+                d.last_seen = Some(now);
+                true
+            }
+            _ => false,
+        };
+        if stale {
+            let copy = saved.clone();
+            drop(saved);
+            phone.write(&copy).await;
         }
-        let copy = saved.clone();
-        drop(saved);
-        phone.write(&copy).await;
     }
     match env.kind.as_str() {
         "sync" => {
