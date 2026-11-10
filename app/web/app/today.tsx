@@ -29,6 +29,8 @@ import { GOAL_KIND_LABELS, goalMinutes, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES } 
 import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
 import WeekReviewCard from "./week-review";
+import RaceReportPrompt from "./race-report-prompt";
+import type { RaceFollowUp } from "@/lib/engine/race/followup";
 import type { WeekReview } from "@/lib/engine/review";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
 
@@ -48,6 +50,7 @@ export default function TodayView({
   recoverySource = null,
   todayStream = null,
   intervalsConnected = false,
+  raceFollowUp = null,
 }: {
   state: TrainingState;
   /** Null when weigh-ins failed to load. */
@@ -67,6 +70,8 @@ export default function TodayView({
   todayStream?: StoredStream | null;
   /** intervals.icu is connected, so a workout can go to the bike computer. */
   intervalsConnected?: boolean;
+  /** A recent event's race, for a race report (race reports on). */
+  raceFollowUp?: (RaceFollowUp & { rideName: string | null }) | null;
 }) {
   const { athlete, rides, recovery, today, series } = state;
   const now = series[series.length - 1];
@@ -89,6 +94,8 @@ export default function TodayView({
         brief={brief}
         today={todayChoice(state, coachEnabled)}
       />
+
+      {raceFollowUp && <RaceReportPrompt followUp={raceFollowUp} />}
 
       {review && <WeekReviewCard {...review} />}
 

@@ -10,7 +10,10 @@ import { isTimed } from "@/lib/engine/race/track";
 import { buildRace, type BuiltRace } from "@/lib/race-build";
 import { formatDay } from "@/lib/format";
 import { bestCurveBefore, loadRaceData } from "@/lib/race";
+import { eventForRace, loadGlance } from "@/lib/race-glance";
+import { GOAL_KIND_LABELS } from "@/lib/engine/plan";
 import { createClient } from "@/lib/supabase/server";
+import RaceGlance from "./glance";
 import RaceReview from "./race-review";
 import RaceSetup from "./race-setup";
 import SoloReview from "./solo-review";
@@ -19,6 +22,8 @@ export const metadata = { title: "Race report · Lactic" };
 export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f-]{36}$/i;
+/** Events raced in laps, where your earlier rides can't line up as past editions. */
+const LAP_KINDS = new Set(["criterium", "cyclocross", "track"]);
 
 /**
  * A race, taken apart: your ride lined up against other riders' GPX files (and your own best lap),
@@ -48,11 +53,15 @@ export default async function RaceReportPage({ params }: { params: Promise<{ id:
     );
   }
 
+  // The comparisons every report makes on its own, and the event this race was (from the plan).
+  const [bestCurve, event] = await Promise.all([bestCurveBefore(supabase, ride.startedAt.toISOString()), eventForRace(supabase, ride, athlete).catch(() => null)]);
+  const glance = await loadGlance(supabase, ride, athlete, data, bestCurve).catch((e) => (console.error(e), null));
+
   let built: BuiltRace | null = null;
   let problem: string | null = null;
   if (data.ownTrack) {
     try {
-      built = buildRace({ ...data, ownTrack: data.ownTrack }, athlete, ride.startedAt, await bestCurveBefore(supabase, ride.startedAt.toISOString()));
+      built = buildRace({ ...data, ownTrack: data.ownTrack }, athlete, ride.startedAt, bestCurve);
     } catch (e) {
       problem = e instanceof Error ? e.message : String(e);
     }
@@ -66,7 +75,7 @@ export default async function RaceReportPage({ params }: { params: Promise<{ id:
       <Nav current="/progress" />
       <Page>
         <PageHeader
-          title={ride.name ?? "Race report"}
+          title={event?.name ?? ride.name ?? "Race report"}
           line={
             <>
               <ExperimentalTag className="mr-2 align-[2px]" />
@@ -82,6 +91,15 @@ export default async function RaceReportPage({ params }: { params: Promise<{ id:
           }
         />
         {problem && <Notice>{problem}</Notice>}
+        {glance && (
+          <RaceGlance
+            activityId={id}
+            glance={glance}
+            event={event ? `${event.name} · ${GOAL_KIND_LABELS[event.kind].toLowerCase()}, ${event.priority} race` : null}
+            solo={Boolean(solo) || (!report && Boolean(event && !LAP_KINDS.has(event.kind)))}
+            pastNames={data.rivals.filter((r) => r.past).map((r) => r.name)}
+          />
+        )}
         {report && <RaceReview activityId={id} report={report} notes={data.notes} debrief={data.debrief} coachOn={Boolean(coachModel())} />}
         {solo && <SoloReview activityId={id} report={solo} notes={data.notes} debrief={data.debrief} coachOn={Boolean(coachModel())} />}
         <div id="race-files" className="scroll-mt-20">

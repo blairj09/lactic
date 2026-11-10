@@ -17,6 +17,9 @@ import { createClient } from "@/lib/supabase/server";
 import { loadIngestToken } from "@/lib/recovery-data";
 import { loadRecoverySetup, recoverySourceInfo } from "@/lib/recovery-source";
 import TodayView, { ridesOn } from "../today";
+import { experiments } from "@/lib/experiments";
+import { loadRaceFollowUp, RACE_PROMPTS_SETTING } from "@/lib/race-glance";
+import { getSetting } from "~/settings/store";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -52,10 +55,13 @@ export default async function Today() {
   const ridden = ridesOn(state, today);
   // Past midnight between the two clocks, the date-keyed loads are redone for the state's day.
   const sameDay = briefDay === today;
-  const [brief, reviewMessage, todayStream] = await Promise.all([
+  const [brief, reviewMessage, todayStream, raceFollowUp] = await Promise.all([
     sameDay ? earlyBrief : coachEnabled ? optional(loadBrief(supabase, today)) : null,
     sameDay ? earlyReview : coachEnabled && reviewTime(today, monday) ? optional(loadReview(supabase, addDays(monday, -7))) : null,
     ridden ? optional(loadStream(supabase, ridden.main.id)) : null,
+    experiments().race_report
+      ? optional(getSetting<{ dismissed?: string[] }>(RACE_PROMPTS_SETTING, {}).then((s) => loadRaceFollowUp(supabase, state, s.dismissed ?? [])))
+      : null,
   ]);
   const thisWeek = state.plan.weeks.find((w) => w.start === monday);
   const review = reviewMessage?.meta.review
@@ -84,6 +90,7 @@ export default async function Today() {
           recoverySource={recoverySource}
           review={review}
           todayStream={todayStream}
+          raceFollowUp={raceFollowUp}
           intervalsConnected={Boolean(icu)}
           brief={
             coachEnabled
