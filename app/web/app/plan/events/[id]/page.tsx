@@ -16,8 +16,9 @@ import { loadTrainingState, type TrainingState } from "@/lib/training";
 import { distanceIn, distanceUnit, elevationIn, elevationUnit, readUnits, type UnitSystem } from "@/lib/units";
 import CourseField from "../../course-field";
 import CourseView from "./course-view";
-import { HomeElevationForm, RaceTargetForm, RefreshForecast, ScienceLink, UseCourseDuration } from "./prep-actions";
-import { defaultPack, PACK_LABELS } from "@/lib/engine/course/pacing";
+import { HomeElevationForm, MeasureDrag, RaceTargetForm, RefreshForecast, ScienceLink, UseCourseDuration } from "./prep-actions";
+import { loadRiderDrag } from "@/lib/calibration";
+import { defaultPack, PACK_LABELS, ROAD_KINDS } from "@/lib/engine/course/pacing";
 import { clock } from "@/lib/engine/course/target";
 
 export const metadata = { title: "Pre-race report · Lactic" };
@@ -102,7 +103,8 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
     );
   }
 
-  const [{ forecast, error: forecastError }, homeElevation] = await Promise.all([refreshForecast(supabase, stored, goal.date, state.today), loadHomeElevation()]);
+  const [{ forecast, error: forecastError }, homeElevation, drag] = await Promise.all([refreshForecast(supabase, stored, goal.date, state.today), loadHomeElevation(), loadRiderDrag()]);
+  const ownDrag = drag && ROAD_KINDS.includes(goal.kind) ? drag : null;
   const profile = courseProfile(stored.track);
   const report = preRaceReport({
     goal: { ...goal, pack: stored.pack },
@@ -113,6 +115,7 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
     fmt: courseFormatters(units),
     targetSeconds: stored.targetSeconds,
     homeElevation,
+    setup: ownDrag ? { cda: ownDrag.cda, crr: ownDrag.crr } : null,
   });
   const { pacing, fuel } = report;
   const biggest = [...pacing.climbs].sort((a, b) => b.seconds - a.seconds)[0];
@@ -150,6 +153,21 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
             </Link>{" "}
             for your own.
           </Notice>
+        )}
+        {ROAD_KINDS.includes(goal.kind) && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm">
+            <span>
+              {ownDrag ? (
+                <>
+                  Times use your own drag, measured from {ownDrag.rides} outdoor rides ({ownDrag.cda.toFixed(2)} m²).
+                  {ownDrag.error !== null && ` Timed from their own power, the model was within ${Math.max(1, Math.round(ownDrag.error * 100))}% on a typical ride.`}
+                </>
+              ) : (
+                "Times use a typical rider's drag. Measure yours from your recent outdoor rides with power (from intervals.icu) for a closer estimate and a narrower range."
+              )}
+            </span>
+            <MeasureDrag again={Boolean(ownDrag)} />
+          </div>
         )}
         {report.altitude && !report.altitude.known && (
           <div className="space-y-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm">

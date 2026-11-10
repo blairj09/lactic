@@ -56,6 +56,9 @@ export function defaultPack(kind: GoalKind): Pack {
 }
 
 /** The pack an event is ridden in: what the rider chose, or the kind's usual; never a draft in a time trial. */
+/** Events ridden on a road bike, where drag measured on the rider's road rides applies. */
+export const ROAD_KINDS: GoalKind[] = ["roadRace", "criterium", "granFondo", "hillClimb"];
+
 export function packOf(goal: Pick<Goal, "kind"> & { pack?: Pack | null }): Pack {
   if (goal.kind === "timeTrial" || goal.kind === "hillClimb") return "solo";
   return goal.pack ?? defaultPack(goal.kind);
@@ -206,13 +209,14 @@ export interface Pacing {
 }
 
 /**
- * How far the estimate could be off, as the ends of a range: drag ±8% and rolling resistance ±15%
- * for a rider whose own haven't been measured (±3% and ±8% once they have), FTP on the day ±3%, and
+ * How far the estimate could be off, as the ends of a range: drag ±8% for a rider whose own hasn't
+ * been measured (±4% once it has), rolling resistance ±15%, FTP on the day ±3%, and
  * the draft ±0.08 in a group and ±0.15 in a bunch, where who you ride with matters more than any model.
  */
 export function spreadFor(pack: Pack, measured: boolean): { slow: NonNullable<PaceOptions["spread"]>; fast: NonNullable<PaceOptions["spread"]> } {
-  const cda = measured ? 0.03 : 0.08;
-  const crr = measured ? 0.08 : 0.15;
+  // Measured drag still carries rolling resistance's uncertainty: one ride can't tell them apart.
+  const cda = measured ? 0.04 : 0.08;
+  const crr = 0.15;
   const draft = pack === "bunch" ? 0.15 : pack === "group" ? 0.08 : 0;
   return { slow: { cda: 1 + cda, crr: 1 + crr, draft: -draft, ftp: 0.97 }, fast: { cda: 1 - cda, crr: 1 - crr, draft, ftp: 1.03 } };
 }

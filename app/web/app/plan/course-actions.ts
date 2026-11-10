@@ -10,6 +10,7 @@ import { localDate } from "@/lib/engine/activity";
 import { loadAthlete } from "@/lib/activities";
 import { loadGoals } from "@/lib/training";
 import { createClient } from "@/lib/supabase/server";
+import { measureRiderDrag } from "@/lib/calibration";
 import type { ActionResult } from "../actions";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -98,6 +99,17 @@ export async function setHomeElevation(meters: number): Promise<ActionResult> {
     if (!(Number.isFinite(meters) && meters >= -450 && meters <= 5500)) throw new Error("That elevation doesn't look right");
     await saveHomeElevation(meters);
     return "Saved. Times and watts now allow for the altitude.";
+  });
+}
+
+/** Measures the rider's own drag from their recent outdoor rides on intervals.icu. */
+export async function measureDrag(): Promise<ActionResult> {
+  return attempt(async () => {
+    const supabase = await createClient();
+    const athlete = await loadAthlete(supabase);
+    const d = await measureRiderDrag(supabase, athlete.weightKg);
+    const check = d.error !== null ? ` Timed from their own power, the model was within ${Math.max(1, Math.round(d.error * 100))}% on a typical ride.` : "";
+    return `Measured from ${d.rides} outdoor rides: drag area ${d.cda.toFixed(2)} m².${check}`;
   });
 }
 

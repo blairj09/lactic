@@ -79,7 +79,8 @@
     <p>The physics of riding a bike is well understood. With a rider's real drag and rolling resistance, a power model predicted measured road power with an error of 2.7 W (R² 0.97).<sup><a href="#r-martin">1</a></sup> What makes a prediction miss is usually the inputs, not the physics: your drag area, your tyres and the road, your form on the day, the wind, and who you ride with.</p>
     <p>So the pre-race report gives a most likely time and a likely range. The range comes from re-running the model with each uncertain input at the slow and the fast end:</p>
     <ul>
-      <li>Drag area ±8% and rolling resistance ±15% while Lactic uses typical values for your kind of bike.</li>
+      <li>Drag area ±8% while Lactic uses a typical value for your kind of bike, or ±4% once it has measured yours.</li>
+      <li>Rolling resistance ±15%.</li>
       <li>Your power on the day ±3%.</li>
       <li>The draft ±8 points in a small group and ±15 in a bunch.</li>
     </ul>
@@ -109,6 +110,16 @@
       </table>
     </div>
     <p>Descending speed is capped by corners and brakes, not physics: 70 km/h on a road bike, 50 on gravel and 35 off-road.</p>
+
+    <h3>Measuring your own drag</h3>
+    <p>Drag area is the input that varies most between riders. Position, size and clothing can move it by a third. So Lactic can measure yours from your recent outdoor rides with power, using their files from intervals.icu.</p>
+    <p>Each ride is cut into 30-second blocks. In each block, the energy you put through the pedals has to equal the energy that went into climbing, speeding up, rolling resistance and the air. With rolling resistance at a typical value, every block gives one estimate of your drag. This is the energy-balance form of Chung's "virtual elevation" method.<sup><a href="#r-chung">19</a></sup></p>
+    <ul>
+      <li><strong>Which blocks count:</strong> steady pedaling only. Descents, corners, stops and steep ramps are left out, because brakes and slow speeds make the estimate unreliable.</li>
+      <li><strong>Per ride:</strong> the median over the blocks, which shrugs off gusts and GPS jitter.</li>
+      <li><strong>Across rides:</strong> group rides read low because of the draft, so Lactic takes the median of your higher-reading rides.</li>
+    </ul>
+    <p>Lactic then checks itself. It times each ride from that ride's own power, using the drag measured from your other rides, and tells you how close it came.</p>
 
     <h2 id="draft">Riding in a group</h2>
     <p>Behind a single wheel, the following rider's drag drops by about 25% to 50%, depending on the gap and position.<sup><a href="#r-kyle">2</a>,<a href="#r-blocken13">3</a></sup> Deep inside a large peloton it drops by 90% or more.<sup><a href="#r-blocken18">4</a></sup> Real racing is messier: you move up, close gaps, take the wind on corners and in crosswinds, and spend time near the front.</p>
@@ -177,6 +188,7 @@
       <li id="r-sawka">Sawka MN, Burke LM, Eichner ER, Maughan RJ, Montain SJ, Stachenfeld NS. American College of Sports Medicine position stand: exercise and fluid replacement. <i>Med Sci Sports Exerc</i>. 2007;39(2):377–390.</li>
       <li id="r-almquist">Almquist NW, Eriksen HB, Wilhelmsen M, et al. No differences between 12 weeks of block- vs. traditional-periodized training in performance adaptations in trained cyclists. <i>Front Physiol</i>. 2022;13:837634.</li>
       <li id="r-bosquet">Bosquet L, Montpetit J, Arvisais D, Mujika I. Effects of tapering on performance: a meta-analysis. <i>Med Sci Sports Exerc</i>. 2007;39(8):1358–1365.</li>
+      <li id="r-chung">Chung R. Estimating CdA with a power meter. 2012. Also: Debraux P, Grappe F, Manolova AV, Bertucci W. Aerodynamic drag in cycling: methods of assessment. <i>Sports Biomech</i>. 2011;10(3):197–218.</li>
     </ol>
     <p>Spotted something we've got wrong, or a better study? <a href="https://github.com/blairj09/lactic/issues">Tell us on GitHub</a>. All of the models are open source, in <a href="https://github.com/blairj09/lactic/tree/main/app/web/lib/engine/course">app/web/lib/engine/course</a>.</p>
   </article>

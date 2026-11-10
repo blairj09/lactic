@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Result, button, input } from "@/components/ui";
 import type { ActionResult } from "../../../actions";
-import { updateForecast, applyCourseDuration, saveRaceTarget, setHomeElevation } from "../../course-actions";
+import { updateForecast, applyCourseDuration, saveRaceTarget, setHomeElevation, measureDrag } from "../../course-actions";
 import { openExternal } from "~/platform/native";
 
 function useRun() {
@@ -120,5 +120,18 @@ export function ScienceLink() {
     <button type="button" className="text-xs text-muted underline-offset-4 hover:text-ink hover:underline" onClick={() => void openExternal("https://lactic.fit/science")}>
       How these numbers are worked out
     </button>
+  );
+}
+
+/** Measures the rider's drag from their outdoor rides (it downloads a few files, so it takes a moment). */
+export function MeasureDrag({ again }: { again: boolean }) {
+  const { pending, result, run } = useRun();
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <button type="button" className={button.secondary} disabled={pending} onClick={() => run(() => measureDrag())}>
+        {pending ? "Reading your rides…" : again ? "Measure again" : "Measure from my rides"}
+      </button>
+      {result && <Result ok={result.ok}>{result.message}</Result>}
+    </span>
   );
 }
