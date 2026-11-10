@@ -2,7 +2,7 @@ name: iPhone app
 
 # Lactic for iPhone: the same app (app/), built for iOS. The Xcode project is generated fresh on
 # each run (tauri ios init) and given the app's entitlements (Apple Health) from
-# app/src-tauri/ios/Lactic.entitlements, and the widgets extension (app/src-tauri/ios/widgets).
+# app/src-tauri/ios/Lactic.entitlements, the widgets (app/src-tauri/ios/widgets) and the Watch app (app/src-tauri/ios/watch).
 #
 # Every run builds the Rust core and the Swift plugins for the simulator, which checks they
 # compile for iOS. With the App Store Connect key (APPLE_API_KEY, APPLE_API_ISSUER and
@@ -58,11 +58,14 @@ jobs:
           # What tauri ios build sets from bundle.iOS.minimumSystemVersion.
           IPHONEOS_DEPLOYMENT_TARGET: "16.0"
 
-      - name: The widgets compile
-        # The home and lock screen widgets (an app extension the TestFlight job adds to the project).
+      - name: The widgets and the Watch app compile
+        # The iPhone widgets and the Watch app with its widgets (targets the TestFlight job adds to the project).
         run: |
-          sdk=$(xcrun --sdk iphonesimulator --show-sdk-path)
-          swiftc -typecheck -parse-as-library -sdk "$sdk" -target arm64-apple-ios17.0-simulator src-tauri/ios/widgets/*.swift
+          ios=$(xcrun --sdk iphonesimulator --show-sdk-path)
+          swiftc -typecheck -parse-as-library -sdk "$ios" -target arm64-apple-ios17.0-simulator src-tauri/ios/widgets/Shared.swift src-tauri/ios/widgets/iPhone.swift
+          watch=$(xcrun --sdk watchsimulator --show-sdk-path)
+          swiftc -typecheck -parse-as-library -sdk "$watch" -target arm64-apple-watchos10.0-simulator src-tauri/ios/widgets/Shared.swift src-tauri/ios/watch/App.swift
+          swiftc -typecheck -parse-as-library -sdk "$watch" -target arm64-apple-watchos10.0-simulator src-tauri/ios/widgets/Shared.swift src-tauri/ios/watch/Widgets.swift
         working-directory: app
 
       - name: The iPhone and the computer speak the same wire format, directly too
