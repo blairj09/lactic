@@ -30,4 +30,4 @@ lactic.each do |b|
   caps = get("/v1/bundleIds/#{b["id"]}/bundleIdCapabilities", token)["data"].map { |c| c.dig("attributes", "capabilityType") }
   puts "::notice::#{b.dig("attributes", "identifier")} (#{b.dig("attributes", "platform")}, team #{b.dig("attributes", "seedId")}): #{caps.sort.join(", ")}"
 end
-puts "::warning::fit.lactic.app.widgets is not registered on this team" unless lactic.any? { |b| b.dig("attributes", "identifier") == "fit.lactic.app.widgets" }
+puts "::warning::fit.lactic.app.widget is not registered on this team" unless lactic.any? { |b| b.dig("attributes", "identifier") == "fit.lactic.app.widget" }
