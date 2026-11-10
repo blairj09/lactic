@@ -4,3 +4,6 @@ src-tauri/target
 src-tauri/gen/schemas
 *.local
 *.tsbuildinfo
+src-tauri/gen/apple
+src-tauri/gen/android
+src-tauri/tauri.ios-build.conf.json

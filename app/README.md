@@ -14,6 +14,7 @@ This folder is the app. `web/` holds the training engine, data code and screens,
   - `ble.rs`: Bluetooth LE through the OS (CoreBluetooth on macOS, WinRT on Windows, BlueZ on Linux), with one GATT operation at a time per device.
   - `mcp.rs`: the MCP server for external AI coaches (Claude Desktop, ChatGPT...), plus `lactic --mcp`, a stdio bridge.
   - `window.rs`: the always-on-top ride overlay, which stays on top of other windows, full-screen apps included.
+  - `sync.rs` and `phone.rs`: keeping a paired iPhone in step (see iPhone below).
 - **The screens in `web/`, close to unchanged.** `src/db/supa.ts` speaks enough of supabase-js over SQLite that the web app's loaders, actions and coach run as they are, on the same schema (`src/db/schema.ts`). Next's server pages run in the window (`src/app/server-page.tsx` resolves their async components), API routes are served in-process (`src/platform/fetch.ts`), and a few modules are swapped for desktop versions through aliases in `vite.config.ts` (the OpenRouter client, the top bar, `next/*`). `web/lib/supabase/*` hands out the local client.- **The coach can look after the app too.** `src/support/` gives the built-in coach and MCP clients app tools (registered through `web/lib/coach/app-tools.ts`): `check_app` reads Bluetooth gear, intervals.icu, Apple Health and the coach's setup plus a short activity log (`src/support/log.ts`, keys stripped) and a troubleshooting guide; `test_connection`, `sync_now`, `reconnect_device` and `scan_for_devices` try things without changing a setting; `propose_app_change` suggests a setting the rider applies with a button. No tool sees an API key, and during a ride only `check_app` runs.
 
 ## Running it
@@ -32,6 +33,14 @@ npx tauri build   # a release build in src-tauri/target/release/bundle
 Checks: `npm run typecheck && npm run lint && npm test`, and `cargo check` in `src-tauri`.
 
 Coach evals: `npm run eval:coach` scores how well a model coaches inside Lactic, across providers. See [evals/README.md](evals/README.md).
+
+## iPhone
+
+The iPhone app is this same app built for iOS (`npx tauri ios dev` on a Mac with Xcode; CI: `.github/workflows/ios.yml`, which builds for the simulator on every change and, with the App Store Connect key, uploads a signed build to TestFlight). On the phone, `src/phone/` replaces the background jobs and `src-tauri/plugins/lactic-phone/` (Swift) does what only iOS can:
+
+- **Apple Health.** Reads sleep, HRV, resting heart rate, breathing, wrist temperature, heart rate, energy, steps and VO2 max in the Lactic Shortcut's column format, so `web/lib/engine/health-import.ts` reads both alike. Background delivery wakes the app when new sleep, HRV or resting heart rate lands; the wake sends the data straight to the computer if it can and queues it for the app either way. Rides are written back to Health as cycling workouts (`web/lib/engine/health-export.ts`), skipping any that Zwift, a bike computer or a watch already put there.
+- **Pairing and sync.** The computer stays the source of truth. Settings → iPhone on the computer shows a QR code (a `https://lactic.fit/pair#...` link holding a fresh AES-256 key, the computer's local addresses and a port); the phone scans it and keeps the key in the iOS keychain, the computer in its own (`phone:<device>`). From then on the phone posts sealed requests (AES-GCM) to `phone.rs` over the local network, which listens only while a phone is paired. `sync.rs` logs each changed row's key with triggers; one exchange applies the phone's changes last-writer-wins on `updated_at` and answers with a page of the computer's (a snapshot first). Device-specific settings (`health.folder`, `bluetooth.*`, `phone.*` and a few more) stay on their device, and the phone leaves intervals.icu to the computer.
+- **Rides** run on the phone with the same ride screen and Bluetooth code (btleplug uses CoreBluetooth on iOS).
 
 ## Downloads
 

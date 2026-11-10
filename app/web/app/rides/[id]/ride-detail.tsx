@@ -25,6 +25,7 @@ import { DIFFICULTY_LABELS, RPE_LABELS } from "@/lib/engine/feedback";
 import { BLOCK_CHECK_LABELS, EXECUTION_GRADE_LABELS, executionGrade, rideExecution, type BlockCheck, type Execution } from "@/lib/engine/execution";
 import { ZONE_LABELS } from "@/lib/engine/library";
 import { addDays } from "@/lib/engine/pmc";
+import { eventOnDay } from "@/lib/engine/race/followup";
 import { mergeCurves } from "@/lib/engine/power";
 import {
   completion,
@@ -94,6 +95,8 @@ export default async function RideDetail({
     counted && !state.rideLinks.has(counted.id) && mark?.mark === "unplanned"
       ? suggestDay(around, day, state.today)
       : null;
+  // A ride on an event's day was the race: its report is the main thing to open.
+  const raced = counted && !ride.duplicateOf ? eventOnDay(state.goals, countsOn) : null;
   const answer =
     state.feedback.find((f) => f.rideId === (counted?.id ?? ride.id)) ?? null;
 
@@ -161,7 +164,7 @@ export default async function RideDetail({
         actions={
           <>
             {stream?.route && experiments().race_report && (
-              <Link href={`/rides/${ride.id}/race`} className={`${button.secondary} gap-2`}>
+              <Link href={`/rides/${ride.id}/race`} className={`${raced ? button.primary : button.secondary} gap-2`} title={raced ? `See how ${raced.name} went` : undefined}>
                 Race report
                 <ExperimentalTag />
               </Link>

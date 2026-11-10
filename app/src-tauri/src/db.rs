@@ -24,7 +24,7 @@ impl Db {
     }
 }
 
-fn to_sql(v: &Value) -> SqlValue {
+pub(crate) fn to_sql(v: &Value) -> SqlValue {
     match v {
         Value::Null => SqlValue::Null,
         Value::Bool(b) => SqlValue::Integer(*b as i64),
@@ -40,7 +40,7 @@ fn to_sql(v: &Value) -> SqlValue {
     }
 }
 
-fn from_sql(v: rusqlite::types::ValueRef) -> Value {
+pub(crate) fn from_sql(v: rusqlite::types::ValueRef) -> Value {
     use rusqlite::types::ValueRef::*;
     match v {
         Null => Value::Null,
@@ -199,7 +199,9 @@ pub fn restore_into(conn: &mut Connection, live: &std::path::Path, from: &std::p
 #[tauri::command]
 pub fn db_restore(db: State<Db>, from: String) -> Result<(), String> {
     let mut conn = db.conn.lock().map_err(|e| e.to_string())?;
-    restore_into(&mut conn, &db.path, std::path::Path::new(&from))
+    restore_into(&mut conn, &db.path, std::path::Path::new(&from))?;
+    // A paired phone's place in the old history means nothing now: it starts over with a snapshot.
+    crate::sync::prepare(&conn).and_then(|_| crate::sync::new_epoch(&conn))
 }
 
 /// Removes the copy restoring kept (delete-all-data leaves nothing behind).

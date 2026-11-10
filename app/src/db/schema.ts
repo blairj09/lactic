@@ -449,6 +449,8 @@ export const TABLES: Record<string, Table> = {
       debrief_at: { type: "ts" },
       /** Named places on a race that isn't laps, one per line ("Montpelier 122"). */
       places_text: { type: "text" },
+      /** The event (training_goals) this race was, once the report has been opened for it. */
+      goal_id: { type: "uuid" },
       created_at: now,
       updated_at: now,
     },

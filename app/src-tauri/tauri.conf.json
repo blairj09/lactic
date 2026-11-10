@@ -36,6 +36,11 @@
     "shortDescription": "Open-source cycling coach",
     "longDescription": "Plans, workouts with your smart trainer, recovery and an AI coach you bring yourself. Your data stays on your computer.",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "iOS": {
+      "minimumSystemVersion": "16.0",
+      "developmentTeam": "PXC4RTM468",
+      "frameworks": ["CoreBluetooth", "HealthKit", "AVFoundation"]
+    },
     "macOS": {
       "minimumSystemVersion": "11.0",
       "signingIdentity": "-",
