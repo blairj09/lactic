@@ -69,4 +69,28 @@ describe("FIT encoding", () => {
     expect(fit.records[1].lat).toBeUndefined();
     expect(fit.records[2].lat).toBeCloseTo(45.501, 5);
   });
+
+  it("writes a lap per workout block, each with its own numbers", () => {
+    const fit = decodeFit(encodeRideFit({ ...ride, laps: [300, 450] }));
+    expect(fit.laps.map((l) => [l.startTime.getTime() - startedAt.getTime(), l.totalElapsedSeconds])).toEqual([
+      [0, 300],
+      [300_000, 150],
+      [450_000, 150],
+    ]);
+    expect(fit.laps.map((l) => l.averagePower)).toEqual([150, 250, 250]);
+    expect(fit.laps[0].averageHeartRate).toBe(140); // the seconds without a reading are left out
+    expect(fit.totalTimerSeconds).toBe(seconds);
+    expect(fitCrc(encodeRideFit({ ...ride, laps: [300, 450] }))).toBe(0);
+  });
+
+  it("keeps one lap without blocks, and drops lap starts outside the ride", () => {
+    expect(decodeFit(encodeRideFit(ride)).laps).toHaveLength(1);
+    expect(decodeFit(encodeRideFit({ ...ride, laps: [0, 600, 900] })).laps).toHaveLength(1);
+    // A 5-second stream puts the boundary on the nearest sample.
+    const stored = decodeFit(encodeRideFit({ startedAt, stepSeconds: 5, watts: [100, 100, 200, 200], heartRate: [], cadence: [], laps: [10] }));
+    expect(stored.laps.map((l) => [l.totalElapsedSeconds, l.averagePower])).toEqual([
+      [10, 100],
+      [10, 200],
+    ]);
+  });
 });
