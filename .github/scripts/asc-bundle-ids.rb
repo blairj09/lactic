@@ -25,9 +25,9 @@ end
 
 ids = get("/v1/bundleIds?limit=200&fields[bundleIds]=identifier,platform,seedId", token)["data"]
 lactic = ids.select { |b| b.dig("attributes", "identifier").to_s.include?("lactic") }
-puts "Lactic App IDs on this key's team (#{ids.size} App IDs in all):"
+puts "::notice::Lactic App IDs on this key's team (#{ids.size} App IDs in all):"
 lactic.each do |b|
   caps = get("/v1/bundleIds/#{b["id"]}/bundleIdCapabilities", token)["data"].map { |c| c.dig("attributes", "capabilityType") }
-  puts "  #{b.dig("attributes", "identifier")} (#{b.dig("attributes", "platform")}, team #{b.dig("attributes", "seedId")}): #{caps.sort.join(", ")}"
+  puts "::notice::#{b.dig("attributes", "identifier")} (#{b.dig("attributes", "platform")}, team #{b.dig("attributes", "seedId")}): #{caps.sort.join(", ")}"
 end
-puts "  fit.lactic.app.widgets is missing" unless lactic.any? { |b| b.dig("attributes", "identifier") == "fit.lactic.app.widgets" }
+puts "::warning::fit.lactic.app.widgets is not registered on this team" unless lactic.any? { |b| b.dig("attributes", "identifier") == "fit.lactic.app.widgets" }

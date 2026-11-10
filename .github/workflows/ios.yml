@@ -129,14 +129,20 @@ jobs:
           key_path=~/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY.p8
           printf '%s\n' "$APPLE_API_KEY_P8" > "$key_path"
           export APPLE_API_KEY_PATH="$key_path"
-          # What Apple has registered, for reading a signing failure (identifiers only).
-          ruby ../.github/scripts/asc-bundle-ids.rb || echo "::warning::Couldn't list the App IDs"
           # TestFlight needs a new build number every upload.
           printf '{"bundle":{"iOS":{"bundleVersion":"%s"}}}' "$GITHUB_RUN_NUMBER" > src-tauri/tauri.ios-build.conf.json
           npx tauri ios build --export-method app-store-connect --config src-tauri/tauri.ios-build.conf.json
           ipa=$(find src-tauri/gen/apple/build -name '*.ipa' | head -1)
           test -n "$ipa"
           echo "IPA=$ipa" >> "$GITHUB_ENV"
+        working-directory: app
+      - name: What Apple has registered
+        # After a signing failure: the team's Lactic App IDs and their capabilities (identifiers only).
+        if: failure() && env.HAS_KEY == 'true'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: APPLE_API_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY.p8 ruby ../.github/scripts/asc-bundle-ids.rb
         working-directory: app
       - name: Upload to TestFlight
         if: env.HAS_KEY == 'true'
