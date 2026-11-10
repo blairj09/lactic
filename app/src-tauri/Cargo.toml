@@ -33,6 +33,9 @@ rand = "0.8"
 dirs = "5"
 os_info = { version = "3", default-features = false }
 aes-gcm = "0.10"
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+hkdf = "0.12"
+sha2 = "0.10"
 if-addrs = "0.13"
 
 # Desktop only: one window per computer, self-updates (the iPhone app updates through the App Store).
