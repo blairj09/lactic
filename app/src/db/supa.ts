@@ -179,6 +179,31 @@ function project(items: SelectItem[], row: Record<string, unknown>): Record<stri
   return out;
 }
 
+/**
+ * The columns a select list needs from its own table, or null for all of them. Only what was
+ * asked for crosses from the database: a list of rides shouldn't drag every ride's power and
+ * route along. Embedded tables need the column that links to them.
+ */
+export function neededColumns(name: string, items: SelectItem[]): string[] | null {
+  const t = table(name);
+  const out = new Set<string>();
+  for (const i of items) {
+    if ("star" in i) return null;
+    if ("column" in i) {
+      if (!(i.column in t.columns)) return null; // Not a plain column: leave it to the full row.
+      out.add(i.column);
+      continue;
+    }
+    const other = table(i.embed.name);
+    const own = Object.entries(t.foreignKeys ?? {}).find(([, fk]) => fk.table === i.embed.name);
+    const theirs = Object.entries(other?.foreignKeys ?? {}).find(([, fk]) => fk.table === name);
+    if (own) out.add(own[0]);
+    else if (theirs) out.add(theirs[1].column);
+    else return null;
+  }
+  return out.size ? [...out] : null;
+}
+
 /** Attaches embedded tables: a many-to-one link (this row's foreign key) as an object, a one-to-many as a list. */
 async function embed(name: string, rows: Record<string, unknown>[], items: SelectItem[]) {
   const t = table(name);
@@ -467,7 +492,8 @@ export class Query<T = unknown> implements PromiseLike<Result<T>> {
         const r = await db.select(`SELECT COUNT(*) AS n FROM ${q(this.name)}${w}`, p);
         return { rows: [], count: Number(r[0]?.n ?? 0) };
       }
-      const raw = await db.select(`SELECT * FROM ${q(this.name)}${w}${this.tail()}`, p);
+      const cols = neededColumns(this.name, parseSelect(this.columns ?? "*"));
+      const raw = await db.select(`SELECT ${cols ? cols.map(q).join(", ") : "*"} FROM ${q(this.name)}${w}${this.tail()}`, p);
       let count: number | null = null;
       if (this.countMode) count = Number((await db.select(`SELECT COUNT(*) AS n FROM ${q(this.name)}${w}`, p))[0]?.n ?? 0);
       return { rows: raw.map((r) => decodeRow(t, r)), count };
