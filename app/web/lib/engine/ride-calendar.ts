@@ -1,4 +1,4 @@
-// The rides calendar on History: what kind of ride each one was, where it was ridden, the filters
+// The rides calendar on Progress: what kind of ride each one was, where it was ridden, the filters
 // and search over them, and the month grid they sit in. Pure, so it tests in Vitest.
 
 import { ZONE_LABELS, ZONES, type Zone } from "./library";

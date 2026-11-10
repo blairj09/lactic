@@ -23,6 +23,7 @@ export default function ProgressView({
   initial,
   fitness,
   levels,
+  tabs,
 }: {
   data: AnalysisData;
   initial: { from?: string; to?: string; compare?: string };
@@ -30,6 +31,8 @@ export default function ProgressView({
   fitness?: React.ReactNode;
   /** Progression levels, which are where you are now rather than over the range; shown beside the power profile. */
   levels?: React.ReactNode;
+  /** The Trends / Rides switch, under the header. */
+  tabs?: React.ReactNode;
 }) {
   const { today, earliest } = data;
   const bounds = { from: earliest, to: today };
@@ -68,14 +71,16 @@ export default function ProgressView({
         title="Progress"
         line={
           <>
-            Fitness and power over time. Drag across a chart to zoom in. Every ride is on{" "}
-            <Link href="/history" className="text-ink underline underline-offset-4">
-              History
+            Fitness and power over time. Drag across a chart to zoom in. Recovery and sleep are on{" "}
+            <Link href="/health" className="text-ink underline underline-offset-4">
+              Health
             </Link>
             .
           </>
         }
       />
+
+      {tabs}
 
       <div className="sticky top-12 z-10 -mx-4 space-y-2 border-b border-line bg-ground px-4 py-3 sm:-mx-6 sm:px-6">
         <RangePicker range={range} onChange={setRange} today={today} earliest={earliest} compare={compare} onCompareChange={setCompare} />

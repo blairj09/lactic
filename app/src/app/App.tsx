@@ -27,7 +27,6 @@ installSupportTools();
 const today = () => import("@/app/(today)/page");
 const plan = () => import("@/app/plan/page");
 const progress = () => import("@/app/progress/page");
-const history = () => import("@/app/history/page");
 const vo2max = () => import("@/app/progress/vo2max/page");
 const health = () => import("@/app/health/page");
 const metric = () => import("@/app/health/[metric]/page");
@@ -90,7 +89,6 @@ function Shell() {
         <Route path="/" element={<ServerPage load={today} />} />
         <Route path="/plan" element={<ServerPage load={plan} />} />
         <Route path="/progress" element={<ServerPage load={progress} />} />
-        <Route path="/history" element={<ServerPage load={history} />} />
         <Route path="/progress/vo2max" element={<ServerPage load={vo2max} />} />
         <Route path="/health" element={<ServerPage load={health} />} />
         <Route path="/health/:metric" element={<ServerPage load={metric} />} />
@@ -99,7 +97,7 @@ function Shell() {
         <Route path="/rides/:id/race" element={<ServerPage load={raceReport} />} />
         <Route path="/settings" element={<ServerPage load={settings} />} />
         <Route path="/analysis" element={<Navigate to="/progress" replace />} />
-        <Route path="/rides" element={<Navigate to="/history" replace />} />
+        <Route path="/rides" element={<Navigate to="/progress?tab=rides" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}

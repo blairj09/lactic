@@ -15,7 +15,6 @@ import { useFeatures } from "@/lib/use-features";
 const LINKS = [
   { href: "/", label: "Today" },
   { href: "/plan", label: "Plan" },
-  { href: "/history", label: "History" },
   { href: "/progress", label: "Progress" },
   { href: "/health", label: "Health" },
 ];
@@ -116,12 +115,6 @@ function TabIcon({ href }: { href: string }) {
       </>
     ),
     "/ride": <path d="M3 20V15h3v-4h3V7h3v13ZM12 15h9v5h-9" />,
-    "/history": (
-      <>
-        <circle cx="12" cy="12" r="8" />
-        <path d="M12 8v4l2.5 2.5" />
-      </>
-    ),
     "/progress": <path d="M4 19h16M6 16l4-5 3 3 5-7" />,
     "/health": <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />,
   };

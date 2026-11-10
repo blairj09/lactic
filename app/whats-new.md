@@ -6,7 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
-- Rides have their own History page, next to Plan: every ride on a calendar or as a list, with search and filters. Progress now holds just your fitness and power trends.
+- Progress has two tabs: Trends for your fitness and power charts, and Rides for every ride on a calendar or as a list, with search and filters. Your rides are no longer under all the charts.
 
 - New experiment: post rides to Strava. Turn on "Post rides to Strava" in Settings → Experimental features, connect Strava under Connections, and rides you record in Lactic show on Strava as Lactic activities, titled with the workout and described with how each interval went.
 - Dragging a workout onto another day on the Plan calendar now moves it (it did nothing in the Mac app).

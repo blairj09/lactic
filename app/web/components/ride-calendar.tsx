@@ -28,7 +28,7 @@ const zoneColor = (zone: Zone | null) => (zone ? `var(--zone-${zoneStep(zone)})`
 const typeLabel = (r: CalendarRide) => (r.zone ? `${ZONE_LABELS[r.zone]}${r.zoneEstimated ? " (est.)" : ""}` : null);
 const stress = (r: CalendarRide) => (r.trainingStress !== null ? `${Math.round(r.trainingStress)} TSS` : null);
 
-/** Rides on History: a month calendar (a day list on a phone) or the full list, with search and filters. */
+/** Rides on Progress: a month calendar (a day list on a phone) or the full list, with search and filters. */
 export default function RideCalendar({ rides, timeZone, today }: { rides: CalendarRide[]; timeZone: string; today: string }) {
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [month, setMonth] = useState(today.slice(0, 7));

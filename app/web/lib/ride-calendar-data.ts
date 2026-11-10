@@ -10,7 +10,7 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 const isZone = (z: unknown): z is Zone => (ZONES as readonly unknown[]).includes(z);
 
 /**
- * Every ride (copies too) as the History calendar shows it: where it was ridden (a GPS track
+ * Every ride (copies too) as the Progress calendar shows it: where it was ridden (a GPS track
  * means outside), its type (the logged or planned workout, else a guess from intensity) and the
  * post-ride note. A copy shares the ride it copies' type and note.
  */
