@@ -12,6 +12,8 @@ import { experiments } from "@/lib/experiments";
 import type { RideInterval } from "@/lib/engine/ride-detail";
 import type { Workout } from "@/lib/engine/workout";
 import { stravaDescription, stravaTitle } from "@/lib/strava/describe";
+import { encodeRideFit } from "@/lib/fit/encode";
+import { loadStream } from "@/lib/activities";
 import { createClient } from "~/db/supabase-client";
 import { invoke, isDesktop } from "~/platform/native";
 import { placeholder } from "~/platform/secrets";
@@ -124,6 +126,42 @@ export async function queueStravaRide(activityId: string, fit: Uint8Array) {
     .from("strava_uploads")
     .upsert({ activity_id: activityId, fit_base64: toBase64(fit), status: "pending", tries: 0, error: null, updated_at: new Date().toISOString() }, { onConflict: "activity_id" });
   if (error) throw error;
+  notifyChanged("strava");
+}
+
+/** A ride's place on the way to Strava, for its ride page: null when it was never sent. */
+export async function stravaUploadFor(activityId: string): Promise<StravaUpload | null> {
+  const db = createClient();
+  const { data, error } = await db.from("strava_uploads").select("activity_id, status, strava_id, error, updated_at").eq("activity_id", activityId).maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return { activityId: data.activity_id, status: data.status, stravaId: data.strava_id ?? null, error: data.error ?? null, updatedAt: data.updated_at, name: null };
+}
+
+/** Sends an earlier ride recorded here to Strava (rides saved before Strava was connected, or one that failed). */
+export async function postRideToStrava(activityId: string) {
+  if (!stravaOn()) throw new Error("Turn on Post rides to Strava in Settings → Experimental features first.");
+  const db = createClient();
+  const connection = await loadStrava(db);
+  if (!connection) throw new Error("Connect Strava in Settings → Connections first.");
+  if (connection.needsReconnect) throw new Error("Strava signed Lactic out. Connect Strava again in Settings.");
+  const { data: ride, error } = await db.from("activities").select("started_at").eq("id", activityId).maybeSingle();
+  if (error) throw error;
+  const stream = await loadStream(db, activityId);
+  if (!ride || !stream || !(stream.watts?.length || stream.heartRate?.length)) throw new Error("This ride has no recording to send.");
+  const fit = encodeRideFit({
+    startedAt: new Date(ride.started_at),
+    watts: stream.watts ?? [],
+    heartRate: stream.heartRate ?? [],
+    cadence: stream.cadence ?? [],
+    stepSeconds: stream.step,
+    indoor: !stream.route?.length,
+    route: stream.route ?? null,
+  });
+  const { error: queueError } = await db
+    .from("strava_uploads")
+    .upsert({ activity_id: activityId, fit_base64: toBase64(fit), status: "pending", tries: 0, error: null, strava_id: null, upload_id: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }, { onConflict: "activity_id" });
+  if (queueError) throw queueError;
   notifyChanged("strava");
 }
 
