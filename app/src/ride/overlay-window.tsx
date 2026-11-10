@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { MiniPlayer, type PlayerControls } from "@/app/ride/player";
 import { listen } from "~/platform/native";
-import { EV, type ControlMessage, type ControlName, type OverlayPayload } from "./channel";
+import { EV, sendableArgs, type ControlMessage, type ControlName, type OverlayPayload } from "./channel";
 
 async function control(name: ControlName, args: unknown[]) {
   const { emitTo } = await import("@tauri-apps/api/event");
-  await emitTo("main", EV.control, { name, args } satisfies ControlMessage);
+  await emitTo("main", EV.control, { name, args: sendableArgs(args) } satisfies ControlMessage);
 }
 
 export default function OverlayWindow() {
