@@ -32,6 +32,8 @@ import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type Ride
 import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
+import { RemoteHost } from "~/ride/remote";
+import { isDesktop, isPhone } from "~/platform/native";
 import { isDemo } from "~/demo/flag";
 import type { TracePoint } from "./workout-chart";
 import WorkoutEditor from "./workout-editor";
@@ -1043,6 +1045,7 @@ export default function RideScreen({
           </Panel>
         </div>
         {pip.pip && <OverlayPortal pip={pip.pip} data={data} controls={controls} onResize={resizeOverlay} />}
+        {isDesktop && !isPhone() && <RemoteHost data={data} controls={controls} />}
       </Page>
     </div>
   );

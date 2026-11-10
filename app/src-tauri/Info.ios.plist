@@ -9,6 +9,12 @@
   <string>Lactic saves your rides to Health as cycling workouts, with heart rate, power, cadence, distance and energy.</string>
   <key>NSCameraUsageDescription</key>
   <string>Lactic uses the camera to scan the pairing code your computer shows.</string>
+  <!-- The link to the computer is plain HTTP on the local network, every request sealed with AES-GCM. -->
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+  </dict>
   <key>NSLocalNetworkUsageDescription</key>
   <string>Lactic syncs with Lactic on your computer over your Wi-Fi.</string>
   <key>UIBackgroundModes</key>

@@ -172,6 +172,66 @@ fn hosts() -> Vec<String> {
     out
 }
 
+// --- starting from the phone's data -----------------------------------------------------------------
+
+fn onboarded(app: &AppHandle) -> Result<bool, String> {
+    let db = app.state::<Db>();
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    let value: Option<String> = conn
+        .query_row("SELECT value FROM app_settings WHERE key = 'onboarding.done'", [], |r| r.get(0))
+        .ok();
+    Ok(value.as_deref() == Some("true"))
+}
+
+#[derive(Deserialize)]
+struct Chunk {
+    /// This piece, counting from 0, of `n`.
+    i: u32,
+    n: u32,
+    /// Standard base64.
+    data: String,
+}
+
+/// A phone set up on its own, pairing with a computer that hasn't been set up: the phone sends its
+/// whole database in pieces, and the computer starts from it (as restoring a backup does). Only
+/// while this computer has nothing of its own, so it can never replace a rider's data.
+fn adopt(app: &AppHandle, body: Value) -> Result<Value, String> {
+    if onboarded(app)? {
+        return Err("This computer already has Lactic set up; it keeps its own data.".into());
+    }
+    let chunk: Chunk = serde_json::from_value(body).map_err(|e| e.to_string())?;
+    if chunk.n == 0 || chunk.i >= chunk.n {
+        return Err("Bad piece".into());
+    }
+    let bytes = base64::engine::general_purpose::STANDARD.decode(&chunk.data).map_err(|e| e.to_string())?;
+    let db = app.state::<Db>();
+    let incoming = db.path.with_file_name("lactic-from-phone.db");
+    {
+        use std::io::Write;
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(chunk.i > 0)
+            .truncate(chunk.i == 0)
+            .open(&incoming)
+            .map_err(|e| e.to_string())?;
+        file.write_all(&bytes).map_err(|e| e.to_string())?;
+    }
+    if chunk.i + 1 < chunk.n {
+        return Ok(json!({ "done": false }));
+    }
+    let result = {
+        let mut conn = db.conn.lock().map_err(|e| e.to_string())?;
+        crate::db::restore_into(&mut conn, &db.path, &incoming)
+            .and_then(|_| crate::sync::prepare(&conn))
+            .and_then(|_| crate::sync::new_epoch(&conn))
+    };
+    let _ = std::fs::remove_file(&incoming);
+    result?;
+    let _ = app.emit("phone:adopted", json!({}));
+    Ok(json!({ "done": true }))
+}
+
 // --- the listener -------------------------------------------------------------------------------------
 
 /// Starts listening if it isn't already. Keeps the port it had before so paired phones find it.
@@ -265,15 +325,26 @@ async fn answer(app: &AppHandle, phone: &Phone, device: &str, pairing: bool, key
         return Err("Finish pairing first".into());
     }
     {
+        // The ride remote asks every second; note the time at most once a minute.
         let mut saved = phone.saved.lock().await;
-        if let Some(d) = saved.devices.iter_mut().find(|d| d.id == device) {
-            d.last_seen = Some(now_ms());
+        let now = now_ms();
+        let stale = match saved.devices.iter_mut().find(|d| d.id == device) {
+            Some(d) if d.last_seen.map_or(true, |t| now - t >= 60_000) => {
+                d.last_seen = Some(now);
+                true
+            }
+            _ => false,
+        };
+        if stale {
+            let copy = saved.clone();
+            drop(saved);
+            phone.write(&copy).await;
         }
-        let copy = saved.clone();
-        drop(saved);
-        phone.write(&copy).await;
     }
     match env.kind.as_str() {
+        // Whether this computer is new to Lactic: a phone already in use then brings its data here.
+        "status" => Ok(json!({ "fresh": !onboarded(&app)?, "computer": computer_name() })),
+        "adopt" => adopt(&app, env.body),
         "sync" => {
             let req: sync::Exchange = serde_json::from_value(env.body).map_err(|e| e.to_string())?;
             let db = app.state::<Db>();

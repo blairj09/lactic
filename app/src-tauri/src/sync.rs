@@ -156,6 +156,24 @@ pub fn prepare(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// Logs every row of `which` (in that order) as changed, so the next exchanges send them all: a
+/// phone that was used on its own keeps its rides when it pairs with a computer that has data.
+pub fn relog(conn: &Connection, which: &[String]) -> Result<usize, String> {
+    let known = tables(conn).map_err(|e| e.to_string())?;
+    let mut n = 0;
+    for t in which.iter().filter(|t| known.contains(t)) {
+        let s = shape(conn, t).map_err(|e| e.to_string())?;
+        if s.pk.is_empty() {
+            continue;
+        }
+        let key = format!("json_array({})", s.pk.iter().map(|c| quote(c)).collect::<Vec<_>>().join(", "));
+        n += conn
+            .execute(&format!("INSERT INTO sync_log (tbl, pk) SELECT ?1, {key} FROM {}", quote(t)), [t])
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(n)
+}
+
 /// A new identity for this database's history, so phones synced against an earlier one start
 /// over with a snapshot (after a restore, for one).
 pub fn new_epoch(conn: &Connection) -> Result<(), String> {
@@ -469,6 +487,13 @@ pub struct Outgoing {
     more: bool,
 }
 
+/// The phone: sends these tables' rows in full on the next exchanges (see `relog`).
+#[tauri::command]
+pub fn sync_keep(db: State<Db>, tables: Vec<String>) -> Result<usize, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    relog(&conn, &tables)
+}
+
 /// The phone: what to send in the next exchange.
 #[tauri::command]
 pub fn sync_outgoing(db: State<Db>) -> Result<Outgoing, String> {
@@ -560,6 +585,30 @@ mod tests {
         assert_eq!(names(&phone), vec!["Renamed"]);
         let days: i64 = phone.query_row("SELECT COUNT(*) FROM plan_days", [], |r| r.get(0)).unwrap();
         assert_eq!(days, 0);
+    }
+
+    #[test]
+    fn a_phone_used_alone_keeps_its_rides_when_it_pairs() {
+        let mut mac = db();
+        let mut phone = db();
+        mac.execute("INSERT INTO plan_days VALUES ('m', '2026-11-10', 'endurance', '2026-11-01T00:00:00.000Z')", []).unwrap();
+        phone.execute_batch(
+            "INSERT INTO activities VALUES ('p', 'Phone ride', '2026-10-01T00:00:00.000Z');
+             INSERT INTO activity_streams VALUES ('p', '[1]', '2026-10-01T00:00:00.000Z');
+             INSERT INTO plan_days VALUES ('q', '2026-11-11', 'vo2', '2026-10-01T00:00:00.000Z');",
+        )
+        .unwrap();
+        // Pairing forgets the phone's history, then keeps the ride tables.
+        forget(&phone).unwrap();
+        let kept = relog(&phone, &["activities".into(), "activity_streams".into(), "nope".into()]).unwrap();
+        assert_eq!(kept, 2);
+        sync(&mut mac, &mut phone);
+        assert_eq!(names(&mac), vec!["Phone ride"]);
+        let streams: i64 = mac.query_row("SELECT COUNT(*) FROM activity_streams", [], |r| r.get(0)).unwrap();
+        assert_eq!(streams, 1);
+        // The phone's own plan stays behind; the computer's plan is the plan.
+        let days: Vec<String> = mac.prepare("SELECT user_id FROM plan_days").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+        assert_eq!(days, vec!["m"]);
     }
 
     #[test]

@@ -8,7 +8,7 @@ import { invoke, listen } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 import { connectHealth, syncPhoneHealth, WRITE_RIDES } from "./health";
 import { onLinkState, resetLink, syncWithComputer, type LinkState } from "./link";
-import { pair, phoneStatus, unpair, type PhoneStatus } from "./plugin";
+import { pair, phoneStatus, readable, send, unpair, type PhoneStatus } from "./plugin";
 
 interface Device {
   id: string;
@@ -78,7 +78,7 @@ export function PairPhone() {
     try {
       setOffer(await invoke<Offer>("phone_pair_start"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(readable(e).message);
     }
   }
 
@@ -149,9 +149,43 @@ export async function scanPairingCode(): Promise<string | null> {
   return result?.content ?? null;
 }
 
+/** Pieces of the database, in base64 characters (a multiple of 4), small enough for one request. */
+const PIECE = 1 << 20;
+
+/** What a phone used on its own brings to a computer that has its own plan: what it rode and measured. */
+const KEEP_TABLES = ["activities", "activity_streams", "ride_feedback", "intervals_uploads", "strava_uploads", "ftp_history", "body_measurements", "health_days", "recovery_days", "custom_workouts", "workout_favorites"];
+
+/**
+ * A phone set up on its own, pairing with a computer: a computer new to Lactic starts from this
+ * phone's data, sent whole ("sent"). One that has its own takes the rides and measurements from the
+ * phone in the sync that follows, and stays the plan and settings ("keep"). A phone that's new
+ * itself just takes the computer's copy ("none").
+ */
+async function bringDataToComputer(onProgress: (fraction: number) => void): Promise<"sent" | "keep" | "none"> {
+  if (!(await getSetting("onboarding.done", false))) return "none";
+  const { fresh } = await send<{ fresh: boolean }>("status", {}, 15);
+  if (!fresh) return "keep";
+  const live = await invoke<string>("db_path");
+  const copy = live.replace(/[^/\\]+$/, "lactic-to-computer.db");
+  await invoke("db_backup", { to: copy });
+  try {
+    const data = await invoke<string>("file_read_base64", { path: copy });
+    const n = Math.max(1, Math.ceil(data.length / PIECE));
+    for (let i = 0; i < n; i++) {
+      onProgress(i / n);
+      await send("adopt", { i, n, data: data.slice(i * PIECE, (i + 1) * PIECE) }, 120);
+    }
+    onProgress(1);
+    return "sent";
+  } finally {
+    await invoke("file_write_base64", { path: copy, data: "" }).catch(() => {});
+  }
+}
+
 /** Scan (or paste) the computer's code and pair. */
 export function PairWithComputer({ onPaired }: { onPaired?: (computer: string) => void }) {
   const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pasting, setPasting] = useState(false);
   const [link, setLink] = useState("");
@@ -161,22 +195,30 @@ export function PairWithComputer({ onPaired }: { onPaired?: (computer: string) =
     setBusy(true);
     setError(null);
     try {
-      const { computer } = await pair(url.trim());
+      // The first request on the network makes iOS ask to allow local network access, and fails
+      // while it asks: try once more after a moment.
+      const { computer } = await pair(url.trim()).catch(async () => {
+        await new Promise((r) => setTimeout(r, 2500));
+        return pair(url.trim());
+      });
+      const brought = await bringDataToComputer(setSending);
       await resetLink();
+      if (brought === "keep") await invoke("sync_keep", { tables: KEEP_TABLES });
       onPaired?.(computer);
       void syncWithComputer();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(readable(e).message);
     } finally {
       setBusy(false);
+      setSending(null);
     }
   }
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={button.primary} disabled={busy} onClick={() => void scanPairingCode().then(finish, (e) => setError(e instanceof Error ? e.message : String(e)))}>
-          {busy ? "Pairing…" : "Scan the code"}
+        <button type="button" className={button.primary} disabled={busy} onClick={() => void scanPairingCode().then(finish, (e) => setError(readable(e).message))}>
+          {sending !== null ? `Sending your data… ${Math.round(sending * 100)}%` : busy ? "Pairing…" : "Scan the code"}
         </button>
         <button type="button" className={button.secondary} disabled={busy} onClick={() => setPasting((p) => !p)}>
           Paste the link

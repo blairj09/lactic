@@ -1,12 +1,24 @@
 // What the iPhone app runs while it's open, in place of the computer's background jobs: syncing
-// with the computer, and Apple Health both ways.
+// with the computer, and Apple Health both ways. A phone used without a computer runs intervals.icu
+// itself; once paired, the computer does that.
 
 import { syncPhoneHealth } from "./health";
 import { startLink, syncWithComputer } from "./link";
-import { onHealthWake } from "./plugin";
+import { onHealthWake, phoneStatus } from "./plugin";
+
+const INTERVALS_EVERY_MS = 20 * 60_000;
+
+async function intervalsIfAlone() {
+  if ((await phoneStatus()).paired) return;
+  const { syncNow } = await import("~/integrations/background");
+  await syncNow("intervals");
+}
 
 export function startPhone(): () => void {
   const stopLink = startLink();
+  const alone = () => void intervalsIfAlone().catch(() => {});
+  const firstAlone = setTimeout(alone, 3000);
+  const aloneTimer = setInterval(alone, INTERVALS_EVERY_MS);
   // Health first, so a new night is in before the sync carries it to the computer.
   const both = () => void syncPhoneHealth().then(() => syncWithComputer());
   both();
@@ -26,6 +38,8 @@ export function startPhone(): () => void {
   };
   window.addEventListener("lactic:data-changed", onChanged);
   return () => {
+    clearTimeout(firstAlone);
+    clearInterval(aloneTimer);
     stopLink();
     document.removeEventListener("visibilitychange", onVisible);
     window.removeEventListener("lactic:data-changed", onChanged);
