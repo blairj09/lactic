@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Result, input } from "@/components/ui";
 import { saveGoalStart } from "./plan/actions";
@@ -35,6 +36,11 @@ export default function RaceDayPlan({ goal, ftp, weightKg, summary }: { goal: Go
           Start time
           <input type="time" value={start} onChange={(e) => save(e.target.value)} className={`${input} num w-32`} />
         </label>
+        {goal.course && (
+          <Link href={`/plan/events/${goalId}`} className="text-sm text-accent underline-offset-4 hover:underline">
+            Pre-race report: course, pacing and weather
+          </Link>
+        )}
         {error && <Result ok={false}>{error}</Result>}
       </div>
 

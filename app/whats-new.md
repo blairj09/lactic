@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- New experiment: race courses. Turn on "Race courses" in Settings → Experimental features, then attach a course file (GPX, TCX or FIT) when you add an event. You get a pre-race report with the profile, each climb and the power to hold on it, your estimated time, fueling, and the forecast with the wind on the course from two weeks out. The plan's key workouts also train for the course's climbs.
 - New experiment: post rides to Strava. Turn on "Post rides to Strava" in Settings → Experimental features, connect Strava under Connections, and rides you record in Lactic show on Strava as Lactic activities, titled with the workout and described with how each interval went.
 - Dragging a workout onto another day on the Plan calendar now moves it (it did nothing in the Mac app).
 - Apple Watch riders: the Lactic Shortcut now has a step-by-step guide, linked from Sleep and recovery setup. It saves your sleep, HRV and resting heart rate from your iPhone to iCloud Drive each morning, free, with no extra app.

@@ -33,6 +33,7 @@ const metric = () => import("@/app/health/[metric]/page");
 const ride = () => import("@/app/ride/page");
 const rideDetail = () => import("@/app/rides/[id]/page");
 const raceReport = () => import("@/app/rides/[id]/race/page");
+const preRace = () => import("@/app/plan/events/[id]/page");
 const settings = () => import("~/settings/page");
 const onboarding = () => import("~/onboarding/page");
 const overlay = () => import("~/ride/overlay-window");
@@ -88,6 +89,7 @@ function Shell() {
           <>
         <Route path="/" element={<ServerPage load={today} />} />
         <Route path="/plan" element={<ServerPage load={plan} />} />
+        <Route path="/plan/events/:id" element={<ServerPage load={preRace} />} />
         <Route path="/progress" element={<ServerPage load={progress} />} />
         <Route path="/progress/vo2max" element={<ServerPage load={vo2max} />} />
         <Route path="/health" element={<ServerPage load={health} />} />

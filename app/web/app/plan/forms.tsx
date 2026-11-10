@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
 import {
   BREAK_KIND_LABELS,
@@ -24,9 +25,12 @@ import {
   type PlanGoal,
   type SavedPlan,
 } from "@/lib/engine/plan";
-import { Field, Result, button, input } from "@/components/ui";
+import { Field, Result, button, fileInput, input } from "@/components/ui";
+import { ExperimentalTag } from "@/components/experimental-tag";
+import { useExperiments } from "@/lib/use-experiments";
 import type { ActionResult } from "../actions";
 import PhaseStrip from "./phase-strip";
+import CourseField from "./course-field";
 import { deleteBreak, deleteGoal, endPlan, pickWorkouts, replanWeek, previewPlan, saveAvailability, saveBreak, saveGoal, savePlan } from "./actions";
 import { AutoTextarea } from "@/components/auto-textarea";
 import Select from "@/components/select";
@@ -48,6 +52,7 @@ export function GoalForm({ today, goal, onDone }: { today: string; goal?: Goal; 
     setIntensity(KIND_DEFAULTS[k].intensity);
   };
   const hours = Math.floor(minutes / 60);
+  const courses = useExperiments().course_prep;
   return (
     <form action={action} className="space-y-3 text-sm">
       {goal && <input type="hidden" name="id" value={goal.id} />}
@@ -102,6 +107,16 @@ export function GoalForm({ today, goal, onDone }: { today: string; goal?: Goal; 
           </option>
         ))}
       </Select>
+      {!goal && courses && (
+        <label className="block space-y-1">
+          <span className="flex items-center gap-2">
+            Course file <span className="text-muted">(optional)</span>
+            <ExperimentalTag />
+          </span>
+          <input name="course" type="file" accept=".gpx,.tcx,.fit" className={fileInput} aria-label="Course file" />
+          <span className="block text-xs text-muted">GPX, TCX or FIT from the organizer, Ride with GPS, Strava or Komoot. You get a pre-race report, and the plan trains for its climbs.</span>
+        </label>
+      )}
       <div className="flex gap-2">
         <button disabled={pending} className={button.primary}>
           {pending ? "Saving..." : goal ? "Save" : "Add event"}
@@ -120,6 +135,7 @@ export function GoalForm({ today, goal, onDone }: { today: string; goal?: Goal; 
 /** Upcoming events, each with edit and remove. */
 export function GoalList({ goals, today }: { goals: Goal[]; today: string }) {
   const [editing, setEditing] = useState<string | null>(null);
+  const courses = useExperiments().course_prep;
   if (goals.length === 0) return <p className="text-sm text-muted">No events yet.</p>;
   return (
     <ul className="text-sm">
@@ -133,6 +149,11 @@ export function GoalList({ goals, today }: { goals: Goal[]; today: string }) {
                 {" "}
                 · {GOAL_KIND_LABELS[g.kind]} · {formatMinutes(goalMinutes(g))} · {goalIntensity(g)} · {formatDate(g.date)}{g.startTime ? `, ${g.startTime}` : ""}
               </span>
+              {g.course && (
+                <Link href={`/plan/events/${g.id}`} className="ml-2 text-accent underline-offset-4 hover:underline">
+                  Pre-race report
+                </Link>
+              )}
             </span>
             <span className="flex shrink-0 gap-3">
               <button className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline" onClick={() => setEditing(editing === g.id ? null : g.id)}>
@@ -142,6 +163,7 @@ export function GoalList({ goals, today }: { goals: Goal[]; today: string }) {
             </span>
           </div>
           {editing === g.id && <GoalForm key={g.id} today={today} goal={g} onDone={() => setEditing(null)} />}
+          {editing === g.id && courses && <CourseField goal={g} />}
         </li>
       ))}
     </ul>
