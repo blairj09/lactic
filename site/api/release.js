@@ -1,7 +1,7 @@
 // GET /api/release: the latest Lactic release, for the downloads page.
 //   /api/release               JSON: version, date, and one installer per platform
 //   /api/release?get=<id>      redirects to that installer (mac, windows, appimage, deb)
-// Asset names carry the version (Lactic_0.1.2_aarch64.dmg), so links can't be fixed in the HTML.
+// Asset names carry the version (Lactic_0.1.5_universal.dmg), so links can't be fixed in the HTML.
 // Anything that goes wrong falls back to the GitHub releases page. The CDN caches answers for five
 // minutes, which keeps us far below GitHub's unauthenticated rate limit.
 
@@ -10,7 +10,7 @@ const RELEASES = `https://github.com/${REPO}/releases/latest`;
 
 // id → how to spot the asset, and what the page calls it.
 export const PLATFORMS = {
-  mac: { test: (n) => n.endsWith(".dmg"), label: "Mac", detail: "Apple silicon (M1 or later)" },
+  mac: { test: (n) => n.endsWith(".dmg"), label: "Mac", detail: "Apple silicon or Intel, macOS 11 or later" },
   windows: { test: (n) => /-setup\.exe$/.test(n), label: "Windows", detail: "Windows 10 or 11, 64-bit" },
   appimage: { test: (n) => n.endsWith(".AppImage"), label: "Linux", detail: "AppImage, any distro" },
   deb: { test: (n) => n.endsWith(".deb"), label: "Linux", detail: "Debian and Ubuntu (.deb)" },

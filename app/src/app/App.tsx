@@ -10,8 +10,10 @@ import { setNavigator } from "~/shims/next-navigation";
 import { refreshCoachMode, useCoachMode, useMcpOn } from "./coach-mode";
 import { getSetting } from "~/settings/store";
 import { loadFeatures } from "~/settings/features";
+import { loadExperiments } from "~/settings/experiments";
 import { startBackground } from "~/integrations/background";
 import "~/integrations/apple-health";
+import "~/integrations/strava";
 import { BluetoothPicker } from "~/bluetooth/picker";
 import { startMcpBridge } from "~/mcp/bridge";
 import { ExternalSuggestions } from "~/mcp/suggestions";
@@ -30,6 +32,7 @@ const health = () => import("@/app/health/page");
 const metric = () => import("@/app/health/[metric]/page");
 const ride = () => import("@/app/ride/page");
 const rideDetail = () => import("@/app/rides/[id]/page");
+const raceReport = () => import("@/app/rides/[id]/race/page");
 const settings = () => import("~/settings/page");
 const onboarding = () => import("~/onboarding/page");
 const overlay = () => import("~/ride/overlay-window");
@@ -55,7 +58,7 @@ function Shell() {
   useEffect(() => {
     void refreshCoachMode();
     // What the rider tracks is read before the first screen, so nothing they turned off flashes up.
-    void loadFeatures()
+    void Promise.all([loadFeatures(), loadExperiments()])
       .catch(() => {})
       .then(() => getSetting("onboarding.done", false))
       .then(setOnboarded);
@@ -91,6 +94,7 @@ function Shell() {
         <Route path="/health/:metric" element={<ServerPage load={metric} />} />
         <Route path="/ride" element={<ServerPage load={ride} />} />
         <Route path="/rides/:id" element={<ServerPage load={rideDetail} />} />
+        <Route path="/rides/:id/race" element={<ServerPage load={raceReport} />} />
         <Route path="/settings" element={<ServerPage load={settings} />} />
         <Route path="/analysis" element={<Navigate to="/progress" replace />} />
         <Route path="/rides" element={<Navigate to="/progress" replace />} />

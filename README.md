@@ -64,7 +64,7 @@ A daily recovery score from sleep, HRV and resting heart rate, plus sleep stages
 
 | Your device | How it gets to Lactic |
 | --- | --- |
-| **Apple Watch** | An iPhone Shortcut saves your nights to a synced folder (iCloud Drive, Dropbox, Google Drive, Nextcloud or Syncthing). Lactic picks them up. |
+| **Apple Watch** | [The Lactic Shortcut](docs/apple-health-shortcut.md) on your iPhone saves your nights to a synced folder (iCloud Drive, Dropbox, Google Drive, Nextcloud or Syncthing). Lactic picks them up. |
 | **Garmin, Oura, WHOOP** (and Polar, Coros, Suunto) | Link it to [intervals.icu](https://intervals.icu), then connect intervals.icu to Lactic. |
 | **Android** (Samsung, Pixel Watch, Fitbit) | [Health Sync](https://play.google.com/store/apps/details?id=nl.appyhapps.healthsync) sends Health Connect to intervals.icu. Lactic walks you through it. |
 | **Smart scale** | Over Bluetooth: Hume Body Pod, Xiaomi Mi scales, Renpho and other QN scales, Etekcity ESF-551, and standard Bluetooth scales (Omron, A&D, Beurer, Sanitas and others). Withings and Garmin Index come in through intervals.icu or Apple Health. Or type your weight in. |
@@ -87,7 +87,7 @@ Cloud models stop at a monthly limit you set (default $10), so there are no surp
 
 ### Easy to start
 
-About five minutes, five steps: you, your week and goal, your gear, your rides and sleep, your coach. Skip anything you don't have. A short tour shows you around after.
+5 minutes and you'll be riding intervals. Five steps: you, your week and goal, your gear, your rides and sleep, your coach. Skip anything you don't have. A short tour shows you around after.
 
 ## Download
 
@@ -95,7 +95,7 @@ Get the latest version from [**GitHub Releases**](https://github.com/blairj09/la
 
 | Platform | File | First launch |
 | --- | --- | --- |
-| **macOS** (Apple silicon) | `Lactic_*_aarch64.dmg` | Drag Lactic to Applications, then run `xattr -cr /Applications/Lactic.app` once in Terminal. |
+| **macOS** (Apple silicon or Intel) | `Lactic_*_universal.dmg` | Drag Lactic to Applications and open it (signed and notarized by Apple). |
 | **Windows** | `Lactic_*_x64-setup.exe` | SmartScreen warns about an unknown publisher: choose **More info → Run anyway**. |
 | **Linux** | `Lactic_*_amd64.AppImage` or `.deb` | `chmod +x Lactic_*.AppImage` and run it, or `sudo apt install ./Lactic_*_amd64.deb`. Bluetooth needs BlueZ; keys are stored via the Secret Service (GNOME Keyring or KWallet). |
 
@@ -141,7 +141,7 @@ site/               lactic.fit
 
 ## Contributing
 
-Lactic is built by riders, in the open. Issues and pull requests are welcome, whether that's a bug on your trainer, support for new gear or a health source, or a better workout.
+Lactic is built by riders, for riders, in the open. Issues and pull requests are welcome, whether that's a bug on your trainer, support for new gear or a health source, or a better workout.
 
 The quickest way to tell us something is the speech bubble at the top of the app: it attaches a picture of the screen you're on, so write a note, circle the problem and send. No GitHub account needed; it arrives here as an issue.
 

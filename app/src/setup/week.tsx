@@ -1,6 +1,7 @@
 // Your week and your goal: how long you can ride each day, and what the plan builds toward.
 // Saved through the Plan page's own actions, so the plan is the same one Plan shows and edits.
 
+import { scheduleFirstTest } from "@/app/actions";
 import { saveAvailability, saveGoal, savePlan } from "@/app/plan/actions";
 import { Field, Result, Segmented, input } from "@/components/ui";
 import { DEFAULT_AVAILABILITY, GOAL_KIND_LABELS, GOAL_KINDS, type Availability, type GoalKind } from "@/lib/engine/plan";
@@ -160,5 +161,9 @@ export async function saveWeek(v: WeekValues) {
   // Onboarding owns the first plan: replace one left from an earlier try.
   const { data: existing } = await createClient().from("training_plans").select("id").limit(1).maybeSingle();
   if (existing) plan.set("id", existing.id);
-  return savePlan(null, plan);
+  const saved = await savePlan(null, plan);
+  if (!saved.ok) return saved;
+  // Riders who didn't know their FTP start the plan with a test (a no-op once FTP is known).
+  const test = await scheduleFirstTest();
+  return test.ok && test.message ? { ok: true as const, message: `${saved.message} ${test.message}` } : saved;
 }

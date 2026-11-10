@@ -23,3 +23,9 @@ describe("where a number came from", () => {
     expect(describeProvenance(nightProvenance("intervals", "2026-11-03"), "2026-11-08")).toBe("Synced Nov 3 · intervals.icu");
   });
 });
+
+describe("setup's FTP guess", () => {
+  it("is an estimate, not a measurement", () => {
+    expect(ftpProvenance([{ effectiveDate: "2026-11-01", watts: 185, method: "guess" }], "2026-11-08")).toEqual({ kind: "estimated", date: "2026-11-01", via: "a starting guess from your weight" });
+  });
+});

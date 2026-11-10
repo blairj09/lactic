@@ -13,7 +13,7 @@
     { title: "Progress", hash: "#/progress", target: '[data-tour="progress"]', body: "Fitness, fatigue and form, your power curve and every ride. Every number comes from an open engine." },
     { title: "Health", hash: "#/health", target: '[data-tour="health"]', body: "Recovery, sleep, HRV, resting heart rate and weight, from your watch or ring. Click any of them for its history." },
     { title: "Coach", hash: "#/", coach: true, target: "aside:not([inert])", body: "Ask why today is hard, or to move Saturday's ride. It reads your numbers and suggests changes for you to apply. Or ride without one." },
-    { title: "Ride", hash: "#/ride", target: '[data-tour="ride-player"]', corner: true, body: "Lactic sets the watts on your smart trainer, interval by interval. This demo has a simulated trainer, so you can ride it right here." },
+    { title: "Ride", hash: "#/ride", target: ['[data-tour="ride-player"]', '[data-tour="ride"]'], corner: true, body: "Lactic sets the watts on your smart trainer, interval by interval. This demo has a simulated trainer, so you can ride it right here." },
   ];
   var win = document.getElementById("app-window");
   var stage = document.getElementById("app-stage");
@@ -167,16 +167,22 @@
   // The part a step is about, in the stage's coordinates (null when it isn't on screen).
   function targetRect(i) {
     try {
-      var el = frame.contentDocument.querySelector(STEPS[i].target);
-      if (!el) return null;
-      var r = el.getBoundingClientRect();
-      if (!r.width && el.firstElementChild) r = el.firstElementChild.getBoundingClientRect();
-      if (!r.width || !r.height) return null;
+      // The phone layout has the tabs twice (a bottom tab bar), so take the one that's showing.
+      // A step can list fallbacks (the phone's Ride screen has no player until a workout is picked,
+      // so the light goes to its Ride tab).
+      var targets = [].concat(STEPS[i].target);
       var sw = stage.clientWidth, sh = stage.clientHeight;
-      var top = Math.max(0, r.top), left = Math.max(0, r.left);
-      var bottom = Math.min(sh, r.bottom), right = Math.min(sw, r.right);
-      if (bottom - top < 8 || right - left < 8) return null;
-      return { top: top, left: left, width: right - left, height: bottom - top };
+      for (var t = 0; t < targets.length; t++) {
+        var els = frame.contentDocument.querySelectorAll(targets[t]);
+        for (var k = 0; k < els.length; k++) {
+          var r = els[k].getBoundingClientRect();
+          if (!r.width && els[k].firstElementChild) r = els[k].firstElementChild.getBoundingClientRect();
+          var top = Math.max(0, r.top), left = Math.max(0, r.left);
+          var bottom = Math.min(sh, r.bottom), right = Math.min(sw, r.right);
+          if (bottom - top >= 8 && right - left >= 8) return { top: top, left: left, width: right - left, height: bottom - top };
+        }
+      }
+      return null;
     } catch (e) {
       return null;
     }

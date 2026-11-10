@@ -232,6 +232,9 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 @media (max-width: 560px) {
   .app-stage { height: 540px; }
   .app-live-note .more { display: none; }
+  /* On a phone the demo is the phone app, so no desktop window buttons. */
+  .app-bar .dot { display: none; }
+  .app-live-note { margin-left: 4px; }
 }
 
 /* The demo doesn't take the page's scroll: a see-through shield covers it until someone clicks in (hero.js). */

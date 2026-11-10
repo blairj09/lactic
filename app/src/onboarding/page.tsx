@@ -16,6 +16,8 @@ import { startTour } from "~/tour/store";
 import { FeatureChoice } from "~/setup/features";
 import { saveFeatures } from "~/settings/features";
 import { FEATURES_SETTING, parseFeatures, type Features } from "@/lib/features";
+import { RestoreButton } from "~/data/restore-panel";
+import { isDesktop } from "~/platform/native";
 
 const STEPS = [
   { id: "you", title: "About you", line: "So your zones and plan fit you." },
@@ -76,8 +78,13 @@ function Welcome({ onStart }: { onStart: () => void }) {
           <button type="button" className={`${button.primary} h-11 w-full text-base`} onClick={onStart}>
             Get started
           </button>
-          <p className="text-sm text-faint">About five minutes. Change anything later.</p>
+          <p className="text-sm text-faint">5 minutes and you'll be riding intervals.</p>
         </div>
+        {isDesktop && (
+          <div className="text-sm text-muted">
+            Used Lactic on another computer? <RestoreButton fresh className="font-medium text-ink underline underline-offset-2" label="Bring your data across" />
+          </div>
+        )}
       </div>
     </div>
   );

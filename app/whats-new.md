@@ -6,6 +6,18 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- New experiment: post rides to Strava. Turn on "Post rides to Strava" in Settings → Experimental features, connect Strava under Connections, and rides you record in Lactic show on Strava as Lactic activities, titled with the workout and described with how each interval went.
+- Dragging a workout onto another day on the Plan calendar now moves it (it did nothing in the Mac app).
+- Apple Watch riders: the Lactic Shortcut now has a step-by-step guide, linked from Sleep and recovery setup. It saves your sleep, HRV and resting heart rate from your iPhone to iCloud Drive each morning, free, with no extra app.
+
+## 0.1.5
+
+- Lactic for Mac is now signed and checked by Apple, so it installs like any other app with no Terminal step, and it runs on Intel Macs too. Your Mac may ask once more for permission to use Lactic's saved keys; choose Always Allow and it remembers it from then on, across updates.
+- Moving to a new computer? Back up in Settings → Your data, copy the file across, and choose "Bring your data across" when Lactic first opens on the new one (or Restore from a backup in Your data). Rides, plan, workouts, favorites, recovery, coach chats and settings all come with you; you add your API keys and pair your gear again, and Lactic lists what's left.
+- On Windows and Linux, the ride overlay now keeps itself on top when a game or video goes full screen. If a game in exclusive full screen still covers it, the Ride page's Overlay settings explain how to switch the game to borderless or windowed (and how to pin the overlay on Wayland).
+- Experimental features in Settings: new things we're still trying out, off until you turn them on. The first is Race reports: open a race from its ride page, add other riders' files and the results, and see where you lost time, corner by corner and lap by lap, what to work on, and a debrief from the coach.
+- Race reports now work for long races that aren't laps, like LoToJa or a gran fondo, even with nobody to compare with. Lactic cuts the course into its climbs and the roads between, and shows how you paced it, where you faded, your power once tired, what each climb took, your stops and what you rode between them (with how much to eat). Add your ride from another year and see where you gained or lost on it.
+- Don't know your FTP? Tick "I don't know" in setup and your plan starts with a ramp test on your first good day. When you finish it, Lactic sets your FTP from the result (with Undo), so every workout after it fits you.
 - No smart scale? Today no longer shows a Weigh in step. It appears once you pair a scale in Settings → Bluetooth or on Health.
 - Starting over or moving on? Settings → Your data → Delete all my data removes every ride, plan, setting and saved key from this computer, after offering an export first.
 - Rides that reached intervals.icu through Strava can't come into Lactic, because Strava doesn't let intervals.icu share them. Settings → intervals.icu now says how many are missing and how to bring them in, and Import FIT files takes Strava's account archive .zip.

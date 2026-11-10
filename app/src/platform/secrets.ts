@@ -11,7 +11,7 @@ export const placeholder = (name: string) => `keychain:${name}`;
 /** The intervals.icu API key. */
 export const SECRET_INTERVALS = "intervals";
 /** Every key Lactic saves (the coach's AI key is "ai"). */
-export const ALL_SECRETS = ["ai", SECRET_INTERVALS];
+export const ALL_SECRETS = ["ai", SECRET_INTERVALS, "strava", "strava.refresh", "strava.expires"];
 
 export async function saveSecret(name: string, value: string) {
   if (isDesktop) return invoke<void>("secret_set", { name, value: value.trim() });

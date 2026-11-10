@@ -22,6 +22,7 @@ const FTP_METHODS: Record<string, { kind: ProvenanceKind; via: string }> = {
   criticalPower: { kind: "estimated", via: "critical power from your rides" },
   twentyMinute: { kind: "estimated", via: "95% of your best 20 minutes" },
   intervals: { kind: "synced", via: "intervals.icu" },
+  guess: { kind: "estimated", via: "a starting guess from your weight" },
 };
 
 /** Where today's FTP came from: the latest change on or before `today`. Null without history. */

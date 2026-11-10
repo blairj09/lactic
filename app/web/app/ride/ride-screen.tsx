@@ -30,14 +30,26 @@ import RideSurvey from "../ride-survey";
 import { OVERLAY_SIZES, PlayerView, formatTime, type PlayerControls, type PlayerData } from "./player";
 import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type RideSource } from "./ride-now";
 import SensorPanel from "./sensor-panel";
-import { usePipWindow } from "./use-pip-window";
+import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
+import { isDemo } from "~/demo/flag";
 import type { TracePoint } from "./workout-chart";
 import WorkoutEditor from "./workout-editor";
 import SendToKaroo from "./send-to-karoo";
 import RampTestResult from "./ramp-test-result";
 
 const OVERLAY_PREF = "ride.overlayOnStart";
+
+/** What the overlay does over full-screen apps on this computer (see OverlayFullScreen). */
+const FULL_SCREEN_NOTE: Record<OverlayFullScreen, string> = {
+  floats: "It stays on top of full-screen apps too.",
+  browser: "It stays on top of other windows, but not over an app in macOS full screen: make that app a window filling the screen instead (Option-click its green button).",
+  windows:
+    "It stays on top of full-screen apps in borderless or windowed mode. Nothing can show over a game in exclusive full screen, so if the overlay disappears when the game fills the screen, set the game's display mode to borderless or windowed.",
+  x11: "It stays on top of other windows. Some desktops put a full-screen app above everything, so if the overlay disappears, run that app as a window filling the screen (maximized or borderless) instead.",
+  wayland:
+    "On Wayland, apps can't keep their own windows on top, so turn it on once the overlay opens: click it, then press Alt+Space and pick Always on Top (GNOME), or Alt+F3 and pick More Actions, Keep Above Other Windows (KDE). Run the other app as a window filling the screen, not full screen.",
+};
 const OVERLAY_SIZE_PREF = "ride.overlaySize";
 const SPRINT_GRADE_PREF = "ride.sprintGrade";
 const AUTO_START_PREF = "ride.autoStart";
@@ -71,8 +83,11 @@ export default function RideScreen({
   saved = [],
   favorites: initialFavorites = [],
   today,
+  ftpGuess = false,
 }: {
   initialFtp: number | null;
+  /** FTP is still setup's guess, so a ramp test sets it straight away (with Undo) instead of asking. */
+  ftpGuess?: boolean;
   canSave: boolean;
   /** The plan's session for the day, offered first. */
   planned?: Session | null;
@@ -832,8 +847,8 @@ export default function RideScreen({
                     </>
                   )}
                 </p>
-                {rampResult && <RampTestResult test="ramp" result={{ watts: rampResult.watts, best: rampResult.bestMinute }} current={initialFtp ?? ftp} onSet={setFtp} />}
-                {twentyResult && <RampTestResult test="twentyMinute" result={twentyResult} current={initialFtp ?? ftp} onSet={setFtp} />}
+                {rampResult && <RampTestResult test="ramp" result={{ watts: rampResult.watts, best: rampResult.bestMinute }} current={initialFtp ?? ftp} guess={ftpGuess} onSet={setFtp} />}
+                {twentyResult && <RampTestResult test="twentyMinute" result={twentyResult} current={initialFtp ?? ftp} guess={ftpGuess} onSet={setFtp} />}
                 {canSave && !erg && saveState === "saved" && (
                   <FavoriteButton
                     on={(() => {
@@ -956,9 +971,7 @@ export default function RideScreen({
                       <>
                         <p className="text-sm text-muted">
                           A small window with the interval, targets and what&apos;s next that stays on top of whatever else you have open: Zwift, a video, a browser. Drag it bigger, or use its shrink and enlarge buttons.{" "}
-                          {pip.floatsOverFullScreen
-                            ? "It stays on top of full-screen apps too."
-                            : "It stays on top of other windows, but not over an app in macOS full screen: make that app a window filling the screen instead (Option-click its green button)."}
+                          {FULL_SCREEN_NOTE[pip.fullScreen]}
                         </p>
                         <label className="flex items-center gap-2 text-sm">
                           <input type="checkbox" checked={overlayOnStart} onChange={(e) => toggleOverlayOnStart(e.target.checked)} className="size-4 accent-[var(--ink)]" />
@@ -969,7 +982,11 @@ export default function RideScreen({
                         )}
                       </>
                     ) : (
-                      <p className="text-sm text-muted">The overlay needs Chrome 116 or later on a desktop.</p>
+                      <p className="text-sm text-muted">
+                        {isDemo
+                          ? "In the app, a small window with the interval, targets and what's next stays on top of whatever else you have open: Zwift, a video, a browser."
+                          : "The overlay needs Chrome 116 or later on a desktop."}
+                      </p>
                     )}
                   </section>
 

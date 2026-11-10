@@ -431,6 +431,48 @@ export const TABLES: Record<string, Table> = {
     primaryKey: ["id"],
     indexes: [["at"]],
   },
+  /**
+   * A race's review: the rider's own GPS track at full detail (their ride file, from intervals.icu or
+   * dropped in), the official results pasted or read off a screenshot, and the coach's debrief.
+   */
+  race_reviews: {
+    columns: {
+      id,
+      user_id: user,
+      activity_id: { type: "uuid", notNull: true },
+      own_track: { type: "json" },
+      own_name: { type: "text" },
+      results_text: { type: "text" },
+      notes: { type: "text" },
+      debrief: { type: "text" },
+      debrief_rival: { type: "text" },
+      debrief_at: { type: "ts" },
+      /** Named places on a race that isn't laps, one per line ("Montpelier 122"). */
+      places_text: { type: "text" },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    unique: [["activity_id"]],
+    foreignKeys: { activity_id: activity("cascade") },
+  },
+  /** Other riders' tracks of a race (GPX files from Strava), to compare against. */
+  race_rivals: {
+    columns: {
+      id,
+      user_id: user,
+      activity_id: { type: "uuid", notNull: true },
+      name: { type: "text", notNull: true },
+      track: { type: "json", notNull: true },
+      /** "past" for one of the rider's own earlier rides of the course; null for another rider. */
+      kind: { type: "text" },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    foreignKeys: { activity_id: activity("cascade") },
+    indexes: [["activity_id"]],
+  },
   /** Plan changes proposed by an external coach over MCP, waiting in the app for the rider. */
   coach_proposals: {
     columns: {
@@ -444,6 +486,38 @@ export const TABLES: Record<string, Table> = {
       updated_at: now,
     },
     primaryKey: ["id"],
+  },
+  /** The rider's Strava, for posting rides recorded here. The tokens live in the keychain (src-tauri/src/strava.rs). */
+  strava_connections: {
+    columns: {
+      user_id: user,
+      athlete_id: { type: "text", notNull: true },
+      athlete_name: { type: "text", notNull: true, default: "" },
+      scope: { type: "text", notNull: true, default: "" },
+      upload_rides: { type: "bool", notNull: true, default: true },
+      // Set when Strava turned a token refresh down: the rider has to connect again.
+      needs_reconnect: { type: "bool", notNull: true, default: false },
+      connected_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["user_id"],
+  },
+  /** Rides recorded here on their way to Strava. pending → sending → processing (Strava has the file) → sent, or skipped/failed. */
+  strava_uploads: {
+    columns: {
+      activity_id: { type: "uuid", notNull: true },
+      user_id: user,
+      fit_base64: { type: "text" },
+      status: { type: "text", notNull: true, default: "pending" },
+      upload_id: { type: "text" },
+      strava_id: { type: "text" },
+      error: { type: "text" },
+      tries: { type: "int", notNull: true, default: 0 },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["activity_id"],
+    foreignKeys: { activity_id: activity("cascade") },
   },
 };
 

@@ -21,10 +21,12 @@ import { CoachSetupPanel } from "~/setup/coach";
 import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
 import { DataPanel, SimulatorSwitch } from "./panels";
+import { StravaSection } from "./strava-panel";
 import { TakeTour } from "~/tour/take-tour";
 import { FeedbackSetting } from "~/feedback/dialog";
 import { AboutSetting } from "~/updates/check-button";
 import { FeatureSetting } from "~/setup/features";
+import { ExperimentsSetting } from "./experiments";
 import { features } from "@/lib/features";
 import { ScrollToSection } from "./scroll-to-section";
 import { ftpSourceLine } from "@/lib/engine/provenance";
@@ -86,6 +88,9 @@ export default async function SettingsPage() {
           <Section id="tracking" title="What you track" description="Besides rides and your plan. Each one you turn off leaves Today, Health, setup and the coach.">
             <FeatureSetting />
           </Section>
+          <Section id="experimental" title="Experimental features" description="New things we're still trying out. Off until you turn them on, and labelled wherever they show.">
+            <ExperimentsSetting />
+          </Section>
           <Section id="tour" title="Getting started" description="A short walk through each screen.">
             <TakeTour />
           </Section>
@@ -131,6 +136,7 @@ export default async function SettingsPage() {
               )}
             </div>
           </Section>
+          <StravaSection />
           {tracking.recovery && (
             <Section id="health" title="Sleep and recovery" description="Sleep, HRV and resting heart rate from Apple Health, or your watch or ring through intervals.icu.">
               <div className="sm:col-span-2">

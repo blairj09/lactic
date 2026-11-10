@@ -1,6 +1,8 @@
 // Writes latest.json, the file installed copies of Lactic read to find an update
 // (tauri-plugin-updater's static manifest). Run by the release job after the builds:
-//   node app/scripts/update-manifest.mjs <folder with the builds and their .sig files> <version> <owner/repo> [app/whats-new.md] > latest.json
+//   node app/scripts/update-manifest.mjs <folder with the builds and their .sig files> <version> <owner/repo> [app/whats-new.md] [tag] > latest.json
+// The tag defaults to v<version>; Lactic Preview builds live on the rolling `preview` release, and
+// their notes are the **Next** section.
 //   node app/scripts/update-manifest.mjs --notes app/whats-new.md <version>   (just this release's notes, for the release page)
 // The app shows the release's section of whats-new.md as "What's new".
 // Every build that comes with a signature gets an entry under each name the updater looks for:
@@ -35,11 +37,13 @@ export function whatsNew(markdown, version) {
   return lines.join("\n");
 }
 
-function arch(name) {
-  if (/aarch64|arm64/.test(name)) return "aarch64";
-  if (/x64|x86_64|amd64/.test(name)) return "x86_64";
+/** The architectures a build runs on: a universal Mac app counts for both Apple silicon and Intel. */
+function arches(name) {
+  if (/universal/.test(name)) return ["aarch64", "x86_64"];
+  if (/aarch64|arm64/.test(name)) return ["aarch64"];
+  if (/x64|x86_64|amd64/.test(name)) return ["x86_64"];
   // The Mac updater bundle is Lactic.app.tar.gz with no arch in its name; the release job adds it.
-  return undefined;
+  return [];
 }
 
 function files(dir) {
@@ -50,21 +54,20 @@ function files(dir) {
 }
 
 /** The manifest for the signed builds among `paths` (each build's signature at `<build>.sig`). */
-export function manifest({ paths, version, repo, date = new Date(), notes }) {
-  const tag = `v${version.replace(/^v/, "")}`;
+export function manifest({ paths, version, repo, date = new Date(), notes, tag = `v${version.replace(/^v/, "")}` }) {
   const platforms = {};
   const set = new Set(paths);
   for (const path of paths) {
     const name = basename(path);
     const kind = KINDS.find((k) => k.match.test(name));
     if (!kind || !set.has(`${path}.sig`)) continue;
-    const a = arch(name);
-    if (!a) throw new Error(`No architecture in ${name}`);
+    const list = arches(name);
+    if (!list.length) throw new Error(`No architecture in ${name}`);
     const entry = {
       signature: readFileSync(`${path}.sig`, "utf8").trim(),
       url: `https://github.com/${repo}/releases/download/${tag}/${encodeURIComponent(name)}`,
     };
-    for (const key of kind.keys(a)) platforms[key] ??= entry;
+    for (const a of list) for (const key of kind.keys(a)) platforms[key] ??= entry;
   }
   if (!Object.keys(platforms).length) throw new Error("No signed builds found");
   return {
@@ -80,11 +83,13 @@ if (process.argv[1] && import.meta.url.endsWith(basename(process.argv[1]))) {
     console.log(whatsNew(readFileSync(process.argv[3], "utf8"), process.argv[4] ?? ""));
     process.exit(0);
   }
-  const [dir, version, repo, notesFile] = process.argv.slice(2);
+  const [dir, version, repo, notesFile, tag] = process.argv.slice(2);
   if (!dir || !version || !repo) {
     console.error("usage: update-manifest.mjs <dir> <version> <owner/repo>");
     process.exit(2);
   }
-  const notes = notesFile ? whatsNew(readFileSync(notesFile, "utf8"), version) : undefined;
-  console.log(JSON.stringify(manifest({ paths: files(dir), version, repo, notes }), null, 2));
+  // A preview (0.1.4-preview.12) lists what's coming: the Next section.
+  const section = /-preview\./.test(version) ? "Next" : version;
+  const notes = notesFile ? whatsNew(readFileSync(notesFile, "utf8"), section) : undefined;
+  console.log(JSON.stringify(manifest({ paths: files(dir), version, repo, notes, tag: tag || undefined }), null, 2));
 }
