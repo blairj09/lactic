@@ -4,7 +4,110 @@
 // Picture-in-Picture couldn't do. Windows and Linux have no window level above full-screen apps,
 // so there it puts itself back on top every second instead; see keep_on_top().
 
+use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+
+const MIN_W: f64 = 220.0;
+const MIN_H: f64 = 120.0;
+/// Where the overlay last was and how big, in the app's data folder, so it opens there next ride.
+const GEOMETRY_FILE: &str = "overlay-window.json";
+
+/// A window or screen area in logical pixels (points on macOS).
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Rect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+impl Rect {
+    fn overlap(&self, o: &Rect) -> f64 {
+        let w = (self.x + self.width).min(o.x + o.width) - self.x.max(o.x);
+        let h = (self.y + self.height).min(o.y + o.height) - self.y.max(o.y);
+        if w > 0.0 && h > 0.0 {
+            w * h
+        } else {
+            0.0
+        }
+    }
+}
+
+/// Puts the saved overlay back where it was, kept whole on the screen it overlaps most. If it's on
+/// no screen now (a display was unplugged), None, and the overlay opens in the default spot.
+pub fn place(saved: Rect, screens: &[Rect]) -> Option<Rect> {
+    let screen = screens
+        .iter()
+        .map(|s| (s, saved.overlap(s)))
+        .filter(|(_, a)| *a > 0.0)
+        .max_by(|a, b| a.1.total_cmp(&b.1))?
+        .0;
+    let width = saved.width.min(screen.width).max(MIN_W);
+    let height = saved.height.min(screen.height).max(MIN_H);
+    let x = saved.x.min(screen.x + screen.width - width).max(screen.x);
+    let y = saved.y.min(screen.y + screen.height - height).max(screen.y);
+    Some(Rect { x, y, width, height })
+}
+
+fn geometry_path(app: &AppHandle) -> Option<std::path::PathBuf> {
+    app.path().app_data_dir().ok().map(|d| d.join(GEOMETRY_FILE))
+}
+
+fn saved_geometry(app: &AppHandle) -> Option<Rect> {
+    let text = std::fs::read_to_string(geometry_path(app)?).ok()?;
+    let r: Rect = serde_json::from_str(&text).ok()?;
+    (r.x.is_finite() && r.y.is_finite() && r.width.is_finite() && r.height.is_finite()).then_some(r)
+}
+
+/// Each screen's usable area (without the menu bar, Dock or taskbar), in logical pixels.
+fn screens(app: &AppHandle) -> Vec<Rect> {
+    app.available_monitors()
+        .unwrap_or_default()
+        .iter()
+        .map(|m| {
+            let area = m.work_area();
+            let scale = m.scale_factor();
+            let pos = area.position.to_logical::<f64>(scale);
+            let size = area.size.to_logical::<f64>(scale);
+            Rect { x: pos.x, y: pos.y, width: size.width, height: size.height }
+        })
+        .collect()
+}
+
+/// Saves where the overlay is whenever the rider moves or resizes it, half a second after they stop.
+fn remember_geometry(window: &tauri::WebviewWindow) {
+    let Some(path) = geometry_path(window.app_handle()) else { return };
+    let generation = Arc::new(AtomicU64::new(0));
+    let w = window.clone();
+    window.on_window_event(move |e| {
+        if !matches!(e, tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)) {
+            return;
+        }
+        if w.is_minimized().unwrap_or(false) || w.is_fullscreen().unwrap_or(false) {
+            return;
+        }
+        let (Ok(scale), Ok(pos), Ok(size)) = (w.scale_factor(), w.outer_position(), w.inner_size()) else { return };
+        let pos = pos.to_logical::<f64>(scale);
+        let size = size.to_logical::<f64>(scale);
+        if size.width < MIN_W - 1.0 || size.height < MIN_H - 1.0 {
+            return;
+        }
+        let rect = Rect { x: pos.x, y: pos.y, width: size.width, height: size.height };
+        let mine = generation.fetch_add(1, Ordering::Relaxed) + 1;
+        let generation = generation.clone();
+        let path = path.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            if generation.load(Ordering::Relaxed) == mine {
+                if let Ok(json) = serde_json::to_string(&rect) {
+                    let _ = std::fs::write(&path, json);
+                }
+            }
+        });
+    });
+}
 
 #[tauri::command]
 pub async fn overlay_open(app: AppHandle, width: Option<f64>, height: Option<f64>) -> Result<(), String> {
@@ -13,10 +116,16 @@ pub async fn overlay_open(app: AppHandle, width: Option<f64>, height: Option<f64
         let _ = w.set_focus();
         return Ok(());
     }
-    let window = WebviewWindowBuilder::new(&app, "overlay", WebviewUrl::App("index.html#/overlay".into()))
+    // Back where the rider left it last time, at that size; the first time, the size the Ride page asks for.
+    let restored = saved_geometry(&app).and_then(|r| place(r, &screens(&app)));
+    let builder = WebviewWindowBuilder::new(&app, "overlay", WebviewUrl::App("index.html#/overlay".into()));
+    let builder = match restored {
+        Some(r) => builder.inner_size(r.width, r.height).position(r.x, r.y),
+        None => builder.inner_size(width.unwrap_or(360.0), height.unwrap_or(220.0)),
+    };
+    let window = builder
         .title("Lactic ride")
-        .inner_size(width.unwrap_or(360.0), height.unwrap_or(220.0))
-        .min_inner_size(220.0, 120.0)
+        .min_inner_size(MIN_W, MIN_H)
         .always_on_top(true)
         .visible_on_all_workspaces(true)
         .decorations(false)
@@ -25,6 +134,7 @@ pub async fn overlay_open(app: AppHandle, width: Option<f64>, height: Option<f64
         .build()
         .map_err(|e| e.to_string())?;
     float_over_full_screen(&window);
+    remember_geometry(&window);
     Ok(())
 }
 
@@ -81,8 +191,7 @@ fn float_over_full_screen(window: &tauri::WebviewWindow) {
 /// always-on-top windows; nothing can draw over a game in exclusive full screen.
 #[cfg(not(target_os = "macos"))]
 fn keep_on_top(window: &tauri::WebviewWindow) {
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
     let closed = Arc::new(AtomicBool::new(false));
     let flag = closed.clone();
     window.on_window_event(move |e| {
@@ -143,3 +252,44 @@ fn raise(window: &tauri::WebviewWindow) {
 
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 fn raise(_window: &tauri::WebviewWindow) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const MAIN: Rect = Rect { x: 0.0, y: 25.0, width: 1512.0, height: 920.0 };
+    const RIGHT: Rect = Rect { x: 1512.0, y: 0.0, width: 2560.0, height: 1415.0 };
+
+    #[test]
+    fn keeps_a_window_that_fits() {
+        let r = Rect { x: 1000.0, y: 60.0, width: 420.0, height: 260.0 };
+        assert_eq!(place(r, &[MAIN, RIGHT]), Some(r));
+        let r = Rect { x: 3000.0, y: 900.0, width: 600.0, height: 300.0 };
+        assert_eq!(place(r, &[MAIN, RIGHT]), Some(r));
+    }
+
+    #[test]
+    fn pulls_a_window_hanging_off_the_edge_back_on() {
+        let r = Rect { x: 1300.0, y: 800.0, width: 420.0, height: 260.0 };
+        assert_eq!(place(r, &[MAIN]), Some(Rect { x: 1092.0, y: 685.0, width: 420.0, height: 260.0 }));
+    }
+
+    #[test]
+    fn picks_the_screen_it_mostly_sits_on() {
+        let r = Rect { x: 1400.0, y: 100.0, width: 400.0, height: 200.0 };
+        assert_eq!(place(r, &[MAIN, RIGHT]), Some(Rect { x: 1512.0, y: 100.0, width: 400.0, height: 200.0 }));
+    }
+
+    #[test]
+    fn forgets_the_spot_when_its_screen_is_gone() {
+        let r = Rect { x: 3000.0, y: 900.0, width: 600.0, height: 300.0 };
+        assert_eq!(place(r, &[MAIN]), None);
+        assert_eq!(place(r, &[]), None);
+    }
+
+    #[test]
+    fn shrinks_a_window_bigger_than_the_screen() {
+        let r = Rect { x: 0.0, y: 25.0, width: 2400.0, height: 1300.0 };
+        assert_eq!(place(r, &[MAIN]), Some(MAIN));
+    }
+}
