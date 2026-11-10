@@ -1,13 +1,15 @@
-// "Post to Strava" on a ride page: sends an earlier ride recorded here (or one that didn't go), and
-// shows where it is once sent. Only with the Strava experiment on and Strava connected.
+// The Strava link in a ride page's line under the title, beside "Open in intervals.icu": "Post to
+// Strava" sends an earlier ride recorded here (or one that didn't go), "View on Strava" opens it
+// once it's there. Only with the Strava experiment on and Strava connected.
 
 import { useEffect, useState } from "react";
-import { button } from "@/components/ui";
 import { useExperiments } from "@/lib/use-experiments";
 import { openExternal } from "~/platform/native";
 import { loadStrava, postRideToStrava, stravaActivityUrl, stravaUploadFor, type StravaUpload } from "~/integrations/strava";
 
-export function PostToStravaButton({ rideId }: { rideId: string }) {
+const LINK = "underline decoration-rule underline-offset-2 hover:text-ink disabled:no-underline disabled:hover:text-inherit";
+
+export function StravaRideLink({ rideId }: { rideId: string }) {
   const { strava_upload } = useExperiments();
   const [connected, setConnected] = useState(false);
   const [upload, setUpload] = useState<StravaUpload | null>(null);
@@ -34,21 +36,28 @@ export function PostToStravaButton({ rideId }: { rideId: string }) {
 
   if (!strava_upload || !connected) return null;
 
-  if (upload?.status === "sent" && upload.stravaId)
+  if (upload?.status === "sent" && upload.stravaId) {
+    const url = stravaActivityUrl(upload.stravaId);
     return (
-      <button type="button" className={button.secondary} onClick={() => void openExternal(stravaActivityUrl(upload.stravaId!))}>
-        View on Strava
-      </button>
+      <>
+        {" · "}
+        <a href={url} target="_blank" rel="noreferrer" className={LINK} onClick={(e) => (e.preventDefault(), void openExternal(url))}>
+          View on Strava
+        </a>
+      </>
     );
-  const going = upload && ["pending", "sending", "processing"].includes(upload.status);
+  }
+  const going = !!upload && ["pending", "sending", "processing"].includes(upload.status);
+  const label = going ? "Posting to Strava…" : upload?.status === "failed" ? "Try Strava again" : "Post to Strava";
 
   return (
-    <span className="inline-flex items-center gap-2">
+    <>
+      {" · "}
       <button
         type="button"
-        className={button.secondary}
-        disabled={busy || !!going}
-        title={error ?? (upload?.status === "failed" ? upload.error ?? undefined : undefined)}
+        className={LINK}
+        disabled={busy || going}
+        title={upload?.status === "failed" ? (upload.error ?? undefined) : undefined}
         onClick={async () => {
           setBusy(true);
           setError(null);
@@ -62,9 +71,9 @@ export function PostToStravaButton({ rideId }: { rideId: string }) {
           }
         }}
       >
-        {going ? "Posting to Strava…" : upload?.status === "failed" ? "Try Strava again" : upload?.status === "skipped" ? "Post to Strava again" : "Post to Strava"}
+        {label}
       </button>
-      {error && <span className="text-sm text-negative">{error}</span>}
-    </span>
+      {error && <span className="text-negative"> ({error})</span>}
+    </>
   );
 }

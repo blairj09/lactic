@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ExperimentalTag } from "@/components/experimental-tag";
-import { PostToStravaButton } from "~/settings/strava-post-button";
+import { StravaRideLink } from "~/settings/strava-post-button";
 import { experiments } from "@/lib/experiments";
 import WorkoutProfile from "@/components/workout-profile";
 import {
@@ -146,6 +146,7 @@ export default async function RideDetail({
                 </a>
               </>
             )}
+            {ride.source === "app" && <StravaRideLink rideId={ride.id} />}
             {ride.duplicateOf && (
               <>
                 {" "}
@@ -170,7 +171,6 @@ export default async function RideDetail({
                 <ExperimentalTag />
               </Link>
             )}
-            {ride.source === "app" && <PostToStravaButton rideId={ride.id} />}
             {actions}
           </>
         }
