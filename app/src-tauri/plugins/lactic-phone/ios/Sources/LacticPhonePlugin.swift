@@ -293,6 +293,16 @@ enum Link {
         lastError = error  // Not at this address: try the next.
       }
     }
+    // 4. Through iCloud: only sync, which is safe to answer late or twice.
+    if kind == "sync" {
+      if let data = try await Mailbox.exchange(device: pairing.deviceId, sealed: sealed, wait: min(timeout, 45)) {
+        pairing.lastSentAt = Date().timeIntervalSince1970 * 1000
+        do { return try answer(status: 200, data: data) } catch let e as ComputerSaid { throw LacticError(e.message) }
+      }
+      if Mailbox.folder(device: pairing.deviceId) != nil {
+        throw LacticError("Can't reach \(computer) directly, so this sync went through iCloud. It finishes when Lactic is open on \(computer).")
+      }
+    }
     // Nothing answered anywhere: say where it looked, which is what checking the network needs.
     if lastError is URLError {
       let tried = pairing.hosts.joined(separator: ", ")
