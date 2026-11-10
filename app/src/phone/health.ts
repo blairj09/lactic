@@ -4,7 +4,7 @@
 // isn't in Health yet (from Zwift, a bike computer or a watch) is written there as a cycling workout.
 
 import { healthWorkout } from "@/lib/engine/health-export";
-import { ingestHealth, SOURCE_SETTING } from "~/integrations/apple-health";
+import { ingestHealth, IPHONE_SETTING, SOURCE_SETTING, type IphoneHealth } from "~/integrations/apple-health";
 import { createClient } from "~/db/supabase-client";
 import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
@@ -54,7 +54,11 @@ export function syncPhoneHealth(): Promise<string | null> {
       }
       if (pending.length) await ackPending(pending.map((p) => p.id));
       await setSetting(IMPORTED, true);
-      await setSetting("health.lastImport", { at: new Date().toISOString(), nights, days, latest, failed: [] });
+      const at = new Date().toISOString();
+      await setSetting("health.lastImport", { at, nights, days, latest, failed: [], from: "iphone" });
+      // Synced: the computer's Sleep and recovery card shows this as the source and its status.
+      const was = await getSetting<IphoneHealth | null>(IPHONE_SETTING, null);
+      await setSetting(IPHONE_SETTING, { at, nights, days, latest: latest ?? was?.latest ?? null } satisfies IphoneHealth);
       revalidatePath("/");
       await writeRides();
       return latest;

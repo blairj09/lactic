@@ -3,10 +3,10 @@
 // for a ride on this computer. Rows the phone sends in a sync are applied by Rust; this just
 // refreshes the screens.
 
-import { ingestHealth } from "~/integrations/apple-health";
+import { ingestHealth, IPHONE_SETTING, type IphoneHealth } from "~/integrations/apple-health";
 import { invoke, isDesktop, isPhone, listen } from "~/platform/native";
 import { applySharedPrefs } from "~/settings/shared-prefs";
-import { setSetting } from "~/settings/store";
+import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { remoteRide, runRemoteControl } from "~/ride/remote";
 import type { ControlMessage } from "~/ride/channel";
@@ -35,7 +35,10 @@ export function startPhoneBridge(): () => void {
         }
         if (req.kind !== "health") throw new Error(`Unknown request ${req.kind}`);
         const r = await ingestHealth(req.body);
-        await setSetting("health.lastImport", { at: new Date().toISOString(), nights: r.nights, days: r.days, latest: r.latest, failed: [], from: "iphone" });
+        const at = new Date().toISOString();
+        await setSetting("health.lastImport", { at, nights: r.nights, days: r.days, latest: r.latest, failed: [], from: "iphone" });
+        const was = await getSetting<IphoneHealth | null>(IPHONE_SETTING, null);
+        await setSetting(IPHONE_SETTING, { at, nights: r.nights, days: r.days, latest: r.latest ?? was?.latest ?? null } satisfies IphoneHealth);
         revalidatePath("/");
         await invoke("phone_respond", { requestId: req.requestId, result: r, error: null });
       } catch (e) {

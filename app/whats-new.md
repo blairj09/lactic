@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- With your iPhone paired, Settings → Sleep and recovery shows Apple Health coming from it, when the phone last read Health and last night's numbers. Without a paired iPhone, the card points you to pairing it, and the Shortcut steps sit behind a "No iPhone app yet?" link.
 - Your API keys (the coach's AI key and intervals.icu) now move between your Mac and paired iPhone, so you type each one once; change or remove one on either and the other follows. Keys go only over the direct encrypted link and stay in each device's keychain. Units and your ride habits (auto-start, sprint grade, how Extend works) sync too, and a post-ride survey or week review you skipped on one isn't asked again on the other. Theme and paired gear stay per device.
 - Away from your Mac, your iPhone keeps syncing through iCloud: your rides and Health data reach the Mac next time Lactic is open there.
 - Your iPhone finds Lactic on your Mac nearby by itself and connects straight to it, the way AirDrop does, even when the two are on different networks.
