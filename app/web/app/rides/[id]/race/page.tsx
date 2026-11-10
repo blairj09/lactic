@@ -55,7 +55,7 @@ export default async function RaceReportPage({ params }: { params: Promise<{ id:
 
   // The comparisons every report makes on its own, and the event this race was (from the plan).
   const [bestCurve, event] = await Promise.all([bestCurveBefore(supabase, ride.startedAt.toISOString()), eventForRace(supabase, ride, athlete).catch(() => null)]);
-  const glance = await loadGlance(supabase, ride, athlete, data, bestCurve).catch((e) => (console.error(e), null));
+  const glance = await loadGlance(supabase, ride, athlete, data, bestCurve, event).catch((e) => (console.error(e), null));
 
   let built: BuiltRace | null = null;
   let problem: string | null = null;
@@ -98,6 +98,7 @@ export default async function RaceReportPage({ params }: { params: Promise<{ id:
             event={event ? `${event.name} · ${GOAL_KIND_LABELS[event.kind].toLowerCase()}, ${event.priority} race` : null}
             solo={Boolean(solo) || (!report && Boolean(event && !LAP_KINDS.has(event.kind)))}
             pastNames={data.rivals.filter((r) => r.past).map((r) => r.name)}
+            preRaceHref={event && glance.plan && experiments().course_prep ? `/plan/events/${event.id}` : null}
           />
         )}
         {report && <RaceReview activityId={id} report={report} notes={data.notes} debrief={data.debrief} coachOn={Boolean(coachModel())} />}

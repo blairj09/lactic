@@ -10,13 +10,18 @@ export interface Experiment {
   line: string;
 }
 
-export type ExperimentId = "race_report" | "strava_upload";
+export type ExperimentId = "race_report" | "strava_upload" | "course_prep";
 
 export const EXPERIMENTS: Experiment[] = [
   {
     id: "race_report",
     title: "Race reports",
     line: "Line your race up against other riders' files, lap by lap and corner by corner, to see where you lost time and what to work on. Long races that aren't laps (a point-to-point road race, a gran fondo) get pacing, fade, climbs, stops and your past years instead. Opens from a race's ride page.",
+  },
+  {
+    id: "course_prep",
+    title: "Race courses",
+    line: "Attach a race's course file (GPX, TCX or FIT) to an event on the Plan. You get a pre-race report with the profile, the climbs and how hard to ride each one, fueling, and the forecast from two weeks out, and the plan's key workouts train for the course's climbs.",
   },
   {
     id: "strava_upload",
@@ -27,14 +32,14 @@ export const EXPERIMENTS: Experiment[] = [
 
 export type Experiments = Record<ExperimentId, boolean>;
 
-export const NO_EXPERIMENTS: Experiments = { race_report: false, strava_upload: false };
+export const NO_EXPERIMENTS: Experiments = { race_report: false, strava_upload: false, course_prep: false };
 export const EXPERIMENTS_SETTING = "experiments";
 export const EXPERIMENTS_EVENT = "lactic:experiments";
 
 /** A saved value, with anything missing or not exactly true counted as off. */
 export function parseExperiments(value: unknown): Experiments {
   const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-  return { race_report: v.race_report === true, strava_upload: v.strava_upload === true };
+  return { race_report: v.race_report === true, strava_upload: v.strava_upload === true, course_prep: v.course_prep === true };
 }
 
 let current: Experiments = NO_EXPERIMENTS;

@@ -33,7 +33,7 @@ export function applyPicks(plan: Plan, picks: WorkoutPick[], today: string, star
       const s = day.session!;
       const session = buildSession(s.zone, s.level, s.duration, { template: pick.template, tweaks: pick.tweaks });
       changed = true;
-      return { ...day, session, stress: session.stress, why: pick.reason };
+      return { ...day, session, stress: session.stress, why: pick.reason, course: undefined };
     });
     return { ...week, days, stress: Math.round(days.reduce((s, d) => s + d.stress, 0)) };
   });

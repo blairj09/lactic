@@ -1,3 +1,4 @@
+import { formatDistance, formatElevation, readUnits } from "@/lib/units";
 import Link from "next/link";
 import WorkoutProfile from "@/components/workout-profile";
 import { Dash, Panel, PageHeader, Stat } from "@/components/ui";
@@ -101,6 +102,8 @@ export default function TodayView({
 
       {athlete.ftp && <FtpBanner ftp={athlete.ftp} check={checkFtp({ today, ftp: athlete.ftp, history: athlete.ftpHistory, estimate, plan: state.plan })} windowDays={ftpWindowDays} />}
 
+      <RaceSoon state={state} />
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} />
 
@@ -126,6 +129,26 @@ export default function TodayView({
         </section>
       </div>
     </>
+  );
+}
+
+/** In the two weeks before an event with a course file: a way into its pre-race report, forecast included. */
+function RaceSoon({ state }: { state: TrainingState }) {
+  const { today } = state;
+  const next = state.goals.find((g) => g.course && g.date > today && g.priority !== "C" && Date.parse(`${g.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`) <= 14 * 86_400_000);
+  if (!next) return null;
+  const days = Math.round((Date.parse(`${next.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+  return (
+    <Link
+      href={`/plan/events/${next.id}`}
+      className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg border border-line bg-surface px-4 py-3 text-sm hover:border-ink/30"
+    >
+      <span>
+        <span className="font-medium">{next.name}</span> {days === 1 ? "is tomorrow" : `in ${days} days`}
+        <span className="text-muted"> · {formatDistance(next.course!.km * 1000, readUnits())}, {formatElevation(next.course!.gain, readUnits())} up</span>
+      </span>
+      <span className="text-accent">Pre-race report: course, pacing, fuel{days <= 15 ? " and the forecast" : ""}</span>
+    </Link>
   );
 }
 
@@ -265,6 +288,7 @@ function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: Tr
           </p>
         )}
         {todayPlan?.why && <p className="text-sm text-muted">Coach: {todayPlan.why}</p>}
+        {todayPlan?.course && !todayPlan.why && <p className="text-sm text-muted">{todayPlan.course}</p>}
         <WorkoutProfile workout={planned.workout} height={88} details ftp={athlete.ftp} />
         <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />
       </div>

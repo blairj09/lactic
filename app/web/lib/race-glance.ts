@@ -1,13 +1,16 @@
 // Loads what a race report compares on its own (engine/race/glance), and which event's race Today
 // points to (engine/race/followup). The numbers all come from the engine.
 
-import { localDate } from "./engine/activity";
+import { ftpOn, localDate } from "./engine/activity";
+import { courseProfile } from "./engine/course/profile";
+import { paceCourse } from "./engine/course/pacing";
+import { loadCourse } from "./course";
 import type { Goal } from "./engine/plan";
 import { addDays } from "./engine/pmc";
 import type { PowerCurve } from "./engine/power";
 import type { Route } from "./engine/ride-detail";
 import { eventOnDay, FOLLOW_UP_DAYS, raceFollowUp, type RaceFollowUp } from "./engine/race/followup";
-import { raceGlance, type Glance, type HistoryRide } from "./engine/race/glance";
+import { againstPlan, raceGlance, type AgainstPlan, type Glance, type HistoryRide } from "./engine/race/glance";
 import { findRow } from "./engine/race/results";
 import type { Athlete, StoredRide } from "./activities";
 import type { RaceData } from "./race";
@@ -45,14 +48,33 @@ export async function eventForRace(supabase: Supabase, ride: StoredRide, athlete
 }
 
 /** A race's comparisons that need no setup: peaks against your bests, the placing, your earlier rides of the course. */
-export async function loadGlance(supabase: Supabase, ride: StoredRide, athlete: Athlete, data: RaceData, bestCurve: PowerCurve | null): Promise<Glance> {
-  const [{ data: stream }, history] = await Promise.all([
-    supabase.from("activity_streams").select("route").eq("activity_id", ride.id).maybeSingle(),
+export async function loadGlance(supabase: Supabase, ride: StoredRide, athlete: Athlete, data: RaceData, bestCurve: PowerCurve | null, goal: Goal | null): Promise<Glance> {
+  const [{ data: stream }, history, course] = await Promise.all([
+    supabase.from("activity_streams").select("route, watts, step_seconds").eq("activity_id", ride.id).maybeSingle(),
     loadHistory(supabase, ride, athlete),
+    goal ? loadCourse(supabase, goal.id).catch(() => null) : null,
   ]);
+  const route = (stream?.route as Route | null) ?? null;
+  let plan: AgainstPlan | null = null;
+  if (goal && course) {
+    try {
+      // The pre-race plan as it stood on race day: the course paced at that day's FTP.
+      const profile = courseProfile(course.track);
+      const pacing = paceCourse(profile, goal, { ftp: ftpOn(localDate(ride.startedAt, athlete.timezone), athlete.ftpHistory, athlete.ftp), weightKg: athlete.weightKg });
+      plan = againstPlan(
+        { meters: profile.meters, seconds: pacing.seconds, climbs: pacing.climbs },
+        route,
+        stream ? { step: stream.step_seconds as number, watts: (stream.watts as number[] | null) ?? null } : null,
+        ride.durationSeconds,
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  }
   return raceGlance({
+    plan,
     race: figures(ride),
-    route: (stream?.route as Route | null) ?? null,
+    route,
     weightKg: athlete.weightKg,
     bestCurve,
     results: data.results,

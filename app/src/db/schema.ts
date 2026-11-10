@@ -458,6 +458,29 @@ export const TABLES: Record<string, Table> = {
     unique: [["activity_id"]],
     foreignKeys: { activity_id: activity("cascade") },
   },
+  /**
+   * An event's course, from a file the rider attached (GPX, TCX or FIT): the track thinned to every
+   * 10 m or so, the profile summary the plan uses, and the latest forecast for race day.
+   */
+  event_courses: {
+    columns: {
+      id,
+      user_id: user,
+      goal_id: { type: "uuid", notNull: true },
+      file_name: { type: "text" },
+      track: { type: "json", notNull: true },
+      summary: { type: "json", notNull: true },
+      /** "file" when the heights came with it, "terrain" when Lactic looked them up. */
+      elevation_source: { type: "text" },
+      forecast: { type: "json" },
+      forecast_at: { type: "ts" },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    unique: [["goal_id"]],
+    foreignKeys: { goal_id: { table: "training_goals", column: "id", onDelete: "cascade" } },
+  },
   /** Other riders' tracks of a race (GPX files from Strava), to compare against. */
   race_rivals: {
     columns: {

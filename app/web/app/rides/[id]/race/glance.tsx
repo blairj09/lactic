@@ -6,6 +6,8 @@ import { useState, useTransition } from "react";
 import { button, Result } from "@/components/ui";
 import type { Glance } from "@/lib/engine/race/glance";
 import { formatClock } from "@/lib/engine/race/results";
+import { elevationIn, elevationUnit } from "@/lib/units";
+import { useUnits } from "@/lib/use-units";
 import { addPastRide } from "./actions";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -25,6 +27,7 @@ export default function RaceGlance({
   event,
   solo,
   pastNames,
+  preRaceHref = null,
 }: {
   activityId: string;
   glance: Glance;
@@ -34,13 +37,16 @@ export default function RaceGlance({
   solo: boolean;
   /** Past editions already in the report, by name. */
   pastNames: string[];
+  /** The event's pre-race report, when it has a course and race courses are on. */
+  preRaceHref?: string | null;
 }) {
   const router = useRouter();
+  const units = useUnits();
   const [pending, start] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const { peaks, placing, past } = glance;
+  const { peaks, placing, past, plan } = glance;
   const hasPower = peaks.length > 0;
-  const nothing = !hasPower && !placing && !past.length;
+  const nothing = !hasPower && !placing && !past.length && !plan;
 
   return (
     <section aria-label="At a glance" className="space-y-5 rounded-lg border border-line bg-surface p-4 sm:p-5">
@@ -122,6 +128,61 @@ export default function RaceGlance({
           )}
         </div>
       </div>
+
+      {plan && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">
+            Against your pre-race plan{" "}
+            <span className="font-normal text-muted">
+              · estimated {time(plan.plannedSeconds)}, you were {Math.abs(plan.delta) < 60 ? "right on it" : `${time(Math.abs(plan.delta))} ${plan.delta < 0 ? "faster" : "slower"}`}
+              {preRaceHref && (
+                <>
+                  {" · "}
+                  <Link href={preRaceHref} className="text-ink underline underline-offset-4">
+                    Pre-race report
+                  </Link>
+                </>
+              )}
+            </span>
+          </h3>
+          {plan.climbs.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="num w-full min-w-[560px] text-sm">
+                <thead className="text-left text-xs text-muted">
+                  <tr className="border-b border-line">
+                    <th className="py-1.5 font-normal">Climb</th>
+                    <th className="py-1.5 text-right font-normal">Planned</th>
+                    <th className="py-1.5 text-right font-normal">Ridden</th>
+                    <th className="py-1.5 text-right font-normal">Planned power</th>
+                    <th className="py-1.5 text-right font-normal">Your power</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plan.climbs.map((c) => {
+                    const over = c.watts !== null && c.watts > c.plannedWatts[1] * 1.05;
+                    const under = c.watts !== null && c.watts < c.plannedWatts[0] * 0.95;
+                    return (
+                      <tr key={c.n} className="border-b border-rule last:border-0">
+                        <td className="py-1.5">
+                          Climb {c.n} <span className="text-muted">· {Math.round(elevationIn(c.gain, units))} {elevationUnit(units)} at {(c.grade * 100).toFixed(1)}%</span>
+                        </td>
+                        <td className="py-1.5 text-right text-muted">{time(c.plannedSeconds)}</td>
+                        <td className="py-1.5 text-right">{c.seconds !== null ? time(c.seconds) : "–"}</td>
+                        <td className="py-1.5 text-right text-muted">
+                          {c.plannedWatts[0]}–{c.plannedWatts[1]} W
+                        </td>
+                        <td className={cx("py-1.5 text-right font-medium", over && "text-warning", under && "text-muted")}>
+                          {c.watts !== null ? `${c.watts} W${over ? ", over" : under ? ", under" : ""}` : "–"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="space-y-2">
         <h3 className="text-sm font-medium">

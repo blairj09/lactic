@@ -63,9 +63,26 @@
       </div>
 
       <div class="app" id="app-window">
-        <div class="app-bar"><span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span><span class="app-live-note">Live demo with sample data<span class="more">. Click around, ask the coach, or ride with a simulated trainer.</span></span></div>
-        <div class="app-stage">
-          <iframe class="app-live" id="app-live" title="Lactic, running with sample data" src="/demo/"></iframe>
+        <div class="app-bar">
+          <span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span>
+          <span class="app-live-note">Live demo with sample data</span>
+          <div class="tour-steps" id="tour-steps" aria-label="Tour stops"></div>
+          <button type="button" class="app-bar-btn" id="tour-restart" hidden>Take the tour</button>
+          <button type="button" class="app-bar-btn app-release" id="app-release" hidden>Done</button>
+        </div>
+        <div class="app-stage" id="app-stage">
+          <iframe class="app-live" id="app-live" title="Lactic, running with sample data" src="/demo/" tabindex="-1"></iframe>
+          <button type="button" class="app-shield" id="app-shield" aria-label="Explore the live demo"><span class="app-try"><span class="try-click">Click to explore</span><span class="try-tap">Tap to explore</span></span></button>
+          <div class="tour-spot" id="tour-spot" aria-hidden="true"></div>
+          <div class="tour-card" id="tour-card" role="group" aria-labelledby="tour-title" aria-live="polite">
+            <p class="tour-count" id="tour-count"></p>
+            <h2 class="tour-title" id="tour-title"></h2>
+            <p class="tour-body" id="tour-body"></p>
+            <div class="tour-actions">
+              <button type="button" class="tour-exit" id="tour-exit">Exit tour</button>
+              <span class="tour-nav"><button type="button" class="tour-btn" id="tour-back">Back</button><button type="button" class="tour-btn tour-btn-primary" id="tour-next">Next</button></span>
+            </div>
+          </div>
           <div class="app-loading" id="app-loading" role="status" aria-label="Loading the Lactic demo">
             <div class="boot-mark">
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="15" width="2.8" height="6" /><rect x="4.5" y="10.5" width="2.8" height="10.5" /><rect x="7" y="6.5" width="2.8" height="14.5" /><rect x="9.5" y="3" width="2.8" height="18" /><rect x="12" y="15" width="10" height="6" /></svg>
@@ -237,20 +254,7 @@
 </dialog>
 
 <script src="/download.js"></script>
-<script>
-  // The app window: the loader covers the demo until its page is up; from there the app shows the
-  // same loader until it has drawn.
-  (function () {
-    var frame = document.getElementById("app-live");
-    var done = function () { document.getElementById("app-loading").hidden = true; };
-    frame.addEventListener("load", done);
-    addEventListener("message", function (e) { if (e.origin === location.origin && e.data && e.data.lactic === "ready") done(); });
-    try {
-      // It may have loaded before this script ran.
-      if (frame.contentDocument && frame.contentDocument.readyState === "complete" && frame.contentWindow.location.href !== "about:blank") done();
-    } catch (e) {}
-  })();
-</script>
+<script src="/hero.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>

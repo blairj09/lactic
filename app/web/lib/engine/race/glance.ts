@@ -40,6 +40,8 @@ export interface GlanceInput {
   ownRow: ResultRow | null;
   /** Earlier rides that might be the same course (any length; the engine checks). */
   history: HistoryRide[];
+  /** The race against the event's pre-race plan, when the event has a course (againstPlan). */
+  plan?: AgainstPlan | null;
 }
 
 export interface PeakRow {
@@ -95,6 +97,7 @@ export interface Glance {
   npWkg: number | null;
   placing: Placing | null;
   past: PastRide[];
+  plan: AgainstPlan | null;
   /** The two or three things worth saying first, in plain words. */
   headlines: string[];
 }
@@ -134,7 +137,8 @@ export function raceGlance(input: GlanceInput): Glance {
   const placing = placingOf(input.results, input.ownRow, race.distanceMeters);
   const past = input.route ? pastRides(race, input.route, input.history, peaks.map((p) => p.seconds)) : [];
 
-  return { peaks, npWkg: race.normalizedPower ? wkg(race.normalizedPower) : null, placing, past, headlines: headlines(peaks, placing, past) };
+  const plan = input.plan ?? null;
+  return { peaks, npWkg: race.normalizedPower ? wkg(race.normalizedPower) : null, placing, past, plan, headlines: headlines(peaks, placing, past, plan) };
 }
 
 function placingOf(results: ResultRow[], own: ResultRow | null, meters: number | null): Placing | null {
@@ -234,7 +238,7 @@ function shareOn(from: Route, onto: Route): number {
   return total ? near / total : 0;
 }
 
-function headlines(peaks: PeakRow[], placing: Placing | null, past: PastRide[]): string[] {
+function headlines(peaks: PeakRow[], placing: Placing | null, past: PastRide[], plan: AgainstPlan | null): string[] {
   const lines: string[] = [];
   if (placing) {
     const top = placing.place === 1 ? "You won" : `${ordinal(placing.place)} of ${placing.of}`;
@@ -259,6 +263,10 @@ function headlines(peaks: PeakRow[], placing: Placing | null, past: PastRide[]):
   } else {
     const closest = [...peaks].filter((p) => p.ofBest !== null).sort((a, b) => (b.ofBest as number) - (a.ofBest as number))[0];
     if (closest?.ofBest) lines.push(`Closest to your best over ${closest.label}: ${closest.watts} W, ${Math.round(closest.ofBest * 100)}% of your 90-day best.`);
+  }
+  if (plan && !past.length) {
+    const hm = (s: number) => `${Math.floor(s / 3600)}:${String(Math.round((s % 3600) / 60)).padStart(2, "0")}`;
+    lines.push(Math.abs(plan.delta) < 60 ? `Right on your pre-race estimate of ${hm(plan.plannedSeconds)}.` : `${formatClock(Math.abs(plan.delta))} ${plan.delta < 0 ? "faster" : "slower"} than your pre-race estimate of ${hm(plan.plannedSeconds)}.`);
   }
   const last = past[0];
   if (last) {
@@ -296,4 +304,60 @@ export function trackFromStored(
       return { t: Math.round(startedAtMs / 1000) + t, lat: p[0], lng: p[1], ele: null, hr: at(stream.heartRate, t), watts: at(stream.watts, t), cadence: at(stream.cadence, t) };
     }),
   };
+}
+
+/** The pre-race plan for the course (engine/course/pacing), as much of it as the comparison needs. */
+export interface PlannedRace {
+  /** The course's length, meters. */
+  meters: number;
+  /** Estimated riding time, seconds. */
+  seconds: number;
+  climbs: { n: number; from: number; to: number; gain: number; grade: number; seconds: number; watts: [number, number] }[];
+}
+
+export interface PlanClimb {
+  n: number;
+  gain: number;
+  grade: number;
+  plannedSeconds: number;
+  plannedWatts: [number, number];
+  seconds: number | null;
+  watts: number | null;
+}
+
+export interface AgainstPlan {
+  plannedSeconds: number;
+  /** Your time minus the estimate: negative is faster. */
+  delta: number;
+  climbs: PlanClimb[];
+}
+
+/**
+ * The race against its pre-race plan: the estimated time, and each of the course's climbs as
+ * planned (time, watts) and as ridden. Climbs are found on your ride by distance, scaled to the
+ * course's length so a start a little up the road doesn't throw them off.
+ */
+export function againstPlan(plan: PlannedRace, route: Route | null, stream: { step: number; watts: (number | null)[] | null } | null, raceSeconds: number): AgainstPlan {
+  const climbs: PlanClimb[] = plan.climbs.map((c) => ({ n: c.n, gain: c.gain, grade: c.grade, plannedSeconds: c.seconds, plannedWatts: c.watts, seconds: null, watts: null }));
+  if (route && route.length > 1 && route.every((p) => p[2] !== undefined)) {
+    const dist = [0];
+    for (let i = 1; i < route.length; i++) dist.push(dist[i - 1] + haversine(route[i - 1][0], route[i - 1][1], route[i][0], route[i][1]));
+    const scale = dist[dist.length - 1] / plan.meters;
+    const timeAt = (meters: number) => {
+      const m = meters * scale;
+      let i = 1;
+      while (i < dist.length - 1 && dist[i] < m) i++;
+      const f = dist[i] === dist[i - 1] ? 0 : Math.max(0, Math.min(1, (m - dist[i - 1]) / (dist[i] - dist[i - 1])));
+      return (route[i - 1][2] as number) + f * ((route[i][2] as number) - (route[i - 1][2] as number));
+    };
+    plan.climbs.forEach((c, k) => {
+      const t0 = timeAt(c.from);
+      const t1 = timeAt(c.to);
+      if (t1 <= t0) return;
+      climbs[k].seconds = Math.round(t1 - t0);
+      const w = stream?.watts?.slice(Math.round(t0 / stream.step), Math.max(Math.round(t0 / stream.step) + 1, Math.round(t1 / stream.step))).filter((v): v is number => v !== null) ?? [];
+      climbs[k].watts = w.length ? Math.round(w.reduce((a, b) => a + b, 0) / w.length) : null;
+    });
+  }
+  return { plannedSeconds: plan.seconds, delta: raceSeconds - plan.seconds, climbs };
 }

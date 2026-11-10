@@ -2,7 +2,8 @@
 
 import type { Formatters } from "./engine/race/advice";
 import type { SoloFormatters } from "./engine/race/solo-advice";
-import { distanceIn, distanceUnit, formatDistance, speedIn, speedUnit, type UnitSystem } from "./units";
+import type { CourseFormatters } from "./engine/course/prerace";
+import { distanceIn, distanceUnit, formatDistance, formatElevation, speedIn, speedUnit, temperatureUnit, type UnitSystem } from "./units";
 
 export function raceFormatters(units: UnitSystem): Formatters {
   return {
@@ -28,3 +29,15 @@ export function soloFormatters(units: UnitSystem): SoloFormatters {
 }
 
 export const distanceLabel = (units: UnitSystem) => distanceUnit(units);
+
+/** Course and pre-race report numbers in the rider's units. */
+export function courseFormatters(units: UnitSystem): CourseFormatters {
+  const d = (m: number) => distanceIn(m, units).toFixed(1);
+  return {
+    at: (m) => `${units === "imperial" ? "mile" : "km"} ${d(m)}`,
+    distance: (m) => `${d(m)} ${distanceUnit(units)}`,
+    height: (m) => formatElevation(m, units),
+    wind: (kmh) => `${Math.round(speedIn(kmh / 3.6, units))} ${speedUnit(units)}`,
+    temp: (c) => `${Math.round(units === "imperial" ? c * 1.8 + 32 : c)}${temperatureUnit(units)}`,
+  };
+}

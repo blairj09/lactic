@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Goal } from "../plan";
 import type { Route } from "../ride-detail";
 import { FOLLOW_UP_DAYS, eventOnDay, raceFollowUp, raceRide } from "./followup";
-import { raceGlance, sameCourse, trackFromStored, type HistoryRide, type RideFigures } from "./glance";
+import { againstPlan, raceGlance, sameCourse, trackFromStored, type HistoryRide, type RideFigures } from "./glance";
 import { parseResults } from "./results";
 
 // A made-up 40 km out-and-back, north from a town square.
@@ -131,5 +131,20 @@ describe("trackFromStored", () => {
     const t = trackFromStored(route, 1_700_000_000_000, { step: 5, watts: [200, 210, 220, 230, 240, 250, 260, 270, 280], heartRate: null, cadence: null }, "You, 2025");
     expect(t?.points.map((p) => [p.t, p.watts])).toEqual([[1_700_000_000, 200], [1_700_000_020, 240], [1_700_000_041, 280]]);
     expect(trackFromStored([[LAT0, LNG0], [LAT0 + 0.001, LNG0]], 0, { step: 5, watts: null, heartRate: null, cadence: null }, null)).toBeNull();
+  });
+});
+
+describe("againstPlan", () => {
+  it("finds each planned climb on the ride by distance and reads its time and power", () => {
+    // 10 km straight north at 10 m/s, a point every 100 m; the course file says 10.2 km.
+    const route: Route = [];
+    for (let m = 0; m <= 10_000; m += 100) route.push([...north(m), m / 10]);
+    const watts = Array.from({ length: 200 }, (_, i) => (i * 5 >= 400 && i * 5 < 600 ? 320 : 200));
+    const plan = { meters: 10_200, seconds: 1100, climbs: [{ n: 1, from: 4080, to: 6120, gain: 120, grade: 0.06, seconds: 240, watts: [280, 295] as [number, number] }] };
+    const a = againstPlan(plan, route, { step: 5, watts }, 1000);
+    expect(a.delta).toBe(-100);
+    expect(a.climbs[0]).toMatchObject({ seconds: 200, watts: 320, plannedSeconds: 240 });
+    const g = raceGlance({ race: { ...race, durationSeconds: 1000 }, route: null, weightKg: null, bestCurve: null, results: [], ownRow: null, history: [], plan: a });
+    expect(g.headlines).toContain("1:40 faster than your pre-race estimate of 0:18.");
   });
 });

@@ -336,7 +336,7 @@ function WeekView({ week, state, moveTargets }: { week: PlanWeek; state: Trainin
                 label: formatDate(day.date, true),
                 workout: day.session?.workout ?? null,
                 changed: state.changedDays.includes(day.date),
-                why: day.why ?? null,
+                why: day.why ?? day.course ?? null,
                 outside: day.date <= addDays(state.today, WORKOUT_DAYS - 1) ? state.outdoor.some((o) => o.date === day.date) : null,
               }}
               ftp={state.athlete.ftp ?? 0}
@@ -468,6 +468,11 @@ function DayCell({
           {structure && <div className="text-xs">{structure}</div>}
           {day.movedFrom && <div className="text-xs text-muted">{movedLine(day.movedFrom)}</div>}
           {day.rule && <RuleLine rule={day.rule} />}
+          {day.course && !day.why && (
+            <div className="text-xs text-muted" title={day.course}>
+              Trains for the course
+            </div>
+          )}
           <div className="num text-xs text-muted">
             {Math.round(day.session.duration / 60)} min · {Math.round(day.session.stress)} TSS
             {day.role === "key" && ` · L${day.session.level}`}

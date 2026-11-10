@@ -1,6 +1,9 @@
 // Everything the plan, the check-in and the coach read, loaded once per request: rides, fitness,
 // recovery, goals, levels and the plan computed from them.
 
+import { loadCourseSummaries } from "./course";
+import { courseDemands } from "./engine/course/shape";
+import { experiments } from "./experiments";
 import { loadAthlete, loadRides, type Athlete, type StoredRide } from "./activities";
 import { dailyStress, localDate } from "./engine/activity";
 import { DIFFICULTIES, type Difficulty } from "./engine/feedback";
@@ -218,13 +221,13 @@ function validSession(value: unknown): StoredFeedback["session"] {
 export async function loadTrainingState(supabase: Supabase): Promise<TrainingState> {
   // Every query is one round trip to the database, so they all go out together: those that don't need the athlete's
   // time zone start before it's known, and recovery reads its rows while the day's exertion loads.
-  const early = Promise.all([loadRides(supabase), loadGoals(supabase), loadPlans(supabase), loadBreaks(supabase), loadFeedbackRows(supabase)]);
+  const early = Promise.all([loadRides(supabase), loadGoals(supabase), loadPlans(supabase), loadBreaks(supabase), loadFeedbackRows(supabase), experiments().course_prep ? loadCourseSummaries(supabase) : null]);
   early.catch(() => {}); // Reported by the await below; this keeps a failure while the athlete loads from going unhandled.
   const athlete = await loadAthlete(supabase);
   const tz = athlete.timezone;
   const today = localDate(new Date(), tz);
   const daytime = loadDaytime(supabase, athlete, today).catch((e) => (console.error(e), null));
-  const [[rides, goals, plans, breaks, feedbackRows], recovery, daytimeData, allDays, picks, outdoor, keptRow, favorites] = await Promise.all([
+  const [[rides, eventGoals, plans, breaks, feedbackRows, courses], recovery, daytimeData, allDays, picks, outdoor, keptRow, favorites] = await Promise.all([
     early,
     // Riders who don't track recovery get none, even if some sleep data arrived (intervals.icu wellness), so neither
     // Today's options nor the coach go by a score they never see.
@@ -237,6 +240,11 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     // Favorites are optional: the plan builds the same without them.
     loadFavorites(supabase).catch((e) => (console.error(e), [] as string[])),
   ]);
+  // Events with a course file carry what the course asks of you, so the plan can train for it (course/shape.ts).
+  const goals = eventGoals.map((g) => {
+    const course = courses?.get(g.id);
+    return course ? { ...g, course: courseDemands(course, g.kind, g, { ftp: athlete.ftp, weightKg: athlete.weightKg }) } : g;
+  });
   const feedback = feedbackFor(feedbackRows, rides, addDays(today, -LEVEL_WINDOW_DAYS), tz);
   const ahead = allDays.filter((d) => d.day >= today);
   const storedDays = allDays.filter((d) => d.day <= today);
