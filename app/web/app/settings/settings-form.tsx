@@ -174,7 +174,7 @@ function Zones({ title, unit, zones, empty }: { title: string; unit: string; zon
   );
 }
 
-export function Section({ id, title, description, children }: { id?: string; title: string; description: React.ReactNode; children: React.ReactNode }) {
+export function Section({ id, title, description, children }: { id?: string; title: React.ReactNode; description: React.ReactNode; children: React.ReactNode }) {
   return (
     <section id={id} className="scroll-mt-16 grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
       <div className="space-y-1 md:pt-5">

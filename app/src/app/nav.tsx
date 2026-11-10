@@ -90,6 +90,7 @@ export default function Nav({ current }: { current: string }) {
           <Link
             key={href}
             href={href}
+            data-tour={label.toLowerCase()}
             aria-current={current === href ? "page" : undefined}
             className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted aria-[current=page]:text-accent"
           >

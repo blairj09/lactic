@@ -13,6 +13,7 @@ import { loadFeatures } from "~/settings/features";
 import { loadExperiments } from "~/settings/experiments";
 import { startBackground } from "~/integrations/background";
 import "~/integrations/apple-health";
+import "~/integrations/strava";
 import { BluetoothPicker } from "~/bluetooth/picker";
 import { startMcpBridge } from "~/mcp/bridge";
 import { ExternalSuggestions } from "~/mcp/suggestions";

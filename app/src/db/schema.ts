@@ -487,6 +487,38 @@ export const TABLES: Record<string, Table> = {
     },
     primaryKey: ["id"],
   },
+  /** The rider's Strava, for posting rides recorded here. The tokens live in the keychain (src-tauri/src/strava.rs). */
+  strava_connections: {
+    columns: {
+      user_id: user,
+      athlete_id: { type: "text", notNull: true },
+      athlete_name: { type: "text", notNull: true, default: "" },
+      scope: { type: "text", notNull: true, default: "" },
+      upload_rides: { type: "bool", notNull: true, default: true },
+      // Set when Strava turned a token refresh down: the rider has to connect again.
+      needs_reconnect: { type: "bool", notNull: true, default: false },
+      connected_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["user_id"],
+  },
+  /** Rides recorded here on their way to Strava. pending → sending → processing (Strava has the file) → sent, or skipped/failed. */
+  strava_uploads: {
+    columns: {
+      activity_id: { type: "uuid", notNull: true },
+      user_id: user,
+      fit_base64: { type: "text" },
+      status: { type: "text", notNull: true, default: "pending" },
+      upload_id: { type: "text" },
+      strava_id: { type: "text" },
+      error: { type: "text" },
+      tries: { type: "int", notNull: true, default: 0 },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["activity_id"],
+    foreignKeys: { activity_id: activity("cascade") },
+  },
 };
 
 const SQL_TYPE: Record<ColumnType, string> = {

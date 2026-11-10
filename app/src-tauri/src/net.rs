@@ -53,7 +53,7 @@ pub struct Response {
 }
 
 pub struct Net {
-    client: reqwest::Client,
+    pub(crate) client: reqwest::Client,
     cancels: Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>,
 }
 

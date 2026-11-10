@@ -40,9 +40,12 @@ function useSetupGaps(active: boolean, mode: string): Gap[] | null {
 
 const NAV_HEIGHT = 56;
 
+/** The step's element that's on screen: on a phone the screens sit in the bottom tab bar, not the top bar. */
 function find(target: string) {
-  const found = document.querySelector(`[data-tour="${target}"]`);
-  return found && getComputedStyle(found).display === "contents" ? found.firstElementChild : found;
+  const all = Array.from(document.querySelectorAll(`[data-tour="${target}"]`)).map((found) =>
+    getComputedStyle(found).display === "contents" ? found.firstElementChild : found,
+  );
+  return all.find((el) => el && el.getBoundingClientRect().width > 0) ?? all[0] ?? null;
 }
 
 /** Where the step's element is, scrolled into view once it shows up. */

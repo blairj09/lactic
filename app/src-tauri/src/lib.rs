@@ -11,6 +11,7 @@ pub mod net;
 #[cfg(desktop)]
 pub mod phone;
 pub mod secrets;
+pub mod strava;
 pub mod sync;
 #[cfg(desktop)]
 pub mod window;
@@ -144,6 +145,9 @@ pub fn run() {
         net::http_request,
         net::http_stream,
         net::http_cancel,
+        strava::strava_connect,
+        strava::strava_refresh,
+        strava::strava_disconnect,
         ble::ble_available,
         ble::ble_scan,
         ble::ble_stop_scan,
@@ -196,6 +200,9 @@ pub fn run() {
         net::http_request,
         net::http_stream,
         net::http_cancel,
+        strava::strava_connect,
+        strava::strava_refresh,
+        strava::strava_disconnect,
         ble::ble_available,
         ble::ble_scan,
         ble::ble_stop_scan,

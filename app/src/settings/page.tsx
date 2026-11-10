@@ -21,6 +21,7 @@ import { CoachSetupPanel } from "~/setup/coach";
 import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
 import { DataPanel, SimulatorSwitch } from "./panels";
+import { StravaSection } from "./strava-panel";
 import { TakeTour } from "~/tour/take-tour";
 import { FeedbackSetting } from "~/feedback/dialog";
 import { AboutSetting } from "~/updates/check-button";
@@ -151,6 +152,7 @@ export default async function SettingsPage() {
             </>
           ) : (
             <>
+              <StravaSection />
               {isDesktop && (
                 <Section id="iphone" title="iPhone" description="Lactic on your iPhone reads Apple Health for you and runs rides, and stays in sync with this computer over Wi-Fi.">
                   <PairPhone />

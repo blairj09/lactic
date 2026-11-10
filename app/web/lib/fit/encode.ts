@@ -9,6 +9,13 @@ import { FIT_SPORT_CYCLING } from "./decode";
 const FIT_EPOCH = 631065600;
 /** FIT's manufacturer id for software that isn't a registered device. */
 export const FIT_MANUFACTURER_DEVELOPMENT = 255;
+/**
+ * Lactic's manufacturer id in files it writes. Still "development" until Lactic has its own id in
+ * the FIT SDK; then this changes, and Strava (after a device mapping) shows "Lactic" as the device.
+ */
+export const FIT_MANUFACTURER_LACTIC = FIT_MANUFACTURER_DEVELOPMENT;
+/** Written as the file's product name, which apps that don't know the manufacturer id can show. */
+export const FIT_PRODUCT_NAME = "Lactic";
 const SUB_SPORT_INDOOR_CYCLING = 6;
 
 export interface RideSamples {
@@ -25,15 +32,15 @@ export interface RideSamples {
   route?: [number, number, number?][] | null;
 }
 
-const BASE = { enum: 0x00, uint8: 0x02, uint16: 0x84, sint32: 0x85, uint32: 0x86, uint32z: 0x8c } as const;
+const BASE = { enum: 0x00, uint8: 0x02, uint16: 0x84, sint32: 0x85, uint32: 0x86, uint32z: 0x8c, string16: 0x07 } as const;
 type BaseType = keyof typeof BASE;
-const SIZE: Record<BaseType, number> = { enum: 1, uint8: 1, uint16: 2, sint32: 4, uint32: 4, uint32z: 4 };
-const INVALID: Record<BaseType, number> = { enum: 0xff, uint8: 0xff, uint16: 0xffff, sint32: 0x7fffffff, uint32: 0xffffffff, uint32z: 0 };
+const SIZE: Record<BaseType, number> = { enum: 1, uint8: 1, uint16: 2, sint32: 4, uint32: 4, uint32z: 4, string16: 16 };
+const INVALID: Record<BaseType, number> = { enum: 0xff, uint8: 0xff, uint16: 0xffff, sint32: 0x7fffffff, uint32: 0xffffffff, uint32z: 0, string16: 0 };
 
 type FieldSpec = [num: number, type: BaseType];
 
 const MESSAGES = {
-  fileId: { local: 0, global: 0, fields: [[0, "enum"], [1, "uint16"], [2, "uint16"], [3, "uint32z"], [4, "uint32"]] },
+  fileId: { local: 0, global: 0, fields: [[0, "enum"], [1, "uint16"], [2, "uint16"], [3, "uint32z"], [4, "uint32"], [8, "string16"]] },
   event: { local: 1, global: 21, fields: [[253, "uint32"], [0, "enum"], [1, "enum"]] },
   record: { local: 2, global: 20, fields: [[253, "uint32"], [7, "uint16"], [3, "uint8"], [4, "uint8"]] },
   lap: { local: 3, global: 19, fields: [[253, "uint32"], [2, "uint32"], [7, "uint32"], [8, "uint32"], [0, "enum"], [1, "enum"]] },
@@ -55,7 +62,7 @@ export function encodeRideFit(ride: RideSamples): Uint8Array {
     for (let i = 0; i < size; i++) body.push((value >>> (8 * i)) & 0xff);
   };
   const defined = new Set<number>();
-  const write = (message: Message, values: (number | null)[]) => {
+  const write = (message: Message, values: (number | string | null)[]) => {
     if (!defined.has(message.local)) {
       defined.add(message.local);
       body.push(0x40 | message.local, 0, 0); // definition, reserved, little endian
@@ -64,7 +71,14 @@ export function encodeRideFit(ride: RideSamples): Uint8Array {
       for (const [num, type] of message.fields) body.push(num, SIZE[type], BASE[type]);
     }
     body.push(message.local);
-    message.fields.forEach(([, type], i) => push(values[i] ?? INVALID[type], SIZE[type]));
+    message.fields.forEach(([, type], i) => {
+      const value = values[i];
+      if (typeof value === "string") {
+        // Null-padded ASCII, cut to leave room for the terminator.
+        const bytes = [...value.slice(0, SIZE[type] - 1)].map((c) => c.charCodeAt(0) & 0x7f);
+        for (let j = 0; j < SIZE[type]; j++) body.push(bytes[j] ?? 0);
+      } else push(value ?? INVALID[type], SIZE[type]);
+    });
   };
 
   const start = Math.round(ride.startedAt.getTime() / 1000) - FIT_EPOCH;
@@ -83,7 +97,7 @@ export function encodeRideFit(ride: RideSamples): Uint8Array {
   }
   const reading = (v: number | undefined, max: number) => (v !== undefined && Number.isFinite(v) && v >= 0 ? Math.min(Math.round(v), max) : null);
 
-  write(MESSAGES.fileId, [4, FIT_MANUFACTURER_DEVELOPMENT, 0, 1, start]);
+  write(MESSAGES.fileId, [4, FIT_MANUFACTURER_LACTIC, 0, 1, start, FIT_PRODUCT_NAME]);
   write(MESSAGES.event, [start, 0, 0]); // timer start
   for (let i = 0; i < samples; i++) {
     const hr = reading(ride.heartRate[i], 254);
