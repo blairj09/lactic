@@ -20,7 +20,7 @@ import { setSql } from "~/db/sql";
 import { migrate } from "~/db/migrate";
 import { localClient } from "~/db/supabase-client";
 import { setCurrentExperiments } from "@/lib/experiments";
-import { loadStrava, queueStravaRide, recentStravaUploads, syncStrava } from "./strava";
+import { loadStrava, postRideToStrava, queueStravaRide, recentStravaUploads, stravaUploadFor, syncStrava } from "./strava";
 
 const RIDE = "00000000-0000-4000-8000-0000000000a1";
 type Call = { url: string; form: FormData | null };
@@ -103,5 +103,16 @@ describe("posting rides to Strava", () => {
     await localClient.from("strava_connections").update({ upload_rides: false }).neq("athlete_id", "");
     await queueStravaRide(RIDE, new Uint8Array([1]));
     expect(await recentStravaUploads()).toEqual([]);
+  });
+
+  it("posts an earlier ride from its stored recording", async () => {
+    await expect(postRideToStrava(RIDE)).rejects.toThrow(/no recording/);
+    await localClient.from("activity_streams").insert({ activity_id: RIDE, step_seconds: 5, watts: [200, 210, 220], heart_rate: [140, 141, 142], cadence: [90, 90, 90] });
+    await postRideToStrava(RIDE);
+    expect(await stravaUploadFor(RIDE)).toMatchObject({ status: "pending" });
+    replies.push(json({ id: 1, activity_id: 555 }, 201));
+    await syncStrava();
+    expect(await stravaUploadFor(RIDE)).toMatchObject({ status: "sent", stravaId: "555" });
+    await localClient.from("activity_streams").delete().eq("activity_id", RIDE);
   });
 });

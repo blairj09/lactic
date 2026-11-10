@@ -294,6 +294,9 @@ export function ComputerLink() {
       <p className="text-sm text-muted">
         {link?.error ?? `Last synced ${ago(link?.at ?? status.paired.lastSentAt)}. Your computer keeps the main copy; this iPhone syncs with it directly when they're near each other, and through iCloud when they're apart, whenever Lactic is open on both.`}
       </p>
+      <p className="text-sm text-muted">
+        Your plan, rides, settings and API keys (coach AI, intervals.icu) come across, so you only type a key once. Keys travel only on the direct encrypted link and stay in each device's keychain, never in iCloud. Theme, paired gear and the ride overlay stay per device.
+      </p>
       <div className="flex flex-wrap gap-2">
         <button type="button" className={button.secondary} disabled={link?.running} onClick={() => void syncWithComputer()}>
           Sync now
