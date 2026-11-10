@@ -70,6 +70,8 @@ export interface RideInterval {
   power: number | null;
   heartRate: number | null;
   cadence: number | null;
+  /** Each stretch ridden in it as [first second, second after the last]. Missing on rides saved before laps. */
+  spans?: [number, number][];
 }
 
 /**
@@ -95,8 +97,44 @@ export function rideIntervals(
       power: seconds.length && perSecond.watts.some((w) => w > 0) ? round(mean(pick(perSecond.watts, false))) : null,
       heartRate: round(mean(pick(perSecond.heartRate, true))),
       cadence: seconds.length && perSecond.cadence.some((c) => c > 0) ? round(mean(pick(perSecond.cadence, false))) : null,
+      spans: spansOf(seconds),
     };
   });
+}
+
+/** Runs of consecutive seconds as [first, last + 1]. */
+function spansOf(seconds: number[]): [number, number][] {
+  const spans: [number, number][] = [];
+  for (const s of seconds) {
+    const last = spans.at(-1);
+    if (last && last[1] === s) last[1] = s + 1;
+    else spans.push([s, s + 1]);
+  }
+  return spans;
+}
+
+/**
+ * The ride seconds where a new lap starts, so each workout block is its own lap in an exported
+ * file (Strava, intervals.icu and Garmin show them as laps). Time outside the workout, such as
+ * riding on after it ends, gets a lap of its own. Rides saved before blocks kept their spans fall
+ * back to the blocks' ridden seconds in order. Empty for rides without a workout.
+ */
+export function lapStarts(intervals: RideInterval[] | null | undefined): number[] {
+  if (!intervals?.length) return [];
+  const starts = new Set<number>();
+  if (intervals.every((i) => Array.isArray(i.spans))) {
+    for (const { spans } of intervals) for (const [from, to] of spans!) starts.add(from).add(to);
+  } else {
+    let at = 0;
+    for (const { ridden } of intervals) {
+      if (ridden <= 0) continue;
+      starts.add(at);
+      at += ridden;
+      starts.add(at);
+    }
+  }
+  // The last boundary is where the workout ended; a lap starts there only if the ride went on.
+  return [...starts].filter((s) => s > 0).sort((a, b) => a - b);
 }
 
 export type TargetHit = "on" | "under" | "over";

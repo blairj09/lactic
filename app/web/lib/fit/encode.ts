@@ -1,6 +1,7 @@
 // Writes a ride as a FIT activity file, so it can go to intervals.icu like any head unit's file, or
 // be exported to Garmin Connect, Strava and the rest. Records of power, heart rate and cadence (and
-// position where there's a GPS track), one lap and one cycling session.
+// position where there's a GPS track), a lap per workout block (or one for the whole ride) and one
+// cycling session.
 // No browser or Node APIs, so it runs and tests anywhere.
 
 import { FIT_SPORT_CYCLING } from "./decode";
@@ -30,6 +31,8 @@ export interface RideSamples {
   indoor?: boolean;
   /** GPS points as [lat, lng, ride second]. */
   route?: [number, number, number?][] | null;
+  /** Ride seconds where a new lap starts (each workout block), from `lapStarts`. One lap when empty. */
+  laps?: number[];
 }
 
 const BASE = { enum: 0x00, uint8: 0x02, uint16: 0x84, sint32: 0x85, uint32: 0x86, uint32z: 0x8c, string16: 0x07 } as const;
@@ -43,7 +46,15 @@ const MESSAGES = {
   fileId: { local: 0, global: 0, fields: [[0, "enum"], [1, "uint16"], [2, "uint16"], [3, "uint32z"], [4, "uint32"], [8, "string16"]] },
   event: { local: 1, global: 21, fields: [[253, "uint32"], [0, "enum"], [1, "enum"]] },
   record: { local: 2, global: 20, fields: [[253, "uint32"], [7, "uint16"], [3, "uint8"], [4, "uint8"]] },
-  lap: { local: 3, global: 19, fields: [[253, "uint32"], [2, "uint32"], [7, "uint32"], [8, "uint32"], [0, "enum"], [1, "enum"]] },
+  lap: {
+    local: 3,
+    global: 19,
+    fields: [
+      [253, "uint32"], [254, "uint16"], [2, "uint32"], [7, "uint32"], [8, "uint32"],
+      [19, "uint16"], [20, "uint16"], [15, "uint8"], [16, "uint8"], [17, "uint8"],
+      [0, "enum"], [1, "enum"], [24, "enum"],
+    ],
+  },
   session: {
     local: 4,
     global: 18,
@@ -107,8 +118,35 @@ export function encodeRideFit(ride: RideSamples): Uint8Array {
     else write(MESSAGES.record, values);
   }
   write(MESSAGES.event, [end, 0, 4]); // timer stop all
-  write(MESSAGES.lap, [end, start, millis, millis, 9, 1]);
-  write(MESSAGES.session, [end, start, millis, millis, FIT_SPORT_CYCLING, subSport, 0, 1, 8, 1]);
+  // Lap boundaries as sample indexes, each inside the ride and after the one before.
+  const firsts = [0];
+  for (const second of ride.laps ?? []) {
+    const i = Math.round(second / step);
+    if (i > firsts.at(-1)! && i < samples) firsts.push(i);
+  }
+  firsts.forEach((first, n) => {
+    const next = firsts[n + 1] ?? samples;
+    const lapMillis = (next - first) * step * 1000;
+    // Mean and max of a channel over the lap; heart rate leaves out its 0 (no reading) seconds.
+    const stats = (values: number[], max: number, skipZeros: boolean): [number | null, number | null] => {
+      let sum = 0, count = 0, top = 0;
+      for (let i = first; i < next; i++) {
+        const v = reading(values[i], max);
+        if (v === null || (skipZeros && v === 0)) continue;
+        sum += v;
+        count++;
+        top = Math.max(top, v);
+      }
+      return top > 0 ? [Math.round(sum / count), top] : [null, null];
+    };
+    const [avgPower, maxPower] = stats(ride.watts, 0xfffe, false);
+    const [avgHr, maxHr] = stats(ride.heartRate, 254, true);
+    const [avgCadence] = stats(ride.cadence, 254, false);
+    const last = n === firsts.length - 1;
+    // lap_trigger 0 = manual (a new block), 7 = session end.
+    write(MESSAGES.lap, [start + (next - 1) * step, n, start + first * step, lapMillis, lapMillis, avgPower, maxPower, avgHr, maxHr, avgCadence, 9, 1, last ? 7 : 0]);
+  });
+  write(MESSAGES.session, [end, start, millis, millis, FIT_SPORT_CYCLING, subSport, 0, firsts.length, 8, 1]);
   write(MESSAGES.activity, [end, millis, 1, 0, 26, 1]);
 
   const header = [14, 0x20, 0x54, 0x08, ...[0, 8, 16, 24].map((s) => (body.length >>> s) & 0xff), ...[...".FIT"].map((c) => c.charCodeAt(0))];
