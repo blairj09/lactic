@@ -7,6 +7,8 @@ import type { Goal } from "@/lib/engine/plan";
 import type { ActionResult } from "../actions";
 import { deleteGoal } from "./actions";
 import { GoalForm } from "./forms";
+import CourseField from "./course-field";
+import { useExperiments } from "@/lib/use-experiments";
 
 /** An event's day on the Plan calendar: click it to change the event (name, date, start, kind, priority, length) or remove it. */
 export default function EditableEvent({ goal, label, today, className, children }: { goal: Goal; label: string; today: string; className?: string; children: React.ReactNode }) {
@@ -43,6 +45,7 @@ function EventDialog({ goal, label, today, onClose }: { goal: Goal; label: strin
   const [pending, start] = useTransition();
   const [result, setResult] = useState<ActionResult | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const courses = useExperiments().course_prep;
 
   useEffect(() => {
     const close = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -95,6 +98,7 @@ function EventDialog({ goal, label, today, onClose }: { goal: Goal; label: strin
         </div>
 
         <GoalForm today={today} goal={goal} onDone={onClose} />
+        {courses && <CourseField goal={goal} />}
 
         <div className="flex flex-wrap items-center gap-3 border-t border-rule pt-4 text-sm">
           {confirming ? (

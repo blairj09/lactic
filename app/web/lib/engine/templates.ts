@@ -93,7 +93,7 @@ function withBursts(seconds: number, target: number, every: number, burst: numbe
 }
 
 /** Seconds of work the main set holds at a level, per zone (the classic recipes' totals). */
-const WORK_TOTAL: Record<Exclude<TemplateZone, "endurance">, (level: number) => number> = {
+export const WORK_TOTAL: Record<Exclude<TemplateZone, "endurance">, (level: number) => number> = {
   tempo: (l) => (20 + 7 * l) * 60,
   sweetSpot: (l) => (16 + 6 * l) * 60,
   threshold: (l) => (12 + 4 * l) * 60,
