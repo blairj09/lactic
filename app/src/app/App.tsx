@@ -8,6 +8,7 @@ import DrawerBoundary from "@/app/coach/drawer-boundary";
 import NewDayRefresh from "@/components/new-day-refresh";
 import PullToRefresh from "@/components/pull-to-refresh";
 import { ServerPage } from "./server-page";
+import { PlaceKeeper } from "./place-keeper";
 import { setNavigator } from "~/shims/next-navigation";
 import { refreshCoachMode, useCoachMode, useMcpOn } from "./coach-mode";
 import { getSetting } from "~/settings/store";
@@ -126,6 +127,7 @@ function Shell() {
       <NavigatorBridge />
       {onboarded && <AppStartWatcher />}
       {onboarded && <SettingsShortcut />}
+      <PlaceKeeper />
       <Routes>
         <Route path="/overlay" element={<Lazy load={overlay} />} />
         <Route path="/welcome/*" element={<Lazy load={onboarding} />} />

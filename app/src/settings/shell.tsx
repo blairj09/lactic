@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { modKey } from "~/platform/native";
+import { CloseSettings } from "./close";
 import { SECTIONS, matches, sectionFor, type SectionId } from "./sections";
 
 export interface SettingBlock {
@@ -77,7 +78,10 @@ export function SettingsShell({ blocks }: { blocks: SettingBlock[] }) {
     <div className="md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:gap-10">
       {/* On a narrow screen the menu is the first page; a section replaces it. */}
       <aside className={`${active && !searching ? "hidden md:block" : ""} md:sticky md:top-20 md:self-start`}>
-        <h1 className="mb-4 text-2xl font-semibold tracking-tight">Settings</h1>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+          <CloseSettings />
+        </div>
         <label className="relative mb-4 block">
           <span className="sr-only">Search settings</span>
           <input
