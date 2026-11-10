@@ -577,7 +577,7 @@ function getRecovery(data: CoachData, days: number) {
     today: score
       ? { score: score.score, reasons: score.reasons }
       : { score: null, note: state.recovery ? `Building the HRV baseline (${state.recovery.baselineDays} days so far)` : "Recovery data failed to load" },
-    source: "Apple Health via a shortcut (HRV, resting heart rate, sleep with stages, breathing rate, sleeping wrist temperature).",
+    source: "Apple Health, from Lactic on a paired iPhone or a Shortcut (HRV, resting heart rate, sleep with stages, breathing rate, sleeping wrist temperature).",
     days: data.recoveryDays
       .filter((d) => d.day >= since)
       .map((d) => {

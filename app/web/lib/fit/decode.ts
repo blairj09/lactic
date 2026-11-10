@@ -32,12 +32,22 @@ export interface FitActivity {
   totalTimerSeconds?: number;
   totalDistanceMeters?: number;
   records: FitRecord[];
+  /** Laps in file order. */
+  laps: FitLap[];
+}
+
+export interface FitLap {
+  startTime: Date;
+  totalElapsedSeconds?: number;
+  averagePower?: number;
+  maxPower?: number;
+  averageHeartRate?: number;
 }
 
 // Seconds between the Unix epoch and the FIT epoch (1989-12-31T00:00:00Z).
 const FIT_EPOCH = 631065600;
 
-const MESSAGE = { fileId: 0, session: 18, record: 20 } as const;
+const MESSAGE = { fileId: 0, session: 18, lap: 19, record: 20 } as const;
 const TIMESTAMP_FIELD = 253;
 
 interface FieldDefinition {
@@ -55,7 +65,7 @@ interface Definition {
 
 export function decodeFit(bytes: Uint8Array): FitActivity {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const activity: FitActivity = { records: [] };
+  const activity: FitActivity = { records: [], laps: [] };
   let offset = 0;
   // A file can hold several FIT sections back to back; read them all.
   while (offset + 12 <= bytes.length) {
@@ -199,6 +209,12 @@ function apply(global: number, v: Map<number, number>, activity: FitActivity) {
       activity.totalElapsedSeconds = scaled(v.get(7), 1000);
       activity.totalTimerSeconds = scaled(v.get(8), 1000);
       activity.totalDistanceMeters = scaled(v.get(9), 100);
+      break;
+    }
+    case MESSAGE.lap: {
+      const start = v.get(2);
+      if (start === undefined) break;
+      activity.laps.push({ startTime: fitDate(start), totalElapsedSeconds: scaled(v.get(7), 1000), averagePower: v.get(19), maxPower: v.get(20), averageHeartRate: v.get(15) });
       break;
     }
     case MESSAGE.record: {

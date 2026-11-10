@@ -5,6 +5,8 @@
 
 import { invoke } from "~/platform/native";
 import { revalidatePath } from "~/shims/next-cache";
+import { applySharedPrefs } from "~/settings/shared-prefs";
+import { syncKeys } from "./keys";
 import { phoneStatus, send } from "./plugin";
 
 interface Outgoing {
@@ -59,12 +61,20 @@ export function syncWithComputer(): Promise<void> {
         received += await invoke<number>("sync_incoming", { upto: out.upto, reply });
         if (!reply.more && !out.more) break;
       }
+      // API keys after the rows, so a fresh phone has its intervals.icu connection row first. A
+      // computer on an older Lactic doesn't know "keys" yet: that's not worth an error here.
+      const keys = await syncKeys().catch((e: unknown) => {
+        console.warn("Key sync:", e);
+        return 0;
+      });
+      if (keys) window.dispatchEvent(new CustomEvent("lactic:settings", { detail: "secrets" }));
       publish({ at: Date.now(), error: null, received });
     } catch (e) {
       publish({ at: Date.now(), error: e instanceof Error ? e.message : String(e), received });
     } finally {
       publish({ running: false });
       if (received) {
+        await applySharedPrefs().catch(() => {});
         revalidatePath("/");
         // Onboarding, features and the coach setup may have come across from the computer.
         for (const key of ["onboarding.done", "coach.setup"]) window.dispatchEvent(new CustomEvent("lactic:settings", { detail: key }));

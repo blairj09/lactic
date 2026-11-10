@@ -14,6 +14,7 @@ import { registerRoutes } from "./routes";
 import { applyEnv } from "./env";
 import { isDemo } from "~/demo/flag";
 import { hideLoader } from "./loader";
+import { applySharedPrefs, installSharedPrefs } from "~/settings/shared-prefs";
 
 export async function boot() {
   setTheme(readTheme());
@@ -42,6 +43,9 @@ async function start(root: ReturnType<typeof createRoot>) {
     // Notes each change for a paired iPhone (src-tauri/src/sync.rs).
     if (isDesktop) await invoke("sync_prepare").catch((e) => console.error("sync_prepare", e));
     setSql(db);
+    // Units and a few ride habits follow the rider to a paired iPhone (settings/shared-prefs.ts).
+    installSharedPrefs();
+    await applySharedPrefs().catch((e) => console.error("shared prefs", e));
     installFetch();
     await installWebBluetooth();
     registerRoutes();

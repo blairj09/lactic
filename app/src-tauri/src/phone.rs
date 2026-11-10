@@ -7,12 +7,13 @@
 // What the phone asks for:
 //   hello   finishes pairing (the key is only accepted for this while the QR code is showing)
 //   sync    sends its changes and gets this computer's (sync.rs), answered here in Rust
+//   keys    the rider's API keys (AI, intervals.icu), both ways, answered here in Rust
 //   health  Apple Health samples it read, imported by the web layer like the Shortcut's file
 //
 // The listener only runs while a phone is paired or the QR code is showing.
 
 use crate::db::Db;
-use crate::secrets::Secrets;
+use crate::secrets::{KeyState, KeyValue, Secrets};
 use crate::sync;
 use aes_gcm::aead::{Aead, AeadCore, KeyInit, OsRng};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
@@ -373,6 +374,34 @@ async fn answer(app: &AppHandle, phone: &Phone, device: &str, pairing: bool, key
                 let _ = app.emit("phone:changed", json!({ "applied": reply.applied }));
             }
             serde_json::to_value(reply).map_err(|e| e.to_string())
+        }
+        // The rider's API keys, both ways (secrets.rs `plan`). Answered here so the computer's web
+        // layer never sees a key. Only over the live link: the iCloud mailbox answers "sync" alone,
+        // and that must stay so, keys never sit in a file even sealed.
+        "keys" => {
+            #[derive(Deserialize)]
+            struct Keys {
+                #[serde(default)]
+                have: HashMap<String, KeyState>,
+                #[serde(default)]
+                give: HashMap<String, KeyValue>,
+            }
+            let req: Keys = serde_json::from_value(env.body).map_err(|e| e.to_string())?;
+            let secrets = app.state::<Secrets>();
+            let took = secrets.receive(&req.give, false)?;
+            secrets.stamp_unstamped()?;
+            let mine = secrets.states().ok_or("The keychain on the computer is locked")?;
+            // What the phone has after this exchange: what it said, plus what it just gave.
+            let mut theirs = req.have;
+            for (name, kv) in &req.give {
+                theirs.insert(name.clone(), KeyState { at: kv.at, set: kv.value.as_deref().is_some_and(|v| !v.is_empty()) });
+            }
+            let (give, want) = crate::secrets::plan(&mine, &theirs);
+            let take = secrets.values(&give).ok_or("The keychain on the computer is locked")?;
+            if took > 0 {
+                let _ = app.emit("secrets:changed", json!({ "count": took }));
+            }
+            Ok(json!({ "take": take, "want": want }))
         }
         // Handled by the web layer (src/phone/computer.ts), which owns the Health import.
         kind => {
