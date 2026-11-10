@@ -9,7 +9,7 @@
 // then check back until Strava has made the activity.
 
 import { experiments } from "@/lib/experiments";
-import type { RideInterval } from "@/lib/engine/ride-detail";
+import { lapStarts, type RideInterval } from "@/lib/engine/ride-detail";
 import type { Workout } from "@/lib/engine/workout";
 import { stravaDescription, stravaTitle } from "@/lib/strava/describe";
 import { encodeRideFit } from "@/lib/fit/encode";
@@ -157,6 +157,7 @@ export async function postRideToStrava(activityId: string) {
     stepSeconds: stream.step,
     indoor: !stream.route?.length,
     route: stream.route ?? null,
+    laps: lapStarts(stream.intervals),
   });
   const { error: queueError } = await db
     .from("strava_uploads")

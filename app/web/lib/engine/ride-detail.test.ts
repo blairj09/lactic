@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bestWindow, chartStream, completion, dayRides, plannedTargets, smooth, MAX_ROUTE_POINTS, rideIntervals, routeBetween, targetHit, thinRoute } from "./ride-detail";
+import { bestWindow, chartStream, completion, dayRides, plannedTargets, smooth, MAX_ROUTE_POINTS, lapStarts, rideIntervals, routeBetween, targetHit, thinRoute } from "./ride-detail";
 import { gridTimes } from "./activity";
 import { steady, type Workout } from "./workout";
 
@@ -32,6 +32,30 @@ describe("rideIntervals", () => {
     expect(result[1]).toMatchObject({ planned: 2, ridden: 2, target: 250, power: 250 });
     // Never reached: the ride stopped before it.
     expect(result[2]).toMatchObject({ planned: 4, ridden: 0, power: null, heartRate: null });
+  });
+});
+
+describe("lapStarts", () => {
+  const perSecond = (interval: number[]) => ({ interval, target: interval.map(() => 200), watts: interval.map(() => 200), heartRate: interval.map(() => 140), cadence: interval.map(() => 90) });
+  const workout: Workout = { name: "Test", segments: [steady(3, 0.5), steady(2, 1), steady(4, 0.5)] };
+
+  it("starts a lap at each block, and one more for riding on after the workout", () => {
+    expect(lapStarts(rideIntervals(workout, perSecond([0, 0, 0, 1, 1, 2, 2, 2, 2, -1, -1])))).toEqual([3, 5, 9]);
+  });
+
+  it("follows skips and going back to a block", () => {
+    const blocks = rideIntervals(workout, perSecond([0, 0, 1, 0, 0, 2, 2]));
+    expect(blocks[0].spans).toEqual([
+      [0, 2],
+      [3, 5],
+    ]);
+    expect(lapStarts(blocks)).toEqual([2, 3, 5, 7]); // 7 is the ride end; the encoder drops it
+  });
+
+  it("uses blocks in order for rides saved before spans, and nothing without a workout", () => {
+    const old = rideIntervals(workout, perSecond([0, 0, 0, 1, 1, 2])).map(({ spans: _, ...rest }) => rest);
+    expect(lapStarts(old)).toEqual([3, 5, 6]);
+    expect(lapStarts(null)).toEqual([]);
   });
 });
 
