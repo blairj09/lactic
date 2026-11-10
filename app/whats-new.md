@@ -6,7 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
-- With your iPhone paired, Settings → Sleep and recovery shows Apple Health coming from it, when the phone last read Health and last night's numbers, instead of the Shortcut steps.
+- With your iPhone paired, Settings → Sleep and recovery shows Apple Health coming from it, when the phone last read Health and last night's numbers. Without a paired iPhone, the card points you to pairing it, and the Shortcut steps sit behind a "No iPhone app yet?" link.
 - Away from your Mac, your iPhone keeps syncing through iCloud: your rides and Health data reach the Mac next time Lactic is open there.
 - Your iPhone finds Lactic on your Mac nearby by itself and connects straight to it, the way AirDrop does, even when the two are on different networks.
 - When your iPhone can't reach your computer, it now says why, including when the two are on different networks.

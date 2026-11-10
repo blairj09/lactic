@@ -29,10 +29,15 @@ export function HealthSetup({ heading = true }: { heading?: boolean }) {
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [phone, setPhone] = useState<PairedPhone | null>(null);
   const [iphone, setIphone] = useState<IphoneHealth | null>(null);
+  // The Shortcut is the fallback without the iPhone app: tucked away unless it's already in use.
+  const [shortcut, setShortcut] = useState(false);
 
   useEffect(() => {
     void getSetting<IphoneHealth | null>(IPHONE_SETTING, null).then(setIphone);
-    void getSetting<LastImport | null>("health.lastImport", null).then(setLast);
+    void getSetting<LastImport | null>("health.lastImport", null).then((l) => {
+      setLast(l);
+      if (l && (l.nights > 0 || l.days > 0)) setShortcut(true);
+    });
     void pairedPhone().then((p) => {
       setPhone(p);
       // With a paired iPhone there's no folder to set up (and none to create).
@@ -119,35 +124,43 @@ export function HealthSetup({ heading = true }: { heading?: boolean }) {
       ) : phone ? (
         // Phones from before health.iphone existed only left health.lastImport behind (synced too).
         <PhoneSource phone={phone} iphone={iphone ?? (last && (last.nights > 0 || last.days > 0) ? { at: last.at, latest: last.latest, nights: last.nights, days: last.days } : null)} />
-      ) : folder === null ? (
-        <div className="space-y-2">
-          <p className="text-sm text-muted">{noCloud}</p>
-          <button type="button" className={button.small} onClick={() => void chooseFolder()}>
-            Choose folder…
-          </button>
-        </div>
       ) : (
         <>
-          <p className="text-sm text-muted">Have Lactic on your iPhone? Pair it in Settings → iPhone and it reads Apple Health directly, no Shortcut. Otherwise:</p>
-          <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
-            <li>
-              On your iPhone, build the free {link(SHORTCUT_GUIDE, "Lactic Shortcut")} (about 10 minutes, once), or install{" "}
-              {link("https://www.healthyapps.dev", "Health Auto Export")}.
-            </li>
-            <li>
-              Have it save to <span className="text-ink">{shortFolder ?? "iCloud Drive/Lactic"}</span> each morning. Lactic picks it up from there.
-            </li>
-          </ol>
-          <div className="flex flex-wrap items-center gap-3">
-            <button type="button" className={button.small} disabled={busy} onClick={() => void importNow()}>
-              {busy ? "Looking…" : "Check now"}
+          <p className="text-sm text-muted">Lactic on your iPhone reads sleep, HRV and resting heart rate straight from Apple Health. Pair it in Settings → iPhone.</p>
+          {!shortcut ? (
+            <button type="button" className="text-sm text-muted underline underline-offset-4" onClick={() => setShortcut(true)}>
+              No iPhone app yet? Use a Shortcut instead
             </button>
-            <button type="button" className={button.ghost} onClick={() => void chooseFolder()}>
-              Change folder
-            </button>
-            {last && <span className="text-sm text-faint">Last import {new Date(last.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}{last.latest ? ` · ${last.latest}` : ""}</span>}
-          </div>
-          {result && <Result ok={result.ok}>{result.message}</Result>}
+          ) : folder === null ? (
+            <div className="space-y-2">
+              <p className="text-sm text-muted">{noCloud}</p>
+              <button type="button" className={button.small} onClick={() => void chooseFolder()}>
+                Choose folder…
+              </button>
+            </div>
+          ) : (
+            <>
+              <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
+                <li>
+                  On your iPhone, build the free {link(SHORTCUT_GUIDE, "Lactic Shortcut")} (about 10 minutes, once), or install{" "}
+                  {link("https://www.healthyapps.dev", "Health Auto Export")}.
+                </li>
+                <li>
+                  Have it save to <span className="text-ink">{shortFolder ?? "iCloud Drive/Lactic"}</span> each morning. Lactic picks it up from there.
+                </li>
+              </ol>
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="button" className={button.small} disabled={busy} onClick={() => void importNow()}>
+                  {busy ? "Looking…" : "Check now"}
+                </button>
+                <button type="button" className={button.ghost} onClick={() => void chooseFolder()}>
+                  Change folder
+                </button>
+                {last && <span className="text-sm text-faint">Last import {new Date(last.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}{last.latest ? ` · ${last.latest}` : ""}</span>}
+              </div>
+              {result && <Result ok={result.ok}>{result.message}</Result>}
+            </>
+          )}
         </>
       )}
     </div>
