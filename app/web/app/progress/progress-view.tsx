@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { replaceSearch } from "@/lib/replace-search";
 import FitnessChart from "@/components/fitness-chart";
 import PowerCurveChart from "@/components/power-curve-chart";
 import PowerDistributionChart from "@/components/power-distribution-chart";
@@ -44,7 +45,7 @@ export default function ProgressView({
 
   const remember = (r: DateRange, c: CompareMode | null) => {
     const params = new URLSearchParams({ from: r.from, to: r.to, ...(c ? { compare: c } : {}) });
-    window.history.replaceState(null, "", `?${params}`);
+    replaceSearch(params);
   };
   const setRange = (r: DateRange) => {
     const next = clampRange(r, bounds);

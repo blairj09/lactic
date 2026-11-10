@@ -29,6 +29,7 @@ import { FeatureSetting } from "~/setup/features";
 import { ExperimentsSetting } from "./experiments";
 import { features } from "@/lib/features";
 import { ScrollToSection } from "./scroll-to-section";
+import { CloseSettings } from "./close";
 import { ftpSourceLine } from "@/lib/engine/provenance";
 import { localDate } from "@/lib/engine/activity";
 
@@ -49,7 +50,7 @@ export default async function SettingsPage() {
     <>
       <Nav current="/settings" />
       <Page width="medium">
-        <PageHeader title="Settings" />
+        <PageHeader title="Settings" actions={<CloseSettings />} />
         <ScrollToSection />
         <nav aria-label="Settings sections" className="-mt-2 mb-8 flex flex-wrap gap-1">
           {SECTIONS.map((s) => (
