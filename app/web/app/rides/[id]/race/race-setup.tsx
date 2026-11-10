@@ -184,7 +184,7 @@ export default function RaceSetup({
           className={`${input} h-32 w-full py-2 font-mono text-xs`}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={"1  STOWE, Jaxson  40:30  8:12 8:08 7:54 8:08 8:08\n2  BAKER, Matt   40:52  8:14 8:08 8:06 8:16 8:08"}
+          placeholder={"1  RIVERA, Sam    41:10  8:20 8:14 8:10 8:12 8:14\n2  OKAFOR, Lee    41:35  8:22 8:18 8:15 8:21 8:19"}
         />
         <div className="flex flex-wrap items-center gap-3">
           <label className={`${button.secondary} cursor-pointer ${reading ? "opacity-50" : ""}`}>
