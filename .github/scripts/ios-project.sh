@@ -12,3 +12,11 @@ if [ -z "$entitlements" ]; then
 fi
 cp src-tauri/ios/Lactic.entitlements "$entitlements"
 echo "Entitlements: $entitlements"
+# tauri ios init fills the app icon with Tauri's placeholder; put Lactic's in (same file names).
+iconset=$(find src-tauri/gen/apple -type d -name 'AppIcon.appiconset' | head -1)
+if [ -z "$iconset" ]; then
+  echo "::error::No AppIcon.appiconset in the generated project"
+  exit 1
+fi
+cp src-tauri/icons/ios/*.png "$iconset/"
+echo "App icon: $iconset"
