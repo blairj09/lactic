@@ -659,6 +659,7 @@ class LacticPhonePlugin: Plugin {
   override init() {
     super.init()
     RideEnd.shared.start()
+    WatchLink.shared.start()
     // Every launch, including the ones iOS makes in the background for new Health data.
     if UserDefaults.standard.bool(forKey: Self.askedKey) { watch() }
   }

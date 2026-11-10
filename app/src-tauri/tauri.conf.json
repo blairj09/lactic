@@ -54,7 +54,7 @@
     "iOS": {
       "minimumSystemVersion": "16.0",
       "developmentTeam": "PXC4RTM468",
-      "frameworks": ["CoreBluetooth", "HealthKit", "AVFoundation", "UserNotifications", "WidgetKit"]
+      "frameworks": ["CoreBluetooth", "HealthKit", "AVFoundation", "UserNotifications", "WidgetKit", "WatchConnectivity"]
     },
     "macOS": {
       "minimumSystemVersion": "11.0",
