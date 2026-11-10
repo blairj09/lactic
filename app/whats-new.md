@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Stretch the ride overlay short and wide and its end-of-workout choices fit on one row, with bigger Extend and End buttons.
 - The ride overlay's buttons work again in the desktop app: Extend and End at the end of a workout, and back, pause and skip in its controls, did nothing when pressed there.
 - Ask coach buttons (beside a sensor or intervals.icu problem) now start a new coach conversation instead of adding to the one you were in.
 - Progress has two tabs: Trends for your fitness and power charts, and Rides for every ride on a calendar or as a list, with search and filters. Your rides are no longer under all the charts.

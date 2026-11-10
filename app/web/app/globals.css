@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* The ride overlay's end panel when the overlay is stretched short and wide: one row, not three. */
+@custom-variant end-wide (@container end (min-aspect-ratio: 4/1));
+
 /*
  * Design tokens. Every colour in the app comes from here; components use the Tailwind names in
  * @theme below (bg-surface, text-muted, border-line...), never raw neutrals.
