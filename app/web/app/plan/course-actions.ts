@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { courseFromFile, courseFromUrl, findEventCourse, loadCourse, refreshForecast, removeCourse, saveCourse, saveCourseTarget, searchEvents } from "@/lib/course";
+import { courseFromFile, courseFromUrl, findEventCourse, loadCourse, refreshForecast, removeCourse, saveCourse, saveCourseTarget, saveHomeElevation, searchEvents } from "@/lib/course";
 import { PACK_LABELS, PACKS, type Pack } from "@/lib/engine/course/pacing";
 import { clock, parseFinishTime } from "@/lib/engine/course/target";
 import type { CourseLink, EventHit } from "@/lib/engine/course/events";
@@ -89,6 +89,15 @@ export async function saveRaceTarget(goalId: string, target: string, pack: strin
     await saveCourseTarget(await createClient(), goalId, seconds, p);
     const how = p ? ` Riding it: ${PACK_LABELS[p].toLowerCase()}.` : "";
     return seconds ? `Target set: ${clock(seconds)}.${how}` : `Target cleared.${how}`;
+  });
+}
+
+/** Where the rider lives and trains, meters (from what they typed in their units). */
+export async function setHomeElevation(meters: number): Promise<ActionResult> {
+  return attempt(async () => {
+    if (!(Number.isFinite(meters) && meters >= -450 && meters <= 5500)) throw new Error("That elevation doesn't look right");
+    await saveHomeElevation(meters);
+    return "Saved. Times and watts now allow for the altitude.";
   });
 }
 

@@ -148,8 +148,12 @@ function nearest(forecast: Forecast, km: number): WeatherPoint {
   return forecast.points.reduce((best, p) => (Math.abs(p.km - km) < Math.abs(best.km - km) ? p : best), forecast.points[0]);
 }
 
-/** Wind at rider height is about 70% of the forecast's 10 m wind. */
-const RIDER_HEIGHT = 0.7;
+/**
+ * Wind at a rider's height (about 1 m) as a share of the forecast's 10 m wind: about 0.6 over open
+ * country, from the log wind profile with a roughness length of 0.03 to 0.05 m
+ * (ln(1/z0) / ln(10/z0)); less among trees and buildings.
+ */
+const RIDER_HEIGHT = 0.6;
 
 /** Wind against you at sample `k`, `seconds` into the race, m/s (negative is behind you). */
 export function headwindAt(profile: CourseProfile, forecast: Forecast, start: string) {
@@ -159,6 +163,11 @@ export function headwindAt(profile: CourseProfile, forecast: Forecast, start: st
     const diff = ((h.windFrom - profile.bearing[k]) * Math.PI) / 180;
     return (h.windKmh / 3.6) * RIDER_HEIGHT * Math.cos(diff);
   };
+}
+
+/** Air temperature where the rider is at each sample, °C, for the heat's cost to power. */
+export function temperatureAt(forecast: Forecast, start: string) {
+  return (k: number, seconds: number): number | null => hourAt(nearest(forecast, (k * STEP) / 1000), forecast.date, start, seconds)?.temp ?? null;
 }
 
 export interface WindStretch {

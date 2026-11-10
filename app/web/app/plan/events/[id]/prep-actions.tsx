@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Result, button, input } from "@/components/ui";
 import type { ActionResult } from "../../../actions";
-import { updateForecast, applyCourseDuration, saveRaceTarget } from "../../course-actions";
+import { updateForecast, applyCourseDuration, saveRaceTarget, setHomeElevation } from "../../course-actions";
+import { openExternal } from "~/platform/native";
 
 function useRun() {
   const router = useRouter();
@@ -85,5 +86,39 @@ export function RaceTargetForm({ goalId, target, pack, usualPack, soloOnly }: { 
       </button>
       {result && <Result ok={result.ok}>{result.message}</Result>}
     </form>
+  );
+}
+
+/** Where the rider lives and trains, for the altitude's cost to power. */
+export function HomeElevationForm({ imperial, current }: { imperial: boolean; current: number | null }) {
+  const { pending, result, run } = useRun();
+  const [value, setValue] = useState(current === null ? "" : String(Math.round(imperial ? current * 3.28084 : current)));
+  return (
+    <form
+      className="flex flex-wrap items-end gap-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const n = Number(value.replace(/,/g, ""));
+        run(() => setHomeElevation(imperial ? n / 3.28084 : n));
+      }}
+    >
+      <label className="grid gap-1 text-sm">
+        <span className="text-muted">Where you live and train ({imperial ? "ft" : "m"} above sea level)</span>
+        <input className={`${input} w-36`} value={value} onChange={(e) => setValue(e.target.value)} inputMode="numeric" placeholder={imperial ? "4500" : "1400"} />
+      </label>
+      <button type="submit" className={button.secondary} disabled={pending || !value.trim()}>
+        {pending ? "Saving…" : "Save"}
+      </button>
+      {result && <Result ok={result.ok}>{result.message}</Result>}
+    </form>
+  );
+}
+
+/** The science page on lactic.fit. */
+export function ScienceLink() {
+  return (
+    <button type="button" className="text-xs text-muted underline-offset-4 hover:text-ink hover:underline" onClick={() => void openExternal("https://lactic.fit/science")}>
+      How these numbers are worked out
+    </button>
   );
 }

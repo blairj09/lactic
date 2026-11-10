@@ -4,11 +4,11 @@
 
 import { goalMinutes, type Goal } from "../plan";
 import { fuelPlan, kitList, type FuelPlan } from "./fuel";
-import { packOf, paceCourse, type Pack, type Pacing, type Rider } from "./pacing";
+import { altitudeFactor, packOf, paceCourse, spreadFor, type BikeSetup, type Pack, type PaceOptions, type Pacing, type Rider } from "./pacing";
 import { droppedTime, targetPlan, type DroppedTime, type TargetPlan } from "./target";
 import { STEP, rises, type CourseProfile } from "./profile";
 import { courseDemands, courseShape, type CourseShape } from "./shape";
-import { compass, forecastOpens, headwindAt, raceWeather, type Forecast, type RaceWeather } from "./weather";
+import { compass, forecastOpens, headwindAt, raceWeather, temperatureAt, type Forecast, type RaceWeather } from "./weather";
 
 export interface Descent {
   from: number;
@@ -40,6 +40,12 @@ export interface PreRaceReport {
   target: TargetPlan | null;
   /** For a group event: the time if dropped on the main climb. */
   dropped: DroppedTime | null;
+  /** How fast and how slow it could reasonably go, seconds: the model's known uncertainties. */
+  range: [number, number];
+  /** The course is high: what it costs (percent of power, on average), or that home elevation isn't known. */
+  altitude: { known: true; cost: number } | { known: false; cost: null } | null;
+  /** Drag and rolling resistance came from the rider's own rides. */
+  measured: boolean;
 }
 
 const km = (meters: number) => Math.round(meters / 100) / 10;
@@ -83,27 +89,36 @@ export interface PreRaceInput {
   fmt?: CourseFormatters;
   /** A finish time to aim for, seconds. */
   targetSeconds?: number | null;
+  /** Where the rider lives and trains, meters, for the altitude's cost to power. */
+  homeElevation?: number | null;
+  /** The rider's own drag area and rolling resistance, when measured from their rides. */
+  setup?: Partial<Pick<BikeSetup, "cda" | "crr">> | null;
 }
 
-export function preRaceReport({ goal, profile, rider, forecast, today, fmt = METRIC, targetSeconds = null }: PreRaceInput): PreRaceReport {
+export function preRaceReport({ goal, profile, rider, forecast, today, fmt = METRIC, targetSeconds = null, homeElevation = null, setup = null }: PreRaceInput): PreRaceReport {
   const opens = forecastOpens(goal.date);
   const usable = forecast && forecast.date === goal.date && forecast.points.length ? forecast : null;
   const state: ForecastState = today > goal.date ? "past" : today < opens ? "early" : usable ? "ready" : "missing";
   const start = goal.startTime || null;
   // Pace once without wind to know when you'll be where, then again with the wind on each stretch.
-  let pacing = paceCourse(profile, goal, rider);
+  const options: PaceOptions = { homeElevation, setup: setup ?? undefined };
+  let pacing = paceCourse(profile, goal, rider, options);
   let weather: RaceWeather | null = null;
-  let headwind: ReturnType<typeof headwindAt> | undefined;
   if (usable && state === "ready") {
     weather = raceWeather(profile, pacing, usable, start);
     if (weather) {
-      headwind = headwindAt(profile, usable, weather.start);
-      pacing = paceCourse(profile, goal, rider, headwind);
+      options.headwind = headwindAt(profile, usable, weather.start);
+      options.temperature = temperatureAt(usable, weather.start);
+      pacing = paceCourse(profile, goal, rider, options);
       weather = raceWeather(profile, pacing, usable, start);
     }
   }
-  const target = targetSeconds && targetSeconds > 0 ? targetPlan(profile, goal, rider, targetSeconds, today, { headwind }) : null;
-  const dropped = droppedTime(profile, goal, rider, pacing, { headwind });
+  const { slow, fast } = spreadFor(pacing.pack, Boolean(setup?.cda));
+  const range: [number, number] = [paceCourse(profile, goal, rider, { ...options, spread: fast }).seconds, paceCourse(profile, goal, rider, { ...options, spread: slow }).seconds];
+  const target = targetSeconds && targetSeconds > 0 ? targetPlan(profile, goal, rider, targetSeconds, today, options) : null;
+  const dropped = droppedTime(profile, goal, rider, pacing, options);
+  const highest = Math.max(...profile.ele);
+  const altitude = homeElevation === null ? (highest >= 1500 ? { known: false as const, cost: null } : null) : altitudeFactor(highest, homeElevation) < 0.98 ? { known: true as const, cost: Math.round((1 - profile.ele.reduce((sum, e) => sum + altitudeFactor(e, homeElevation), 0) / profile.ele.length) * 100) } : null;
   const descents = findDescents(profile);
   const fuel = fuelPlan(goal, profile, pacing, weather, rider.weightKg);
   const summary = { meters: profile.meters, gain: profile.gain, loss: profile.loss, type: profile.type, loop: profile.loop, hasElevation: profile.hasElevation, climbs: profile.climbs };
@@ -120,6 +135,9 @@ export function preRaceReport({ goal, profile, rider, forecast, today, fmt = MET
     fuel,
     kit: kitList(weather, profile, goal, fmt),
     tips: tips(goal, profile, pacing, descents, weather, fmt, dropped),
+    range,
+    altitude,
+    measured: Boolean(setup?.cda),
     shape,
     durationGap: Math.abs(estimate - event) / event > 0.15 ? { event, estimate } : null,
     daysToGo: daysBetween(today, goal.date),
@@ -174,6 +192,6 @@ function tips(goal: Goal, p: CourseProfile, pacing: Pacing, descents: Descent[],
     out.push(`${cap(fmt.at(weather.worst.fromKm * 1000))} to ${fmt.at(weather.worst.toKm * 1000).replace(/^\D+ /, "")} is into a headwind of about ${fmt.wind(weather.worst.kmh)} (wind from the ${compass(weather.windFrom)}). Tuck in or share the work; it'll be slower than it feels.`);
   }
   if (weather && weather.tail >= 0.3) out.push(`About ${Math.round(weather.tail * 100)}% of the course has the wind behind you: those stretches go fast, so don't chase speed into the wind.`);
-  if (weather && weather.feels[1] >= 28) out.push(`It may feel like ${fmt.temp(weather.feels[1])}: heat costs power, so take about 5% off these targets if it's that hot, and drink to the plan.`);
+  if (weather && weather.temp[1] >= 25) out.push(`Up to ${fmt.temp(weather.temp[1])}: heat costs power (about 0.7% for each degree over ${fmt.temp(21)}), and these targets already allow for it. Start cool, and drink to the plan.`);
   return out;
 }

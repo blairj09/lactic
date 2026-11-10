@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Nav from "@/components/nav";
 import { ExperimentalTag } from "@/components/experimental-tag";
 import { Notice, Page, PageHeader, Panel, Stat, StatStrip } from "@/components/ui";
-import { loadCourse, refreshForecast } from "@/lib/course";
+import { loadCourse, loadHomeElevation, refreshForecast } from "@/lib/course";
 import { courseProfile, COURSE_TYPE_LABELS } from "@/lib/engine/course/profile";
 import { preRaceReport, type PreRaceReport } from "@/lib/engine/course/prerace";
 import { compass, weatherLabel } from "@/lib/engine/course/weather";
@@ -16,7 +16,7 @@ import { loadTrainingState, type TrainingState } from "@/lib/training";
 import { distanceIn, distanceUnit, elevationIn, elevationUnit, readUnits, type UnitSystem } from "@/lib/units";
 import CourseField from "../../course-field";
 import CourseView from "./course-view";
-import { RaceTargetForm, RefreshForecast, UseCourseDuration } from "./prep-actions";
+import { HomeElevationForm, RaceTargetForm, RefreshForecast, ScienceLink, UseCourseDuration } from "./prep-actions";
 import { defaultPack, PACK_LABELS } from "@/lib/engine/course/pacing";
 import { clock } from "@/lib/engine/course/target";
 
@@ -29,6 +29,7 @@ const hm = (seconds: number) => {
   const m = Math.round(seconds / 60);
   return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`;
 };
+const fmtHeight = (meters: number, units: UnitSystem) => `${Math.round(elevationIn(meters, units)).toLocaleString()} ${elevationUnit(units)}`;
 const longDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
 const why = (note: string) => {
   const t = note.replace("Shaped for the course: ", "");
@@ -101,7 +102,7 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
     );
   }
 
-  const { forecast, error: forecastError } = await refreshForecast(supabase, stored, goal.date, state.today);
+  const [{ forecast, error: forecastError }, homeElevation] = await Promise.all([refreshForecast(supabase, stored, goal.date, state.today), loadHomeElevation()]);
   const profile = courseProfile(stored.track);
   const report = preRaceReport({
     goal: { ...goal, pack: stored.pack },
@@ -111,6 +112,7 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
     today: state.today,
     fmt: courseFormatters(units),
     targetSeconds: stored.targetSeconds,
+    homeElevation,
   });
   const { pacing, fuel } = report;
   const biggest = [...pacing.climbs].sort((a, b) => b.seconds - a.seconds)[0];
@@ -129,7 +131,11 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
             unit={elevationUnit(units)}
             sub={stored.elevationSource === "terrain" ? "Heights from the terrain map" : !profile.hasElevation ? "No heights in the file" : `${COURSE_TYPE_LABELS[profile.type]} course`}
           />
-          <Stat label="Your time, about" value={hm(pacing.seconds)} sub={`${Math.round(distanceIn(profile.meters, units) / (pacing.seconds / 3600))} ${distanceUnit(units)}/h · ${PACK_LABELS[report.pack].toLowerCase()}${report.weather ? ", forecast wind" : ""}`} />
+          <Stat
+            label="Your time, about"
+            value={hm(pacing.seconds)}
+            sub={`Likely ${hm(report.range[0])} to ${hm(report.range[1])} · ${PACK_LABELS[report.pack].toLowerCase()}${report.weather ? ", forecast wind" : ""}`}
+          />
           <Stat label="Climbs" value={pacing.climbs.length} sub={biggest ? `Longest about ${hm(biggest.seconds)}` : "None to speak of"} />
           <Stat label="Race power" value={`${pacing.flatWatts[0]}-${pacing.flatWatts[1]}`} unit="W" sub={`On the flat · ${Math.round(pacing.factor * 100)}% intensity`} />
         </StatStrip>
@@ -144,6 +150,15 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
             </Link>{" "}
             for your own.
           </Notice>
+        )}
+        {report.altitude && !report.altitude.known && (
+          <div className="space-y-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm">
+            <p>
+              This course reaches {fmtHeight(Math.max(...profile.ele), units)}. Power drops at altitude for riders who don&apos;t live that high: about 12% at 2,000 m and 16% at 2,500 m for someone from near sea level. Tell Lactic where you live and train and the
+              times and watts allow for it.
+            </p>
+            <HomeElevationForm imperial={units === "imperial"} current={homeElevation} />
+          </div>
         )}
         {report.durationGap && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm">
@@ -166,6 +181,11 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
               <li>
                 Flat and rolling: {pacing.flatWatts[0]}-{pacing.flatWatts[1]} W. Descents: soft-pedal around {pacing.descentWatts} W and recover.
               </li>
+              {report.altitude?.known && report.altitude.cost >= 2 && (
+                <li>
+                  At this altitude you&apos;ll hold about {report.altitude.cost}% less than at home ({`${(Math.round(elevationIn(homeElevation ?? 0, units) / 10) * 10).toLocaleString()} ${elevationUnit(units)}`}); the watts here already allow for it.
+                </li>
+              )}
               {report.tips.map((t) => (
                 <li key={t}>{t}</li>
               ))}
@@ -192,6 +212,9 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
         <Panel title="Course file">
           <CourseField goal={goal} titled={false} />
         </Panel>
+        <div className="text-right">
+          <ScienceLink />
+        </div>
       </Page>
     </>
   );
@@ -313,7 +336,7 @@ function FuelPanel({ report, start, units }: { report: PreRaceReport; start: str
         </StatStrip>
         {f.carbLoad && (
           <p>
-            The day before, about {f.carbLoad.dayBefore} g of carbohydrate across your meals; about {f.carbLoad.meal} g in the meal three hours before the start.
+            {f.carbLoad.days === 2 ? "Each of the two days before" : "The day before"}, about {f.carbLoad.perDay} g of carbohydrate across your meals; about {f.carbLoad.meal} g in the meal three hours before the start.
           </p>
         )}
         {f.feeds.length > 0 && (

@@ -9,6 +9,7 @@ import { elevationUrl, forecastStale, forecastUrl, parseForecast, samplePoints, 
 import { PACKS, type Pack } from "./engine/course/pacing";
 import { packTrack, parseGpx, parseTcx, trackFromRecords, unpackTrack, type PackedTrack, type Track } from "./engine/race/track";
 import type { createClient } from "./supabase/server";
+import { getSetting, setSetting } from "~/settings/store";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -229,4 +230,16 @@ export async function courseFromUrl(url: string): Promise<{ name: string; track:
   const bytes = new Uint8Array(await (await get(parsed.href)).arrayBuffer());
   const name = decodeURIComponent(parsed.pathname.split("/").pop() || "course");
   return { name, track: courseFromFile(name, bytes) };
+}
+
+const HOME_ELEVATION = "home_elevation";
+
+/** Where the rider lives and trains, meters above sea level, when they've said. */
+export async function loadHomeElevation(): Promise<number | null> {
+  const v = await getSetting<unknown>(HOME_ELEVATION, null).catch(() => null);
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+export async function saveHomeElevation(meters: number) {
+  await setSetting(HOME_ELEVATION, Math.round(meters));
 }
