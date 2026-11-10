@@ -48,10 +48,15 @@ export default function CoachDrawer() {
   const shown = useRef<string | null>(null);
   const hidden = WITHOUT.some((p) => pathname.startsWith(p));
 
+  // Only the latest load lands, so a slow one can't put back a conversation the rider moved on from.
+  const loads = useRef(0);
+
   const load = useCallback(async (conversation: string | null = shown.current) => {
+    const ticket = ++loads.current;
     try {
       const response = await fetch(`/api/coach${conversation ? `?conversation=${conversation}` : ""}`, { cache: "no-store" });
       const body = await response.json().catch(() => null);
+      if (ticket !== loads.current) return;
       if (!response.ok) throw new Error(body?.error ?? `The coach is unavailable (${response.status})`);
       // A page opened before a deploy can get an answer in a newer shape than its code expects.
       if (!body?.conversation?.id || !Array.isArray(body.messages) || !Array.isArray(body.conversations)) throw new Error(STALE);
@@ -59,15 +64,27 @@ export default function CoachDrawer() {
       setData(body);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (ticket === loads.current) setError(e instanceof Error ? e.message : String(e));
     }
   }, []);
 
-  const show = useCallback((text?: string) => {
-    setOpen(true);
-    setView("chat");
-    if (text) setPrompt({ text, at: Date.now() });
-  }, []);
+  // "Ask coach" (a prompt) always starts a fresh conversation, with the prompt typed into it;
+  // the Coach button and ⌘K reopen the one on screen.
+  const show = useCallback(
+    (text?: string) => {
+      setOpen(true);
+      setView("chat");
+      if (!text) return;
+      shown.current = null;
+      void (async () => {
+        const result = await startConversation();
+        if (!result.ok) return setError(result.message);
+        await load(null);
+        setPrompt({ text, at: Date.now() });
+      })();
+    },
+    [load],
+  );
 
   useEffect(() => onOpenCoach(show), [show]);
 

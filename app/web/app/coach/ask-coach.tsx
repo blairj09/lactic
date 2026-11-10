@@ -1,7 +1,7 @@
 "use client";
 
-// "Ask coach" beside an error: opens the coach with the problem already written, so it can check
-// the app and help. Shown only when the built-in coach is on (html[data-coach], see globals.css).
+// "Ask coach" beside an error: opens a new coach conversation with the problem already written, so
+// it can check the app and help. Shown only when the built-in coach is on (html[data-coach], see globals.css).
 
 import { button } from "@/components/ui";
 import { openCoach } from "./open";

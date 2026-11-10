@@ -2,7 +2,7 @@
 
 const OPEN = "coach:open";
 
-/** Opens the drawer, with `prompt` (if given) typed into the message box. */
+/** Opens the drawer. With `prompt`, it starts a new conversation with the prompt typed into the message box. */
 export function openCoach(prompt?: string) {
   window.dispatchEvent(new CustomEvent(OPEN, { detail: { prompt } }));
 }
