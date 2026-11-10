@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { PowerCurve } from "@/lib/engine/power";
 import { niceCeil, SeriesKey, shortDuration, useChartWidth } from "./chart-utils";
+import { spaceTicks } from "./chart-ticks";
 import { useBrush } from "./use-brush";
 
 export interface CurveSeries {
@@ -119,7 +120,7 @@ export default function PowerCurveChart({
             </text>
           </g>
         ))}
-        {TICKS.filter((t) => t >= domain[0] - 1e-9 && t <= domain[1] + 1e-9).map((t) => (
+        {spaceTicks(TICKS.filter((t) => t >= domain[0] - 1e-9 && t <= domain[1] + 1e-9), x, shortDuration).map((t) => (
           <text key={t} x={x(t)} y={HEIGHT - 6} textAnchor="middle" className="fill-muted text-[11px]">
             {shortDuration(t)}
           </text>
