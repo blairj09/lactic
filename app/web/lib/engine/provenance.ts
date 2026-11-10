@@ -43,7 +43,7 @@ export function weightProvenance(source: string | null | undefined, date: string
   return { kind: "measured", date, via: source === "manual" ? "entered by you" : "your scale" };
 }
 
-const SYNCED_NIGHT: Record<string, string> = { intervals: "intervals.icu", apple_health: "Apple Health", shortcut: "Apple Health" };
+const SYNCED_NIGHT: Record<string, string> = { intervals: "intervals.icu", apple_health: "Apple Health", shortcut: "Apple Health", health_connect: "Health Connect" };
 
 /** A night's HRV, resting heart rate and sleep: synced from the app that recorded them. */
 export function nightProvenance(source: string | null | undefined, date: string): Provenance {

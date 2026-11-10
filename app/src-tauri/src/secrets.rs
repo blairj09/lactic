@@ -1,5 +1,5 @@
 // API keys (AI providers, intervals.icu) live in the system keychain: macOS Keychain, Windows
-// Credential Manager or the Linux Secret Service. The web layer can save and delete a key and ask
+// Credential Manager or the Linux Secret Service (the iPhone's keychain on iOS). The web layer can save and delete a key and ask
 // whether one is set, but never reads it back: requests that need a key go through net.rs, which
 // adds it on the way out. Where no keychain is available (some Linux setups) a file readable only
 // by the user stands in.
@@ -47,6 +47,12 @@ pub struct Secrets {
 }
 
 fn entry(account: &str) -> Option<keyring::Entry> {
+    // Android has no keychain the keyring crate can reach (it would keep keys in memory only), so
+    // the file stands in: it lives in the app's private storage, which no other app can read, and
+    // the app opts out of Android's cloud backups.
+    if cfg!(target_os = "android") {
+        return None;
+    }
     // The service is the bundle identifier, so Lactic Preview keeps its own keys.
     keyring::Entry::new(crate::identifier(), account).ok()
 }

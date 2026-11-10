@@ -1,10 +1,10 @@
-// Settings for a paired iPhone, on both ends. On the computer: pair an iPhone (a QR code) and see
-// or forget paired ones. On the iPhone: the computer it syncs with, and Apple Health.
+// Settings for a paired phone, on both ends. On the computer: pair a phone (a QR code) and see
+// or forget paired ones. On the phone: the computer it syncs with, and Apple Health or Health Connect.
 
 import { useEffect, useState } from "react";
 import { renderSVG } from "uqr";
 import { button, Pill, Result } from "@/components/ui";
-import { invoke, listen, os } from "~/platform/native";
+import { invoke, listen, os, phoneHealthName, phoneWord } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 import { connectHealth, syncPhoneHealth, WRITE_RIDES } from "./health";
 import { onLinkState, resetLink, syncWithComputer, type LinkState } from "./link";
@@ -117,13 +117,13 @@ export function PairPhone() {
           <div className="w-48 flex-none rounded-lg bg-white p-3" aria-label="Pairing QR code" dangerouslySetInnerHTML={{ __html: renderSVG(offer.url, { border: 1 }) }} />
           <div className="space-y-3 text-sm">
             <ol className="list-decimal space-y-1 pl-5">
-              <li>Open Lactic on your iPhone.</li>
+              <li>Open Lactic on your phone.</li>
               <li>Tap <span className="font-medium">Pair with your computer</span> (or Settings → Your computer).</li>
-              <li>Scan this code. {os() === "macos" ? "Keep your iPhone near this Mac with Wi-Fi on; it doesn't need to be on the same network." : "Your iPhone needs to be on the same Wi-Fi as this computer."}</li>
+              <li>Scan this code. {os() === "macos" ? "Keep your phone near this Mac with Wi-Fi on. An iPhone doesn't need to be on the same network." : "Your phone needs to be on the same Wi-Fi as this computer."}</li>
             </ol>
             <p className="text-muted">The code works for 10 minutes and only once. Everything between the two goes straight from one to the other, encrypted.</p>
             <p className="text-muted">
-              Not connecting? In Safari on your iPhone, open{" "}
+              Not connecting? In the browser on your phone, open{" "}
               {offer.hosts
                 .filter((h) => /^\d/.test(h))
                 .map((h, i) => (
@@ -134,7 +134,7 @@ export function PairPhone() {
                     </span>
                   </span>
                 ))}
-              . If it says Lactic is here, the network's fine. If it can't connect, check your Mac's firewall (System Settings → Network → Firewall) lets Lactic accept connections, and that the iPhone's address (Settings → Wi-Fi → ⓘ) starts with the same numbers as the one above. If not, they're on different networks, often from two routers or a guest Wi-Fi.
+              . If it says Lactic is here, the network's fine. If it can't connect, check your Mac's firewall (System Settings → Network → Firewall) lets Lactic accept connections, and that the phone's address (in its Wi-Fi settings) starts with the same numbers as the one above. If not, they're on different networks, often from two routers or a guest Wi-Fi.
             </p>
             <button type="button" className={button.secondary} onClick={() => void cancel()}>
               Cancel
@@ -143,7 +143,7 @@ export function PairPhone() {
         </div>
       ) : (
         <button type="button" className={button.secondary} onClick={() => void start()}>
-          {status?.devices.length ? "Pair another iPhone" : "Pair an iPhone"}
+          {status?.devices.length ? "Pair another phone" : "Pair a phone"}
         </button>
       )}
       {error && <Result ok={false}>{error}</Result>}
@@ -151,14 +151,14 @@ export function PairPhone() {
   );
 }
 
-// --- on the iPhone -----------------------------------------------------------------------------------
+// --- on the phone ------------------------------------------------------------------------------------
 
 /** Opens the camera for the computer's QR code; resolves with the link it holds (null if cancelled). */
 export async function scanPairingCode(): Promise<string | null> {
   const scanner = await import("@tauri-apps/plugin-barcode-scanner");
   let permission = await scanner.checkPermissions();
   if (permission !== "granted") permission = await scanner.requestPermissions();
-  if (permission !== "granted") throw new Error("Lactic needs the camera to scan the code. Allow it in the iPhone's Settings → Lactic, or paste the link instead.");
+  if (permission !== "granted") throw new Error(os() === "android" ? "Lactic needs the camera to scan the code. Allow it in Settings → Apps → Lactic → Permissions, or paste the link instead." : "Lactic needs the camera to scan the code. Allow it in the iPhone's Settings → Lactic, or paste the link instead.");
   const result = await scanner.scan({ windowed: false, formats: [scanner.Format.QRCode] });
   return result?.content ?? null;
 }
@@ -273,13 +273,13 @@ export function ComputerLink() {
   if (!status.paired)
     return (
       <div className="space-y-3 sm:col-span-2">
-        <p className="text-sm text-muted">On your computer, open Lactic → Settings → iPhone and click Pair an iPhone. Then scan the code it shows.</p>
+        <p className="text-sm text-muted">On your computer, open Lactic → Settings → Phone and click Pair a phone. Then scan the code it shows.</p>
         <PairWithComputer onPaired={refresh} />
       </div>
     );
 
   async function forget() {
-    if (!window.confirm(`Stop syncing with ${status!.paired!.computer}? Everything already on this iPhone stays.`)) return;
+    if (!window.confirm(`Stop syncing with ${status!.paired!.computer}? Everything already on this ${phoneWord()} stays.`)) return;
     await unpair();
     await resetLink();
     refresh();
@@ -292,7 +292,10 @@ export function ComputerLink() {
         {link?.running ? <Pill>Syncing…</Pill> : link?.error ? <Pill tone="warning">Not reachable</Pill> : <Pill tone="positive">Paired</Pill>}
       </div>
       <p className="text-sm text-muted">
-        {link?.error ?? `Last synced ${ago(link?.at ?? status.paired.lastSentAt)}. Your computer keeps the main copy; this iPhone syncs with it directly when they're near each other, and through iCloud when they're apart, whenever Lactic is open on both.`}
+        {link?.error ??
+          (os() === "android"
+            ? `Last synced ${ago(link?.at ?? status.paired.lastSentAt)}. Your computer keeps the main copy; this phone syncs with it over Wi-Fi when they're on the same network and Lactic is open on both.`
+            : `Last synced ${ago(link?.at ?? status.paired.lastSentAt)}. Your computer keeps the main copy; this iPhone syncs with it directly when they're near each other, and through iCloud when they're apart, whenever Lactic is open on both.`)}
       </p>
       <p className="text-sm text-muted">
         Your plan, rides, settings and API keys (coach AI, intervals.icu) come across, so you only type a key once. Keys travel only on the direct encrypted link and stay in each device's keychain, never in iCloud. Theme, paired gear and the ride overlay stay per device.
@@ -321,7 +324,9 @@ export function PhoneHealth() {
   }, []);
 
   if (!status) return null;
-  if (!status.healthAvailable) return <p className="text-sm text-muted sm:col-span-2">Apple Health isn't available on this device.</p>;
+  const android = os() === "android";
+  if (!status.healthAvailable && !(android && status.healthInstall))
+    return <p className="text-sm text-muted sm:col-span-2">{phoneHealthName()} isn't available on this device.</p>;
 
   async function connect() {
     setBusy(true);
@@ -348,7 +353,9 @@ export function PhoneHealth() {
   return (
     <div className="space-y-3 sm:col-span-2">
       <p className="text-sm text-muted">
-        Lactic reads sleep, HRV, resting heart rate, breathing, wrist temperature, heart rate, steps and VO2 max straight from Health, and picks up new nights on its own. No Shortcut needed.
+        {android
+          ? "Lactic reads sleep, HRV, resting heart rate, breathing, heart rate, steps and VO2 max from Health Connect, which your watch or ring app fills, and checks for new nights on its own every 15 minutes or so. Some watch apps don't share everything: Samsung Health, for one, keeps HRV to itself."
+          : "Lactic reads sleep, HRV, resting heart rate, breathing, wrist temperature, heart rate, steps and VO2 max straight from Health, and picks up new nights on its own. No Shortcut needed."}
       </p>
       {status.healthAsked ? (
         <button type="button" className={button.secondary} disabled={busy} onClick={() => void readNow()}>
@@ -356,7 +363,7 @@ export function PhoneHealth() {
         </button>
       ) : (
         <button type="button" className={button.primary} disabled={busy} onClick={() => void connect()}>
-          {busy ? "Connecting…" : "Connect Apple Health"}
+          {busy ? "Connecting…" : android && status.healthInstall ? "Get Health Connect" : `Connect ${phoneHealthName()}`}
         </button>
       )}
       <label className="flex items-start gap-2 text-sm">
@@ -370,11 +377,15 @@ export function PhoneHealth() {
           }}
         />
         <span>
-          Save rides to Health as cycling workouts
+          Save rides to {android ? "Health Connect" : "Health"} as cycling workouts
           <span className="block text-muted">With heart rate, power, cadence, distance and energy. Rides Zwift or your bike computer already put there are skipped.</span>
         </span>
       </label>
-      {status.healthAsked && <p className="text-sm text-muted">To change what Lactic can read or write, open the Health app → your picture → Apps → Lactic.</p>}
+      {status.healthAsked && (
+        <p className="text-sm text-muted">
+          {android ? "To change what Lactic can read or write, open Health Connect (in Settings, or its own app on older phones) → App permissions → Lactic." : "To change what Lactic can read or write, open the Health app → your picture → Apps → Lactic."}
+        </p>
+      )}
       {result && <Result ok={result.ok}>{result.message}</Result>}
     </div>
   );

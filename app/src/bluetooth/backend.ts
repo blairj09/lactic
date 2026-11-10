@@ -1,8 +1,9 @@
-// Where Bluetooth comes from: the OS through the Rust core (ble.rs), and the built-in simulated
-// devices (sim.ts) for trying Lactic without gear. Both look the same to the Web Bluetooth layer
+// Where Bluetooth comes from: the OS through the Rust core (ble.rs), or on Android through the
+// phone plugin (Kotlin, Ble.kt), and the built-in simulated devices (sim.ts) for trying Lactic
+// without gear. Both look the same to the Web Bluetooth layer
 // above (web-bluetooth.ts).
 
-import { invoke, isDesktop, listen } from "~/platform/native";
+import { invoke, isDesktop, listen, os } from "~/platform/native";
 
 export interface CharInfo {
   uuid: string;
@@ -90,6 +91,39 @@ export function nativeBackend(): BleBackend {
     onDisconnected: drops.on,
   };
 }
+
+/**
+ * Android's Bluetooth, through the phone plugin: btleplug can't run on Android, so the plugin's
+ * Kotlin side answers the same commands and sends the same events.
+ */
+export function pluginBackend(): BleBackend {
+  const adverts = emitter<Advert>();
+  const notes = emitter<Notification>();
+  const drops = emitter<string>();
+  const call = <T>(command: string, args?: Record<string, unknown>) => invoke<T>(`plugin:lactic-phone|${command}`, args);
+  void (async () => {
+    const core = await import("@tauri-apps/api/core");
+    await core.addPluginListener<Advert>("lactic-phone", "ble-advert", adverts.emit);
+    await core.addPluginListener<Notification>("lactic-phone", "ble-notify", notes.emit);
+    await core.addPluginListener<{ id: string }>("lactic-phone", "ble-disconnected", (d) => drops.emit(d.id));
+  })();
+  return {
+    available: () => call("ble_available"),
+    scan: () => call("ble_scan"),
+    stopScan: () => call("ble_stop_scan"),
+    connect: (id) => call("ble_connect", { id }),
+    disconnect: (id) => call("ble_disconnect", { id }),
+    subscribe: (id, service, characteristic, on) => call("ble_subscribe", { id, service, characteristic, on }),
+    write: (id, service, characteristic, value, withResponse) => call("ble_write", { id, service, characteristic, value, withResponse }),
+    read: (id, service, characteristic) => call("ble_read", { id, service, characteristic }),
+    onAdvert: adverts.on,
+    onNotify: notes.on,
+    onDisconnected: drops.on,
+  };
+}
+
+/** The OS's Bluetooth: the phone plugin on Android, the Rust core everywhere else. */
+export const systemBackend = (): BleBackend => (os() === "android" ? pluginBackend() : nativeBackend());
 
 /** No Bluetooth at all (a browser without the desktop shell): only the simulator. */
 export function noBackend(): BleBackend {

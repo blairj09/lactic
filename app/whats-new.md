@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Settings → iPhone is now Settings → Phone, and pairing a phone works with any computer on the same Wi-Fi.
 - Chart dates and times no longer pile up on a phone: the fitness forecast, power curve, ride and race charts show fewer axis labels when the screen is narrow.
 - Each block of a workout is now its own lap on Strava and intervals.icu, with its own time and average power, so you can see how every interval went. Rides you post or export again from their ride page get laps too.
 - With your iPhone paired, Settings → Sleep and recovery shows Apple Health coming from it, when the phone last read Health and last night's numbers. Without a paired iPhone, the card points you to pairing it, and the Shortcut steps sit behind a "No iPhone app yet?" link.

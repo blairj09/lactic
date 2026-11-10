@@ -5,6 +5,7 @@ import { useState } from "react";
 import { MarkTile } from "~/app/brand";
 import { button, Result } from "@/components/ui";
 import { setSetting } from "~/settings/store";
+import { phoneHealthName, phoneWord } from "~/platform/native";
 import { PairWithComputer, useLinkState } from "./settings";
 
 /** app_settings key: this phone was set up without a computer. */
@@ -33,12 +34,12 @@ export function PhoneWelcome({ onSolo }: { onSolo: () => void }) {
           <div className="space-y-2">
             <h1 className="text-2xl font-semibold tracking-tight">Pair with your computer</h1>
             <p className="text-muted">
-              Your computer keeps your plan, rides and settings. Pair once and this iPhone syncs with it over Wi-Fi, reads Apple Health for you, and runs rides with your trainer.
+              Your computer keeps your plan, rides and settings. Pair once and this {phoneWord()} syncs with it over Wi-Fi, reads {phoneHealthName()} for you, and runs rides with your trainer.
             </p>
           </div>
           <ol className="list-decimal space-y-1 pl-5 text-sm">
-            <li>On your computer, open Lactic → Settings → iPhone.</li>
-            <li>Click Pair an iPhone.</li>
+            <li>On your computer, open Lactic → Settings → Phone.</li>
+            <li>Click Pair a phone.</li>
             <li>Scan the code it shows.</li>
           </ol>
           <PairWithComputer onPaired={setComputer} />
@@ -50,7 +51,7 @@ export function PhoneWelcome({ onSolo }: { onSolo: () => void }) {
               onSolo();
             }}
           >
-            No computer? Set up Lactic on this iPhone
+            No computer? Set up Lactic on this {phoneWord()}
           </button>
         </>
       )}

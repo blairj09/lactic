@@ -1,5 +1,6 @@
-// The iPhone app's native side (src-tauri/plugins/lactic-phone, Swift): Apple Health, the
-// pairing key in the iOS keychain, and the sealed link to the computer.
+// The phone apps' native side (src-tauri/plugins/lactic-phone: Swift on the iPhone, Kotlin on
+// Android): Apple Health or Health Connect, the pairing key in the phone's keystore, and the sealed
+// link to the computer. Android's plugin also does Bluetooth (src/bluetooth/backend.ts).
 
 import type { HealthWorkout } from "@/lib/engine/health-export";
 import type { EndAlert } from "@/lib/ride/end-alert";
@@ -28,6 +29,8 @@ export interface PhoneStatus {
   healthAsked: boolean;
   /** Health reads from background wakes waiting to be imported here. */
   pending: number;
+  /** Android 13 and older: Health Connect needs installing or updating from the Play Store. */
+  healthInstall?: boolean;
   paired: { computer: string; deviceId: string; lastSentAt: number | null } | null;
 }
 

@@ -41,6 +41,9 @@
       "developmentTeam": "PXC4RTM468",
       "frameworks": ["CoreBluetooth", "HealthKit", "AVFoundation", "UserNotifications"]
     },
+    "android": {
+      "minSdkVersion": 28
+    },
     "macOS": {
       "minimumSystemVersion": "11.0",
       "signingIdentity": "-",
