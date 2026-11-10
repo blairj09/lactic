@@ -6,8 +6,11 @@ on:
     # A version tag (v0.2.0) also publishes the three apps as a GitHub release.
     tags: ["v*"]
     paths: ["app/**", ".github/workflows/app.yml"]
+  # Every pull request runs this workflow, so `check` always reports and is safe to require on
+  # main. When nothing under app/ changed, `changes` says so and the rest is skipped (a skipped
+  # job counts as passing).
   pull_request:
-    paths: ["app/**", ".github/workflows/app.yml"]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       release:
@@ -15,8 +18,35 @@ on:
         type: boolean
         default: false
 
+# One run at a time per pull request: a new push cancels the run it replaces. On main, a running
+# build finishes, and pushes that land meanwhile wait as one queued run (each newer push replaces
+# the waiting one), so a burst of merges builds Preview once instead of once per merge.
+concurrency:
+  group: app-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.files.outputs.app }}
+    steps:
+      - name: Did this pull request change the app?
+        id: files
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then echo "app=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          files=$(gh api "repos/$GH_REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+          if printf '%s\n' "$files" | grep -qE '^(app/|\.github/workflows/app\.yml$)'; then app=true; else app=false; fi
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          echo "App changed: $app"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+
   check:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     outputs:
       # "release": this run ships v<version> (a version tag, a manual run with "release" ticked,
@@ -79,7 +109,12 @@ jobs:
     # signed with Lactic's Developer ID and notarized by Apple, so it opens with no Terminal step.
     # Without them (forks) it falls back to the ad-hoc signature.
     # Preview runs build Lactic Preview instead (artifacts named Lactic-macOS-Preview and so on).
+    # Draft pull requests stop at `check`; marking one ready for review builds the apps.
+    # Pull request Mac builds are Apple silicon only and signed but not notarized: they're for
+    # trying a change (app/scripts/try-preview.sh clears the download flag), and that halves the
+    # Mac build. main and releases stay universal and notarized.
     needs: check
+    if: ${{ !github.event.pull_request.draft }}
     strategy:
       fail-fast: false
       matrix:
@@ -87,13 +122,13 @@ jobs:
           - os: macos-latest
             name: Lactic-macOS
             bundles: app,dmg
-            # One app for both kinds of Mac.
-            target: universal-apple-darwin
-            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+            # One app for both kinds of Mac (Apple silicon only on pull requests, see above).
+            target: ${{ github.event_name == 'pull_request' && 'aarch64-apple-darwin' || 'universal-apple-darwin' }}
+            rust-targets: ${{ github.event_name == 'pull_request' && 'aarch64-apple-darwin' || 'aarch64-apple-darwin,x86_64-apple-darwin' }}
             files: |
-              app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
-              app/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
-              app/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
+              app/src-tauri/target/*-apple-darwin/release/bundle/dmg/*.dmg
+              app/src-tauri/target/*-apple-darwin/release/bundle/macos/*.app.tar.gz
+              app/src-tauri/target/*-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
           - os: windows-latest
             name: Lactic-Windows
             bundles: nsis
@@ -172,7 +207,9 @@ jobs:
           fi
           echo "Signing as $identity"
           echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
-          if [ -n "$APPLE_API_KEY_P8" ] && [ -n "$APPLE_API_KEY" ] && [ -n "$APPLE_API_ISSUER" ]; then
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            echo "Pull request build: signed, not notarized."
+          elif [ -n "$APPLE_API_KEY_P8" ] && [ -n "$APPLE_API_KEY" ] && [ -n "$APPLE_API_ISSUER" ]; then
             printf '%s\n' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey_$APPLE_API_KEY.p8"
             {
               echo "APPLE_API_KEY=$APPLE_API_KEY"
