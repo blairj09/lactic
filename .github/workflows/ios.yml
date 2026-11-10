@@ -4,7 +4,7 @@ name: iPhone app
 # each run (tauri ios init) and given the app's entitlements (Apple Health) from
 # app/src-tauri/ios/Lactic.entitlements.
 #
-# Every run builds for the simulator, which checks the Rust, the Swift plugin and the web layer
+# Every run builds the Rust core and the Swift plugins for the simulator, which checks they
 # compile for iOS. With the App Store Connect key (APPLE_API_KEY, APPLE_API_ISSUER and
 # APPLE_API_KEY_P8, shared with the Mac signing), runs on main and on pull requests from this repo
 # also make a signed build and upload it to TestFlight, numbered by the run. Xcode signs it with
@@ -42,18 +42,15 @@ jobs:
         with:
           workspaces: app/src-tauri
           key: ios
-      - name: Xcode project
-        run: ../.github/scripts/ios-project.sh
+      - name: Web build (the app bundles it)
+        run: npx vite build
         working-directory: app
       - name: Build for the simulator
-        run: |
-          set -euo pipefail
-          project=$(ls -d src-tauri/gen/apple/*.xcodeproj | head -1)
-          scheme=$(xcodebuild -list -project "$project" | sed -n '/Schemes:/,$p' | grep -m1 '_iOS' | xargs)
-          xcodebuild -project "$project" -scheme "$scheme" -sdk iphonesimulator -configuration Debug -arch arm64 \
-            -derivedDataPath "$RUNNER_TEMP/dd" build CODE_SIGNING_ALLOWED=NO | tail -n 80
-          test "${PIPESTATUS[0]}" -eq 0
-        working-directory: app
+        # The Rust core and, through the plugins' build scripts, their Swift code (Lactic's
+        # Apple Health plugin, the QR scanner) for iOS. The Xcode project itself is built by
+        # `tauri ios build` in the TestFlight job.
+        run: cargo build --locked --target aarch64-apple-ios-sim --lib
+        working-directory: app/src-tauri
 
   testflight:
     # A signed build on TestFlight. Needs the App Store Connect key, and the app created once in
