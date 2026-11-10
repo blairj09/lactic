@@ -34,6 +34,9 @@ import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
 import { loadTrainingState, saveKeptWeek, type CheckinRecord, type TrainingState } from "@/lib/training";
 import { todayOptions } from "@/lib/today-options";
 import { createClient } from "@/lib/supabase/server";
+import { courseFromFile, courseFromUrl, saveCourse } from "@/lib/course";
+import { experiments } from "@/lib/experiments";
+import { courseSaved } from "./course-actions";
 import type { ActionResult } from "../actions";
 
 async function attempt(work: () => Promise<string>): Promise<ActionResult> {
@@ -77,15 +80,27 @@ export async function saveGoal(_: ActionResult | null, form: FormData): Promise<
     const start = String(form.get("start_time") ?? "");
     if (start && !TIME.test(start)) throw new Error("Start time looks like 10:45");
     const row = { name, event_date: date, priority, kind, duration_minutes: minutes, intensity, start_time: start || null };
+    // A course file, when one came with the form: read before anything's saved, so a bad file saves nothing.
+    const file = form.get("course");
+    const link = String(form.get("course_url") ?? "").trim();
+    const course = !experiments().course_prep
+      ? null
+      : file instanceof File && file.size > 0
+        ? { name: file.name, track: courseFromFile(file.name, new Uint8Array(await file.arrayBuffer())) }
+        : link
+          ? await courseFromUrl(link)
+          : null;
     const supabase = await createClient();
+    const goalId = id || crypto.randomUUID();
     if (id) {
       const { error } = await supabase.from("training_goals").update(row).eq("id", id);
       if (error) throw error;
-      return `Updated ${name}.`;
+    } else {
+      const { error } = await supabase.from("training_goals").insert({ id: goalId, ...row });
+      if (error) throw error;
     }
-    const { error } = await supabase.from("training_goals").insert(row);
-    if (error) throw error;
-    return `Added ${name}. The plan now builds toward it.`;
+    const withCourse = course ? ` ${await courseSaved(await saveCourse(supabase, goalId, course.name, course.track))}` : "";
+    return id ? `Updated ${name}.${withCourse}` : `Added ${name}. The plan now builds toward it.${withCourse}`;
   });
 }
 

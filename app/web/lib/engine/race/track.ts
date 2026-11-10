@@ -118,6 +118,34 @@ export function parseGpx(xml: string): Track {
   return { name: nameMatch ? unescape(nameMatch[1].trim()) || null : null, points };
 }
 
+/** Reads a TCX file's trackpoints (an activity or a course). Throws when there's nothing to read. */
+export function parseTcx(xml: string): Track {
+  const nameMatch = xml.match(/<(?:[\w-]+:)?(?:Name|Id)>\s*([^<]*?)\s*<\/(?:[\w-]+:)?(?:Name|Id)>/i);
+  const points: TrackPoint[] = [];
+  const re = /<(?:[\w-]+:)?Trackpoint>([\s\S]*?)<\/(?:[\w-]+:)?Trackpoint>/gi;
+  for (let m = re.exec(xml); m; m = re.exec(xml)) {
+    const body = m[1];
+    const lat = num(tag(body, "LatitudeDegrees"));
+    const lng = num(tag(body, "LongitudeDegrees"));
+    if (lat === null || lng === null || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
+    const time = tag(body, "Time");
+    const t = time ? Date.parse(time) / 1000 : NaN;
+    const hr = body.match(/<(?:[\w-]+:)?HeartRateBpm>[\s\S]*?<(?:[\w-]+:)?Value>\s*([\d.]+)/i);
+    points.push({
+      t: Number.isFinite(t) ? t : null,
+      lat,
+      lng,
+      ele: num(tag(body, "AltitudeMeters")),
+      hr: hr ? num(hr[1]) : null,
+      watts: num(tag(body, "Watts")),
+      cadence: num(tag(body, "Cadence")),
+    });
+  }
+  if (points.length < 2) throw new Error("No track points in this TCX file");
+  if (points.some((p) => p.t === null)) for (const p of points) p.t = null;
+  return { name: nameMatch ? unescape(nameMatch[1].trim()) || null : null, points };
+}
+
 /** A ride file's records as a track: the points that have a position. */
 export function trackFromRecords(
   name: string | null,

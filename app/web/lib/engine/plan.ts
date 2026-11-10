@@ -4,7 +4,8 @@
 
 import { buildSession, INTERVAL_ZONES, openers, rampTest, ZONE_LABELS, type Levels, type Session, type Zone, MAX_LEVEL, MIN_LEVEL } from "./library";
 import { addDays, fitnessSeries, type FitnessDay } from "./pmc";
-import { pickTemplate, type Focus } from "./templates";
+import { pickTemplate, WORK_TOTAL, type Focus } from "./templates";
+import { courseShape, type CourseDemands } from "./course/shape";
 import { libraryFits, librarySession } from "./workout-library";
 
 export const GOAL_KINDS = ["roadRace", "criterium", "cyclocross", "mountainBike", "track", "timeTrial", "gravel", "granFondo", "hillClimb"] as const;
@@ -74,6 +75,8 @@ export interface Goal {
   intensity?: Intensity | null;
   /** Local start time, "HH:MM", once set. */
   startTime?: string | null;
+  /** What the event's course asks of you, when a course file is attached (course/shape.ts). */
+  course?: CourseDemands | null;
 }
 
 export const goalMinutes = (g: Goal) => g.minutes ?? KIND_DEFAULTS[g.kind].minutes;
@@ -82,11 +85,15 @@ export const goalIntensity = (g: Goal) => g.intensity ?? KIND_DEFAULTS[g.kind].i
 /** Intensity factor for an event's stress estimate. Long events can't be held as high, so it eases with time. */
 const EVENT_IF: Record<Intensity, number> = { easy: 0.65, moderate: 0.75, hard: 0.85, max: 0.95 };
 
+/** Intensity factor an event of `hours` is ridden at: its intensity, easing for long events. */
+export function eventFactor(intensity: Intensity, hours: number): number {
+  return Math.max(EVENT_IF[intensity] - Math.max(0, hours - 1) * 0.03, 0.6);
+}
+
 /** Estimated training stress of an event: hours x IF^2 x 100. */
 export function eventStress(goal: Goal): number {
   const hours = goalMinutes(goal) / 60;
-  const factor = EVENT_IF[goalIntensity(goal)] - Math.max(0, hours - 1) * 0.03;
-  return Math.round(hours * Math.max(factor, 0.6) ** 2 * 100);
+  return Math.round(hours * eventFactor(goalIntensity(goal), hours) ** 2 * 100);
 }
 
 /**
@@ -133,6 +140,19 @@ export function phaseFocus(phase: Phase, target: Goal | null): Focus[] {
 interface Picking {
   focus: Focus[];
   favorites: readonly string[];
+  /** One key day rides intervals as long as the target event's main climb (course/shape.ts). */
+  climb?: { zone: Zone; seconds: number; note: string } | null;
+}
+
+/**
+ * Intervals sized to a course's climb: the zone's classic structure with each interval as long as
+ * the climb, or as long as the level's work allows in two of them, whichever is shorter.
+ */
+function climbSession(zone: Zone, level: number, seconds: number, climbSeconds: number): Session {
+  if (zone === "endurance" || zone === "recovery") return buildSession(zone, level, seconds);
+  const most = WORK_TOTAL[zone](level) / 2;
+  const on = Math.max(zone === "vo2max" || zone === "anaerobic" ? 60 : 300, Math.round(Math.min(climbSeconds, most) / 60) * 60);
+  return buildSession(zone, level, seconds, { template: `${zone}-intervals`, tweaks: { on } });
 }
 
 /**
@@ -271,6 +291,8 @@ export interface PlanDay {
   why?: string;
   /** The safety rule that made this day easier than its phase would, if one did. */
   rule?: SafetyRule;
+  /** Why this day's workout is shaped for the target event's course, when it is. */
+  course?: string;
   /** A key session missed earlier in the week and moved here (adapt.ts): the day it was planned for, and whether it was shortened to fit. */
   movedFrom?: { date: string; shortened: boolean };
   /** A missed key session that moved to a later day this week: that day, and the session as it was planned here. */
@@ -362,6 +384,7 @@ export function buildPlan(input: PlanInput): Plan {
   const schedule = frame ? framedSchedule(frame, input.goals) : unframedSchedule(today, upcoming, input.horizonWeeks ?? 6);
   const { target } = schedule;
   if (schedule.end < today) return { target, frame, weeks: [], forecast: [] };
+  const shape = target ? courseShape(target) : null;
   // Always from this week, so events before a saved plan starts still show on their days.
   const firstWeek = thisWeek;
   const weekCount = Math.min(MAX_WEEKS, daysBetween(firstWeek, weekStart(schedule.end)) / 7 + 1);
@@ -389,7 +412,10 @@ export function buildPlan(input: PlanInput): Plan {
     } else if (recoveryWeek && w - lastBreakRecovery <= 2) recoveryWeek = false;
     const weekAvail = week.availability;
     const weekGoals = upcoming.filter((g) => g.date >= start && g.date <= addDays(start, 6) && g.date <= schedule.end);
-    const zones = (phase === "specialty" || phase === "taper") && target ? specialtyZones(target) : KEY_ZONES[phase === "base" ? "base" : "build"];
+    const late = phase === "specialty" || phase === "taper";
+    const zones = late && target ? (shape?.zones ?? specialtyZones(target)) : KEY_ZONES[phase === "base" ? "base" : "build"];
+    const focus = late && shape ? shape.focus : phaseFocus(phase, target);
+    const climb = shape?.climb && (phase === "build" || phase === "specialty") ? { ...shape.climb, note: shape.note } : null;
     // Long events need long rides: from build on, the long ride works toward three quarters of the event's time.
     const longFloor = target && (phase === "build" || phase === "specialty") ? goalMinutes(target) * 0.75 : 60;
 
@@ -399,23 +425,23 @@ export function buildPlan(input: PlanInput): Plan {
 
     const days =
       phase === "taper" && target
-        ? taperWeek(start, weekAvail, target, zones, levels, { focus: phaseFocus(phase, target), favorites })
+        ? taperWeek(start, weekAvail, target, zones, levels, { focus, favorites })
         : phase === "test"
           ? testWeek(start, weekAvail, schedule.end, levels)
-          : loadWeek(start, weekAvail, zones, levels, weekTarget, recoveryWeek, longFloor, week.easyOnly, { focus: phaseFocus(phase, target), favorites });
+          : loadWeek(start, weekAvail, zones, levels, weekTarget, recoveryWeek, longFloor, week.easyOnly, { focus, favorites, climb });
     // A lighter week names why on each of its rides.
     const weekRule: SafetyRule | undefined =
       phase === "taper" && target ? "eventTaper" : phase === "test" ? "testWeek" : recoveryWeek ? (breakNote === "break" ? "breakWeek" : breakNote === "reentry" ? "reentryWeek" : "recoveryWeek") : undefined;
     if (weekRule) for (const day of days) if (day.session && day.role !== "test") day.rule = weekRule;
     for (const goal of weekGoals) if (goal !== target) applyEvent(days, goal, weekAvail, levels);
     // Days outside a saved plan's dates are left open, apart from the events on them.
-    for (const day of days) if ((day.date < schedule.firstDay || day.date > schedule.end) && day.role !== "event") Object.assign(day, { role: "rest", session: null, rule: undefined });
+    for (const day of days) if ((day.date < schedule.firstDay || day.date > schedule.end) && day.role !== "event") Object.assign(day, { role: "rest", session: null, rule: undefined, course: undefined });
     if (target && phase === "taper") markAfterEvent(days, target, weekAvail);
     days.forEach((day, i) => {
       if (week.breaks[i]) day.break = week.breaks[i];
       // Outdoor-only days ride whatever comes, so intervals become endurance.
       if (week.easyOnly[i] && day.session && INTERVAL_ZONES.includes(day.session.zone) && day.role !== "event") {
-        Object.assign(day, { role: "easy", session: buildSession("endurance", levels.endurance, day.session.duration), rule: "outdoorOnly" });
+        Object.assign(day, { role: "easy", session: buildSession("endurance", levels.endurance, day.session.duration), rule: "outdoorOnly", course: undefined });
       }
     });
 
@@ -589,10 +615,19 @@ function loadWeek(
   const keys = pickKeyDays(open.filter((i) => i !== long && !easyOnly[i]), availability, keyCount, long);
 
   let stress = 0;
+  // A course's climb takes the first key day in its zone, else the first key day (not in recovery weeks).
+  const climb = recoveryWeek ? null : (prefer.climb ?? null);
+  const climbSlot = climb ? Math.max(0, keys.findIndex((_, n) => zones[n % zones.length] === climb.zone)) : -1;
   keys.forEach((i, n) => {
-    const zone = zones[n % zones.length];
+    const zone = n === climbSlot && climb ? climb.zone : zones[n % zones.length];
     const level = recoveryWeek ? Math.max(MIN_LEVEL, levels[zone] - 1) : nextLevel(levels[zone]);
     const minutes = Math.min(availability[i], KEY_CAP_MINUTES[zone], recoveryWeek ? 60 : Infinity);
+    if (n === climbSlot && climb) {
+      const session = climbSession(zone, level, minutes * 60, climb.seconds);
+      days[i] = { ...days[i], role: "key", session, course: climb.note };
+      stress += session.stress;
+      return;
+    }
     const session = keySession(zone, level, minutes * 60, prefer, start, n);
     days[i] = { ...days[i], role: "key", session };
     stress += session.stress;
