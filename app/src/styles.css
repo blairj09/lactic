@@ -31,3 +31,10 @@ header {
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* Phones: room under every page for the tab bar (src/app/nav.tsx), which only pages with the nav have. */
+@media (max-width: 767px) {
+  body:has(.lactic-tabbar) {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  }
+}
