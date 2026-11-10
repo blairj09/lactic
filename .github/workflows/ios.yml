@@ -143,18 +143,24 @@ jobs:
           echo "IPA=$ipa" >> "$GITHUB_ENV"
         working-directory: app
       - name: Signed entitlements
-        # What the app and each extension were signed with, and what their profiles allow: the
-        # App Group in particular, which the widgets need.
+        # What the app and each extension were signed with, and what their profiles allow. Stops
+        # the upload if any lacks the App Group the widgets share.
         if: env.HAS_KEY == 'true'
         run: |
           dir=$(mktemp -d) && unzip -q "$IPA" -d "$dir"
-          find "$dir/Payload" -maxdepth 6 \( -name '*.app' -o -name '*.appex' \) | while read -r b; do
+          missing=0
+          while read -r b; do
             name=${b#"$dir/Payload/"}
             signed=$(codesign -d --entitlements - --xml "$b" 2>/dev/null | plutil -convert json -o - - 2>/dev/null || echo '?')
             profile=$(security cms -D -i "$b/embedded.mobileprovision" 2>/dev/null | plutil -extract Entitlements json -o - - 2>/dev/null || echo 'no profile')
             echo "::notice title=$name signed::$signed"
             echo "::notice title=$name profile::$profile"
-          done
+            case "$signed" in
+              *group.fit.lactic.app*) ;;
+              *) echo "::error title=$name::Signed without the App Group the widgets share"; missing=1 ;;
+            esac
+          done < <(find "$dir/Payload" -maxdepth 6 \( -name '*.app' -o -name '*.appex' \))
+          exit "$missing"
         working-directory: app
       - name: What Apple has registered
         # After a signing failure: the team's Lactic App IDs and their capabilities (identifiers only).
