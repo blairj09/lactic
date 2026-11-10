@@ -54,7 +54,7 @@ export function applyOverrides(plan: Plan, overrides: DayOverride[], today: stri
       const session = byDate.get(day.date)!;
       if (sameSession(session, day.session)) return day;
       // The coach's reason was for the workout it picked, not this one.
-      return { ...day, role: roleFor(session), session, stress: session?.stress ?? 0, why: undefined, rule: undefined };
+      return { ...day, role: roleFor(session), session, stress: session?.stress ?? 0, why: undefined, rule: undefined, course: undefined };
     });
     return { ...week, days, stress: Math.round(days.reduce((s, d) => s + d.stress, 0)) };
   });
