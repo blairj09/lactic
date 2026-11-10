@@ -134,7 +134,7 @@ export function PairPhone() {
                     </span>
                   </span>
                 ))}
-              . If it says Lactic is here, the network's fine. If it can't connect, check your Mac's firewall (System Settings → Network → Firewall) lets Lactic accept connections, and that a VPN or guest Wi-Fi isn't keeping the two apart.
+              . If it says Lactic is here, the network's fine. If it can't connect, check your Mac's firewall (System Settings → Network → Firewall) lets Lactic accept connections, and that the iPhone's address (Settings → Wi-Fi → ⓘ) starts with the same numbers as the one above. If not, they're on different networks, often from two routers or a guest Wi-Fi.
             </p>
             <button type="button" className={button.secondary} onClick={() => void cancel()}>
               Cancel

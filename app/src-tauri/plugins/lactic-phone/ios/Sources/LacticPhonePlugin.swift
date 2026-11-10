@@ -254,6 +254,9 @@ enum Link {
     // Nothing answered anywhere: say where it looked, which is what checking the network needs.
     if lastError is URLError {
       let tried = pairing.hosts.joined(separator: ", ")
+      if let mine = wifiNetwork(), !pairing.hosts.contains(where: { mine.holds($0) }), pairing.hosts.contains(where: { ipv4($0) != nil }) {
+        throw LacticError("This iPhone and \(pairing.computer) are on different networks: the iPhone is \(mine.address), the computer is \(tried). Join the iPhone to the same Wi-Fi as the computer (often two routers each make their own network), then try again.")
+      }
       throw LacticError("Can't reach \(pairing.computer) (tried \(tried), port \(pairing.port)). Check that Lactic is open on it, both are on the same Wi-Fi, and the computer's firewall lets Lactic accept connections.")
     }
     throw lastError
@@ -589,4 +592,38 @@ class LacticPhonePlugin: Plugin {
 @_cdecl("init_plugin_lactic_phone")
 func initPlugin() -> Plugin {
   return LacticPhonePlugin()
+}
+
+/// The iPhone's own Wi-Fi IPv4 address and netmask, to tell "different network" apart from "not answering".
+struct WifiNetwork {
+  let address: String
+  let ip: UInt32
+  let mask: UInt32
+  func holds(_ host: String) -> Bool {
+    guard let h = ipv4(host) else { return false }
+    return h & mask == ip & mask
+  }
+}
+
+func ipv4(_ s: String) -> UInt32? {
+  var a = in_addr()
+  guard inet_pton(AF_INET, s, &a) == 1 else { return nil }
+  return UInt32(bigEndian: a.s_addr)
+}
+
+func wifiNetwork() -> WifiNetwork? {
+  var list: UnsafeMutablePointer<ifaddrs>?
+  guard getifaddrs(&list) == 0, let first = list else { return nil }
+  defer { freeifaddrs(list) }
+  for p in sequence(first: first, next: { $0.pointee.ifa_next }) {
+    let i = p.pointee
+    guard String(cString: i.ifa_name) == "en0", let addr = i.ifa_addr, let mask = i.ifa_netmask,
+      addr.pointee.sa_family == UInt8(AF_INET)
+    else { continue }
+    let ip = addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { UInt32(bigEndian: $0.pointee.sin_addr.s_addr) }
+    let m = mask.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { UInt32(bigEndian: $0.pointee.sin_addr.s_addr) }
+    let text = "\(ip >> 24).\((ip >> 16) & 255).\((ip >> 8) & 255).\(ip & 255)"
+    return WifiNetwork(address: text, ip: ip, mask: m)
+  }
+  return nil
 }
