@@ -2,13 +2,19 @@
 // computer, a bar above the tabs says so; tapping it opens the ride as the computer shows it, with
 // its controls (start and pause, skip, intensity, ERG, extend, end). Presses go to the computer and
 // run there, as if clicked on it. Asks every few seconds in the background, every second while open.
+//
+// The workout's end: a notification with Extend and End buttons. The phone hears nothing from the
+// computer while it's locked, so each answer moves a notification scheduled for the end (Swift
+// keeps it, and runs the buttons from the lock screen or a watch); paused or ended, it's dropped.
+// Open at the end, the remote opens itself on the Extend panel.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerView, formatTime, type PlayerControls } from "@/app/ride/player";
 import { Notice, button } from "@/components/ui";
 import { isRiding } from "@/lib/live-ride";
+import { endAlert, endAlertKey } from "@/lib/ride/end-alert";
 import type { ControlMessage, ControlName, OverlayPayload } from "~/ride/channel";
-import { phoneStatus, send } from "./plugin";
+import { cancelRideEnd, phoneStatus, scheduleRideEnd, send } from "./plugin";
 
 interface Reply {
   ride: OverlayPayload | null;
@@ -26,6 +32,8 @@ export function ComputerRide() {
   const [lost, setLost] = useState(false);
   const openRef = useRef(open);
   openRef.current = open;
+  const computerRef = useRef(computer);
+  computerRef.current = computer;
   /** Set while a request is out, so polls and presses never overlap. */
   const asking = useRef(false);
 
@@ -35,11 +43,14 @@ export function ComputerRide() {
       .catch(() => {});
   }, []);
 
+  /** What Swift was last told about the ride-end notification, so it only hears about changes. */
+  const lastAlert = useRef("");
   const ask = useCallback(async (control?: ControlMessage) => {
     try {
       const reply = await send<Reply>("ride", control ? { control } : {}, 5);
       setRide(reply.ride);
       setLost(false);
+      syncEndAlert(reply.ride, computerRef.current, lastAlert);
     } catch {
       // Out of reach: keep the last view up while it's open, and say so; otherwise drop the bar.
       if (openRef.current) setLost(true);
@@ -73,6 +84,18 @@ export function ComputerRide() {
       document.removeEventListener("visibilitychange", wake);
     };
   }, [computer, open, ask]);
+
+  // Open at the workout's end (tapped from the notification, or just looking): show the Extend panel.
+  const openedFor = useRef<string>("");
+  useEffect(() => {
+    const d = ride?.data;
+    if (!d?.finished || d.ended) return;
+    const key = endAlertKey(d.workout.name, d.duration);
+    if (openedFor.current !== key) {
+      openedFor.current = key;
+      setOpen(true);
+    }
+  }, [ride]);
 
   // The computer's Ride page closed: nothing left to steer.
   useEffect(() => {
@@ -139,4 +162,25 @@ export function ComputerRide() {
       </div>
     </div>
   );
+}
+
+/**
+ * Schedules, moves or drops the ride-end notification after an answer from the computer. Only a
+ * real answer gets here: out of reach, the one already waiting stays. The end is compared in
+ * 3-second steps so each second's answer doesn't reschedule it.
+ */
+function syncEndAlert(ride: OverlayPayload | null, computer: string | null, last: { current: string }) {
+  if (!computer) return;
+  const d = ride?.data ?? null;
+  const alert = endAlert(d && { ...d, workoutName: d.workout.name }, computer);
+  if (!alert || !d) {
+    if (last.current !== "none") void cancelRideEnd().catch(() => {});
+    last.current = "none";
+    return;
+  }
+  const at = alert.inSeconds === 0 ? "now" : Math.round((Date.now() / 1000 + alert.inSeconds) / 3);
+  const sig = `${alert.key}|${alert.extendLabel}|${at}`;
+  if (sig === last.current) return;
+  last.current = sig;
+  void scheduleRideEnd({ ...alert, computer, workoutName: d.workout.name, duration: d.duration }).catch(() => {});
 }

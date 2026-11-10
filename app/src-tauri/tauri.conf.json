@@ -39,7 +39,7 @@
     "iOS": {
       "minimumSystemVersion": "16.0",
       "developmentTeam": "PXC4RTM468",
-      "frameworks": ["CoreBluetooth", "HealthKit", "AVFoundation"]
+      "frameworks": ["CoreBluetooth", "HealthKit", "AVFoundation", "UserNotifications"]
     },
     "macOS": {
       "minimumSystemVersion": "11.0",
