@@ -60,10 +60,15 @@ jobs:
     # App Store Connect (bundle id fit.lactic.app).
     needs: simulator
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: macos-15
+    # App Store Connect only takes builds made with the iOS 26 SDK (Xcode 26) or later.
+    runs-on: macos-26
     env:
       HAS_KEY: ${{ secrets.APPLE_API_KEY_P8 != '' }}
     steps:
+      - uses: maxim-lobanov/setup-xcode@v1
+        if: env.HAS_KEY == 'true'
+        with:
+          xcode-version: latest-stable
       - uses: actions/checkout@v5
         if: env.HAS_KEY == 'true'
       - uses: actions/setup-node@v5
