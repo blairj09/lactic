@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- The iPhone icon: full bleed, since iOS rounds the corners itself. Same mark and size as icon.svg. -->
+  <rect width="1024" height="1024" fill="#2b55d6"/>
+  <g transform="translate(512 512) scale(24.85) translate(-12 -12)">
+    <path d="M2 21V15H4.5V10.5H7V6.5H9.5V3H12V15H22V21Z" fill="#ffffff"/>
+  </g>
+</svg>
