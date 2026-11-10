@@ -1,0 +1,122 @@
+name: iPhone app
+
+# Lactic for iPhone: the same app (app/), built for iOS. The Xcode project is generated fresh on
+# each run (tauri ios init) and given the app's entitlements (Apple Health) from
+# app/src-tauri/ios/Lactic.entitlements.
+#
+# Every run builds for the simulator, which checks the Rust, the Swift plugin and the web layer
+# compile for iOS. With the App Store Connect key (APPLE_API_KEY, APPLE_API_ISSUER and
+# APPLE_API_KEY_P8, shared with the Mac signing), runs on main and on pull requests from this repo
+# also make a signed build and upload it to TestFlight, numbered by the run. Xcode signs it with
+# certificates Apple manages, so no iPhone certificate secret is needed, but the key must be
+# allowed to manage them (Admin or App Manager role).
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["app/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+          key: ios
+      - name: Xcode project
+        run: ../.github/scripts/ios-project.sh
+        working-directory: app
+      - name: Build for the simulator
+        run: |
+          set -euo pipefail
+          project=$(ls -d src-tauri/gen/apple/*.xcodeproj | head -1)
+          scheme=$(xcodebuild -list -project "$project" | sed -n '/Schemes:/,$p' | grep -m1 '_iOS' | xargs)
+          xcodebuild -project "$project" -scheme "$scheme" -sdk iphonesimulator -configuration Debug -arch arm64 \
+            -derivedDataPath "$RUNNER_TEMP/dd" build CODE_SIGNING_ALLOWED=NO | tail -n 80
+          test "${PIPESTATUS[0]}" -eq 0
+        working-directory: app
+
+  testflight:
+    # A signed build on TestFlight. Needs the App Store Connect key, and the app created once in
+    # App Store Connect (bundle id fit.lactic.app).
+    needs: simulator
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: macos-15
+    env:
+      HAS_KEY: ${{ secrets.APPLE_API_KEY_P8 != '' }}
+    steps:
+      - uses: actions/checkout@v5
+        if: env.HAS_KEY == 'true'
+      - uses: actions/setup-node@v5
+        if: env.HAS_KEY == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        if: env.HAS_KEY == 'true'
+        working-directory: app
+      - uses: dtolnay/rust-toolchain@stable
+        if: env.HAS_KEY == 'true'
+        with:
+          targets: aarch64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        if: env.HAS_KEY == 'true'
+        with:
+          workspaces: app/src-tauri
+          key: ios-device
+      - name: Xcode project
+        if: env.HAS_KEY == 'true'
+        run: ../.github/scripts/ios-project.sh
+        working-directory: app
+      - name: Signed build
+        if: env.HAS_KEY == 'true'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.appstoreconnect/private_keys
+          key_path=~/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY.p8
+          printf '%s\n' "$APPLE_API_KEY_P8" > "$key_path"
+          export APPLE_API_KEY_PATH="$key_path"
+          # TestFlight needs a new build number every upload.
+          printf '{"bundle":{"iOS":{"bundleVersion":"%s"}}}' "$GITHUB_RUN_NUMBER" > src-tauri/tauri.ios-build.conf.json
+          npx tauri ios build --export-method app-store-connect --config src-tauri/tauri.ios-build.conf.json
+          ipa=$(find src-tauri/gen/apple/build -name '*.ipa' | head -1)
+          test -n "$ipa"
+          echo "IPA=$ipa" >> "$GITHUB_ENV"
+        working-directory: app
+      - name: Upload to TestFlight
+        if: env.HAS_KEY == 'true'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: xcrun altool --upload-app --type ios --file "$IPA" --apiKey "$APPLE_API_KEY" --apiIssuer "$APPLE_API_ISSUER"
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          name: Lactic-iOS
+          path: app/${{ env.IPA }}
+          if-no-files-found: ignore

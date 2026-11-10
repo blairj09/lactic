@@ -19,6 +19,9 @@ import { ExternalSuggestions } from "~/mcp/suggestions";
 import { Tour } from "~/tour/tour";
 import { installSupportTools } from "~/support/tools";
 import { UpdatePrompt } from "~/updates/prompt";
+import { isPhone } from "~/platform/native";
+import { startPhoneBridge } from "~/phone/computer";
+import { PhoneWelcome, SOLO } from "~/phone/welcome";
 
 // The coach's tools for checking and fixing the app itself (gear, intervals.icu, its own setup).
 installSupportTools();
@@ -54,7 +57,10 @@ function Shell() {
   const mode = useCoachMode();
   const mcp = useMcpOn();
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
+  // The iPhone app starts by pairing with the computer, unless the rider chose to go without one.
+  const [solo, setSolo] = useState<boolean | null>(isPhone() ? null : true);
   useEffect(() => {
+    if (isPhone()) void getSetting<boolean>(SOLO, false).then(setSolo);
     void refreshCoachMode();
     // What the rider tracks is read before the first screen, so nothing they turned off flashes up.
     void Promise.all([loadFeatures(), loadExperiments()])
@@ -70,11 +76,26 @@ function Shell() {
     return () => window.removeEventListener("lactic:settings", onSettings);
   }, []);
   useEffect(() => {
+    // The iPhone leaves intervals.icu and the Health folder to the computer; it syncs with it instead.
+    if (isPhone()) {
+      let stop: (() => void) | null = null;
+      let gone = false;
+      void import("~/phone/start").then((m) => {
+        if (!gone) stop = m.startPhone();
+      });
+      return () => {
+        gone = true;
+        stop?.();
+      };
+    }
     if (onboarded) return startBackground();
   }, [onboarded]);
+  // Apple Health that a paired iPhone sends straight here.
+  useEffect(() => (location.hash.startsWith("#/overlay") ? undefined : startPhoneBridge()), []);
   // The overlay window runs this app too; only the main window answers the MCP server.
   useEffect(() => (location.hash.startsWith("#/overlay") ? undefined : startMcpBridge()), []);
-  if (onboarded === null) return null;
+  if (onboarded === null || solo === null) return null;
+  if (!onboarded && !solo) return <PhoneWelcome onSolo={() => setSolo(true)} />;
   return (
     <>
       <NavigatorBridge />
@@ -103,7 +124,7 @@ function Shell() {
       </Routes>
       <NewDayRefresh />
       <BluetoothPicker />
-      <UpdatePrompt />
+      {!isPhone() && <UpdatePrompt />}
       {onboarded && <Tour />}
       {onboarded && mcp && <ExternalSuggestions />}
       {mode === "builtin" && (

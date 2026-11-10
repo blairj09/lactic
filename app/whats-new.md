@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic for iPhone (coming to TestFlight): pair it with Lactic on your Mac by scanning a code in Settings → iPhone, and the two stay in sync over your Wi-Fi, with your Mac keeping the main copy. It reads sleep, HRV and resting heart rate straight from Apple Health, so the Shortcut isn't needed, and saves your Lactic rides to Health as cycling workouts.
 - Dragging a workout onto another day on the Plan calendar now moves it (it did nothing in the Mac app).
 - Apple Watch riders: the Lactic Shortcut now has a step-by-step guide, linked from Sleep and recovery setup. It saves your sleep, HRV and resting heart rate from your iPhone to iCloud Drive each morning, free, with no extra app.
 
