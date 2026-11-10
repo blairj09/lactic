@@ -10,8 +10,6 @@ if [ -z "$entitlements" ]; then
   find src-tauri/gen/apple -maxdepth 2
   exit 1
 fi
-cp src-tauri/ios/Lactic.entitlements "$entitlements"
-echo "Entitlements: $entitlements"
 # tauri ios init fills the app icon with Tauri's placeholder; put Lactic's in (same file names).
 iconset=$(find src-tauri/gen/apple -type d -name 'AppIcon.appiconset' | head -1)
 if [ -z "$iconset" ]; then
@@ -37,3 +35,6 @@ printf '{"images":[{"filename":"icon.png","idiom":"universal","platform":"watcho
 printf '{"info":{"author":"xcode","version":1}}\n' > "$gen/LacticWatch/Assets.xcassets/Contents.json"
 ruby "$(dirname "$0")/ios-widgets.rb" "$spec"
 (cd "$(dirname "$spec")" && xcodegen generate --spec project.yml)
+# After xcodegen, which rewrites the app's entitlements file from project.yml and would drop these.
+cp src-tauri/ios/Lactic.entitlements "$entitlements"
+echo "Entitlements: $entitlements"
