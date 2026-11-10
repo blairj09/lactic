@@ -1,4 +1,4 @@
-// The Strava link in a ride page's line under the title, beside "Open in intervals.icu": "Post to
+// The Strava link in a ride page's line under the title, beside "View on intervals.icu": "Post to
 // Strava" sends an earlier ride recorded here (or one that didn't go), "View on Strava" opens it
 // once it's there. Only with the Strava experiment on and Strava connected.
 

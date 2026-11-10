@@ -142,7 +142,7 @@ export default async function RideDetail({
                   rel="noreferrer"
                   className="underline decoration-rule underline-offset-2 hover:text-ink"
                 >
-                  Open in intervals.icu
+                  View on intervals.icu
                 </a>
               </>
             )}
