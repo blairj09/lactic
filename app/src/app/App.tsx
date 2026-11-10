@@ -120,7 +120,7 @@ function Shell() {
         <Route path="/rides/:id/race" element={<ServerPage load={raceReport} />} />
         <Route path="/settings" element={<ServerPage load={settings} />} />
         <Route path="/analysis" element={<Navigate to="/progress" replace />} />
-        <Route path="/rides" element={<Navigate to="/progress" replace />} />
+        <Route path="/rides" element={<Navigate to="/progress?tab=rides" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}

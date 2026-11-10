@@ -1,6 +1,7 @@
 import Nav from "@/components/nav";
 import RideCalendar from "@/components/ride-calendar";
 import { Page, PageHeader, Panel } from "@/components/ui";
+import ProgressTabs from "./progress-tabs";
 import { loadAthlete, loadRides, type Athlete } from "@/lib/activities";
 import { loadBodyMeasurements } from "@/lib/body-data";
 import { mergeCurves } from "@/lib/engine/power";
@@ -19,46 +20,60 @@ export const metadata = { title: "Progress · My Coach" };
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** Where training history lives: the range charts on top, every ride below. Rides and Analysis used to be two pages. */
+/** Where training history lives, in two tabs: Trends (the range charts) and Rides (every ride, as a calendar or a list). */
 export default async function ProgressPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const supabase = await createClient();
-  const [data, athlete, rides, params, state] = await Promise.all([
+  const params = await searchParams;
+  if (params.tab === "rides") return <RidesTab supabase={supabase} />;
+  const [data, athlete, rides, state] = await Promise.all([
     loadAnalysis(supabase),
     loadAthlete(supabase),
     loadRides(supabase, undefined, { includeCopies: true }),
-    searchParams,
     loadTrainingState(supabase).catch((e) => (console.error(e), null)),
   ]);
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
+  const fitness = await loadFitness(supabase, athlete, rides).catch((e) => (console.error(e), null));
+  return (
+    <>
+      <Nav current="/progress" />
+      <Page>
+        <ProgressView
+          data={data}
+          initial={{ from: one(params.from), to: one(params.to), compare: one(params.compare) }}
+          tabs={<ProgressTabs tab="trends" />}
+          fitness={fitness && <FitnessPanel fitness={fitness} today={localDate(new Date(), athlete.timezone)} />}
+          levels={state && <LevelsPanel state={state} />}
+        />
+      </Page>
+    </>
+  );
+}
+
+/** Every ride as a month calendar or a list, with search and filters. */
+async function RidesTab({ supabase }: { supabase: Awaited<ReturnType<typeof createClient>> }) {
+  const [athlete, rides] = await Promise.all([loadAthlete(supabase), loadRides(supabase, undefined, { includeCopies: true })]);
   const counted = rides.filter((r) => !r.duplicateOf).length;
-  const [calendar, fitness] = await Promise.all([
-    loadCalendarRides(supabase, rides, athlete.timezone),
-    loadFitness(supabase, athlete, rides).catch((e) => (console.error(e), null)),
-  ]);
+  const calendar = await loadCalendarRides(supabase, rides, athlete.timezone);
   return (
     <>
       <Nav current="/progress" />
       <Page>
         <div className="space-y-8">
-          <ProgressView
-            data={data}
-            initial={{ from: one(params.from), to: one(params.to), compare: one(params.compare) }}
-            fitness={fitness && <FitnessPanel fitness={fitness} today={localDate(new Date(), athlete.timezone)} />}
-            levels={state && <LevelsPanel state={state} />}
-          />
-          <Panel title="Rides" meta={`${counted} ride${counted === 1 ? "" : "s"}`} className="min-w-0">
-            {rides.length > 0 ? (
+          <PageHeader title="Progress" line={`${counted} ride${counted === 1 ? "" : "s"}. Open one for its charts and map.`} />
+          <ProgressTabs tab="rides" />
+          {rides.length > 0 ? (
+            <Panel className="min-w-0">
               <RideCalendar rides={calendar} timeZone={athlete.timezone} today={localDate(new Date(), athlete.timezone)} />
-            ) : (
-              <p className="text-sm text-muted">
-                No rides yet. Connect intervals.icu or import FIT files in{" "}
-                <Link href="/settings#connections" className="text-ink underline underline-offset-4">
-                  Settings
-                </Link>{" "}
-                to bring your history in.
-              </p>
-            )}
-          </Panel>
+            </Panel>
+          ) : (
+            <p className="text-sm text-muted">
+              No rides yet. Connect intervals.icu or import FIT files in{" "}
+              <Link href="/settings#connections" className="text-ink underline underline-offset-4">
+                Settings
+              </Link>{" "}
+              to bring your history in.
+            </p>
+          )}
         </div>
       </Page>
     </>

@@ -41,7 +41,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/progress",
     target: "progress",
     title: "Progress",
-    body: "Fitness, power curve and profile over any range, and every ride. Open a ride for its charts and map.",
+    body: "Trends shows fitness, power curve and profile over any range. Rides has every ride on a calendar or as a list; open one for its charts and map.",
   },
   {
     id: "health",
