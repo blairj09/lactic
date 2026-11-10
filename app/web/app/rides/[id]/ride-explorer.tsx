@@ -46,7 +46,8 @@ export default function RideExplorer({
     () => (picked !== null && stream?.watts ? bestWindow(stream.watts, stream.step, picked) : null),
     [picked, stream],
   );
-  const highlight: Span | null = effort ? [effort.from, effort.to] : null;
+  // Memoized so the map doesn't refit on every render.
+  const highlight = useMemo<Span | null>(() => (effort ? [effort.from, effort.to] : null), [effort]);
 
   const pick = (duration: number | null) => {
     setPicked(duration);
