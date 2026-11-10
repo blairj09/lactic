@@ -1,0 +1,15 @@
+[default]
+description = "Everything the Lactic app uses on the iPhone"
+permissions = [
+  "allow-status",
+  "allow-authorize-health",
+  "allow-read-health",
+  "allow-take-pending",
+  "allow-ack-pending",
+  "allow-save-workout",
+  "allow-pair",
+  "allow-unpair",
+  "allow-send",
+  "allow-register-listener",
+  "allow-remove-listener",
+]

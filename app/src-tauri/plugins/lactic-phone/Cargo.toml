@@ -1,0 +1,15 @@
+[package]
+name = "tauri-plugin-lactic-phone"
+version = "0.1.0"
+description = "Lactic's iPhone side: Apple Health, the pairing key and the encrypted link to the rider's computer"
+authors = ["James Blair"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.80"
+links = "tauri-plugin-lactic-phone"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
