@@ -109,38 +109,6 @@ struct PairedAnswer: Encodable {
   let computer: String
 }
 
-/// Any JSON, decoded from the web layer and passed through untouched.
-enum JSONValue: Codable {
-  case null
-  case bool(Bool)
-  case number(Double)
-  case string(String)
-  case array([JSONValue])
-  case object([String: JSONValue])
-
-  init(from decoder: Decoder) throws {
-    let c = try decoder.singleValueContainer()
-    if c.decodeNil() { self = .null }
-    else if let b = try? c.decode(Bool.self) { self = .bool(b) }
-    else if let n = try? c.decode(Double.self) { self = .number(n) }
-    else if let s = try? c.decode(String.self) { self = .string(s) }
-    else if let a = try? c.decode([JSONValue].self) { self = .array(a) }
-    else { self = .object(try c.decode([String: JSONValue].self)) }
-  }
-
-  func encode(to encoder: Encoder) throws {
-    var c = encoder.singleValueContainer()
-    switch self {
-    case .null: try c.encodeNil()
-    case .bool(let b): try c.encode(b)
-    case .number(let n): try c.encode(n)
-    case .string(let s): try c.encode(s)
-    case .array(let a): try c.encode(a)
-    case .object(let o): try c.encode(o)
-    }
-  }
-}
-
 extension JSONValue {
   subscript(_ key: String) -> JSONValue? {
     if case .object(let o) = self { return o[key] }
@@ -158,12 +126,6 @@ extension JSONValue {
     if case .string(let s) = self { return s }
     return nil
   }
-}
-
-struct LacticError: LocalizedError {
-  let message: String
-  init(_ message: String) { self.message = message }
-  var errorDescription: String? { message }
 }
 
 // MARK: - Pairing, kept in the keychain
@@ -250,9 +212,7 @@ enum Link {
   static func send(_ pairing: inout Pairing, kind: String, body: JSONValue, timeout: Double = 30) async throws -> JSONValue {
     guard let keyData = fromB64url(pairing.key) else { throw LacticError("The pairing key is damaged. Pair again.") }
     let key = SymmetricKey(data: keyData)
-    let envelope: [String: JSONValue] = ["t": .number(Date().timeIntervalSince1970 * 1000), "kind": .string(kind), "body": body]
-    let plain = try JSONEncoder().encode(envelope)
-    guard let sealed = try AES.GCM.seal(plain, using: key).combined else { throw LacticError("Couldn't seal the request") }
+    let sealed = try Wire.request(kind: kind, body: body, key: key)
 
     var hosts = pairing.hosts
     if let last = pairing.lastHost, let i = hosts.firstIndex(of: last) {
@@ -274,8 +234,7 @@ enum Link {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401 { throw LacticError("\(pairing.computer) doesn't know this iPhone anymore. Pair again from Lactic's Settings on the computer.") }
         guard status == 200 else { throw LacticError("\(pairing.computer) answered \(status)") }
-        let opened = try AES.GCM.open(AES.GCM.SealedBox(combined: data), using: key)
-        let reply = try JSONDecoder().decode([String: JSONValue].self, from: opened)
+        let reply = try Wire.reply(data, key: key)
         pairing.lastHost = host
         pairing.lastSentAt = Date().timeIntervalSince1970 * 1000
         if case .bool(true) = reply["ok"] ?? .null { return reply["body"] ?? .null }
@@ -286,6 +245,14 @@ enum Link {
       } catch {
         lastError = error  // Not at this address: try the next.
       }
+    }
+    // Nothing answered anywhere: say where it looked, which is what checking the network needs.
+    if lastError is URLError {
+      let tried = pairing.hosts.joined(separator: ", ")
+      if let mine = wifiNetwork(), !pairing.hosts.contains(where: { mine.holds($0) }), pairing.hosts.contains(where: { ipv4($0) != nil }) {
+        throw LacticError("This iPhone and \(pairing.computer) are on different networks: the iPhone is \(mine.address), the computer is \(tried). Join the iPhone to the same Wi-Fi as the computer (often two routers each make their own network), then try again.")
+      }
+      throw LacticError("Can't reach \(pairing.computer) (tried \(tried), port \(pairing.port)). Check that Lactic is open on it, both are on the same Wi-Fi, and the computer's firewall lets Lactic accept connections.")
     }
     throw lastError
   }
@@ -771,4 +738,38 @@ extension LacticPhonePlugin {
 @_cdecl("init_plugin_lactic_phone")
 func initPlugin() -> Plugin {
   return LacticPhonePlugin()
+}
+
+/// The iPhone's own Wi-Fi IPv4 address and netmask, to tell "different network" apart from "not answering".
+struct WifiNetwork {
+  let address: String
+  let ip: UInt32
+  let mask: UInt32
+  func holds(_ host: String) -> Bool {
+    guard let h = ipv4(host) else { return false }
+    return h & mask == ip & mask
+  }
+}
+
+func ipv4(_ s: String) -> UInt32? {
+  var a = in_addr()
+  guard inet_pton(AF_INET, s, &a) == 1 else { return nil }
+  return UInt32(bigEndian: a.s_addr)
+}
+
+func wifiNetwork() -> WifiNetwork? {
+  var list: UnsafeMutablePointer<ifaddrs>?
+  guard getifaddrs(&list) == 0, let first = list else { return nil }
+  defer { freeifaddrs(list) }
+  for p in sequence(first: first, next: { $0.pointee.ifa_next }) {
+    let i = p.pointee
+    guard String(cString: i.ifa_name) == "en0", let addr = i.ifa_addr, let mask = i.ifa_netmask,
+      addr.pointee.sa_family == UInt8(AF_INET)
+    else { continue }
+    let ip = addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { UInt32(bigEndian: $0.pointee.sin_addr.s_addr) }
+    let m = mask.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { UInt32(bigEndian: $0.pointee.sin_addr.s_addr) }
+    let text = "\(ip >> 24).\((ip >> 16) & 255).\((ip >> 8) & 255).\(ip & 255)"
+    return WifiNetwork(address: text, ip: ip, mask: m)
+  }
+  return nil
 }

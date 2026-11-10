@@ -55,6 +55,17 @@ jobs:
           # What tauri ios build sets from bundle.iOS.minimumSystemVersion.
           IPHONEOS_DEPLOYMENT_TARGET: "16.0"
 
+      - name: The iPhone and the computer speak the same wire format
+        # The iPhone's own Swift (Sources/Wire.swift) seals a hello, the Mac's Rust opens and
+        # answers it, and the Swift opens the answer. Catches a mismatch before it reaches a phone.
+        run: |
+          dir="$RUNNER_TEMP/wire" && mkdir -p "$dir"
+          swiftc plugins/lactic-phone/ios/Sources/Wire.swift plugins/lactic-phone/ios/WireCheck/main.swift -o "$dir/wire-check"
+          "$dir/wire-check" request "$dir"
+          LACTIC_SWIFT_WIRE="$dir" cargo test --locked --lib phone::tests::swift_wire -- --exact
+          "$dir/wire-check" reply "$dir"
+        working-directory: app/src-tauri
+
   testflight:
     # A signed build on TestFlight. Needs the App Store Connect key, and the app created once in
     # App Store Connect (bundle id fit.lactic.app).

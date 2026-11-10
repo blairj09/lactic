@@ -257,12 +257,17 @@ pub async fn listen(app: AppHandle) -> Result<u16, String> {
     }
     phone.port.store(port as u64, Ordering::SeqCst);
     phone.listening.store(true, Ordering::SeqCst);
-    let router = Router::new().route(PATH, post(handle)).with_state(app.clone());
+    let router = Router::new().route(PATH, post(handle).get(here)).with_state(app.clone());
     tauri::async_runtime::spawn(async move {
         let _ = axum::serve(listener, router).await;
         app.state::<Arc<Phone>>().listening.store(false, Ordering::SeqCst);
     });
     Ok(port)
+}
+
+/// Opened in a browser (Safari on the phone, say), so a rider can check the phone reaches this computer.
+async fn here() -> &'static str {
+    "Lactic is here. This iPhone can reach your computer: pair from the Lactic app."
 }
 
 /// At startup: listen when a phone is paired.
@@ -275,7 +280,8 @@ pub async fn start(app: AppHandle) {
 
 #[derive(Deserialize)]
 struct Envelope {
-    t: i64,
+    /// Milliseconds since 1970. A float: the iPhone sends fractions of a millisecond.
+    t: f64,
     kind: String,
     #[serde(default)]
     body: Value,
@@ -292,7 +298,7 @@ async fn handle(AxState(app): AxState<AppHandle>, headers: HeaderMap, sealed: By
     let Some(key) = key else { return (StatusCode::UNAUTHORIZED, Vec::new()).into_response() };
     let Some(plain) = open(&key, &sealed) else { return (StatusCode::UNAUTHORIZED, Vec::new()).into_response() };
     let Ok(env) = serde_json::from_slice::<Envelope>(&plain) else { return (StatusCode::BAD_REQUEST, Vec::new()).into_response() };
-    if (env.t - now_ms()).abs() > MAX_SKEW_MS {
+    if (env.t - now_ms() as f64).abs() > MAX_SKEW_MS as f64 {
         return (StatusCode::UNAUTHORIZED, Vec::new()).into_response();
     }
     let answer = match answer(&app, &phone, &device, offered.is_some(), &key, env).await {
@@ -456,6 +462,33 @@ pub async fn phone_respond(phone: State<'_, Arc<Phone>>, request_id: u64, result
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The iPhone's real Swift code against this side, in both directions. CI (ios.yml) builds
+    /// plugins/lactic-phone/ios/WireCheck, has it seal a hello into $LACTIC_SWIFT_WIRE, runs this,
+    /// then has it open the reply. Skipped where Swift isn't (no variable set).
+    #[test]
+    fn swift_wire() {
+        let Ok(dir) = std::env::var("LACTIC_SWIFT_WIRE") else { return };
+        let dir = std::path::Path::new(&dir);
+        let key = [7u8; 32];
+        let sealed = std::fs::read(dir.join("request.bin")).expect("run wire-check request first");
+        let plain = open(&key, &sealed).expect("the iPhone's request opens with the shared key");
+        let env: Envelope = serde_json::from_slice(&plain).unwrap_or_else(|e| panic!("the iPhone's envelope doesn't parse ({e}): {}", String::from_utf8_lossy(&plain)));
+        assert_eq!(env.kind, "hello");
+        assert_eq!(env.body.get("name").and_then(|v| v.as_str()), Some("Test iPhone"));
+        assert!((env.t - now_ms() as f64).abs() < MAX_SKEW_MS as f64, "the iPhone's clock field is off: {}", env.t);
+        let reply = json!({ "ok": true, "body": { "computer": "Test Mac" } });
+        std::fs::write(dir.join("reply.bin"), seal(&key, reply.to_string().as_bytes())).unwrap();
+    }
+
+    #[test]
+    fn the_iphone_envelope_parses_with_a_fractional_time() {
+        // Swift's Date gives fractions of a millisecond; this once answered 400 and blocked pairing.
+        let env: Envelope = serde_json::from_str(r#"{"t":1762758840123.456,"kind":"hello","body":{"name":"iPhone"}}"#).unwrap();
+        assert_eq!(env.kind, "hello");
+        let env: Envelope = serde_json::from_str(r#"{"t":1762758840123,"kind":"sync"}"#).unwrap();
+        assert!(env.body.is_null());
+    }
 
     #[test]
     fn sealed_messages_open_only_with_their_key() {
