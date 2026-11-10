@@ -281,3 +281,10 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .tour-step.on { background: var(--accent); }
 .tour-step:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 560px) { .tour-steps { display: none; } }
+
+/* Phones and tablets (html.is-phone, set in <head>): no Download buttons, a desktop-only note instead. */
+.phone-note, .phone-only { display: none; }
+.is-phone [data-download], .is-phone .desktop-only { display: none; }
+.is-phone .phone-only { display: block; }
+.is-phone .phone-note { display: flex; gap: 10px; align-items: flex-start; font-size: 16px; line-height: 1.5; color: var(--ink); background: var(--accent-tint); border-radius: 10px; padding: 14px 16px; max-width: 46ch; }
+.phone-note svg { flex: none; margin-top: 3px; color: var(--accent); }
