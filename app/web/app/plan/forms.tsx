@@ -31,6 +31,8 @@ import { useExperiments } from "@/lib/use-experiments";
 import type { ActionResult } from "../actions";
 import PhaseStrip from "./phase-strip";
 import CourseField from "./course-field";
+import EventSearch from "./event-search";
+import type { CourseLink, EventHit } from "@/lib/engine/course/events";
 import { deleteBreak, deleteGoal, endPlan, pickWorkouts, replanWeek, previewPlan, saveAvailability, saveBreak, saveGoal, savePlan } from "./actions";
 import { AutoTextarea } from "@/components/auto-textarea";
 import Select from "@/components/select";
@@ -53,14 +55,25 @@ export function GoalForm({ today, goal, onDone }: { today: string; goal?: Goal; 
   };
   const hours = Math.floor(minutes / 60);
   const courses = useExperiments().course_prep;
+  const [found, setFound] = useState<{ event: EventHit; course: CourseLink | null } | null>(null);
+  const filled = found ? { name: found.event.name, date: found.event.date, startTime: found.event.startTime } : goal ? { name: goal.name, date: goal.date, startTime: goal.startTime ?? null } : null;
   return (
-    <form action={action} className="space-y-3 text-sm">
+    <div className="space-y-3">
+    {!goal && courses && (
+      <EventSearch
+        onPick={(event, course) => {
+          setFound({ event, course });
+          pickKind(event.kind);
+        }}
+      />
+    )}
+    <form key={found?.event.id ?? "form"} action={action} className="space-y-3 text-sm">
       {goal && <input type="hidden" name="id" value={goal.id} />}
       <input type="hidden" name="minutes" value={minutes} />
       <div className="flex flex-wrap gap-2">
-        <input name="name" placeholder="Event name" defaultValue={goal?.name} className={`${input} min-w-0 flex-1`} required />
-        <input name="date" type="date" min={goal ? undefined : today} defaultValue={goal?.date} className={input} required />
-        <input name="start_time" type="time" aria-label="Start time" title="Start time (optional)" defaultValue={goal?.startTime ?? ""} className={`${input} tabular-nums`} />
+        <input name="name" placeholder="Event name" defaultValue={filled?.name} className={`${input} min-w-0 flex-1`} required />
+        <input name="date" type="date" min={goal ? undefined : today} defaultValue={filled?.date} className={input} required />
+        <input name="start_time" type="time" aria-label="Start time" title="Start time (optional)" defaultValue={filled?.startTime ?? ""} className={`${input} tabular-nums`} />
       </div>
       <div className="flex flex-wrap gap-2">
         <Select name="kind" className={input} value={kind} onChange={(v) => pickKind(v as GoalKind)}>
@@ -108,14 +121,21 @@ export function GoalForm({ today, goal, onDone }: { today: string; goal?: Goal; 
         ))}
       </Select>
       {!goal && courses && (
-        <label className="block space-y-1">
+        <div className="space-y-1">
           <span className="flex items-center gap-2">
             Course file <span className="text-muted">(optional)</span>
             <ExperimentalTag />
           </span>
           <input name="course" type="file" accept=".gpx,.tcx,.fit" className={fileInput} aria-label="Course file" />
+          <input
+            name="course_url"
+            defaultValue={found?.course?.url ?? ""}
+            placeholder="or a link: Ride with GPS, or a GPX file on the web"
+            aria-label="Course link"
+            className={`${input} w-full`}
+          />
           <span className="block text-xs text-muted">GPX, TCX or FIT from the organizer, Ride with GPS, Strava or Komoot. You get a pre-race report, and the plan trains for its climbs.</span>
-        </label>
+        </div>
       )}
       <div className="flex gap-2">
         <button disabled={pending} className={button.primary}>
@@ -129,6 +149,7 @@ export function GoalForm({ today, goal, onDone }: { today: string; goal?: Goal; 
       </div>
       {state && <Result ok={state.ok}>{state.message}</Result>}
     </form>
+    </div>
   );
 }
 

@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { courseFromFile, loadCourse, refreshForecast, removeCourse, saveCourse } from "@/lib/course";
+import { courseFromFile, courseFromUrl, findEventCourse, loadCourse, refreshForecast, removeCourse, saveCourse, searchEvents } from "@/lib/course";
+import type { CourseLink, EventHit } from "@/lib/engine/course/events";
 import { COURSE_TYPE_LABELS, type CourseSummary } from "@/lib/engine/course/profile";
 import { localDate } from "@/lib/engine/activity";
 import { loadAthlete } from "@/lib/activities";
@@ -73,5 +74,34 @@ export async function applyCourseDuration(goalId: string, minutes: number): Prom
     const { error } = await (await createClient()).from("training_goals").update({ duration_minutes: m }).eq("id", goalId);
     if (error) throw error;
     return `Event duration set to ${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} min.`;
+  });
+}
+
+/** Upcoming races and rides named like `text` (BikeReg, US events). */
+export async function findEvents(text: string): Promise<{ ok: true; events: EventHit[] } | { ok: false; message: string }> {
+  try {
+    if (text.trim().length < 3) throw new Error("Type at least three letters of the event's name");
+    const athlete = await loadAthlete(await createClient());
+    return { ok: true, events: await searchEvents(text, localDate(new Date(), athlete.timezone)) };
+  } catch (e) {
+    return { ok: false, message: `Couldn't search events: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+/** Course links on an event's listing or website. Empty when there are none or they can't be reached. */
+export async function findCourseFor(event: Pick<EventHit, "notes" | "website">): Promise<CourseLink[]> {
+  try {
+    return await findEventCourse(event);
+  } catch {
+    return [];
+  }
+}
+
+/** Attaches a course from a link (Ride with GPS, or a GPX, TCX or FIT file on the web). */
+export async function linkCourse(goalId: string, url: string): Promise<ActionResult> {
+  return attempt(async () => {
+    check(goalId);
+    const { name, track } = await courseFromUrl(url);
+    return courseSaved(await saveCourse(await createClient(), goalId, name, track));
   });
 }

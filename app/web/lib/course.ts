@@ -4,6 +4,7 @@
 
 import { decodeFit } from "./fit/decode";
 import { courseProfile, distances, elevationSamples, fillElevation, summarize, thinTrack, type CourseSummary } from "./engine/course/profile";
+import { bikeRegSearchUrl, findCourseLinks, parseBikeRegSearch, rwgpsTrack, type CourseLink, type EventHit } from "./engine/course/events";
 import { elevationUrl, forecastStale, forecastUrl, parseForecast, samplePoints, type Forecast } from "./engine/course/weather";
 import { packTrack, parseGpx, parseTcx, trackFromRecords, unpackTrack, type PackedTrack, type Track } from "./engine/race/track";
 import type { createClient } from "./supabase/server";
@@ -133,4 +134,69 @@ export async function refreshForecast(supabase: Supabase, course: StoredCourse, 
   } catch (e) {
     return { forecast: course.forecast, error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+// ─── Finding the race and its course ─────────────────────────────────────────────────────────
+
+async function get(url: string): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`${new URL(url).hostname} answered ${response.status}`);
+    // Read it all before the timer goes.
+    const body = await response.arrayBuffer();
+    return new Response(body, { status: response.status, headers: response.headers });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Upcoming events named like `text`, from BikeReg (US races and rides): this year's and next. */
+export async function searchEvents(text: string, today: string): Promise<EventHit[]> {
+  const year = Number(today.slice(0, 4));
+  const pages = await Promise.all([year, year + 1].map(async (y) => parseBikeRegSearch(await (await get(bikeRegSearchUrl(text, y))).json(), today)));
+  const seen = new Set<number>();
+  return pages.flat().filter((e) => !seen.has(e.id) && (seen.add(e.id), true)).slice(0, 20);
+}
+
+/** Course links for an event: from its description, else from its own website's front page. */
+export async function findEventCourse(event: Pick<EventHit, "notes" | "website">): Promise<CourseLink[]> {
+  const fromNotes = findCourseLinks(event.notes);
+  if (fromNotes.some((l) => l.kind !== "strava") || !event.website) return fromNotes;
+  try {
+    const html = await (await get(event.website)).text();
+    const fromSite = findCourseLinks(html, event.website);
+    return [...fromNotes, ...fromSite.filter((l) => !fromNotes.some((n) => n.url === l.url))];
+  } catch (e) {
+    console.error(e);
+    return fromNotes;
+  }
+}
+
+/** A course from a link: a Ride with GPS route or ride, or a GPX, TCX or FIT file on the web. */
+export async function courseFromUrl(url: string): Promise<{ name: string; track: Track }> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url.trim());
+  } catch {
+    throw new Error("That doesn't look like a link");
+  }
+  if (!/^https?:$/.test(parsed.protocol)) throw new Error("That doesn't look like a link");
+  const rw = parsed.href.match(/ridewithgps\.com\/(routes|trips)\/(\d+)/i);
+  if (rw) {
+    const page = `https://ridewithgps.com/${rw[1].toLowerCase()}/${rw[2]}`;
+    try {
+      const track = rwgpsTrack(await (await get(`${page}.json`)).json());
+      return { name: track.name ?? `Ride with GPS ${rw[2]}`, track };
+    } catch {
+      // Older or locked-down routes: the GPX export, which public routes allow.
+      const bytes = new Uint8Array(await (await get(`${page}.gpx?sub_format=track`)).arrayBuffer());
+      return { name: `ridewithgps-${rw[2]}.gpx`, track: courseFromFile("course.gpx", bytes) };
+    }
+  }
+  if (/strava\.com$/i.test(parsed.hostname)) throw new Error("Strava routes need a Strava sign-in to download. On the route's page, choose Export GPX and attach the file instead.");
+  const bytes = new Uint8Array(await (await get(parsed.href)).arrayBuffer());
+  const name = decodeURIComponent(parsed.pathname.split("/").pop() || "course");
+  return { name, track: courseFromFile(name, bytes) };
 }

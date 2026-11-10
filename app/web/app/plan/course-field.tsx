@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ExperimentalTag } from "@/components/experimental-tag";
-import { Result, fileInput } from "@/components/ui";
+import { Result, button, fileInput, input } from "@/components/ui";
 import { COURSE_TYPE_LABELS } from "@/lib/engine/course/profile";
 import type { Goal } from "@/lib/engine/plan";
 import type { ActionResult } from "../actions";
 import { formatDistance, formatElevation } from "@/lib/units";
 import { useUnits } from "@/lib/use-units";
-import { deleteCourse, uploadCourse } from "./course-actions";
+import { deleteCourse, linkCourse, uploadCourse } from "./course-actions";
 
 const readBase64 = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -68,6 +68,19 @@ export default function CourseField({ goal, titled = true }: { goal: Goal; title
           e.target.value = "";
         }}
       />
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const url = String(new FormData(e.currentTarget).get("url") ?? "").trim();
+          if (url) run(() => linkCourse(goal.id, url));
+        }}
+      >
+        <input name="url" placeholder="or a link: Ride with GPS, or a GPX file on the web" aria-label="Course link" className={`${input} min-w-0 flex-1`} disabled={pending} />
+        <button className={button.secondary} disabled={pending}>
+          Use link
+        </button>
+      </form>
       {pending && <p className="text-muted">Reading the course…</p>}
       {result && <Result ok={result.ok}>{result.message}</Result>}
     </div>
