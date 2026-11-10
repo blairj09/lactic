@@ -4,7 +4,7 @@
 
 import { autoExportSamples, columnDaySamples, columnSamples, healthDays, healthNights } from "@/lib/engine/health-import";
 import { createClient } from "~/db/supabase-client";
-import { invoke, isDesktop } from "~/platform/native";
+import { invoke, isDesktop, os } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { provideRecoverySetup } from "@/lib/recovery-source";
@@ -24,6 +24,8 @@ provideRecoverySetup(async () => {
   return {
     picked: picked === "apple" ? "apple" : picked === "watch" || picked === "android" ? "intervals" : null,
     appleReceiving: Boolean(last && (last.nights > 0 || last.days > 0)),
+    // On the Android app, the phone's own health store is Health Connect.
+    appleName: os() === "android" ? "Health Connect" : "Apple Health",
   };
 });
 
@@ -87,7 +89,8 @@ export async function ingestHealth(body: Record<string, unknown>): Promise<Inges
           wrist_temp_c: pick(n.wristTempC, "wrist_temp_c"),
           respiratory_rate: pick(n.respiratoryRate, "respiratory_rate"),
           sleep_segments: n.segments.length ? n.segments.map((g) => [g.start, g.end, g.stage]) : pick(null, "sleep_segments"),
-          source: "shortcut",
+          // The Android app's reader says so; everything else is Apple Health (Shortcut, app or HealthKit).
+          source: body.source === "healthconnect" ? "health_connect" : "shortcut",
         };
       });
       const { error } = await supabase.from("recovery_days").upsert(rows, { onConflict: "user_id,day" });

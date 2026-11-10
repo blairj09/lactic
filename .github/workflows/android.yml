@@ -1,0 +1,103 @@
+name: Android app
+
+# Lactic for Android: the same app (app/), built for Android. The Gradle project is generated fresh
+# on each run (tauri android init, .github/scripts/android-project.sh), like the iPhone's Xcode
+# project.
+#
+# Every run builds a debug APK (signed with a throwaway debug key, so it installs on an emulator or
+# a phone with "install unknown apps" on) and runs it on an Android 14 emulator: the smoke test
+# drives the app through its WebView against a stand-in computer and checks pairing, the sealed
+# link, Health Connect and the core. Play Store builds (a release signing key and a Play Console
+# service account, both from James) come later.
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/android.yml", ".github/scripts/android-*"]
+  pull_request:
+    paths: ["app/**", ".github/workflows/android.yml", ".github/scripts/android-*"]
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+          key: android
+      - name: Gradle project
+        run: |
+          echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
+          NDK_HOME=$ANDROID_NDK_LATEST_HOME ../.github/scripts/android-project.sh
+        working-directory: app
+      - name: Debug APK (phones and the emulator)
+        run: npx tauri android build --apk --debug --target aarch64 x86_64
+        working-directory: app
+      - name: Find the APK
+        run: |
+          apk=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -1)
+          test -n "$apk"
+          ls -la "$(dirname "$apk")"
+          echo "APK=app/$apk" >> "$GITHUB_ENV"
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Lactic-Android-debug
+          path: ${{ env.APK }}
+
+  emulator:
+    needs: apk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: Lactic-Android-debug
+          path: apk
+      - name: Let the emulator use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Stand-in computer
+        run: |
+          OUT=android-smoke nohup node .github/scripts/android-computer.mjs > computer.log 2>&1 &
+          sleep 1
+          cat computer.log
+      - name: Smoke test on Android 14
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash .github/scripts/android-smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-smoke
+          path: android-smoke

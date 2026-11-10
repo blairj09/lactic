@@ -29,7 +29,7 @@ import { FeatureSetting } from "~/setup/features";
 import { ExperimentsSetting } from "./experiments";
 import { features } from "@/lib/features";
 import { ScrollToSection } from "./scroll-to-section";
-import { isDesktop, isPhone } from "~/platform/native";
+import { isDesktop, isPhone, phoneHealthName, phoneWord } from "~/platform/native";
 import { ComputerLink, PairPhone, PhoneHealth } from "~/phone/settings";
 import { phoneStatus } from "~/phone/plugin";
 import { ftpSourceLine } from "@/lib/engine/provenance";
@@ -146,10 +146,10 @@ export default async function SettingsPage() {
           </Section>
           {isPhone() ? (
             <>
-              <Section id="iphone" title="Your computer" description="Lactic on your computer keeps the main copy of everything. This iPhone syncs with it.">
+              <Section id="iphone" title="Your computer" description={`Lactic on your computer keeps the main copy of everything. This ${phoneWord()} syncs with it.`}>
                 <ComputerLink />
               </Section>
-              <Section id="health" title="Apple Health" description="Sleep and recovery in, rides out.">
+              <Section id="health" title={phoneHealthName()} description="Sleep and recovery in, rides out.">
                 <PhoneHealth />
               </Section>
             </>
@@ -157,7 +157,7 @@ export default async function SettingsPage() {
             <>
               <StravaSection />
               {isDesktop && (
-                <Section id="iphone" title="iPhone" description="Lactic on your iPhone reads Apple Health for you and runs rides, and stays in sync with this computer over Wi-Fi.">
+                <Section id="iphone" title="Phone" description="Lactic on your phone reads Apple Health for you and runs rides, and stays in sync with this computer over Wi-Fi.">
                   <PairPhone />
                 </Section>
               )}

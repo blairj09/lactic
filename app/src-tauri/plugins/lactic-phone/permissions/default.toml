@@ -1,5 +1,5 @@
 [default]
-description = "Everything the Lactic app uses on the iPhone"
+description = "Everything the Lactic app uses on the phone"
 permissions = [
   "allow-status",
   "allow-authorize-health",
@@ -12,6 +12,14 @@ permissions = [
   "allow-send",
   "allow-schedule-ride-end",
   "allow-cancel-ride-end",
+  "allow-ble-available",
+  "allow-ble-scan",
+  "allow-ble-stop-scan",
+  "allow-ble-connect",
+  "allow-ble-disconnect",
+  "allow-ble-subscribe",
+  "allow-ble-write",
+  "allow-ble-read",
   "allow-register-listener",
   "allow-remove-listener",
 ]

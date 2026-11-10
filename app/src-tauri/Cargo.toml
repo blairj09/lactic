@@ -21,7 +21,6 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled", "backup"] }
-btleplug = { version = "0.11", features = ["serde"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "io-std"] }
 futures = "0.3"
 uuid = { version = "1", features = ["v4", "serde"] }
@@ -41,7 +40,12 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
-# The iPhone app: the pairing QR code, and Apple Health plus the link to the computer.
+# Bluetooth through btleplug everywhere but Android, where the phone plugin's Kotlin side does it
+# (src/ble_android.rs).
+[target.'cfg(not(target_os = "android"))'.dependencies]
+btleplug = { version = "0.11", features = ["serde"] }
+
+# The phone apps: the pairing QR code, and Apple Health / Health Connect plus the link to the computer.
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 tauri-plugin-barcode-scanner = "2"
 tauri-plugin-lactic-phone = { path = "plugins/lactic-phone" }

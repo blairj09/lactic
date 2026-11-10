@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Settings → iPhone is now Settings → Phone, and pairing a phone works with any computer on the same Wi-Fi.
 - Away from your Mac, your iPhone keeps syncing through iCloud: your rides and Health data reach the Mac next time Lactic is open there.
 - Your iPhone finds Lactic on your Mac nearby by itself and connects straight to it, the way AirDrop does, even when the two are on different networks.
 - When your iPhone can't reach your computer, it now says why, including when the two are on different networks.

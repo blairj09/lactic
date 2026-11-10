@@ -20,7 +20,7 @@ export async function boot() {
   const info = await appInfo().catch(() => null);
   if (info) setOs(info.os);
   if (info?.os === "macos") document.documentElement.dataset.desktop = "macos";
-  if (info?.mobile) document.documentElement.dataset.phone = "ios";
+  if (info?.mobile) document.documentElement.dataset.phone = info.os === "android" ? "android" : "ios";
   const root = createRoot(document.getElementById("root")!);
   try {
     await start(root);
