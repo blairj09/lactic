@@ -116,11 +116,11 @@ object RideEnd {
         val pairing = PairingStore.load(ctx) ?: return
         val control = nodes.objectNode().put("name", if (extend) "onExtend" else "onEnd")
         control.putArray("args")
-        val body = nodes.objectNode()
-        body.set<com.fasterxml.jackson.databind.JsonNode>("control", control)
-        body.put("whenFinished", extend)
+        val request = nodes.objectNode()
+        request.set<com.fasterxml.jackson.databind.JsonNode>("control", control)
+        request.put("whenFinished", extend)
         val reply = try {
-            Link.send(pairing, "ride", body, 8.0).also { PairingStore.save(ctx, pairing) }
+            Link.send(pairing, "ride", request, 8.0).also { PairingStore.save(ctx, pairing) }
         } catch (e: Exception) {
             failed(ctx, if (extend) "Extend" else "End ride", a.computer)
             return
