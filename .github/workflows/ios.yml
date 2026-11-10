@@ -2,7 +2,7 @@ name: iPhone app
 
 # Lactic for iPhone: the same app (app/), built for iOS. The Xcode project is generated fresh on
 # each run (tauri ios init) and given the app's entitlements (Apple Health) from
-# app/src-tauri/ios/Lactic.entitlements.
+# app/src-tauri/ios/Lactic.entitlements, and the widgets extension (app/src-tauri/ios/widgets).
 #
 # Every run builds the Rust core and the Swift plugins for the simulator, which checks they
 # compile for iOS. With the App Store Connect key (APPLE_API_KEY, APPLE_API_ISSUER and
@@ -57,6 +57,13 @@ jobs:
         env:
           # What tauri ios build sets from bundle.iOS.minimumSystemVersion.
           IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+      - name: The widgets compile
+        # The home and lock screen widgets (an app extension the TestFlight job adds to the project).
+        run: |
+          sdk=$(xcrun --sdk iphonesimulator --show-sdk-path)
+          swiftc -typecheck -parse-as-library -sdk "$sdk" -target arm64-apple-ios17.0-simulator src-tauri/ios/widgets/*.swift
+        working-directory: app
 
       - name: The iPhone and the computer speak the same wire format, directly too
         # The iPhone's own Swift (Sources/Wire.swift) seals a hello, the Mac's Rust opens and
@@ -128,6 +135,14 @@ jobs:
           ipa=$(find src-tauri/gen/apple/build -name '*.ipa' | head -1)
           test -n "$ipa"
           echo "IPA=$ipa" >> "$GITHUB_ENV"
+        working-directory: app
+      - name: What Apple has registered
+        # After a signing failure: the team's Lactic App IDs and their capabilities (identifiers only).
+        if: failure() && env.HAS_KEY == 'true'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: APPLE_API_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY.p8 ruby ../.github/scripts/asc-bundle-ids.rb
         working-directory: app
       - name: Upload to TestFlight
         if: env.HAS_KEY == 'true'

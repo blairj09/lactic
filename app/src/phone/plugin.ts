@@ -3,6 +3,7 @@
 
 import type { HealthWorkout } from "@/lib/engine/health-export";
 import type { EndAlert } from "@/lib/ride/end-alert";
+import type { WidgetSnapshot } from "@/lib/widget-snapshot";
 import { invoke } from "~/platform/native";
 
 /** A rejection from Swift arrives as a plain value or an object with a message; make it an Error that reads. */
@@ -51,6 +52,9 @@ export const send = <T>(kind: string, body: unknown, timeout?: number) => call<T
 export const scheduleRideEnd = (alert: EndAlert & { computer: string; workoutName: string; duration: number }) => call<void>("schedule_ride_end", { ...alert });
 /** No ride end to tell about any more (paused, ended, closed): drops the waiting notification. */
 export const cancelRideEnd = () => call<void>("cancel_ride_end");
+
+/** Hands the home and lock screen widgets today's snapshot (widget-snapshot.ts) and has them redraw. */
+export const saveWidget = (snapshot: WidgetSnapshot) => call<void>("save_widget", { json: JSON.stringify(snapshot) });
 
 /** Called when a background wake read new Health data. */
 export async function onHealthWake(cb: () => void): Promise<() => void> {
