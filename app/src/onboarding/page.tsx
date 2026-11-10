@@ -17,7 +17,8 @@ import { FeatureChoice } from "~/setup/features";
 import { saveFeatures } from "~/settings/features";
 import { FEATURES_SETTING, parseFeatures, type Features } from "@/lib/features";
 import { RestoreButton } from "~/data/restore-panel";
-import { isDesktop } from "~/platform/native";
+import { isDesktop, isPhone } from "~/platform/native";
+import { PairPhone } from "~/phone/settings";
 
 const STEPS = [
   { id: "you", title: "About you", line: "So your zones and plan fit you." },
@@ -63,6 +64,32 @@ function Frame({ step, tracking, children, footer }: { step: number; tracking: F
   );
 }
 
+/** Pairs the rider's iPhone, which sends its data here; the app then starts over on it. */
+function FromPhoneButton() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="font-medium text-ink underline underline-offset-2" onClick={() => setOpen(true)}>
+        Bring it from your iPhone
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 px-2 py-4 sm:px-6 sm:py-16" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="from-phone-title" className="relative w-full max-w-lg space-y-4 rounded-xl border border-line bg-ground p-5 text-left text-sm text-ink shadow-2xl sm:p-6">
+            <h2 id="from-phone-title" className="text-lg font-semibold">
+              Bring your data from your iPhone
+            </h2>
+            <p className="text-muted">On your iPhone, open Lactic → Settings → Your computer and scan this code. Your plan, rides and settings come across, and this computer keeps the main copy from then on.</p>
+            <PairPhone />
+            <button type="button" className={button.ghost} onClick={() => setOpen(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function Welcome({ onStart }: { onStart: () => void }) {
   return (
     <div className="lactic-drag grid min-h-screen place-items-center bg-ground px-6">
@@ -81,8 +108,15 @@ function Welcome({ onStart }: { onStart: () => void }) {
           <p className="text-sm text-faint">5 minutes and you'll be riding intervals.</p>
         </div>
         {isDesktop && (
-          <div className="text-sm text-muted">
-            Used Lactic on another computer? <RestoreButton fresh className="font-medium text-ink underline underline-offset-2" label="Bring your data across" />
+          <div className="space-y-1.5 text-sm text-muted">
+            <p>
+              Used Lactic on another computer? <RestoreButton fresh className="font-medium text-ink underline underline-offset-2" label="Bring your data across" />
+            </p>
+            {!isPhone() && (
+              <p>
+                Already riding with Lactic on your iPhone? <FromPhoneButton />
+              </p>
+            )}
           </div>
         )}
       </div>

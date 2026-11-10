@@ -41,6 +41,11 @@ export function startPhoneBridge(): () => void {
       }
     }),
     listen("phone:changed", () => revalidatePath("/")),
+    // A phone brought its data to this new computer: start over on it, set up and all.
+    listen("phone:adopted", () => {
+      location.hash = "#/";
+      location.reload();
+    }),
   ];
   return () => stops.forEach((p) => void p.then((stop) => stop()));
 }
