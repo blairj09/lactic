@@ -13,7 +13,7 @@ import { PlayerView, formatTime, type PlayerControls } from "@/app/ride/player";
 import { Notice, button } from "@/components/ui";
 import { isRiding } from "@/lib/live-ride";
 import { endAlert, endAlertKey } from "@/lib/ride/end-alert";
-import type { ControlMessage, ControlName, OverlayPayload } from "~/ride/channel";
+import { sendableArgs, type ControlMessage, type ControlName, type OverlayPayload } from "~/ride/channel";
 import { cancelRideEnd, phoneStatus, scheduleRideEnd, send } from "./plugin";
 
 interface Reply {
@@ -110,7 +110,7 @@ export function ComputerRide() {
           (...args: unknown[]) => {
             if (name === "onEnd" && !window.confirm("End the ride on your computer? It's saved there.")) return;
             asking.current = true;
-            void ask({ name, args }).finally(() => (asking.current = false));
+            void ask({ name, args: sendableArgs(args) }).finally(() => (asking.current = false));
           },
         ]),
       ) as unknown as Omit<PlayerControls, "canPlay">,
