@@ -463,6 +463,24 @@ pub async fn phone_respond(phone: State<'_, Arc<Phone>>, request_id: u64, result
 mod tests {
     use super::*;
 
+    /// The iPhone's real Swift code against this side, in both directions. CI (ios.yml) builds
+    /// plugins/lactic-phone/ios/WireCheck, has it seal a hello into $LACTIC_SWIFT_WIRE, runs this,
+    /// then has it open the reply. Skipped where Swift isn't (no variable set).
+    #[test]
+    fn swift_wire() {
+        let Ok(dir) = std::env::var("LACTIC_SWIFT_WIRE") else { return };
+        let dir = std::path::Path::new(&dir);
+        let key = [7u8; 32];
+        let sealed = std::fs::read(dir.join("request.bin")).expect("run wire-check request first");
+        let plain = open(&key, &sealed).expect("the iPhone's request opens with the shared key");
+        let env: Envelope = serde_json::from_slice(&plain).unwrap_or_else(|e| panic!("the iPhone's envelope doesn't parse ({e}): {}", String::from_utf8_lossy(&plain)));
+        assert_eq!(env.kind, "hello");
+        assert_eq!(env.body.get("name").and_then(|v| v.as_str()), Some("Test iPhone"));
+        assert!((env.t - now_ms() as f64).abs() < MAX_SKEW_MS as f64, "the iPhone's clock field is off: {}", env.t);
+        let reply = json!({ "ok": true, "body": { "computer": "Test Mac" } });
+        std::fs::write(dir.join("reply.bin"), seal(&key, reply.to_string().as_bytes())).unwrap();
+    }
+
     #[test]
     fn the_iphone_envelope_parses_with_a_fractional_time() {
         // Swift's Date gives fractions of a millisecond; this once answered 400 and blocked pairing.

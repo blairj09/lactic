@@ -92,44 +92,6 @@ struct PairedAnswer: Encodable {
   let computer: String
 }
 
-/// Any JSON, decoded from the web layer and passed through untouched.
-enum JSONValue: Codable {
-  case null
-  case bool(Bool)
-  case number(Double)
-  case string(String)
-  case array([JSONValue])
-  case object([String: JSONValue])
-
-  init(from decoder: Decoder) throws {
-    let c = try decoder.singleValueContainer()
-    if c.decodeNil() { self = .null }
-    else if let b = try? c.decode(Bool.self) { self = .bool(b) }
-    else if let n = try? c.decode(Double.self) { self = .number(n) }
-    else if let s = try? c.decode(String.self) { self = .string(s) }
-    else if let a = try? c.decode([JSONValue].self) { self = .array(a) }
-    else { self = .object(try c.decode([String: JSONValue].self)) }
-  }
-
-  func encode(to encoder: Encoder) throws {
-    var c = encoder.singleValueContainer()
-    switch self {
-    case .null: try c.encodeNil()
-    case .bool(let b): try c.encode(b)
-    case .number(let n): try c.encode(n)
-    case .string(let s): try c.encode(s)
-    case .array(let a): try c.encode(a)
-    case .object(let o): try c.encode(o)
-    }
-  }
-}
-
-struct LacticError: LocalizedError {
-  let message: String
-  init(_ message: String) { self.message = message }
-  var errorDescription: String? { message }
-}
-
 // MARK: - Pairing, kept in the keychain
 
 struct Pairing: Codable {
@@ -214,9 +176,7 @@ enum Link {
   static func send(_ pairing: inout Pairing, kind: String, body: JSONValue, timeout: Double = 30) async throws -> JSONValue {
     guard let keyData = fromB64url(pairing.key) else { throw LacticError("The pairing key is damaged. Pair again.") }
     let key = SymmetricKey(data: keyData)
-    let envelope: [String: JSONValue] = ["t": .number((Date().timeIntervalSince1970 * 1000).rounded()), "kind": .string(kind), "body": body]
-    let plain = try JSONEncoder().encode(envelope)
-    guard let sealed = try AES.GCM.seal(plain, using: key).combined else { throw LacticError("Couldn't seal the request") }
+    let sealed = try Wire.request(kind: kind, body: body, key: key)
 
     var hosts = pairing.hosts
     if let last = pairing.lastHost, let i = hosts.firstIndex(of: last) {
@@ -238,8 +198,7 @@ enum Link {
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401 { throw LacticError("\(pairing.computer) doesn't know this iPhone anymore. Pair again from Lactic's Settings on the computer.") }
         guard status == 200 else { throw LacticError("\(pairing.computer) answered \(status)") }
-        let opened = try AES.GCM.open(AES.GCM.SealedBox(combined: data), using: key)
-        let reply = try JSONDecoder().decode([String: JSONValue].self, from: opened)
+        let reply = try Wire.reply(data, key: key)
         pairing.lastHost = host
         pairing.lastSentAt = Date().timeIntervalSince1970 * 1000
         if case .bool(true) = reply["ok"] ?? .null { return reply["body"] ?? .null }
