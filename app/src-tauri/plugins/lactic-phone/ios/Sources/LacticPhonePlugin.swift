@@ -12,6 +12,10 @@
 // request is JSON sealed with AES-256-GCM under that key (nonce + ciphertext + tag, which is
 // CryptoKit's combined layout and what the computer's phone.rs expects), posted over the local
 // network, and the answer comes back sealed the same way.
+//
+// The end of a ride on the computer: a local notification with Extend and End buttons, scheduled
+// by the remote for the workout's end (see RideEnd below). The buttons run in the background, so
+// they work from the lock screen and an Apple Watch without opening the app.
 
 import CryptoKit
 import Foundation
@@ -20,6 +24,7 @@ import Security
 import SwiftRs
 import Tauri
 import UIKit
+import UserNotifications
 import WebKit
 
 // MARK: - Arguments and answers
@@ -40,6 +45,18 @@ struct SendArgs: Decodable {
   let kind: String
   let body: JSONValue
   var timeout: Double?
+}
+
+struct RideEndArgs: Decodable {
+  let key: String
+  let inSeconds: Double
+  let title: String
+  let body: String
+  let extendLabel: String
+  let extendSeconds: Double
+  let computer: String
+  let workoutName: String
+  let duration: Double
 }
 
 struct WorkoutArgs: Decodable {
@@ -121,6 +138,25 @@ enum JSONValue: Codable {
     case .array(let a): try c.encode(a)
     case .object(let o): try c.encode(o)
     }
+  }
+}
+
+extension JSONValue {
+  subscript(_ key: String) -> JSONValue? {
+    if case .object(let o) = self { return o[key] }
+    return nil
+  }
+  var number: Double? {
+    if case .number(let n) = self { return n }
+    return nil
+  }
+  var flag: Bool? {
+    if case .bool(let b) = self { return b }
+    return nil
+  }
+  var text: String? {
+    if case .string(let s) = self { return s }
+    return nil
   }
 }
 
@@ -462,6 +498,141 @@ enum Queue {
   }
 }
 
+// MARK: - The ride-end notification
+
+/// The notification at the end of a workout running on the computer. One at a time: each schedule
+/// replaces the last. UserDefaults keeps which end it's for and when it goes off, so the remote
+/// seeing the finished workout after it went off doesn't send it twice.
+final class RideEnd: NSObject, UNUserNotificationCenterDelegate {
+  static let shared = RideEnd()
+  static let id = "lactic.ride-end"
+  static let category = "lactic.ride-end"
+  static let extendAction = "extend"
+  static let endAction = "end"
+  static let keyPref = "lactic.rideEnd.key"
+  static let atPref = "lactic.rideEnd.at"
+
+  let center = UNUserNotificationCenter.current()
+
+  /// Before the app finishes launching, so a button pressed while it wasn't running still lands here.
+  func start() {
+    center.delegate = self
+  }
+
+  func allowed() async -> Bool {
+    let settings = await center.notificationSettings()
+    switch settings.authorizationStatus {
+    case .notDetermined: return (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+    case .authorized, .provisional, .ephemeral: return true
+    default: return false
+    }
+  }
+
+  func setCategory(extendLabel: String) {
+    let extend = UNNotificationAction(identifier: Self.extendAction, title: extendLabel, options: [])
+    let end = UNNotificationAction(identifier: Self.endAction, title: "End ride", options: [.destructive])
+    center.setNotificationCategories([UNNotificationCategory(identifier: Self.category, actions: [extend, end], intentIdentifiers: [], options: [])])
+  }
+
+  func schedule(_ a: RideEndArgs) async {
+    let now = Date().timeIntervalSince1970
+    let at = now + max(0, a.inSeconds)
+    let d = UserDefaults.standard
+    if d.string(forKey: Self.keyPref) == a.key {
+      let was = d.double(forKey: Self.atPref)
+      // Already went off for this end, or still set for (about) the same moment.
+      if was <= now || abs(was - at) < 2 { return }
+    }
+    guard await allowed() else { return }
+    setCategory(extendLabel: a.extendLabel)
+    let content = UNMutableNotificationContent()
+    content.title = a.title
+    content.body = a.body
+    content.sound = .default
+    content.categoryIdentifier = Self.category
+    content.interruptionLevel = .active
+    content.userInfo = [
+      "title": a.title, "body": a.body, "extendLabel": a.extendLabel, "extendSeconds": a.extendSeconds,
+      "computer": a.computer, "workoutName": a.workoutName, "duration": a.duration,
+    ]
+    let trigger = a.inSeconds >= 1 ? UNTimeIntervalNotificationTrigger(timeInterval: a.inSeconds, repeats: false) : nil
+    do {
+      try await center.add(UNNotificationRequest(identifier: Self.id, content: content, trigger: trigger))
+      d.set(a.key, forKey: Self.keyPref)
+      d.set(at, forKey: Self.atPref)
+    } catch {}
+  }
+
+  /// No end to tell about (paused, ended, the computer's Ride page closed): drop it, and take an
+  /// early one that went off while paused off the lock screen too.
+  func cancel() {
+    center.removePendingNotificationRequests(withIdentifiers: [Self.id])
+    center.removeDeliveredNotifications(withIdentifiers: [Self.id])
+    UserDefaults.standard.removeObject(forKey: Self.keyPref)
+    UserDefaults.standard.removeObject(forKey: Self.atPref)
+  }
+
+  // Open: still show it, with its sound (the remote opens on the Extend panel as well).
+  func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
+    done(notification.request.identifier == Self.id ? [.banner, .list, .sound] : [.banner, .list])
+  }
+
+  func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler done: @escaping () -> Void) {
+    let action = response.actionIdentifier
+    guard action == Self.extendAction || action == Self.endAction else { return done() }
+    let info = response.notification.request.content.userInfo
+    Task {
+      await self.press(action, info: info)
+      done()
+    }
+  }
+
+  /// Runs Extend or End on the computer, as the remote's buttons do. Extend only counts there if
+  /// the workout really is at its end, and then the next end is scheduled from the answer.
+  func press(_ action: String, info: [AnyHashable: Any]) async {
+    let computer = info["computer"] as? String ?? "your computer"
+    guard var pairing = PairingStore.load() else { return }
+    let extend = action == Self.extendAction
+    let control: JSONValue = .object(["name": .string(extend ? "onExtend" : "onEnd"), "args": .array([])])
+    let reply: JSONValue
+    do {
+      reply = try await Link.send(&pairing, kind: "ride", body: .object(["control": control, "whenFinished": .bool(extend)]), timeout: 15)
+      PairingStore.save(pairing)
+    } catch {
+      await failed(extend ? "Extend" : "End ride", computer: computer)
+      return
+    }
+    cancel()
+    guard extend, let data = reply["ride"]?["data"] else { return }
+    let name = data["workout"]?["name"]?.text ?? info["workoutName"] as? String ?? "Workout"
+    let duration = data["duration"]?.number ?? 0
+    let position = data["position"]?.number ?? 0
+    let extendSeconds = info["extendSeconds"] as? Double ?? 300
+    let next: (key: String, inSeconds: Double)
+    if data["running"]?.flag == true, duration > position {
+      next = ("\(name)|\(Int(duration.rounded()))", duration - position)
+    } else if data["finished"]?.flag == true {
+      // Not under way yet in the answer: the longer workout ends about Extend's length from now.
+      next = ("\(name)|\(Int((duration + extendSeconds).rounded()))", extendSeconds)
+    } else {
+      return
+    }
+    await schedule(RideEndArgs(
+      key: next.key, inSeconds: next.inSeconds, title: info["title"] as? String ?? "Workout done",
+      body: info["body"] as? String ?? "\(name) on \(computer). Extend it or end the ride.",
+      extendLabel: info["extendLabel"] as? String ?? "Extend", extendSeconds: extendSeconds,
+      computer: computer, workoutName: name, duration: duration))
+  }
+
+  func failed(_ what: String, computer: String) async {
+    let content = UNMutableNotificationContent()
+    content.title = "Couldn't reach \(computer)"
+    content.body = "\(what) didn't go through. Open Lactic to try again, or use the controls on \(computer)."
+    content.sound = .default
+    try? await center.add(UNNotificationRequest(identifier: "lactic.ride-end.failed", content: content, trigger: nil))
+  }
+}
+
 // MARK: - The plugin
 
 class LacticPhonePlugin: Plugin {
@@ -470,6 +641,7 @@ class LacticPhonePlugin: Plugin {
 
   override init() {
     super.init()
+    RideEnd.shared.start()
     // Every launch, including the ones iOS makes in the background for new Health data.
     if UserDefaults.standard.bool(forKey: Self.askedKey) { watch() }
   }
@@ -578,6 +750,21 @@ class LacticPhonePlugin: Plugin {
         invoke.reject(error.localizedDescription)
       }
     }
+  }
+}
+
+extension LacticPhonePlugin {
+  @objc public func scheduleRideEnd(_ invoke: Invoke) throws {
+    let args = try invoke.parseArgs(RideEndArgs.self)
+    Task {
+      await RideEnd.shared.schedule(args)
+      invoke.resolve()
+    }
+  }
+
+  @objc public func cancelRideEnd(_ invoke: Invoke) throws {
+    RideEnd.shared.cancel()
+    invoke.resolve()
   }
 }
 

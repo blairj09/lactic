@@ -25,7 +25,10 @@ export function startPhoneBridge(): () => void {
         if (req.kind === "ride") {
           const control = req.body.control as ControlMessage | undefined;
           // A press re-renders the Ride page; answer with what it shows after that.
-          if (control && runRemoteControl(control)) await new Promise((r) => setTimeout(r, 150));
+          // The phone's ride-end notification fires on a timer it set while unlocked: Extend from it
+          // only counts if the workout really is at its end (not paused short of it since).
+          const due = !req.body.whenFinished || remoteRide()?.data.finished === true;
+          if (control && due && runRemoteControl(control)) await new Promise((r) => setTimeout(r, 150));
           await invoke("phone_respond", { requestId: req.requestId, result: { ride: remoteRide() }, error: null });
           return;
         }
