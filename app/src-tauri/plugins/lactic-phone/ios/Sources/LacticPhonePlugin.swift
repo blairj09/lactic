@@ -251,6 +251,11 @@ enum Link {
         lastError = error  // Not at this address: try the next.
       }
     }
+    // Nothing answered anywhere: say where it looked, which is what checking the network needs.
+    if lastError is URLError {
+      let tried = pairing.hosts.joined(separator: ", ")
+      throw LacticError("Can't reach \(pairing.computer) (tried \(tried), port \(pairing.port)). Check that Lactic is open on it, both are on the same Wi-Fi, and the computer's firewall lets Lactic accept connections.")
+    }
     throw lastError
   }
 }

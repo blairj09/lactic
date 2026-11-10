@@ -122,6 +122,20 @@ export function PairPhone() {
               <li>Scan this code. Your iPhone needs to be on the same Wi-Fi as this computer.</li>
             </ol>
             <p className="text-muted">The code works for 10 minutes and only once. Everything between the two stays on your network, encrypted.</p>
+            <p className="text-muted">
+              Not connecting? In Safari on your iPhone, open{" "}
+              {offer.hosts
+                .filter((h) => /^\d/.test(h))
+                .map((h, i) => (
+                  <span key={h}>
+                    {i > 0 && " or "}
+                    <span className="num select-all font-medium text-ink">
+                      http://{h}:{offer.port}/lactic/phone
+                    </span>
+                  </span>
+                ))}
+              . If it says Lactic is here, the network's fine. If it can't connect, check your Mac's firewall (System Settings → Network → Firewall) lets Lactic accept connections, and that a VPN or guest Wi-Fi isn't keeping the two apart.
+            </p>
             <button type="button" className={button.secondary} onClick={() => void cancel()}>
               Cancel
             </button>

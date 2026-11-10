@@ -257,12 +257,17 @@ pub async fn listen(app: AppHandle) -> Result<u16, String> {
     }
     phone.port.store(port as u64, Ordering::SeqCst);
     phone.listening.store(true, Ordering::SeqCst);
-    let router = Router::new().route(PATH, post(handle)).with_state(app.clone());
+    let router = Router::new().route(PATH, post(handle).get(here)).with_state(app.clone());
     tauri::async_runtime::spawn(async move {
         let _ = axum::serve(listener, router).await;
         app.state::<Arc<Phone>>().listening.store(false, Ordering::SeqCst);
     });
     Ok(port)
+}
+
+/// Opened in a browser (Safari on the phone, say), so a rider can check the phone reaches this computer.
+async fn here() -> &'static str {
+    "Lactic is here. This iPhone can reach your computer: pair from the Lactic app."
 }
 
 /// At startup: listen when a phone is paired.
