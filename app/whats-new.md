@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic keeps your place. Go to Settings (or anywhere else) and back, and Progress, Plan, Today and Health open where you left them, on the same ride, range and scroll. Settings has a Done button, and clicking the gear again closes it too.
 - New experiment: race courses. Turn on "Race courses" in Settings → Experimental features, then find your race by name when you add an event (US races on BikeReg; Lactic picks up its Ride with GPS course when the listing links one), or attach a course file (GPX, TCX or FIT) or paste a course link. You get a pre-race report with the profile, each climb and the power to hold on it, your estimated time, fueling, and the forecast with the wind on the course from two weeks out. The plan's key workouts also train for the course's climbs.
 - New experiment: post rides to Strava. Turn on "Post rides to Strava" in Settings → Experimental features, connect Strava under Connections, and rides you record in Lactic show on Strava as Lactic activities, titled with the workout and described with how each interval went.
 - Dragging a workout onto another day on the Plan calendar now moves it (it did nothing in the Mac app).
