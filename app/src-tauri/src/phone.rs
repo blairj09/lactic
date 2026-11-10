@@ -258,6 +258,14 @@ pub async fn listen(app: AppHandle) -> Result<u16, String> {
     phone.port.store(port as u64, Ordering::SeqCst);
     phone.listening.store(true, Ordering::SeqCst);
     let router = Router::new().route(PATH, post(handle).get(here)).with_state(app.clone());
+    // On a Mac, the iPhone can also come straight over peer-to-peer Wi-Fi, whatever network each is on.
+    #[cfg(target_os = "macos")]
+    if let Some(direct) = direct::listen(port) {
+        let router = router.clone();
+        tauri::async_runtime::spawn(async move {
+            let _ = axum::serve(direct, router).await;
+        });
+    }
     tauri::async_runtime::spawn(async move {
         let _ = axum::serve(listener, router).await;
         app.state::<Arc<Phone>>().listening.store(false, Ordering::SeqCst);
@@ -459,6 +467,104 @@ pub async fn phone_respond(phone: State<'_, Arc<Phone>>, request_id: u64, result
     Ok(())
 }
 
+/// The direct link, AirDrop-style: the iPhone finds this Mac by Bonjour (`_lactic._tcp`) and connects
+/// over peer-to-peer Wi-Fi (AWDL) when the two aren't on the same network, or over the network when
+/// they are. Peer-to-peer Wi-Fi only carries IPv6 link-local traffic, and only to sockets that opt
+/// in (SO_RECV_ANYIF), to Bonjour services registered with kDNSServiceFlagsIncludeP2P.
+#[cfg(target_os = "macos")]
+mod direct {
+    use std::ffi::{c_char, c_int, c_void, CString};
+    use std::net::{Ipv6Addr, SocketAddr};
+
+    pub const SERVICE: &str = "_lactic._tcp";
+    const SO_RECV_ANYIF: c_int = 0x1104;
+    const K_DNS_SERVICE_FLAGS_INCLUDE_P2P: u32 = 0x20000;
+
+    #[allow(non_camel_case_types)]
+    type DNSServiceRef = *mut c_void;
+    type RegisterReply = extern "C" fn(DNSServiceRef, u32, i32, *const c_char, *const c_char, *const c_char, *mut c_void);
+
+    extern "C" {
+        fn DNSServiceRegister(
+            sd_ref: *mut DNSServiceRef,
+            flags: u32,
+            interface_index: u32,
+            name: *const c_char,
+            regtype: *const c_char,
+            domain: *const c_char,
+            host: *const c_char,
+            port: u16,
+            txt_len: u16,
+            txt_record: *const c_void,
+            callback: Option<RegisterReply>,
+            context: *mut c_void,
+        ) -> i32;
+        fn DNSServiceProcessResult(sd_ref: DNSServiceRef) -> i32;
+    }
+
+    extern "C" fn registered(_: DNSServiceRef, _: u32, _: i32, _: *const c_char, _: *const c_char, _: *const c_char, _: *mut c_void) {}
+
+    /// An IPv6 socket on `port` that also takes peer-to-peer Wi-Fi, advertised over Bonjour. None
+    /// if either step fails: the plain network listener still works.
+    pub fn listen(port: u16) -> Option<tokio::net::TcpListener> {
+        let socket = socket2::Socket::new(socket2::Domain::IPV6, socket2::Type::STREAM, Some(socket2::Protocol::TCP)).ok()?;
+        socket.set_only_v6(true).ok()?;
+        socket.set_reuse_address(true).ok()?;
+        let on: c_int = 1;
+        // SAFETY: a valid socket and a c_int option value of the right size.
+        let set = unsafe {
+            libc::setsockopt(
+                std::os::fd::AsRawFd::as_raw_fd(&socket),
+                libc::SOL_SOCKET,
+                SO_RECV_ANYIF,
+                &on as *const c_int as *const c_void,
+                std::mem::size_of::<c_int>() as libc::socklen_t,
+            )
+        };
+        if set != 0 {
+            return None;
+        }
+        socket.bind(&SocketAddr::from((Ipv6Addr::UNSPECIFIED, port)).into()).ok()?;
+        socket.listen(16).ok()?;
+        socket.set_nonblocking(true).ok()?;
+        let listener = tokio::net::TcpListener::from_std(socket.into()).ok()?;
+        advertise(port);
+        Some(listener)
+    }
+
+    /// Registers the Bonjour service for as long as Lactic runs (the registration lives with the
+    /// connection to mDNSResponder, kept open on its own thread).
+    fn advertise(port: u16) {
+        std::thread::spawn(move || {
+            let regtype = CString::new(SERVICE).expect("no NUL");
+            let mut sd: DNSServiceRef = std::ptr::null_mut();
+            // SAFETY: valid out-pointer and C strings; a null name means the computer's name.
+            let err = unsafe {
+                DNSServiceRegister(
+                    &mut sd,
+                    K_DNS_SERVICE_FLAGS_INCLUDE_P2P,
+                    0,
+                    std::ptr::null(),
+                    regtype.as_ptr(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    port.to_be(),
+                    0,
+                    std::ptr::null(),
+                    Some(registered),
+                    std::ptr::null_mut(),
+                )
+            };
+            if err != 0 || sd.is_null() {
+                eprintln!("phone: Bonjour registration failed ({err})");
+                return;
+            }
+            // SAFETY: sd is a live registration; this blocks until mDNSResponder goes away.
+            while unsafe { DNSServiceProcessResult(sd) } == 0 {}
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -479,6 +585,35 @@ mod tests {
         assert!((env.t - now_ms() as f64).abs() < MAX_SKEW_MS as f64, "the iPhone's clock field is off: {}", env.t);
         let reply = json!({ "ok": true, "body": { "computer": "Test Mac" } });
         std::fs::write(dir.join("reply.bin"), seal(&key, reply.to_string().as_bytes())).unwrap();
+    }
+
+    /// The direct link end to end on a Mac: this side's peer-to-peer listener and Bonjour
+    /// registration, the iPhone's Swift finding it and posting over it (CI, ios.yml).
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn swift_direct() {
+        let Ok(dir) = std::env::var("LACTIC_SWIFT_WIRE") else { return };
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let listener = direct::listen(47699).expect("the direct listener opens and registers");
+            let router = Router::new().route(
+                PATH,
+                post(|sealed: Bytes| async move {
+                    let key = [7u8; 32];
+                    let plain = open(&key, &sealed).expect("opens");
+                    let env: Envelope = serde_json::from_slice(&plain).expect("parses");
+                    assert_eq!(env.kind, "hello");
+                    seal(&key, json!({ "ok": true, "body": { "computer": "Test Mac" } }).to_string().as_bytes())
+                }),
+            );
+            tokio::spawn(async move {
+                let _ = axum::serve(listener, router).await;
+            });
+            let check = std::path::Path::new(&dir).join("wire-check");
+            let out = tokio::task::spawn_blocking(move || std::process::Command::new(check).arg("direct").arg(&dir).output()).await.unwrap().unwrap();
+            println!("{}", String::from_utf8_lossy(&out.stdout));
+            assert!(out.status.success(), "the iPhone's direct link failed");
+        });
     }
 
     #[test]

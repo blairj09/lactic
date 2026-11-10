@@ -48,6 +48,10 @@ tauri-plugin-lactic-phone = { path = "plugins/lactic-phone" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder"] }
+# The iPhone's direct Wi-Fi link (AirDrop-style, phone.rs `direct`): a socket that also takes
+# peer-to-peer Wi-Fi, advertised over Bonjour.
+libc = "0.2"
+socket2 = "0.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
