@@ -23,3 +23,12 @@ export interface ControlMessage {
   name: ControlName;
   args: unknown[];
 }
+
+/**
+ * Button arguments that can cross to another window or the phone: numbers, strings, booleans and
+ * null. A click handler wired straight to a control hands it the click event, which can't be sent
+ * (it links back to the page), and sending it failed silently, so those presses never arrived.
+ */
+export function sendableArgs(args: unknown[]): unknown[] {
+  return args.filter((a) => a === null || ["number", "string", "boolean"].includes(typeof a));
+}

@@ -389,13 +389,13 @@ function ExtendOrEnd({ data, controls }: { data: PlayerData; controls: PlayerCon
         <button
           className="inline-flex h-14 flex-1 items-center justify-center rounded-lg bg-primary px-4 text-lg font-medium text-on-primary transition-opacity hover:opacity-85 disabled:opacity-50"
           disabled={!controls.canPlay}
-          onClick={controls.onExtend}
+          onClick={() => controls.onExtend()}
         >
           Extend {extend.minutes} min
         </button>
         <button
           className="inline-flex h-14 flex-1 items-center justify-center rounded-lg bg-raised px-4 text-lg font-medium text-ink transition-colors hover:bg-active"
-          onClick={controls.onEnd}
+          onClick={() => controls.onEnd()}
         >
           End ride
         </button>
@@ -557,14 +557,14 @@ function PageControls({ data, controls }: { data: PlayerData; controls: PlayerCo
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         {!data.erg && (
-          <button className={side} disabled={data.position <= 0} onClick={controls.onBack} aria-label="Back" title="Back to the previous interval">
+          <button className={side} disabled={data.position <= 0} onClick={() => controls.onBack()} aria-label="Back" title="Back to the previous interval">
             <Icon d={ICON_BACK} />
           </button>
         )}
         <button
           className="inline-flex h-14 min-w-0 flex-1 items-center justify-center rounded-lg bg-primary text-lg font-medium text-on-primary transition-opacity hover:opacity-85 disabled:opacity-50"
           disabled={!controls.canPlay}
-          onClick={controls.onPlayPause}
+          onClick={() => controls.onPlayPause()}
           aria-label={playLabel(data)}
           title={!controls.canPlay ? "Connect the trainer first" : data.autoStart && data.elapsed === 0 ? `${playLabel(data)}, or just start pedaling` : playLabel(data)}
         >
@@ -574,7 +574,7 @@ function PageControls({ data, controls }: { data: PlayerData; controls: PlayerCo
           </span>
         </button>
         {!data.erg && (
-          <button className={side} disabled={!data.current} onClick={controls.onSkip} aria-label="Skip" title="Skip to the next interval">
+          <button className={side} disabled={!data.current} onClick={() => controls.onSkip()} aria-label="Skip" title="Skip to the next interval">
             <Icon d={ICON_SKIP} />
           </button>
         )}
@@ -854,16 +854,16 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
       <Group label={data.erg ? "Ride" : "Workout"}>
         <div className="flex gap-1.5">
           {!data.erg && (
-            <button className={button} disabled={data.position <= 0} onClick={controls.onBack} aria-label="Back" title="Back to the previous interval">
+            <button className={button} disabled={data.position <= 0} onClick={() => controls.onBack()} aria-label="Back" title="Back to the previous interval">
               <Icon d={ICON_BACK} className={D_ICON} />
             </button>
           )}
-          <button className={primary} disabled={!controls.canPlay} onClick={controls.onPlayPause} aria-label={playLabel(data)} title={controls.canPlay ? playLabel(data) : "Connect the trainer first"}>
+          <button className={primary} disabled={!controls.canPlay} onClick={() => controls.onPlayPause()} aria-label={playLabel(data)} title={controls.canPlay ? playLabel(data) : "Connect the trainer first"}>
             <Icon d={data.running ? ICON_PAUSE : ICON_PLAY} className={D_ICON} />
             {data.startIn !== null && <span className={`num ml-[0.3em] ${D_TEXT}`}>{data.startIn}</span>}
           </button>
           {!data.erg && (
-            <button className={button} disabled={!data.current} onClick={controls.onSkip} aria-label="Skip" title="Skip to the next interval">
+            <button className={button} disabled={!data.current} onClick={() => controls.onSkip()} aria-label="Skip" title="Skip to the next interval">
               <Icon d={ICON_SKIP} className={D_ICON} />
             </button>
           )}
@@ -995,11 +995,11 @@ function MiniExtendOrEnd({ data, controls }: { data: PlayerData; controls: Playe
         <button
           className={`${base} flex-1 bg-primary px-[0.8em] ${MINI_TEXT} font-medium text-on-primary hover:opacity-85`}
           disabled={!controls.canPlay}
-          onClick={controls.onExtend}
+          onClick={() => controls.onExtend()}
         >
           Extend {extend.minutes} min
         </button>
-        <button className={`${base} flex-1 bg-raised px-[0.8em] ${MINI_TEXT} font-medium text-ink hover:bg-active`} onClick={controls.onEnd} title="End the ride and save it">
+        <button className={`${base} flex-1 bg-raised px-[0.8em] ${MINI_TEXT} font-medium text-ink hover:bg-active`} onClick={() => controls.onEnd()} title="End the ride and save it">
           End
         </button>
       </div>
