@@ -3,7 +3,7 @@
 // the last few hundred events in this computer's browser storage, and strips anything that looks
 // like a key or token before saving.
 
-export type LogArea = "bluetooth" | "intervals" | "health" | "coach" | "app";
+export type LogArea = "bluetooth" | "intervals" | "health" | "strava" | "coach" | "app";
 
 export interface LogEvent {
   at: string;
