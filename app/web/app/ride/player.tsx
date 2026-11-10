@@ -405,9 +405,9 @@ function ExtendOrEnd({ data, controls }: { data: PlayerData; controls: PlayerCon
 }
 
 /** Free ride, ERG hold or workout block, as a row of choices. */
-function KindPicker({ kind, onKind, className }: { kind: ExtendKind; onKind: (kind: ExtendKind) => void; className: string }) {
+function KindPicker({ kind, onKind, className, wrapClassName = "" }: { kind: ExtendKind; onKind: (kind: ExtendKind) => void; className: string; wrapClassName?: string }) {
   return (
-    <div role="radiogroup" aria-label="Extend with" className="flex gap-1 rounded-lg bg-raised p-1">
+    <div role="radiogroup" aria-label="Extend with" className={`flex gap-1 rounded-lg bg-raised p-1 ${wrapClassName}`}>
       {EXTEND_KINDS.map((k) => (
         <button
           key={k.kind}
@@ -729,7 +729,7 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
         <Mini label="Cadence" value={data.cadence} small />
       </section>
 
-      <div className="flex min-w-[20vw] flex-1 flex-col">
+      <div className="flex min-w-[20vw] flex-1 flex-col [container:end/size]">
         {data.finished ? (
           <MiniExtendOrEnd data={data} controls={controls} />
         ) : (
@@ -951,55 +951,67 @@ function ErgSwitch({ on, onChange, size = `${MINI_H} ${MINI_TEXT}` }: { on: bool
 
 /**
  * The overlay at the workout's end, in place of the chart: what to extend with (free ride, ERG
- * hold or a workout block) and for how long, then Extend or End.
+ * hold or a workout block) and for how long, then Extend or End. Three rows; when the overlay is
+ * stretched short and wide, one row with bigger buttons (the `end-wide` container variant).
  */
 function MiniExtendOrEnd({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
   const { extend } = data;
-  const base = `inline-flex ${MINI_H} items-center justify-center rounded-md transition-colors disabled:opacity-40`;
-  const step = `${base} w-[clamp(26px,11vh,48px)] shrink-0 bg-raised text-ink hover:bg-active`;
+  // Wide: as tall as the strip comfortably allows, so they're easy to hit from the saddle.
+  const h = `${MINI_H} end-wide:h-[clamp(28px,34vh,72px)]`;
+  const text = `${MINI_TEXT} end-wide:text-[clamp(13px,11vh,26px)]`;
+  const icon = `${MINI_ICON} end-wide:size-[clamp(14px,12vh,30px)]`;
+  const base = `inline-flex ${h} items-center justify-center rounded-md transition-colors disabled:opacity-40`;
+  const step = `${base} w-[clamp(26px,11vh,48px)] end-wide:w-[clamp(28px,34vh,72px)] shrink-0 bg-raised text-ink hover:bg-active`;
+  const value = `num min-w-[3.6em] shrink-0 text-center ${text}`;
   return (
-    <div className="flex h-full min-w-0 flex-col justify-center gap-[2vh]">
-      <KindPicker kind={extend.kind} onKind={controls.onExtendKind} className={`${MINI_H} px-[0.6em] ${MINI_TEXT}`} />
-      <div className="flex min-w-0 items-center gap-1.5">
-        <button className={step} onClick={() => controls.onExtendMinutes(extend.minutes - 1)} aria-label="A minute less" title="A minute less">
-          <Icon d={ICON_MINUS} className={MINI_ICON} />
-        </button>
-        <span className={`num min-w-[3.6em] shrink-0 text-center ${MINI_TEXT}`}>{extend.minutes} min</span>
-        <button className={step} onClick={() => controls.onExtendMinutes(extend.minutes + 1)} aria-label="A minute more" title="A minute more">
-          <Icon d={ICON_PLUS} className={MINI_ICON} />
-        </button>
+    <div className="flex h-full min-w-0 flex-col justify-center gap-[2vh] end-wide:flex-row end-wide:flex-wrap end-wide:content-center end-wide:items-center end-wide:gap-x-[4vh]">
+      <KindPicker kind={extend.kind} onKind={controls.onExtendKind} className={`${h} px-[0.6em] end-wide:px-[0.9em] ${text}`} wrapClassName="end-wide:shrink-0" />
+      <div className="flex min-w-0 items-center gap-1.5 end-wide:gap-x-[4vh]">
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button className={step} onClick={() => controls.onExtendMinutes(extend.minutes - 1)} aria-label="A minute less" title="A minute less">
+            <Icon d={ICON_MINUS} className={icon} />
+          </button>
+          <span className={value}>{extend.minutes} min</span>
+          <button className={step} onClick={() => controls.onExtendMinutes(extend.minutes + 1)} aria-label="A minute more" title="A minute more">
+            <Icon d={ICON_PLUS} className={icon} />
+          </button>
+        </div>
         {extend.kind === "erg" && (
-          <>
-            <button className={`${step} ml-[2vh]`} onClick={() => controls.onExtendWatts(extend.watts - ERG_STEP)} aria-label={`Down ${ERG_STEP} W`}>
-              <Icon d={ICON_MINUS} className={MINI_ICON} />
+          <div className="ml-[2vh] flex shrink-0 items-center gap-1.5 end-wide:ml-0">
+            <button className={step} onClick={() => controls.onExtendWatts(extend.watts - ERG_STEP)} aria-label={`Down ${ERG_STEP} W`}>
+              <Icon d={ICON_MINUS} className={icon} />
             </button>
-            <span className={`num min-w-[3.6em] shrink-0 text-center ${MINI_TEXT}`}>{extend.watts} W</span>
+            <span className={value}>{extend.watts} W</span>
             <button className={step} onClick={() => controls.onExtendWatts(extend.watts + ERG_STEP)} aria-label={`Up ${ERG_STEP} W`}>
-              <Icon d={ICON_PLUS} className={MINI_ICON} />
+              <Icon d={ICON_PLUS} className={icon} />
             </button>
-          </>
+          </div>
         )}
         {extend.kind === "block" && (
-          <>
-            <button className={`${step} ml-[2vh]`} onClick={() => controls.onExtendBlock(-1)} aria-label="Previous block" title="Previous block">
-              <Chevron left className={MINI_ICON} />
+          <div className="ml-[2vh] flex min-w-0 flex-1 items-center gap-1.5 end-wide:ml-0 end-wide:max-w-[20em]">
+            <button className={step} onClick={() => controls.onExtendBlock(-1)} aria-label="Previous block" title="Previous block">
+              <Chevron left className={icon} />
             </button>
-            <span className={`min-w-0 flex-1 truncate text-center ${MINI_TEXT}`}>{extend.block}</span>
+            <span className={`min-w-0 flex-1 truncate text-center ${text}`}>{extend.block}</span>
             <button className={step} onClick={() => controls.onExtendBlock(1)} aria-label="Next block" title="Next block">
-              <Chevron className={MINI_ICON} />
+              <Chevron className={icon} />
             </button>
-          </>
+          </div>
         )}
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 end-wide:ml-auto end-wide:shrink-0">
         <button
-          className={`${base} flex-1 bg-primary px-[0.8em] ${MINI_TEXT} font-medium text-on-primary hover:opacity-85`}
+          className={`${base} flex-1 bg-primary px-[0.8em] end-wide:flex-none end-wide:px-[1.4em] ${text} font-medium text-on-primary hover:opacity-85`}
           disabled={!controls.canPlay}
           onClick={() => controls.onExtend()}
         >
           Extend {extend.minutes} min
         </button>
-        <button className={`${base} flex-1 bg-raised px-[0.8em] ${MINI_TEXT} font-medium text-ink hover:bg-active`} onClick={() => controls.onEnd()} title="End the ride and save it">
+        <button
+          className={`${base} flex-1 bg-raised px-[0.8em] end-wide:flex-none end-wide:px-[1.4em] ${text} font-medium text-ink hover:bg-active`}
+          onClick={() => controls.onEnd()}
+          title="End the ride and save it"
+        >
           End
         </button>
       </div>
