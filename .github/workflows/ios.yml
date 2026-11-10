@@ -132,6 +132,9 @@ jobs:
           key_path=~/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY.p8
           printf '%s\n' "$APPLE_API_KEY_P8" > "$key_path"
           export APPLE_API_KEY_PATH="$key_path"
+          # Builds the embedded Watch app with the watchOS SDK (see the script).
+          mkdir -p "$RUNNER_TEMP/shim" && cp ../.github/scripts/xcodebuild-shim.sh "$RUNNER_TEMP/shim/xcodebuild"
+          export PATH="$RUNNER_TEMP/shim:$PATH"
           # TestFlight needs a new build number every upload.
           printf '{"bundle":{"iOS":{"bundleVersion":"%s"}}}' "$GITHUB_RUN_NUMBER" > src-tauri/tauri.ios-build.conf.json
           npx tauri ios build --export-method app-store-connect --config src-tauri/tauri.ios-build.conf.json
