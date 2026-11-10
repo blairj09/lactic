@@ -51,6 +51,9 @@ jobs:
         # `tauri ios build` in the TestFlight job.
         run: cargo build --locked --target aarch64-apple-ios-sim --lib
         working-directory: app/src-tauri
+        env:
+          # What tauri ios build sets from bundle.iOS.minimumSystemVersion.
+          IPHONEOS_DEPLOYMENT_TARGET: "16.0"
 
   testflight:
     # A signed build on TestFlight. Needs the App Store Connect key, and the app created once in
