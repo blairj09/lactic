@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic widgets for your iPhone's home screen and lock screen: last night's recovery score, HRV, resting heart rate and sleep, today's ride and today's exertion against its target, at a glance. They update whenever the app reads Health or syncs with your computer.
 - Today has a new Last night card: your recovery score with the past week, HRV, resting heart rate, sleep, breathing, wrist temperature and yesterday's exertion over the last two weeks against your usual range, last night's sleep stages, and a bar showing today's exertion against today's target (and where your planned ride should land it).
 - Today's options and the coach now notice patterns across nights, not just last night: HRV under your usual range three nights running, signs you may be getting ill, or a pile of sleep debt make an easier day the suggestion, and the coach keeps them in mind when it picks the week's workouts.
 - Chart dates and times no longer pile up on a phone: the fitness forecast, power curve, ride and race charts show fewer axis labels when the screen is narrow.

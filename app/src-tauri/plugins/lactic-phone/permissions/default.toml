@@ -12,6 +12,7 @@ permissions = [
   "allow-send",
   "allow-schedule-ride-end",
   "allow-cancel-ride-end",
+  "allow-save-widget",
   "allow-register-listener",
   "allow-remove-listener",
 ]
