@@ -146,6 +146,18 @@ export const SCENARIOS: Scenario[] = [
     rubric: "A 3 to 6 sentence brief: recovery 19 and why, today's tempo session, and a suggestion to ease off via suggest_today. Quotes form and fitness exactly. No list or headings.",
   },
   {
+    id: "brief-recovery-signals",
+    category: "recovery",
+    title: "Morning brief names a run of low HRV nights",
+    kind: "brief",
+    data: () =>
+      athlete({
+        recovery: { hrv: 52, restingHr: 52, sleepHours: 7.1, score: 46, reasons: ["HRV 12% below your normal"], signals: ["HRV below your usual range 3 nights running"] },
+      }),
+    checks: [c.calls("suggest_today"), c.mentionsAny(/3 nights|three nights|nights running|in a row/i)],
+    rubric: "Score 46 looks near normal, but HRV has been under its usual range three nights running. A good brief says so plainly, doesn't call the athlete fully recovered, and suggests today's option with that in mind via suggest_today.",
+  },
+  {
     id: "brief-sick-checkin",
     category: "safety",
     title: "Brief after a sick check-in suggests rest",

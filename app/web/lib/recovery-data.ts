@@ -1,7 +1,10 @@
 import { addDays } from "./engine/pmc";
 import { MINIMUM_BASELINE_DAYS, recoveryScore, recoveryTrend, type RecoveryDay, type RecoveryInputs, type RecoveryNormals, type RecoveryScore, type RecoveryTrendDay } from "./engine/recovery";
 import type { SleepSegment, SleepStage } from "./engine/health-import";
-import { priorLoad, type Daytime } from "./daytime-data";
+import { localMinute, priorLoad, type Daytime } from "./daytime-data";
+import { GLANCE_NIGHTS, RANGE_WINDOW_DAYS, recoveryGlance, recoverySignals, type GlanceMetric, type RecoverySignal } from "./engine/recovery-glance";
+import { MIN_COVERED_MINUTES } from "./engine/exertion";
+import { sleepDebt, sleepNeedTonight, sleepScore, type SleepNight, type SleepScore } from "./engine/sleep-score";
 import type { createClient } from "./supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -18,6 +21,20 @@ export interface RecoveryToday {
   sleep: SleepDetail | null;
   /** Where last night's numbers came from (apple_health, shortcut, intervals). */
   source: string | null;
+  /** Last night against recent weeks, for Today's Last night card and the warning signs. */
+  glance: RecoveryGlance;
+}
+
+export interface RecoveryGlance {
+  /** HRV, resting HR, sleep, breathing, wrist temperature and yesterday's exertion: two weeks each, with your usual range. */
+  metrics: GlanceMetric[];
+  /** Runs of poor nights and signs of illness that today's options and the coach take into account. */
+  signals: RecoverySignal[];
+  /** The last 7 mornings' recovery scores, oldest first (null where there was none). */
+  scores: { day: string; score: number | null }[];
+  sleepScore: SleepScore | null;
+  sleepDebtHours: number | null;
+  sleepNeedTonight: number;
 }
 
 export interface SleepDetail {
@@ -53,13 +70,17 @@ export async function loadRecovery(
   today: string,
   sleepNeedHours: number,
   daytimeLoad: Daytime | null | Promise<Daytime | null> = null,
+  /** For bedtimes in the sleep score's regularity; UTC without it. */
+  timeZone?: string,
 ): Promise<RecoveryToday> {
+  // The glance's oldest night needs its own month of range and two months of baseline behind it.
+  const firstTrendDay = addDays(today, -(GLANCE_NIGHTS + RANGE_WINDOW_DAYS));
   // `daytime` may still be loading: the rows are read meanwhile.
   const [{ data, error }, daytime] = await Promise.all([
     supabase
       .from("recovery_days")
       .select("day, hrv_ms, hrv_kind, resting_hr, sleep_hours, sleep_deep_hours, sleep_rem_hours, sleep_core_hours, sleep_awake_hours, sleep_start, sleep_end, wrist_temp_c, respiratory_rate, sleep_segments, source")
-      .gte("day", addDays(today, -BASELINE_DAYS))
+      .gte("day", addDays(firstTrendDay, -BASELINE_DAYS))
       .lte("day", today)
       .order("day"),
     daytimeLoad,
@@ -69,8 +90,9 @@ export async function loadRecovery(
   const num = (v: string | number | null) => (v === null ? undefined : Number(v));
   const row = data.find((r) => r.day === today);
   const kind = row?.hrv_kind ?? null;
+  const baselineStart = addDays(today, -BASELINE_DAYS);
   const baseline: RecoveryInputs[] = data
-    .filter((r) => r.day < today)
+    .filter((r) => r.day >= baselineStart && r.day < today)
     .map((r) => ({
       hrv: r.hrv_kind === kind ? num(r.hrv_ms) : undefined,
       restingHeartRate: num(r.resting_hr),
@@ -88,12 +110,61 @@ export async function loadRecovery(
       }
     : null;
 
+  const score = todayInputs ? recoveryScore(todayInputs, baseline, sleepNeedHours, daytime ? priorLoad(daytime.days, today) : null) : null;
   return {
     today: todayInputs,
-    score: todayInputs ? recoveryScore(todayInputs, baseline, sleepNeedHours, daytime ? priorLoad(daytime.days, today) : null) : null,
+    score,
     baselineDays: Math.min(baseline.filter((b) => b.hrv !== undefined).length, MINIMUM_BASELINE_DAYS),
     sleep: row ? sleepDetail(row) : null,
     source: row?.source ?? null,
+    glance: glanceFrom(data, today, sleepNeedHours, daytime, timeZone),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function glanceFrom(data: any[], today: string, sleepNeedHours: number, daytime: Daytime | null, timeZone?: string): RecoveryGlance {
+  const num = (v: string | number | null) => (v === null || v === undefined ? undefined : Number(v));
+  const rows: RecoveryDay[] = data.map((r) => ({
+    day: r.day,
+    hrvKind: r.hrv_kind ?? null,
+    hrv: num(r.hrv_ms),
+    restingHeartRate: num(r.resting_hr),
+    sleepHours: num(r.sleep_hours),
+    wristTempC: num(r.wrist_temp_c),
+    respiratoryRate: num(r.respiratory_rate),
+  }));
+  const loadFor = (day: string) => (daytime ? priorLoad(daytime.days, day) : null);
+  const trend = recoveryTrend(rows, addDays(today, -(GLANCE_NIGHTS + RANGE_WINDOW_DAYS)), sleepNeedHours, BASELINE_DAYS, loadFor).days;
+  const exertion = new Map((daytime?.days ?? []).filter((d) => d.coveredMinutes >= MIN_COVERED_MINUTES || d.rideTrimp > 0).map((d) => [d.day, d.exertion]));
+  const metrics = recoveryGlance({ today, trend, exertion });
+
+  const n = (v: string | number | null) => (v === null || v === undefined ? null : Number(v));
+  const nights: SleepNight[] = data
+    .filter((r) => r.day >= addDays(today, -21) && r.sleep_hours !== null)
+    .map((r) => ({
+      day: r.day,
+      asleepHours: n(r.sleep_hours),
+      awakeHours: n(r.sleep_awake_hours),
+      deepHours: n(r.sleep_deep_hours),
+      remHours: n(r.sleep_rem_hours),
+      start: r.sleep_start ? Date.parse(r.sleep_start) / 1000 : null,
+      end: r.sleep_end ? Date.parse(r.sleep_end) / 1000 : null,
+      bedMinute: r.sleep_start && timeZone ? localMinute(new Date(r.sleep_start), timeZone) : undefined,
+    }));
+  const i = nights.findIndex((x) => x.day === today);
+  const debt = nights.length ? sleepDebt(nights, sleepNeedHours) : null;
+  const todayExertion = daytime?.days.find((d) => d.day === today)?.exertion ?? null;
+  const byDay = new Map(trend.map((d) => [d.day, d.score]));
+  return {
+    metrics,
+    signals: recoverySignals(metrics, debt),
+    scores: Array.from({ length: 7 }, (_, k) => {
+      const day = addDays(today, k - 6);
+      return { day, score: byDay.get(day) ?? null };
+    }),
+    sleepScore: i < 0 ? null : sleepScore(nights[i], nights.slice(0, i), sleepNeedHours),
+    sleepDebtHours: debt,
+    sleepNeedTonight: sleepNeedTonight(sleepNeedHours, debt ?? 0, todayExertion),
   };
 }
 

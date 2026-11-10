@@ -8,6 +8,15 @@ export interface RecoverySetup {
   picked: RecoverySource | null;
   /** Apple Health files have been imported before. */
   appleReceiving: boolean;
+  /** Lactic on the iPhone reads Health: when it last did, and whether this is that iPhone. */
+  iphone?: IphoneReads | null;
+}
+
+export interface IphoneReads {
+  /** ISO time the iPhone last read Health. */
+  readAt: string;
+  /** True on the iPhone itself. */
+  here: boolean;
 }
 
 const NONE: RecoverySetup = { picked: null, appleReceiving: false };
@@ -29,12 +38,14 @@ export interface RecoverySourceInfo {
   name: "Apple Health" | "intervals.icu";
   /** Set up to send nights, so last night is worth waiting for. */
   connected: boolean;
+  /** Health comes from Lactic on the iPhone. */
+  iphone?: IphoneReads | null;
 }
 
 /** The name to show for the rider's recovery source, and whether it's set up to send nights. */
 export function recoverySourceInfo(setup: RecoverySetup, intervalsConnected: boolean): RecoverySourceInfo | null {
   const picked = setup.picked ?? (setup.appleReceiving ? "apple" : null);
-  if (picked === "apple") return { name: "Apple Health", connected: setup.appleReceiving };
+  if (picked === "apple") return { name: "Apple Health", connected: setup.appleReceiving, ...(setup.iphone ? { iphone: setup.iphone } : {}) };
   if (picked === "intervals") return { name: "intervals.icu", connected: intervalsConnected };
   return null;
 }

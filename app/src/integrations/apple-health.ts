@@ -58,6 +58,7 @@ provideRecoverySetup(async () => {
   return {
     picked: picked === "apple" ? "apple" : picked === "watch" || picked === "android" ? "intervals" : null,
     appleReceiving: Boolean(iphone || (last && (last.nights > 0 || last.days > 0))),
+    iphone: iphone ? { readAt: iphone.at, here: isPhone() } : null,
   };
 });
 

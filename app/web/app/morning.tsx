@@ -139,9 +139,11 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
 
 
   const weighedKg = weighed?.weightKg ?? (weigh.phase === "saved" ? weigh.kg : null);
-  const stepCount = 1 + Number(tracking.recovery) + Number(showWeigh);
+  // Once last night is in, the Last night card above shows it, so the step only waits for it.
+  const recoveryStep = tracking.recovery && !recoveryDone;
+  const stepCount = 1 + Number(recoveryStep) + Number(showWeigh);
   const feelStep = stepCount;
-  const weighStep = 1 + Number(tracking.recovery);
+  const weighStep = 1 + Number(recoveryStep);
 
   return (
     <Panel
@@ -155,14 +157,20 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
       }
     >
       <ol className={`grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line ${STEP_COLUMNS[stepCount]}`}>
-        {tracking.recovery && (
+        {recoveryStep && (
         <Step n={1} title="Recovery" state={recoveryDone ? "done" : recoveryReady ? (skips.recovery ? "skipped" : "settled") : "active"}>
           {recoveryDone ? (
             <p>{recovery.line ?? "Last night is in."}</p>
           ) : skips.recovery ? (
             <p>Skipped for today.</p>
           ) : fromHealth ? (
-            <p className="animate-pulse">Waiting for last night from {recovery.source?.name ?? "Apple Health"}.</p>
+            <p className="animate-pulse">
+              {recovery.source?.iphone
+                ? recovery.source.iphone.here
+                  ? `Waiting for last night in Health. Lactic last read it at ${clock(recovery.source.iphone.readAt)}.`
+                  : `Waiting for last night from your iPhone. It last read Health at ${clock(recovery.source.iphone.readAt)}.`
+                : `Waiting for last night from ${recovery.source?.name ?? "Apple Health"}.`}
+            </p>
           ) : (
             <p>
               <Link href="/settings#health" className="text-ink underline underline-offset-4">
@@ -274,6 +282,13 @@ function Step({ n, title, state, children }: { n: number; title: string; state: 
       {children}
     </li>
   );
+}
+
+/** A time today, or a day and time before today. */
+function clock(iso: string) {
+  const at = new Date(iso);
+  const sameDay = at.toDateString() === new Date().toDateString();
+  return at.toLocaleString("en-US", sameDay ? { hour: "numeric", minute: "2-digit" } : { weekday: "short", hour: "numeric", minute: "2-digit" });
 }
 
 const STEP_COLUMNS: Record<number, string> = { 1: "", 2: "sm:grid-cols-2", 3: "sm:grid-cols-3" };

@@ -2,6 +2,7 @@
 // as written, ease off, or push. The engine builds every option; the coach only explains and picks.
 
 import { buildSession, MAX_LEVEL, MIN_LEVEL, type Session } from "./library";
+import { MAX_SIGNAL_STRAIN } from "./recovery-glance";
 
 /** 1 wrecked, 2 tired, 3 normal, 4 good, 5 great. */
 export type Feel = 1 | 2 | 3 | 4 | 5;
@@ -25,6 +26,8 @@ export interface CheckinInput {
   feedback?: { strain: number; reason: string | null };
   /** Yesterday's exertion off the bike (TRIMP), which form doesn't see: a hike, a day on your feet. */
   offBikeTrimp?: number;
+  /** Warning signs across recent nights (recoverySignals in recovery-glance.ts): a run of low HRV, signs of illness, sleep debt. */
+  signals?: { strain: number; reason: string }[];
 }
 
 /** Off-bike TRIMP that counts as a big day: about an hour's endurance ride. */
@@ -52,7 +55,7 @@ const INTENSE = new Set(["tempo", "sweetSpot", "threshold", "vo2max", "anaerobic
 
 /**
  * Adds up warning signs (poor recovery, deep fatigue, feeling bad, recent workouts too hard, a big
- * day off the bike) against
+ * day off the bike, runs of poor nights) against
  * good signs, then:
  * 4+ rest, 3 swap to easy riding, 2 a level easier, 0 to 1 as planned, -2 or better offers harder.
  */
@@ -96,6 +99,10 @@ export function checkin(input: CheckinInput): CheckinResult {
   if (input.offBikeTrimp !== undefined && input.offBikeTrimp >= BIG_OFF_BIKE_TRIMP) {
     strain += 1;
     reasons.push("A big day off the bike yesterday");
+  }
+  if (input.signals?.length) {
+    strain += Math.min(input.signals.reduce((a, x) => a + x.strain, 0), MAX_SIGNAL_STRAIN);
+    reasons.push(...input.signals.map((x) => x.reason));
   }
   if (input.sick) reasons.unshift("You're feeling ill");
 

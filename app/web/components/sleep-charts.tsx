@@ -226,3 +226,30 @@ export function StageBars({ days, nights, sleepNeedHours }: { days: string[]; ni
     </div>
   );
 }
+
+/** Last night in one bar: each stage in its colour across the night, with bed and wake times under it. */
+export function SleepStrip({ segments, timeZone }: { segments: SleepSegment[]; timeZone: string }) {
+  const start = segments[0].start;
+  const end = segments.at(-1)!.end;
+  const span = Math.max(end - start, 1);
+  const time = (unix: number) => new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit" }).format(new Date(unix * 1000));
+  const shown = new Set(segments.map((s) => s.stage));
+  return (
+    <div>
+      <div className="relative h-5 overflow-hidden rounded bg-raised" role="img" aria-label={`Sleep stages from ${time(start)} to ${time(end)}`}>
+        {segments.map((s, i) => (
+          <span
+            key={i}
+            className="absolute inset-y-0"
+            style={{ left: `${((s.start - start) / span) * 100}%`, width: `${Math.max(((s.end - s.start) / span) * 100, 0.3)}%`, background: COLOR[s.stage] }}
+          />
+        ))}
+      </div>
+      <div className="num mt-1 flex justify-between text-xs text-faint">
+        <span>{time(start)}</span>
+        <span>{time(end)}</span>
+      </div>
+      <Legend stages={(["deep", "core", "rem", "asleep", "awake"] as SleepStage[]).filter((s) => shown.has(s))} />
+    </div>
+  );
+}

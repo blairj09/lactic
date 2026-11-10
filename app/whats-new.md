@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Today has a new Last night card: your recovery score with the past week, HRV, resting heart rate, sleep, breathing, wrist temperature and yesterday's exertion over the last two weeks against your usual range, last night's sleep stages, and a bar showing today's exertion against today's target (and where your planned ride should land it).
+- Today's options and the coach now notice patterns across nights, not just last night: HRV under your usual range three nights running, signs you may be getting ill, or a pile of sleep debt make an easier day the suggestion, and the coach keeps them in mind when it picks the week's workouts.
 - Chart dates and times no longer pile up on a phone: the fitness forecast, power curve, ride and race charts show fewer axis labels when the screen is narrow.
 - Each block of a workout is now its own lap on Strava and intervals.icu, with its own time and average power, so you can see how every interval went. Rides you post or export again from their ride page get laps too.
 - With your iPhone paired, Settings → Sleep and recovery shows Apple Health coming from it, when the phone last read Health and last night's numbers. Without a paired iPhone, the card points you to pairing it, and the Shortcut steps sit behind a "No iPhone app yet?" link.
