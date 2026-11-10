@@ -19,7 +19,7 @@ use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
 
 /// app_settings keys that belong to one device (where its files are, its gear, its pairing).
-const LOCAL_SETTINGS: &[&str] = &["health.folder", "bluetooth.", "data.restored", "mcp.", "sync.", "phone.", "secrets."];
+const LOCAL_SETTINGS: &[&str] = &["health.folder", "bluetooth.", "data.restored", "mcp.", "sync.", "phone.", "secrets.", "updates."];
 /// Roughly how much row data one page carries.
 const PAGE_BYTES: usize = 1_500_000;
 const PAGE_ROWS: usize = 2_000;
