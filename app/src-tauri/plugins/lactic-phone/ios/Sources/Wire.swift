@@ -57,4 +57,32 @@ enum Wire {
     let opened = try AES.GCM.open(AES.GCM.SealedBox(combined: data), using: key)
     return try JSONDecoder().decode([String: JSONValue].self, from: opened)
   }
+
+  // Pairing: the QR code's key is used once. The hello carries a fresh public key, the computer
+  // answers with its own, and both keep the key worked out here (X25519, then HKDF-SHA256 salted
+  // with the code's key), so a photo of the code opens nothing sent afterwards. phone.rs's
+  // pairing_key is the computer's half.
+
+  /// The key to keep, from this side's private key and the public key in the computer's answer.
+  static func pairingKey(mine: Curve25519.KeyAgreement.PrivateKey, theirs: Data, code: Data, deviceId: String) throws -> Data {
+    let shared = try mine.sharedSecretFromKeyAgreement(with: Curve25519.KeyAgreement.PublicKey(rawRepresentation: theirs))
+    return pairingKey(shared: shared.withUnsafeBytes { Data($0) }, code: code, deviceId: deviceId)
+  }
+
+  static func pairingKey(shared: Data, code: Data, deviceId: String) -> Data {
+    // HKDF-SHA256 for one block of output: extract with the code's key as salt, then expand.
+    let extracted = HMAC<SHA256>.authenticationCode(for: shared, using: SymmetricKey(data: code))
+    let info = Data("lactic pairing v2 \(deviceId)".utf8) + [1]
+    return Data(HMAC<SHA256>.authenticationCode(for: info, using: SymmetricKey(data: Data(extracted))))
+  }
+
+  static func b64url(_ data: Data) -> String {
+    data.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+  }
+
+  static func fromB64url(_ text: String) -> Data? {
+    var s = text.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+    while s.count % 4 != 0 { s += "=" }
+    return Data(base64Encoded: s)
+  }
 }

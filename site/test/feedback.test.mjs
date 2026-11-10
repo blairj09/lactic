@@ -1,7 +1,7 @@
 // node --test test/  (from site/)
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { body, findDuplicate, parse, POST, similarity, title } from "../api/feedback.js";
+import { body, DAILY_CAP, filedSince, findDuplicate, parse, POST, similarity, title } from "../api/feedback.js";
 
 const system = { version: "0.1.2", os: "macos", osVersion: "15.1", arch: "aarch64" };
 const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2]).toString("base64");
@@ -67,4 +67,24 @@ test("POST adds a duplicate to the existing issue instead", async () => {
   assert.equal(json.number, 7);
   assert.ok(calls.some((c) => c.url.endsWith("/issues/7/comments") && /Another report/.test(c.body.body)));
   assert.ok(!calls.some((c) => c.url.endsWith("/issues") && c.method === "POST"));
+});
+
+test("counts what the relay filed in the last day: new issues and its own comments", () => {
+  const cutoff = "2026-11-10T00:00:00.000Z";
+  const issues = [{ created_at: "2026-11-10T08:00:00Z" }, { created_at: "2026-11-09T08:00:00Z" }, { created_at: "2026-11-10T09:00:00Z", pull_request: {} }];
+  const comments = [
+    { created_at: "2026-11-10T08:30:00Z", body: "**Another report of this, from the app:**\n\nSame here" },
+    { created_at: "2026-11-10T08:40:00Z", body: "Thanks, looking into it" },
+    { created_at: "2026-11-08T08:30:00Z", body: "**Another report of this, from the app:**\n\nOld" },
+  ];
+  assert.equal(filedSince(issues, comments, cutoff), 2);
+  assert.equal(filedSince(null, { message: "rate limited" }, cutoff), 0);
+});
+
+test("POST stops filing once a day's worth has come in", async () => {
+  const now = new Date().toISOString();
+  const flood = Array.from({ length: DAILY_CAP }, (_, i) => ({ number: 100 + i, title: `Problem: report ${i}`, body: "x", labels: [{ name: "feedback" }], created_at: now }));
+  const { res, calls } = await post("Something entirely new went wrong with the scale", flood);
+  assert.equal(res.status, 429);
+  assert.ok(!calls.some((c) => c.method === "POST"));
 });

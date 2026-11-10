@@ -473,7 +473,7 @@ use crate::db::Db;
 use tauri::State;
 
 /// After the schema is up to date at startup: the log and its triggers.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sync_prepare(db: State<Db>) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     prepare(&conn)
@@ -488,14 +488,14 @@ pub struct Outgoing {
 }
 
 /// The phone: sends these tables' rows in full on the next exchanges (see `relog`).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sync_keep(db: State<Db>, tables: Vec<String>) -> Result<usize, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     relog(&conn, &tables)
 }
 
 /// The phone: what to send in the next exchange.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sync_outgoing(db: State<Db>) -> Result<Outgoing, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let (changes, upto, more) = outgoing(&conn)?;
@@ -503,13 +503,13 @@ pub fn sync_outgoing(db: State<Db>) -> Result<Outgoing, String> {
 }
 
 /// The phone: the computer's answer to the exchange that sent changes up to `upto`.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sync_incoming(db: State<Db>, upto: i64, reply: Reply) -> Result<usize, String> {
     let mut conn = db.conn.lock().map_err(|e| e.to_string())?;
     incoming(&mut conn, upto, &reply)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sync_forget(db: State<Db>) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     forget(&conn)

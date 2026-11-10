@@ -1,8 +1,9 @@
 // The computer's side of a paired iPhone. Pairing shows a QR code holding a fresh 256-bit key,
-// the computer's addresses on the local network and a port. The phone scans it and from then on
-// talks to the computer directly over Wi-Fi: every request and answer is sealed with AES-256-GCM
-// under that key, so nothing on the network can read or forge them, and nothing goes through a
-// server. The key lives in the keychain (secrets.rs, as "phone:<device id>").
+// the computer's addresses on the local network and a port. The phone scans it, the two agree
+// on a key of their own (see "pairing" below), and from then on the phone talks to the computer
+// directly over Wi-Fi: every request and answer is sealed with AES-256-GCM under that key, so
+// nothing on the network can read or forge them, and nothing goes through a server. The key
+// lives in the keychain (secrets.rs, as "phone:<device id>").
 //
 // What the phone asks for:
 //   hello   finishes pairing (the key is only accepted for this while the QR code is showing)
@@ -116,6 +117,31 @@ fn b64url(bytes: &[u8]) -> String {
 
 fn key_from(text: &str) -> Option<[u8; 32]> {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(text.trim_end_matches('=')).ok()?.try_into().ok()
+}
+
+// --- pairing: the QR code's key is used once ----------------------------------------------------------
+// The code on screen holds a key that only proves the phone saw this screen. In its hello the
+// phone sends a fresh public key; the computer answers with its own, and both work out the key
+// they keep (X25519, then HKDF-SHA256 salted with the code's key). So a photo of the code, or
+// the code read off a recording later, opens nothing that was sent afterwards.
+
+/// How long the code keeps working after a phone paired with it, so the phone can ask again if
+/// the answer got lost on the way.
+const RETRY_MS: i64 = 60_000;
+
+/// The key both sides keep, from the agreed secret, the code's key and the phone's id.
+fn pairing_key(shared: &[u8; 32], code: &[u8; 32], device: &str) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    hkdf::Hkdf::<sha2::Sha256>::new(Some(code), shared).expand(format!("lactic pairing v2 {device}").as_bytes(), &mut out).expect("32 bytes is a valid length");
+    out
+}
+
+/// The computer's half: its public key to send back and the key to keep, or None when the
+/// phone's public key is one that gives everyone the same secret.
+fn agree(mine: x25519_dalek::StaticSecret, phone_pub: [u8; 32], code: &[u8; 32], device: &str) -> Option<([u8; 32], [u8; 32])> {
+    let public = x25519_dalek::PublicKey::from(&mine);
+    let shared = mine.diffie_hellman(&x25519_dalek::PublicKey::from(phone_pub));
+    shared.was_contributory().then(|| (public.to_bytes(), pairing_key(shared.as_bytes(), code, device)))
 }
 
 fn secret_name(device: &str) -> String {
@@ -302,18 +328,24 @@ pub struct Envelope {
 async fn handle(AxState(app): AxState<AppHandle>, headers: HeaderMap, sealed: Bytes) -> impl IntoResponse {
     let phone = app.state::<Arc<Phone>>().inner().clone();
     let device = headers.get("x-lactic-device").and_then(|v| v.to_str().ok()).unwrap_or("").to_string();
+    // The code on screen first (a phone pairing), then the key this phone was given.
     let offered = phone.offer.lock().await.as_ref().filter(|o| o.id == device && o.expires > now_ms()).map(|o| o.key);
-    let key = match offered {
-        Some(k) => Some(k),
-        None => app.state::<Secrets>().get(&secret_name(&device)).and_then(|k| key_from(&k)),
+    let with_code = offered.and_then(|k| open(&k, &sealed).map(|plain| (k, plain)));
+    let pairing = with_code.is_some();
+    let opened = match with_code {
+        Some(found) => Some(found),
+        None => app.state::<Secrets>().get(&secret_name(&device)).and_then(|k| key_from(&k)).and_then(|k| open(&k, &sealed).map(|plain| (k, plain))),
     };
-    let Some(key) = key else { return (StatusCode::UNAUTHORIZED, Vec::new()).into_response() };
-    let Some(plain) = open(&key, &sealed) else { return (StatusCode::UNAUTHORIZED, Vec::new()).into_response() };
+    let Some((key, plain)) = opened else { return (StatusCode::UNAUTHORIZED, Vec::new()).into_response() };
+    if offered.is_some() && !pairing {
+        // The phone is using the key it was given, so the code has done its job.
+        phone.offer.lock().await.take_if(|o| o.id == device);
+    }
     let Ok(env) = serde_json::from_slice::<Envelope>(&plain) else { return (StatusCode::BAD_REQUEST, Vec::new()).into_response() };
     if (env.t - now_ms() as f64).abs() > MAX_SKEW_MS as f64 {
         return (StatusCode::UNAUTHORIZED, Vec::new()).into_response();
     }
-    let answer = match answer(&app, &phone, &device, offered.is_some(), &key, env).await {
+    let answer = match answer(&app, &phone, &device, pairing, &key, env).await {
         Ok(v) => json!({ "ok": true, "body": v }),
         Err(e) => json!({ "ok": false, "error": e }),
     };
@@ -328,8 +360,23 @@ async fn answer(app: &AppHandle, phone: &Phone, device: &str, pairing: bool, key
             return Ok(json!({ "computer": computer_name() }));
         }
         let name = env.body.get("name").and_then(|v| v.as_str()).unwrap_or("iPhone").chars().take(80).collect::<String>();
-        app.state::<Secrets>().set(&secret_name(device), &b64url(key))?;
-        *phone.offer.lock().await = None;
+        // A phone that sends a public key gets a key of its own; an older Lactic on the phone
+        // sends none and keeps the code's key, as before.
+        let agreed = match env.body.get("pub").and_then(|v| v.as_str()) {
+            Some(text) => {
+                let mine = x25519_dalek::StaticSecret::random_from_rng(OsRng);
+                Some(key_from(text).and_then(|theirs| agree(mine, theirs, key, device)).ok_or("That code didn't work. Show a new one and scan again.")?)
+            }
+            None => None,
+        };
+        app.state::<Secrets>().set(&secret_name(device), &b64url(agreed.as_ref().map_or(key, |(_, kept)| kept)))?;
+        {
+            let mut offer = phone.offer.lock().await;
+            match (&agreed, offer.as_mut()) {
+                (Some(_), Some(o)) if o.id == device => o.expires = o.expires.min(now_ms() + RETRY_MS),
+                _ => *offer = None,
+            }
+        }
         let mut saved = phone.saved.lock().await;
         saved.devices.retain(|d| d.id != device);
         saved.devices.push(Device { id: device.to_string(), name: name.clone(), paired_at: now_ms(), last_seen: Some(now_ms()) });
@@ -337,7 +384,10 @@ async fn answer(app: &AppHandle, phone: &Phone, device: &str, pairing: bool, key
         drop(saved);
         phone.write(&copy).await;
         let _ = app.emit("phone:paired", json!({ "id": device, "name": name }));
-        return Ok(json!({ "computer": computer_name() }));
+        return Ok(match agreed {
+            Some((public, _)) => json!({ "computer": computer_name(), "pub": b64url(&public) }),
+            None => json!({ "computer": computer_name() }),
+        });
     }
     if pairing {
         return Err("Finish pairing first".into());
@@ -718,8 +768,34 @@ mod tests {
         assert_eq!(env.kind, "hello");
         assert_eq!(env.body.get("name").and_then(|v| v.as_str()), Some("Test iPhone"));
         assert!((env.t - now_ms() as f64).abs() < MAX_SKEW_MS as f64, "the iPhone's clock field is off: {}", env.t);
-        let reply = json!({ "ok": true, "body": { "computer": "Test Mac" } });
+        // The key exchange, as answer() does it: the reply carries this side's public key, and
+        // paired.bin is sealed with the key both should now hold.
+        let theirs = key_from(env.body.get("pub").and_then(|v| v.as_str()).expect("the iPhone's hello carries its public key")).expect("32 bytes");
+        let (public, kept) = agree(x25519_dalek::StaticSecret::random_from_rng(OsRng), theirs, &key, "test").expect("a real public key");
+        let reply = json!({ "ok": true, "body": { "computer": "Test Mac", "pub": b64url(&public) } });
         std::fs::write(dir.join("reply.bin"), seal(&key, reply.to_string().as_bytes())).unwrap();
+        std::fs::write(dir.join("paired.bin"), seal(&kept, json!({ "ok": true, "body": { "computer": "Test Mac" } }).to_string().as_bytes())).unwrap();
+    }
+
+    #[test]
+    fn pairing_gives_both_sides_a_key_the_code_alone_cant_work_out() {
+        let code = [7u8; 32];
+        let phone = x25519_dalek::StaticSecret::random_from_rng(OsRng);
+        let phone_pub = x25519_dalek::PublicKey::from(&phone).to_bytes();
+        let (computer_pub, kept) = agree(x25519_dalek::StaticSecret::random_from_rng(OsRng), phone_pub, &code, "abc").unwrap();
+        // The phone's half.
+        let shared = phone.diffie_hellman(&x25519_dalek::PublicKey::from(computer_pub));
+        assert_eq!(pairing_key(shared.as_bytes(), &code, "abc"), kept);
+        assert_ne!(kept, code);
+        // Another code, another phone id or another pairing each give a different key.
+        assert_ne!(pairing_key(shared.as_bytes(), &[8u8; 32], "abc"), kept);
+        assert_ne!(pairing_key(shared.as_bytes(), &code, "abd"), kept);
+        assert_ne!(agree(x25519_dalek::StaticSecret::random_from_rng(OsRng), phone_pub, &code, "abc").unwrap().1, kept);
+        // A public key that would give every listener the same secret is refused.
+        assert!(agree(x25519_dalek::StaticSecret::random_from_rng(OsRng), [0u8; 32], &code, "abc").is_none());
+        // A fixed case, so this side and the phone's Swift can't drift apart together.
+        let fixed = pairing_key(&[1u8; 32], &[2u8; 32], "test");
+        assert_eq!(b64url(&fixed), "J8pHG4sZGDAV5zM_3G8-zR4VMraP8_CnZwlozAkmT8o");
     }
 
     /// The direct link end to end on a Mac: this side's peer-to-peer listener and Bonjour

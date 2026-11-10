@@ -183,15 +183,8 @@ enum PairingStore {
 // MARK: - The link to the computer
 
 enum Link {
-  static func b64url(_ data: Data) -> String {
-    data.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
-  }
-
-  static func fromB64url(_ text: String) -> Data? {
-    var s = text.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
-    while s.count % 4 != 0 { s += "=" }
-    return Data(base64Encoded: s)
-  }
+  static func b64url(_ data: Data) -> String { Wire.b64url(data) }
+  static func fromB64url(_ text: String) -> Data? { Wire.fromB64url(text) }
 
   /// The QR code's link: https://lactic.fit/pair#v=1&d=<device>&k=<key>&p=<port>&h=<host,host>&n=<name>
   static func parse(_ url: String) throws -> Pairing {
@@ -747,8 +740,21 @@ class LacticPhonePlugin: Plugin {
     Task {
       do {
         var pairing = try Link.parse(args.url)
-        let reply = try await Link.send(&pairing, kind: "hello", body: .object(["name": .string(UIDevice.current.name)]), timeout: 8)
-        if case .object(let o) = reply, case .string(let name) = o["computer"] ?? .null { pairing.computer = name }
+        // The code's key seals only this hello. With it goes a fresh public key; the computer
+        // answers with its own and both keep the key they work out (Wire.pairingKey). An older
+        // Lactic on the computer answers without one, and the code's key stays, as before.
+        let mine = Curve25519.KeyAgreement.PrivateKey()
+        let hello: JSONValue = .object(["name": .string(UIDevice.current.name), "pub": .string(Wire.b64url(mine.publicKey.rawRepresentation))])
+        let reply = try await Link.send(&pairing, kind: "hello", body: hello, timeout: 8)
+        if case .object(let o) = reply {
+          if case .string(let name) = o["computer"] ?? .null { pairing.computer = name }
+          if case .string(let theirs) = o["pub"] ?? .null {
+            guard let theirKey = Wire.fromB64url(theirs), let code = Wire.fromB64url(pairing.key) else {
+              throw LacticError("That code didn't work. Show a new one on the computer and scan again.")
+            }
+            pairing.key = Wire.b64url(try Wire.pairingKey(mine: mine, theirs: theirKey, code: code, deviceId: pairing.deviceId))
+          }
+        }
         PairingStore.save(pairing)
         invoke.resolve(PairedAnswer(computer: pairing.computer))
       } catch {
