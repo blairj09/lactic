@@ -21,3 +21,7 @@ Without `GITHUB_TOKEN` it answers 503 and the app offers "Open on GitHub instead
 ## Live demo in the hero
 
 The app window on the homepage is the real Lactic app, built from `app/` in demo mode (`npm run build:demo` there, run by this folder's `npm run build` on Vercel) into `site/demo/` (not committed). It runs in the browser with an in-memory database that `app/src/demo/setup.ts` fills on every visit: a profile, a 12-week plan, twelve weeks of rides, sleep and weight, and the simulated trainer and heart rate strap paired. The coach is scripted (`app/src/demo/coach.ts`): it explains itself and proposes a weekend swap through the coach's real tool. The static picture shows until the demo says it's ready, and stays if it never loads.
+
+## Link preview card
+
+`og-image.png` (1200×630) is the image shown when lactic.fit is shared in iMessage, Slack, X and so on. Its source is `docs/og-card.html`; to change it, edit that file, screenshot it at 1200×630 with Playwright, and save the result over `site/og-image.png`.
