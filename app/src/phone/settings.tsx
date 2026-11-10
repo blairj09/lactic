@@ -8,7 +8,7 @@ import { invoke, listen } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 import { connectHealth, syncPhoneHealth, WRITE_RIDES } from "./health";
 import { onLinkState, resetLink, syncWithComputer, type LinkState } from "./link";
-import { pair, phoneStatus, send, unpair, type PhoneStatus } from "./plugin";
+import { pair, phoneStatus, readable, send, unpair, type PhoneStatus } from "./plugin";
 
 interface Device {
   id: string;
@@ -78,7 +78,7 @@ export function PairPhone() {
     try {
       setOffer(await invoke<Offer>("phone_pair_start"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(readable(e).message);
     }
   }
 
@@ -195,14 +195,19 @@ export function PairWithComputer({ onPaired }: { onPaired?: (computer: string) =
     setBusy(true);
     setError(null);
     try {
-      const { computer } = await pair(url.trim());
+      // The first request on the network makes iOS ask to allow local network access, and fails
+      // while it asks: try once more after a moment.
+      const { computer } = await pair(url.trim()).catch(async () => {
+        await new Promise((r) => setTimeout(r, 2500));
+        return pair(url.trim());
+      });
       const brought = await bringDataToComputer(setSending);
       await resetLink();
       if (brought === "keep") await invoke("sync_keep", { tables: KEEP_TABLES });
       onPaired?.(computer);
       void syncWithComputer();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(readable(e).message);
     } finally {
       setBusy(false);
       setSending(null);
@@ -212,7 +217,7 @@ export function PairWithComputer({ onPaired }: { onPaired?: (computer: string) =
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={button.primary} disabled={busy} onClick={() => void scanPairingCode().then(finish, (e) => setError(e instanceof Error ? e.message : String(e)))}>
+        <button type="button" className={button.primary} disabled={busy} onClick={() => void scanPairingCode().then(finish, (e) => setError(readable(e).message))}>
           {sending !== null ? `Sending your data… ${Math.round(sending * 100)}%` : busy ? "Pairing…" : "Scan the code"}
         </button>
         <button type="button" className={button.secondary} disabled={busy} onClick={() => setPasting((p) => !p)}>

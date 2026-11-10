@@ -4,7 +4,22 @@
 import type { HealthWorkout } from "@/lib/engine/health-export";
 import { invoke } from "~/platform/native";
 
-const call = <T>(command: string, args?: Record<string, unknown>) => invoke<T>(`plugin:lactic-phone|${command}`, args);
+/** A rejection from Swift arrives as a plain value or an object with a message; make it an Error that reads. */
+export function readable(e: unknown): Error {
+  if (e instanceof Error) return e;
+  if (typeof e === "string") return new Error(e);
+  if (e && typeof e === "object" && "message" in e && typeof e.message === "string") return new Error(e.message);
+  try {
+    return new Error(JSON.stringify(e));
+  } catch {
+    return new Error(String(e));
+  }
+}
+
+const call = <T>(command: string, args?: Record<string, unknown>) =>
+  invoke<T>(`plugin:lactic-phone|${command}`, args).catch((e: unknown) => {
+    throw readable(e);
+  });
 
 export interface PhoneStatus {
   healthAvailable: boolean;
