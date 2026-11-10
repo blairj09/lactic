@@ -266,6 +266,9 @@ pub async fn listen(app: AppHandle) -> Result<u16, String> {
             let _ = axum::serve(direct, router).await;
         });
     }
+    // Away from each other, the iPhone leaves sync requests in Lactic's iCloud folder.
+    #[cfg(target_os = "macos")]
+    tauri::async_runtime::spawn(mailbox::watch(app.clone()));
     tauri::async_runtime::spawn(async move {
         let _ = axum::serve(listener, router).await;
         app.state::<Arc<Phone>>().listening.store(false, Ordering::SeqCst);
@@ -287,7 +290,7 @@ pub async fn start(app: AppHandle) {
 }
 
 #[derive(Deserialize)]
-struct Envelope {
+pub struct Envelope {
     /// Milliseconds since 1970. A float: the iPhone sends fractions of a millisecond.
     t: f64,
     kind: String,
@@ -467,6 +470,109 @@ pub async fn phone_respond(phone: State<'_, Arc<Phone>>, request_id: u64, result
     Ok(())
 }
 
+/// The iCloud fallback, for when the iPhone and the Mac can't reach each other (away from home,
+/// say). The iPhone writes a sealed sync request into Lactic's iCloud container, at
+/// `Documents/Link/<device>/to-computer/<name>.bin`; iCloud brings it to this Mac, which answers
+/// into `to-phone/<name>.bin`. Only `sync` goes this way: it's safe to run late or twice. iCloud
+/// only moves the sealed bytes, which only the two devices can open.
+pub mod mailbox {
+    use super::*;
+    use std::path::{Path, PathBuf};
+
+    /// Requests older than this are dropped unanswered: a newer one has replaced it by then.
+    pub const MAX_AGE_MS: i64 = 3 * 24 * 3600 * 1000;
+
+    /// Lactic's iCloud container as this Mac's iCloud Drive keeps it.
+    pub fn root() -> Option<PathBuf> {
+        let home = std::env::var_os("HOME")?;
+        Some(PathBuf::from(home).join("Library/Mobile Documents/iCloud~fit~lactic~app/Documents/Link"))
+    }
+
+    /// Answers every request waiting in `dir/to-computer` with `respond`, writing each answer to
+    /// `dir/to-phone` under the same name. Returns how many it answered.
+    pub async fn process<F, Fut>(dir: &Path, key: &[u8; 32], mut respond: F) -> usize
+    where
+        F: FnMut(Envelope) -> Fut,
+        Fut: std::future::Future<Output = Result<Value, String>>,
+    {
+        let inbox = dir.join("to-computer");
+        let outbox = dir.join("to-phone");
+        let Ok(entries) = std::fs::read_dir(&inbox) else { return 0 };
+        let mut names: Vec<String> = entries.filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        names.sort();
+        let mut answered = 0;
+        for name in names {
+            // Not downloaded yet (older iCloud Drive shows ".name.bin.icloud"): ask for it, next pass.
+            if name.starts_with('.') && name.ends_with(".icloud") {
+                #[cfg(target_os = "macos")]
+                {
+                    let _ = std::process::Command::new("brctl").arg("download").arg(inbox.join(&name)).output();
+                }
+                continue;
+            }
+            if !name.ends_with(".bin") {
+                continue;
+            }
+            let path = inbox.join(&name);
+            let Ok(sealed) = std::fs::read(&path) else { continue };
+            let env = open(key, &sealed).and_then(|plain| serde_json::from_slice::<Envelope>(&plain).ok());
+            let reply = match env {
+                Some(env) if env.kind == "sync" && (now_ms() as f64 - env.t) < MAX_AGE_MS as f64 => Some(match respond(env).await {
+                    Ok(v) => json!({ "ok": true, "body": v }),
+                    Err(e) => json!({ "ok": false, "error": e }),
+                }),
+                // Damaged, too old or not something to answer late: drop it.
+                _ => None,
+            };
+            if let Some(reply) = reply {
+                if std::fs::create_dir_all(&outbox).is_err() {
+                    continue;
+                }
+                let tmp = outbox.join(format!("{name}.part"));
+                if std::fs::write(&tmp, seal(key, reply.to_string().as_bytes())).is_err() || std::fs::rename(&tmp, outbox.join(&name)).is_err() {
+                    continue;
+                }
+                answered += 1;
+            }
+            let _ = std::fs::remove_file(&path);
+        }
+        // Answers the iPhone never collected (it gave up waiting and asked again).
+        if let Ok(entries) = std::fs::read_dir(&outbox) {
+            for e in entries.filter_map(|e| e.ok()) {
+                let old = e.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|age| age.as_millis() as i64 > MAX_AGE_MS);
+                if old {
+                    let _ = std::fs::remove_file(e.path());
+                }
+            }
+        }
+        answered
+    }
+
+    /// Looks for requests from each paired iPhone every 15 seconds while Lactic runs.
+    #[cfg(target_os = "macos")]
+    pub async fn watch(app: AppHandle) {
+        let phone = app.state::<Arc<Phone>>().inner().clone();
+        loop {
+            if let Some(root) = root().filter(|r| r.is_dir()) {
+                let devices: Vec<String> = phone.saved.lock().await.devices.iter().map(|d| d.id.clone()).collect();
+                for device in devices {
+                    let Some(key) = app.state::<Secrets>().get(&secret_name(&device)).and_then(|k| key_from(&k)) else { continue };
+                    let dir = root.join(&device);
+                    let n = process(&dir, &key, |env| {
+                        let (app, phone, device) = (app.clone(), phone.clone(), device.clone());
+                        async move { answer(&app, &phone, &device, false, &key, env).await }
+                    })
+                    .await;
+                    if n > 0 {
+                        eprintln!("phone: answered {n} request(s) through iCloud");
+                    }
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+        }
+    }
+}
+
 /// The direct link, AirDrop-style: the iPhone finds this Mac by Bonjour (`_lactic._tcp`) and connects
 /// over peer-to-peer Wi-Fi (AWDL) when the two aren't on the same network, or over the network when
 /// they are. Peer-to-peer Wi-Fi only carries IPv6 link-local traffic, and only to sockets that opt
@@ -614,6 +720,33 @@ mod tests {
             println!("{}", String::from_utf8_lossy(&out.stdout));
             assert!(out.status.success(), "the iPhone's direct link failed");
         });
+    }
+
+    #[test]
+    fn icloud_requests_get_answers_and_the_rest_are_dropped() {
+        let dir = std::env::temp_dir().join(format!("lactic-mailbox-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("to-computer")).unwrap();
+        let key = [7u8; 32];
+        let now = now_ms();
+        let put = |name: &str, kind: &str, t: i64| {
+            let env = json!({ "t": t, "kind": kind, "body": { "n": name } }).to_string();
+            std::fs::write(dir.join("to-computer").join(name), seal(&key, env.as_bytes())).unwrap();
+        };
+        put("1-sync.bin", "sync", now);
+        put("2-ride.bin", "ride", now); // not answered late
+        put("3-old.bin", "sync", now - mailbox::MAX_AGE_MS - 1);
+        std::fs::write(dir.join("to-computer/4-junk.bin"), b"not sealed").unwrap();
+        std::fs::write(dir.join("to-computer/5-other.bin"), seal(&[8u8; 32], b"{}")).unwrap();
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let answered = rt.block_on(mailbox::process(&dir, &key, |env| async move { Ok(json!({ "echo": env.body })) }));
+        assert_eq!(answered, 1);
+        assert_eq!(std::fs::read_dir(dir.join("to-computer")).unwrap().count(), 0, "every request is handled once");
+        let reply: Value = serde_json::from_slice(&open(&key, &std::fs::read(dir.join("to-phone/1-sync.bin")).unwrap()).unwrap()).unwrap();
+        assert_eq!(reply, json!({ "ok": true, "body": { "echo": { "n": "1-sync.bin" } } }));
+        assert_eq!(std::fs::read_dir(dir.join("to-phone")).unwrap().count(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

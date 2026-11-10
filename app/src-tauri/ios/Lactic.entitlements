@@ -9,5 +9,18 @@
   <array/>
   <key>com.apple.developer.healthkit.background-delivery</key>
   <true/>
+  <!-- iCloud Drive: the sync fallback when the iPhone can't reach the computer (Mailbox.swift). -->
+  <key>com.apple.developer.icloud-container-identifiers</key>
+  <array>
+    <string>iCloud.fit.lactic.app</string>
+  </array>
+  <key>com.apple.developer.icloud-services</key>
+  <array>
+    <string>CloudDocuments</string>
+  </array>
+  <key>com.apple.developer.ubiquity-container-identifiers</key>
+  <array>
+    <string>iCloud.fit.lactic.app</string>
+  </array>
 </dict>
 </plist>
