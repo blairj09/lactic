@@ -985,7 +985,9 @@ export default function RideScreen({
                       </>
                     ) : (
                       <p className="text-sm text-muted">
-                        {isDemo
+                        {isPhone()
+                          ? "On iPhone the ride screen is the overlay: iOS doesn't let apps float a window over other apps. Ride Zwift on your computer and keep this screen in view."
+                          : isDemo
                           ? "In the app, a small window with the interval, targets and what's next stays on top of whatever else you have open: Zwift, a video, a browser."
                           : "The overlay needs Chrome 116 or later on a desktop."}
                       </p>
