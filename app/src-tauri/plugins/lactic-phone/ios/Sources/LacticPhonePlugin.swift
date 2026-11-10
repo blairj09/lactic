@@ -208,38 +208,85 @@ enum Link {
     return Pairing(deviceId: d, key: k, hosts: hosts, port: p, computer: fields["n"] ?? "your computer", lastHost: nil, lastSentAt: nil)
   }
 
-  /// Seals `kind` + `body`, posts it to the first address that answers, and opens the reply.
+  /// The computer answered `{ok: false, error}`: it was reached, so the request ends there.
+  struct ComputerSaid: Error {
+    let message: String
+  }
+
+  /// Seals `kind` + `body`, sends it to the computer by the first way that works, and opens the reply.
   static func send(_ pairing: inout Pairing, kind: String, body: JSONValue, timeout: Double = 30) async throws -> JSONValue {
     guard let keyData = fromB64url(pairing.key) else { throw LacticError("The pairing key is damaged. Pair again.") }
     let key = SymmetricKey(data: keyData)
     let sealed = try Wire.request(kind: kind, body: body, key: key)
 
-    var hosts = pairing.hosts
-    if let last = pairing.lastHost, let i = hosts.firstIndex(of: last) {
-      hosts.remove(at: i)
-      hosts.insert(last, at: 0)
+    let computer = pairing.computer
+    /// The computer's answer, or a LacticError that ends the request (a wrong key, a refusal).
+    func answer(status: Int, data: Data) throws -> JSONValue {
+      if status == 401 { throw LacticError("\(computer) doesn't know this iPhone anymore. Pair again from Lactic's Settings on the computer.") }
+      guard status == 200 else { throw LacticError("\(computer) answered \(status)") }
+      let reply = try Wire.reply(data, key: key)
+      if case .bool(true) = reply["ok"] ?? .null { return reply["body"] ?? .null }
+      if case .string(let e) = reply["error"] ?? .null { throw ComputerSaid(message: e) }
+      throw ComputerSaid(message: "\(computer) couldn't do that")
     }
-    var lastError: Error = LacticError("Can't reach \(pairing.computer). Is Lactic open on it, on the same Wi-Fi?")
-    for host in hosts {
+    func overNetwork(_ host: String, timeout: Double) async throws -> JSONValue {
       let h = host.contains(":") ? "[\(host)]" : host
-      guard let url = URL(string: "http://\(h):\(pairing.port)/lactic/phone") else { continue }
+      guard let url = URL(string: "http://\(h):\(pairing.port)/lactic/phone") else { throw URLError(.badURL) }
       var req = URLRequest(url: url)
       req.httpMethod = "POST"
       req.httpBody = sealed
       req.timeoutInterval = timeout
       req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
       req.setValue(pairing.deviceId, forHTTPHeaderField: "X-Lactic-Device")
+      let (data, response) = try await URLSession.shared.data(for: req)
+      return try answer(status: (response as? HTTPURLResponse)?.statusCode ?? 0, data: data)
+    }
+    let headers = ["Content-Type": "application/octet-stream", "X-Lactic-Device": pairing.deviceId]
+
+    var lastError: Error = LacticError("Can't reach \(computer). Is Lactic open on it, nearby?")
+    // 1. Where it answered last time, quickly.
+    if let last = pairing.lastHost, last != Direct.tag, pairing.hosts.contains(last) {
       do {
-        let (data, response) = try await URLSession.shared.data(for: req)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if status == 401 { throw LacticError("\(pairing.computer) doesn't know this iPhone anymore. Pair again from Lactic's Settings on the computer.") }
-        guard status == 200 else { throw LacticError("\(pairing.computer) answered \(status)") }
-        let reply = try Wire.reply(data, key: key)
+        let v = try await overNetwork(last, timeout: min(timeout, 4))
+        pairing.lastSentAt = Date().timeIntervalSince1970 * 1000
+        return v
+      } catch let e as ComputerSaid { pairing.lastSentAt = Date().timeIntervalSince1970 * 1000; throw LacticError(e.message) }
+      catch let e as LacticError { throw e }
+      catch { lastError = error }
+    }
+    // 2. Directly, found by Bonjour: over the network when they share one, otherwise over
+    //    peer-to-peer Wi-Fi the way AirDrop works. A computer that doesn't know this iPhone (401)
+    //    is someone else's: try the next.
+    let found = await Direct.candidates(within: 2)
+    for endpoint in found {
+      do {
+        let (status, data) = try await Direct.post(to: endpoint, path: "/lactic/phone", body: sealed, headers: headers, timeout: timeout)
+        if status == 401 { lastError = LacticError("\(computer) doesn't know this iPhone anymore. Pair again from Lactic's Settings on the computer."); continue }
+        let v = try answer(status: status, data: data)
+        Direct.remember(endpoint)
+        pairing.lastHost = Direct.tag
+        pairing.lastSentAt = Date().timeIntervalSince1970 * 1000
+        return v
+      } catch let e as ComputerSaid {
+        Direct.remember(endpoint)
+        pairing.lastHost = Direct.tag
+        throw LacticError(e.message)
+      } catch let e as LacticError {
+        lastError = e
+      } catch {
+        continue  // Not reachable this way: the next, then the listed addresses.
+      }
+    }
+    // 3. Every address the pairing code listed.
+    for host in pairing.hosts where host != pairing.lastHost {
+      do {
+        let v = try await overNetwork(host, timeout: timeout)
         pairing.lastHost = host
         pairing.lastSentAt = Date().timeIntervalSince1970 * 1000
-        if case .bool(true) = reply["ok"] ?? .null { return reply["body"] ?? .null }
-        if case .string(let e) = reply["error"] ?? .null { throw LacticError(e) }
-        throw LacticError("\(pairing.computer) couldn't do that")
+        return v
+      } catch let e as ComputerSaid {
+        pairing.lastHost = host
+        throw LacticError(e.message)
       } catch let e as LacticError {
         throw e
       } catch {
@@ -252,7 +299,7 @@ enum Link {
       if let mine = wifiNetwork(), !pairing.hosts.contains(where: { mine.holds($0) }), pairing.hosts.contains(where: { ipv4($0) != nil }) {
         throw LacticError("This iPhone and \(pairing.computer) are on different networks: the iPhone is \(mine.address), the computer is \(tried). Join the iPhone to the same Wi-Fi as the computer (often two routers each make their own network), then try again.")
       }
-      throw LacticError("Can't reach \(pairing.computer) (tried \(tried), port \(pairing.port)). Check that Lactic is open on it, both are on the same Wi-Fi, and the computer's firewall lets Lactic accept connections.")
+      throw LacticError("Can't reach \(pairing.computer) (tried \(tried), port \(pairing.port), and nearby). Check that Lactic is open on it, Wi-Fi is on for both, and the computer's firewall lets Lactic accept connections.")
     }
     throw lastError
   }

@@ -55,15 +55,18 @@ jobs:
           # What tauri ios build sets from bundle.iOS.minimumSystemVersion.
           IPHONEOS_DEPLOYMENT_TARGET: "16.0"
 
-      - name: The iPhone and the computer speak the same wire format
+      - name: The iPhone and the computer speak the same wire format, directly too
         # The iPhone's own Swift (Sources/Wire.swift) seals a hello, the Mac's Rust opens and
         # answers it, and the Swift opens the answer. Catches a mismatch before it reaches a phone.
         run: |
           dir="$RUNNER_TEMP/wire" && mkdir -p "$dir"
-          swiftc plugins/lactic-phone/ios/Sources/Wire.swift plugins/lactic-phone/ios/WireCheck/main.swift -o "$dir/wire-check"
+          ios=plugins/lactic-phone/ios
+          swiftc $ios/Sources/Wire.swift $ios/Sources/Direct.swift $ios/WireCheck/main.swift -o "$dir/wire-check"
           "$dir/wire-check" request "$dir"
           LACTIC_SWIFT_WIRE="$dir" cargo test --locked --lib phone::tests::swift_wire -- --exact
           "$dir/wire-check" reply "$dir"
+          # The direct link end to end: the Mac's listener and Bonjour, the iPhone's Swift finding it.
+          LACTIC_SWIFT_WIRE="$dir" cargo test --locked --lib phone::tests::swift_direct -- --exact --nocapture
         working-directory: app/src-tauri
 
   testflight:

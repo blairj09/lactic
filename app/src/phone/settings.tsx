@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { renderSVG } from "uqr";
 import { button, Pill, Result } from "@/components/ui";
-import { invoke, listen } from "~/platform/native";
+import { invoke, listen, os } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 import { connectHealth, syncPhoneHealth, WRITE_RIDES } from "./health";
 import { onLinkState, resetLink, syncWithComputer, type LinkState } from "./link";
@@ -119,9 +119,9 @@ export function PairPhone() {
             <ol className="list-decimal space-y-1 pl-5">
               <li>Open Lactic on your iPhone.</li>
               <li>Tap <span className="font-medium">Pair with your computer</span> (or Settings → Your computer).</li>
-              <li>Scan this code. Your iPhone needs to be on the same Wi-Fi as this computer.</li>
+              <li>Scan this code. {os() === "macos" ? "Keep your iPhone near this Mac with Wi-Fi on; it doesn't need to be on the same network." : "Your iPhone needs to be on the same Wi-Fi as this computer."}</li>
             </ol>
-            <p className="text-muted">The code works for 10 minutes and only once. Everything between the two stays on your network, encrypted.</p>
+            <p className="text-muted">The code works for 10 minutes and only once. Everything between the two goes straight from one to the other, encrypted.</p>
             <p className="text-muted">
               Not connecting? In Safari on your iPhone, open{" "}
               {offer.hosts

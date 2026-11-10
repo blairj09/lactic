@@ -3,6 +3,8 @@
 //   ./wire-check request DIR    writes DIR/request.bin, a sealed hello as the iPhone sends it
 //   (phone.rs's swift_wire test opens it, then writes DIR/reply.bin as the computer answers)
 //   ./wire-check reply DIR      opens DIR/reply.bin as the iPhone does
+//   ./wire-check direct DIR     finds the test listener by Bonjour and sends a hello over the direct
+//                               link (Direct.swift), as phone.rs's swift_direct test sets up
 // The key is the test's fixed one: 32 bytes of 7.
 
 import CryptoKit
@@ -32,8 +34,33 @@ do {
       exit(1)
     }
     print("read reply from \(computer)")
+  case "direct":
+    let done = DispatchSemaphore(value: 0)
+    var failure: String?
+    Task {
+      do {
+        let found = await Direct.candidates(within: 10)
+        guard let endpoint = found.first else { throw LacticError("Bonjour found no \(Direct.service) service") }
+        let sealed = try Wire.request(kind: "hello", body: .object(["name": .string("Test iPhone")]), key: key)
+        let (status, data) = try await Direct.post(
+          to: endpoint, path: "/lactic/phone", body: sealed,
+          headers: ["Content-Type": "application/octet-stream", "X-Lactic-Device": "test"], timeout: 10)
+        guard status == 200 else { throw LacticError("answered \(status)") }
+        let reply = try Wire.reply(data, key: key)
+        guard case .bool(true) = reply["ok"] ?? .null else { throw LacticError("reply: \(reply)") }
+        print("direct link to \(endpoint) works")
+      } catch {
+        failure = "\(error)"
+      }
+      done.signal()
+    }
+    done.wait()
+    if let failure {
+      print("direct link failed: \(failure)")
+      exit(1)
+    }
   default:
-    print("usage: wire-check request|reply DIR")
+    print("usage: wire-check request|reply|direct DIR")
     exit(2)
   }
 } catch {

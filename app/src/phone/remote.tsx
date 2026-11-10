@@ -147,7 +147,7 @@ export function ComputerRide() {
         </button>
       </div>
       <div className="space-y-3 px-3 pb-6">
-        {lost && <Notice tone="warning">Can't reach {computer}. Check that Lactic is open there and both are on the same Wi-Fi.</Notice>}
+        {lost && <Notice tone="warning">Can't reach {computer}. Check that Lactic is open there and Wi-Fi is on for both.</Notice>}
         <PlayerView
           data={data}
           controls={{ ...controls, canPlay: ride.canPlay }}

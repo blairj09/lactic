@@ -16,7 +16,12 @@
     <true/>
   </dict>
   <key>NSLocalNetworkUsageDescription</key>
-  <string>Lactic syncs with Lactic on your computer over your Wi-Fi.</string>
+  <string>Lactic finds Lactic on your computer nearby and syncs with it over Wi-Fi.</string>
+  <!-- The direct link (Direct.swift): Lactic on a Mac nearby, over the network or peer-to-peer Wi-Fi. -->
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_lactic._tcp</string>
+  </array>
   <key>UIBackgroundModes</key>
   <array>
     <!-- Keeps the trainer and sensors connected when the screen locks mid-ride. -->
