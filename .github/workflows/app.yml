@@ -15,6 +15,10 @@ on:
         type: boolean
         default: false
 
+# Each job asks for more only where it needs it (the two that publish a release).
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -63,11 +67,15 @@ jobs:
         working-directory: app
       - name: Linux packages for Tauri
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev pkg-config
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
         with:
           workspaces: app/src-tauri
       - run: cargo check --locked
+        working-directory: app/src-tauri
+      - run: cargo test --locked --lib
         working-directory: app/src-tauri
 
   package:
@@ -110,11 +118,11 @@ jobs:
               app/src-tauri/target/release/bundle/deb/*.deb.sig
     runs-on: ${{ matrix.os }}
     env:
-      # Absent on pull requests from forks: those builds skip the update files.
-      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-      # "true" when the Developer ID certificate secret is set (the secret itself stays in the
-      # signing step).
+      # The signing secrets themselves are only handed to the steps that sign (after everything is
+      # compiled), so installing packages and building, which run code from every dependency,
+      # never see them. These just say whether each is set ("false" on pull requests from forks,
+      # whose builds skip the update files and fall back to the ad-hoc signature).
+      UPDATE_SIGNING: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
       MAC_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
       CHANNEL: ${{ needs.check.outputs.channel }}
       VERSION: ${{ needs.check.outputs.version }}
@@ -132,12 +140,30 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev pkg-config patchelf
       - run: npm ci
         working-directory: app
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           targets: ${{ matrix.rust-targets || '' }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
         with:
           workspaces: app/src-tauri
+      - name: Compile
+        # No signing secrets here: this step runs build scripts from every dependency.
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -n "${{ matrix.target }}" ]; then args+=(--target ${{ matrix.target }}); fi
+          if [ "$UPDATE_SIGNING" = true ]; then args+=(--config src-tauri/tauri.updater.conf.json); fi
+          if [ "$CHANNEL" = preview ]; then
+            # Lactic Preview: its own name, bundle id, icon and update feed, at this run's version.
+            printf '{"version":"%s"}' "$VERSION" > src-tauri/tauri.version.conf.json
+            args+=(--config src-tauri/tauri.preview.conf.json --config src-tauri/tauri.version.conf.json)
+          fi
+          # The same settings go to the bundle step below.
+          printf '%s\n' ${args[@]+"${args[@]}"} > "$RUNNER_TEMP/tauri-args"
+          npx tauri build --no-bundle ${args[@]+"${args[@]}"}
+        working-directory: app
       - name: Developer ID certificate and notarization key (Mac)
         # Puts the certificate in a throwaway keychain and hands Tauri its identity
         # (APPLE_SIGNING_IDENTITY overrides the ad-hoc "-" in tauri.conf.json). With the App Store
@@ -182,19 +208,18 @@ jobs:
           else
             echo "::warning::Signed but not notarized: set APPLE_API_KEY, APPLE_API_ISSUER and APPLE_API_KEY_P8 too, or the Mac still blocks the app on first open."
           fi
-      - name: Build
+      - name: Bundle and sign
+        # The compiled app becomes installers here, signed for updates (and, on a Mac, with the
+        # Developer ID from the step above, then notarized).
         shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          args=(--bundles ${{ matrix.bundles }})
-          if [ -n "${{ matrix.target }}" ]; then args+=(--target ${{ matrix.target }}); fi
-          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then args+=(--config src-tauri/tauri.updater.conf.json); fi
-          if [ "$CHANNEL" = preview ]; then
-            # Lactic Preview: its own name, bundle id, icon and update feed, at this run's version.
-            printf '{"version":"%s"}' "$VERSION" > src-tauri/tauri.version.conf.json
-            args+=(--config src-tauri/tauri.preview.conf.json --config src-tauri/tauri.version.conf.json)
-          fi
-          npx tauri build "${args[@]}"
+          args=()
+          while IFS= read -r line; do [ -n "$line" ] && args+=("$line"); done < "$RUNNER_TEMP/tauri-args"
+          npx tauri bundle --bundles ${{ matrix.bundles }} ${args[@]+"${args[@]}"}
         working-directory: app
       - name: Notarize the .dmg too (Mac)
         # Tauri notarizes the app inside; notarizing and stapling the disk image as well means
@@ -224,6 +249,9 @@ jobs:
     if: needs.check.outputs.channel == 'release'
     needs: [check, package]
     runs-on: ubuntu-latest
+    # Publishing goes through the "release" environment. With James as its required reviewer
+    # (repo Settings → Environments → release), nothing ships to riders until he approves the run.
+    environment: release
     permissions:
       contents: write
     steps:
@@ -269,7 +297,7 @@ jobs:
           } > release-body.md
         env:
           VERSION: ${{ steps.version.outputs.version }}
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         if: steps.version.outputs.skip != 'true'
         with:
           tag_name: ${{ steps.version.outputs.tag }}
