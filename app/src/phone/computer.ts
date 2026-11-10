@@ -5,6 +5,7 @@
 
 import { ingestHealth } from "~/integrations/apple-health";
 import { invoke, isDesktop, isPhone, listen } from "~/platform/native";
+import { applySharedPrefs } from "~/settings/shared-prefs";
 import { setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { remoteRide, runRemoteControl } from "~/ride/remote";
@@ -43,7 +44,16 @@ export function startPhoneBridge(): () => void {
         await invoke("phone_respond", { requestId: req.requestId, result: null, error: message });
       }
     }),
-    listen("phone:changed", () => revalidatePath("/")),
+    listen("phone:changed", () => {
+      // Units or a ride habit changed on the phone (settings/shared-prefs.ts).
+      void applySharedPrefs().catch(() => {});
+      revalidatePath("/");
+    }),
+    // A key typed on the phone arrived (secrets.rs): Settings shows it's saved.
+    listen("secrets:changed", () => {
+      revalidatePath("/");
+      window.dispatchEvent(new CustomEvent("lactic:settings", { detail: "secrets" }));
+    }),
     // A phone brought its data to this new computer: start over on it, set up and all.
     listen("phone:adopted", () => {
       location.hash = "#/";

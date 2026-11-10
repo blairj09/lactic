@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePipWindow as useWebPip, type OverlayFullScreen } from "@/app/ride/use-pip-window";
-import { invoke, isDesktop, listen, os } from "~/platform/native";
+import { invoke, isDesktop, isPhone, listen, os } from "~/platform/native";
 import { EV } from "./channel";
 import { isDemo } from "~/demo/flag";
 
@@ -74,4 +74,17 @@ function useDemoPip() {
 
 export type { OverlayFullScreen };
 
-export const usePipWindow = isDesktop ? useNativePip : isDemo ? useDemoPip : useWebPip;
+/** The iPhone app has no overlay: iOS doesn't let an app float a window over other apps. */
+function useNoPip() {
+  const close = useCallback(() => {}, []);
+  const open = useCallback(async () => null, []);
+  return { supported: false, pip: null as Window | null, open, close, needsClick: false, fullScreen: "floats" as OverlayFullScreen };
+}
+
+function useAppPip() {
+  // Which hook is fixed for the app's life: the OS is known before the first screen renders.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return isPhone() ? useNoPip() : useNativePip();
+}
+
+export const usePipWindow = isDesktop ? useAppPip : isDemo ? useDemoPip : useWebPip;
