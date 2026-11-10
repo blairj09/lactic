@@ -27,7 +27,7 @@ struct WidgetView: View {
   /// The snapshot, when it's for today.
   var today: Snapshot? { entry.current ? entry.snapshot : nil }
 
-  var waiting: String { entry.snapshot == nil ? "Open Lactic to set up recovery" : "Open Lactic to read last night" }
+  var waiting: String { entry.snapshot == nil ? Store.problem() : "Open Lactic to read last night" }
 
   // Home screen
 

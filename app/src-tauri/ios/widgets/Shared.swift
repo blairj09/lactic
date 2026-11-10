@@ -76,6 +76,22 @@ enum Store {
     return try? JSONDecoder().decode(Snapshot.self, from: data)
   }
 
+  /// Why there's no snapshot to show, in words for the widget.
+  static func problem() -> String {
+    guard let url else { return "The widget can't reach Lactic's shared data" }
+    guard let data = try? Data(contentsOf: url) else { return "Open Lactic to set up recovery" }
+    do {
+      _ = try JSONDecoder().decode(Snapshot.self, from: data)
+      return "Open Lactic to read last night"
+    } catch DecodingError.keyNotFound(let key, _) {
+      return "Lactic's data is missing \(key.stringValue)"
+    } catch DecodingError.typeMismatch(_, let c), DecodingError.valueNotFound(_, let c) {
+      return "Lactic's data has a bad \(c.codingPath.map(\.stringValue).joined(separator: "."))"
+    } catch {
+      return "Lactic's data couldn't be read"
+    }
+  }
+
   /// The day as the app writes it, YYYY-MM-DD in this iPhone's time zone.
   static func day(_ date: Date) -> String {
     let f = DateFormatter()
