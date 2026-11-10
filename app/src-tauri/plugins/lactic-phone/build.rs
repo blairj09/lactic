@@ -10,6 +10,8 @@ const COMMANDS: &[&str] = &[
     "pair",
     "unpair",
     "send",
+    "schedule_ride_end",
+    "cancel_ride_end",
     "register_listener",
     "remove_listener",
 ];

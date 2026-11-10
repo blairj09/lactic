@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - When your iPhone can't reach your computer, it now says why, including when the two are on different networks.
+- The ride overlay opens where you left it, at the size you left it, every ride and after restarting Lactic. If that screen isn't connected anymore, it opens on one that is.
 - Stretch the ride overlay short and wide and its end-of-workout choices fit on one row, with bigger Extend and End buttons.
 - The ride overlay's buttons work again in the desktop app: Extend and End at the end of a workout, and back, pause and skip in its controls, did nothing when pressed there.
 - Ask coach buttons (beside a sensor or intervals.icu problem) now start a new coach conversation instead of adding to the one you were in.
@@ -16,6 +17,7 @@ Write for riders: what they can now do or what works better, one short line each
 - New experiment: post rides to Strava. Turn on "Post rides to Strava" in Settings → Experimental features, connect Strava under Connections, and rides you record in Lactic show on Strava as Lactic activities, titled with the workout and described with how each interval went.
 - Lactic for iPhone (coming to TestFlight): pair it with Lactic on your Mac by scanning a code in Settings → iPhone, and the two stay in sync over your Wi-Fi, with your Mac keeping the main copy. It reads sleep, HRV and resting heart rate straight from Apple Health, so the Shortcut isn't needed, and saves your Lactic rides to Health as cycling workouts.
 - With Lactic's Ride page open on your Mac, your paired iPhone shows a bar to control the ride from your bars: start and pause, skip, intensity, ERG, extend and end.
+- Riding with your iPhone as the remote: when the workout reaches its end, your iPhone (and Apple Watch) gets a notification with buttons to extend the ride with your Extend pick or end it, right from the lock screen. Opening the app at the end shows all the Extend options.
 - Started on your iPhone? Pair a new Mac from its welcome screen (Bring it from your iPhone) and your plan, rides and settings move across. Pair with a Mac that already has Lactic and the rides from your iPhone join it.
 - Lactic on an iPhone without a computer can connect intervals.icu itself.
 - Dragging a workout onto another day on the Plan calendar now moves it (it did nothing in the Mac app).

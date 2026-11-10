@@ -2,6 +2,7 @@
 // pairing key in the iOS keychain, and the sealed link to the computer.
 
 import type { HealthWorkout } from "@/lib/engine/health-export";
+import type { EndAlert } from "@/lib/ride/end-alert";
 import { invoke } from "~/platform/native";
 
 /** A rejection from Swift arrives as a plain value or an object with a message; make it an Error that reads. */
@@ -42,6 +43,14 @@ export const pair = (url: string) => call<{ computer: string }>("pair", { url })
 export const unpair = () => call<void>("unpair");
 /** One sealed request to the computer; resolves with its answer. */
 export const send = <T>(kind: string, body: unknown, timeout?: number) => call<T>("send", { kind, body, timeout });
+
+/**
+ * Has the ride-end notification (with Extend and End buttons) waiting for `inSeconds` from now,
+ * replacing any earlier one. Asks for notification permission the first time.
+ */
+export const scheduleRideEnd = (alert: EndAlert & { computer: string; workoutName: string; duration: number }) => call<void>("schedule_ride_end", { ...alert });
+/** No ride end to tell about any more (paused, ended, closed): drops the waiting notification. */
+export const cancelRideEnd = () => call<void>("cancel_ride_end");
 
 /** Called when a background wake read new Health data. */
 export async function onHealthWake(cb: () => void): Promise<() => void> {
