@@ -526,7 +526,8 @@ mod tests {
              CREATE TABLE activities (id TEXT PRIMARY KEY, name TEXT, updated_at TEXT);
              CREATE TABLE activity_streams (activity_id TEXT PRIMARY KEY, watts TEXT, updated_at TEXT, FOREIGN KEY (activity_id) REFERENCES activities (id) ON DELETE CASCADE);
              CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT);
-             CREATE TABLE plan_days (user_id TEXT, day TEXT, kind TEXT, updated_at TEXT, PRIMARY KEY (user_id, day));",
+             CREATE TABLE plan_days (user_id TEXT, day TEXT, kind TEXT, updated_at TEXT, PRIMARY KEY (user_id, day));
+             CREATE TABLE recovery_days (user_id TEXT, day TEXT, hrv_ms REAL, resting_hr REAL, sleep_hours REAL, source TEXT, updated_at TEXT, PRIMARY KEY (user_id, day));",
         )
         .unwrap();
         prepare(&c).unwrap();
@@ -630,6 +631,32 @@ mod tests {
         phone.execute("DELETE FROM activities WHERE id = 'b'", []).unwrap();
         sync(&mut mac, &mut phone);
         assert_eq!(names(&mac), vec!["Mac name"]);
+    }
+
+    #[test]
+    fn apple_health_read_on_the_phone_reaches_the_computer() {
+        let mut mac = db();
+        let mut phone = db();
+        // Last night half-arrived on the computer earlier (resting HR only).
+        mac.execute("INSERT INTO recovery_days VALUES ('u', '2026-11-10', NULL, 52, NULL, 'shortcut', '2026-11-10T06:00:00.000Z')", []).unwrap();
+        sync(&mut mac, &mut phone);
+        // The phone reads Health: the whole night, plus its status for the computer's settings card.
+        phone
+            .execute_batch(
+                "INSERT INTO recovery_days VALUES ('u', '2026-11-10', 48, 51, 7.2, 'shortcut', '2026-11-10T08:00:00.000Z')
+                   ON CONFLICT (user_id, day) DO UPDATE SET hrv_ms = excluded.hrv_ms, resting_hr = excluded.resting_hr, sleep_hours = excluded.sleep_hours, updated_at = excluded.updated_at;
+                 INSERT INTO recovery_days VALUES ('u', '2026-11-09', 55, 50, 7.8, 'shortcut', '2026-11-10T08:00:00.000Z');
+                 INSERT INTO app_settings VALUES ('health.iphone', '{\"at\":\"2026-11-10T08:00:00.000Z\"}', '2026-11-10T08:00:00.000Z'),
+                                                 ('phone.health.imported', 'true', '2026-11-10T08:00:00.000Z');",
+            )
+            .unwrap();
+        sync(&mut mac, &mut phone);
+        let night: (f64, f64, f64) = mac.query_row("SELECT hrv_ms, resting_hr, sleep_hours FROM recovery_days WHERE day = '2026-11-10'", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+        assert_eq!(night, (48.0, 51.0, 7.2));
+        let nights: i64 = mac.query_row("SELECT COUNT(*) FROM recovery_days", [], |r| r.get(0)).unwrap();
+        assert_eq!(nights, 2);
+        let keys: Vec<String> = mac.prepare("SELECT key FROM app_settings").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+        assert_eq!(keys, vec!["health.iphone"]);
     }
 
     #[test]

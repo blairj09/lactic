@@ -1,8 +1,11 @@
-// Apple Health setup: where the iPhone drops its files, how to get it sending, and what came in.
+// Sleep and recovery setup. For Apple Health, Lactic on a paired iPhone is the way in: this shows
+// that connection and how it's doing. Without a paired iPhone, a Shortcut drops files into a
+// folder here instead: where, how to get it sending, and what came in.
 
 import { useEffect, useState } from "react";
 import { button, Pill, Result, Segmented } from "@/components/ui";
-import { healthFolder, importHealthFolder, setHealthFolder, SOURCE_SETTING } from "~/integrations/apple-health";
+import { healthFolder, importHealthFolder, IPHONE_SETTING, pairedPhone, setHealthFolder, SOURCE_SETTING, type IphoneHealth, type PairedPhone } from "~/integrations/apple-health";
+import { ago } from "~/phone/settings";
 import { isDesktop, openExternal, os } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 
@@ -24,12 +27,20 @@ export function HealthSetup({ heading = true }: { heading?: boolean }) {
   const [last, setLast] = useState<LastImport | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [phone, setPhone] = useState<PairedPhone | null>(null);
+  const [iphone, setIphone] = useState<IphoneHealth | null>(null);
 
   useEffect(() => {
-    void healthFolder()
-      .then(setFolder)
-      .catch(() => setFolder(null));
+    void getSetting<IphoneHealth | null>(IPHONE_SETTING, null).then(setIphone);
     void getSetting<LastImport | null>("health.lastImport", null).then(setLast);
+    void pairedPhone().then((p) => {
+      setPhone(p);
+      // With a paired iPhone there's no folder to set up (and none to create).
+      if (!p)
+        void healthFolder()
+          .then(setFolder)
+          .catch(() => setFolder(null));
+    });
   }, []);
 
   async function importNow() {
@@ -56,7 +67,7 @@ export function HealthSetup({ heading = true }: { heading?: boolean }) {
       : os() === "windows"
         ? "Install iCloud for Windows and turn on iCloud Drive, or choose another folder your iPhone syncs to (Dropbox, Google Drive)."
         : "Choose a folder your iPhone syncs to, such as Dropbox, Nextcloud or Syncthing.";
-  const receiving = Boolean(last && (last.nights > 0 || last.days > 0));
+  const receiving = Boolean(iphone || (last && (last.nights > 0 || last.days > 0)));
   const [source, setSource] = useState<Source>(() => (os() === "macos" ? "apple" : "watch"));
   useEffect(() => {
     if (receiving) setSource("apple");
@@ -105,6 +116,9 @@ export function HealthSetup({ heading = true }: { heading?: boolean }) {
         </>
       ) : !isDesktop ? (
         <p className="text-sm text-muted">Needs the Lactic desktop app.</p>
+      ) : phone ? (
+        // Phones from before health.iphone existed only left health.lastImport behind (synced too).
+        <PhoneSource phone={phone} iphone={iphone ?? (last && (last.nights > 0 || last.days > 0) ? { at: last.at, latest: last.latest, nights: last.nights, days: last.days } : null)} />
       ) : folder === null ? (
         <div className="space-y-2">
           <p className="text-sm text-muted">{noCloud}</p>
@@ -114,6 +128,7 @@ export function HealthSetup({ heading = true }: { heading?: boolean }) {
         </div>
       ) : (
         <>
+          <p className="text-sm text-muted">Have Lactic on your iPhone? Pair it in Settings → iPhone and it reads Apple Health directly, no Shortcut. Otherwise:</p>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
             <li>
               On your iPhone, build the free {link(SHORTCUT_GUIDE, "Lactic Shortcut")} (about 10 minutes, once), or install{" "}
@@ -135,6 +150,37 @@ export function HealthSetup({ heading = true }: { heading?: boolean }) {
           {result && <Result ok={result.ok}>{result.message}</Result>}
         </>
       )}
+    </div>
+  );
+}
+
+/** Apple Health through Lactic on the paired iPhone: connected and reading, or how to switch it on. */
+function PhoneSource({ phone, iphone }: { phone: PairedPhone; iphone: IphoneHealth | null }) {
+  if (!iphone) {
+    return (
+      <div className="space-y-2 text-sm text-muted">
+        <p>
+          <span className="text-ink">{phone.name}</span> is paired, so Apple Health comes straight from it. No Shortcut needed.
+        </p>
+        <ol className="list-decimal space-y-1 pl-5">
+          <li>On your iPhone, open Lactic → Settings → Apple Health.</li>
+          <li>Tap Connect Apple Health and allow sleep, HRV and resting heart rate.</li>
+        </ol>
+        <p>Your last 60 days come across on the next sync, then each new night on its own.</p>
+      </div>
+    );
+  }
+  const read = Date.parse(iphone.at);
+  return (
+    <div className="space-y-1 text-sm text-muted">
+      <p>
+        Sleep, HRV and resting heart rate come straight from Apple Health on <span className="text-ink">{phone.name}</span>. New nights arrive on their own; opening Lactic on the
+        iPhone brings them across sooner.
+      </p>
+      <p className="text-faint">
+        Health read {ago(read)}
+        {iphone.latest ? ` · Latest ${iphone.latest}` : ""} · Synced with this computer {ago(phone.lastSeen)}
+      </p>
     </div>
   );
 }
