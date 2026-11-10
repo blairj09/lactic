@@ -8,7 +8,7 @@ import { knownPrice, PROVIDERS, preset, type ProviderKind } from "~/ai/providers
 import { coachSetup, saveCoachSetup, SECRET_AI, type CoachMode, type CoachSetup, type ModelChoice } from "~/ai/settings";
 import { listModels, testModel, type ModelInfo } from "~/ai/test";
 import { invoke, isDesktop, openExternal } from "~/platform/native";
-import { deleteSecret, saveSecret, secretStatus } from "~/platform/secrets";
+import { deleteSecret, rebindSecret, saveSecret, secretStatus } from "~/platform/secrets";
 
 const MODES: { mode: CoachMode; title: string; line: string }[] = [
   { mode: "builtin", title: "Built-in coach", line: "Chat with a coach inside Lactic, on an AI model you pick. Use a cloud key, or run a free model on this computer." },
@@ -108,7 +108,7 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
 
   async function saveKey() {
     if (!key.trim() || !setup.provider) return;
-    await saveSecret(SECRET_AI, key);
+    await saveSecret(SECRET_AI, key, setup.provider.baseUrl);
     setKeySaved(await secretStatus(SECRET_AI));
     setKey("");
     await update({ ...setup, provider: { ...setup.provider, hasKey: true } });
@@ -161,7 +161,17 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
           <input
             className={`${input} w-full`}
             defaultValue={setup.provider?.baseUrl}
-            onBlur={(e) => setup.provider && void update({ ...setup, provider: { ...setup.provider, baseUrl: e.target.value.trim() } })}
+            onBlur={(e) => {
+              const input = e.target;
+              const baseUrl = input.value.trim();
+              const provider = setup.provider;
+              if (!provider || baseUrl === provider.baseUrl) return;
+              // With a key saved, the system asks before the key may go to the new address.
+              void (provider.hasKey ? rebindSecret(SECRET_AI, baseUrl) : Promise.resolve(true)).then((ok) => {
+                if (ok) void update({ ...setup, provider: { ...provider, baseUrl } });
+                else input.value = provider.baseUrl;
+              });
+            }}
           />
         </Field>
       )}

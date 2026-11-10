@@ -28,6 +28,16 @@ pub const SYNCED: &[&str] = &["ai", "intervals"];
 /// paired phone and computer can tell whose copy is newer. Not a valid key name, so no clash.
 const STAMPS: &str = "~at";
 
+/// Inside the bundle: the site the AI key was saved for, when it isn't one of the built-in
+/// providers (a custom provider), so net.rs only ever sends the key there. See `authorize`.
+const HOSTS: &str = "~host";
+/// The key names the web layer may save, and the ones it may delete or ask about. Everything
+/// else in the bundle (a phone's pairing key, bookkeeping) is Rust's alone.
+const WEB_SAVES: &[&str] = &["ai", "intervals"];
+const WEB_NAMES: &[&str] = &["ai", "intervals", "strava", "strava.refresh", "strava.expires"];
+/// The AI providers Lactic offers (src/ai/providers.ts): the AI key may always go to these.
+const AI_HOSTS: &[&str] = &["openrouter.ai", "api.openai.com", "api.anthropic.com", "generativelanguage.googleapis.com", "api.groq.com"];
+
 /// Keys saved one item each by v0.1.4 and earlier, moved into the bundle on first read.
 const LEGACY: &[&str] = &["ai", "intervals"];
 
@@ -174,9 +184,59 @@ impl Secrets {
         .unwrap_or_else(|| Err(REFUSED.into()))
     }
 
+    /// Saves the AI key together with the site it's for (None: one of the built-in providers).
+    pub fn set_for_host(&self, name: &str, value: &str, host: Option<&str>) -> Result<(), String> {
+        self.with_all(true, |all| {
+            all.insert(name.to_string(), value.to_string());
+            stamp(all, name, now_ms());
+            bind(all, name, Some(host.unwrap_or("")));
+            self.save(all)
+        })
+        .unwrap_or_else(|| Err(REFUSED.into()))
+    }
+
+    /// Whether the key `name` may be sent to `url`. Each key only ever goes to the service it
+    /// belongs to, whatever the web layer asks for, so a script that got into the window couldn't
+    /// post a key somewhere else:
+    ///   intervals → intervals.icu, strava → www.strava.com,
+    ///   ai → the built-in providers, a model on this computer or network, or the custom
+    ///        provider's site as it was when the key was saved.
+    /// Nothing else in the bundle (pairing keys, the Strava refresh token) goes out this way.
+    pub fn authorize(&self, name: &str, url: &str) -> Result<(), String> {
+        let parsed = reqwest::Url::parse(url).map_err(|_| "Not a web address".to_string())?;
+        let host = parsed.host_str().unwrap_or("").trim_end_matches('.').to_ascii_lowercase();
+        let local = is_local_host(&host);
+        if parsed.scheme() != "https" && !(parsed.scheme() == "http" && local) {
+            return Err(format!("The {name} key is only sent over https"));
+        }
+        let refused = || format!("The {name} key isn't sent to {host}. Save the key again in Settings if you changed where it's used.");
+        match name {
+            "intervals" => (host == "intervals.icu").then_some(()).ok_or_else(refused),
+            "strava" => (host == "www.strava.com").then_some(()).ok_or_else(refused),
+            "ai" => {
+                if local || AI_HOSTS.contains(&host.as_str()) {
+                    return Ok(());
+                }
+                self.with_all(false, |all| match bound(all, name) {
+                    Some(saved) if saved == host => Ok(()),
+                    Some(_) => Err(refused()),
+                    // A key saved before keys were tied to a site: the first site it's used with is it.
+                    None if all.contains_key(name) => {
+                        bind(all, name, Some(&host));
+                        self.save(all)
+                    }
+                    None => Err(refused()),
+                })
+                .unwrap_or_else(|| Err(REFUSED.into()))
+            }
+            _ => Err(format!("{name} isn't a key that requests can use")),
+        }
+    }
+
     pub fn delete(&self, name: &str) -> Result<(), String> {
         self.with_all(true, |all| {
             let had = all.remove(name).is_some();
+            bind(all, name, None);
             if SYNCED.contains(&name) {
                 // Remembered as deleted, so the paired device deletes its copy too.
                 stamp(all, name, now_ms());
@@ -218,7 +278,7 @@ impl Secrets {
             names
                 .iter()
                 .filter(|n| SYNCED.contains(&n.as_str()))
-                .map(|n| (n.clone(), KeyValue { at: stamp_of(all, n), value: all.get(n).cloned() }))
+                .map(|n| (n.clone(), KeyValue { at: stamp_of(all, n), value: all.get(n).cloned(), host: bound(all, n) }))
                 .collect()
         })
     }
@@ -243,6 +303,8 @@ impl Secrets {
                     Some(v) if !v.is_empty() => all.insert(name.clone(), v.clone()),
                     _ => all.remove(name),
                 };
+                // The site travels with the key (None from an older app: tied on first use here).
+                bind(all, name, kv.host.as_deref());
                 stamp(all, name, kv.at);
                 n += 1;
             }
@@ -275,6 +337,41 @@ fn stamp(all: &mut HashMap<String, String>, name: &str, at: i64) {
     all.insert(STAMPS.to_string(), serde_json::to_string(&s).unwrap_or_default());
 }
 
+fn hosts(all: &HashMap<String, String>) -> HashMap<String, String> {
+    all.get(HOSTS).and_then(|s| serde_json::from_str(s).ok()).unwrap_or_default()
+}
+
+/// The site `name` is tied to: Some("") for the built-in ones only, None when never recorded.
+fn bound(all: &HashMap<String, String>, name: &str) -> Option<String> {
+    hosts(all).get(name).cloned()
+}
+
+fn bind(all: &mut HashMap<String, String>, name: &str, host: Option<&str>) {
+    let mut h = hosts(all);
+    match host {
+        Some(host) => h.insert(name.to_string(), host.trim_end_matches('.').to_ascii_lowercase()),
+        None => h.remove(name),
+    };
+    if h.is_empty() {
+        all.remove(HOSTS);
+    } else {
+        all.insert(HOSTS.to_string(), serde_json::to_string(&h).unwrap_or_default());
+    }
+}
+
+/// This computer or something on the rider's own network (Ollama, LM Studio, a home server).
+fn is_local_host(host: &str) -> bool {
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    if host == "localhost" || host.ends_with(".localhost") || host.ends_with(".local") {
+        return true;
+    }
+    match host.parse::<std::net::IpAddr>() {
+        Ok(std::net::IpAddr::V4(ip)) => ip.is_loopback() || ip.is_private() || ip.is_link_local(),
+        Ok(std::net::IpAddr::V6(ip)) => ip.is_loopback() || (ip.segments()[0] & 0xfe00) == 0xfc00 || (ip.segments()[0] & 0xffc0) == 0xfe80,
+        Err(_) => false,
+    }
+}
+
 fn states_of(all: &HashMap<String, String>) -> HashMap<String, KeyState> {
     SYNCED.iter().map(|n| (n.to_string(), KeyState { at: stamp_of(all, n), set: all.contains_key(*n) })).collect()
 }
@@ -291,6 +388,9 @@ pub struct KeyState {
 pub struct KeyValue {
     pub at: i64,
     pub value: Option<String>,
+    /// The custom site the key is for, when it has one (see `Secrets::authorize`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub host: Option<String>,
 }
 
 /// The computer's side: which of its keys the phone should take, and which of the phone's it
@@ -310,26 +410,64 @@ pub fn plan(mine: &HashMap<String, KeyState>, theirs: &HashMap<String, KeyState>
     (give, want)
 }
 
-#[tauri::command]
-pub fn secret_set(secrets: State<Secrets>, name: String, value: String) -> Result<(), String> {
-    if name == STAMPS {
+/// Saves a key the rider typed. `host` is the site of a custom AI provider, so the key is only
+/// ever sent there (see `Secrets::authorize`).
+#[tauri::command(async)]
+pub fn secret_set(secrets: State<Secrets>, name: String, value: String, host: Option<String>) -> Result<(), String> {
+    if !WEB_SAVES.contains(&name.as_str()) {
         return Err("Not a key name".into());
+    }
+    if name == "ai" {
+        return secrets.set_for_host(&name, &value, host.as_deref().filter(|h| !h.is_empty() && !AI_HOSTS.contains(h)));
     }
     secrets.set(&name, &value)
 }
 
-#[tauri::command]
+/// The rider changed a custom AI provider's address while a key is saved: ask them, in a dialog
+/// of the system's own (which a script in the window can't answer), before the key goes there.
+/// Ok(false) when they say no.
+#[tauri::command(async)]
+pub fn secret_rebind(app: tauri::AppHandle, secrets: State<Secrets>, name: String, host: String) -> Result<bool, String> {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+    let host = host.trim_end_matches('.').to_ascii_lowercase();
+    if name != "ai" {
+        return Err("Not a key name".into());
+    }
+    let current = secrets.with_all(false, |all| all.contains_key("ai").then(|| bound(all, "ai"))).flatten();
+    let Some(current) = current else { return Ok(true) }; // No key saved: nothing to send anywhere.
+    if host.is_empty() || is_local_host(&host) || AI_HOSTS.contains(&host.as_str()) || current.as_deref() == Some(host.as_str()) {
+        return Ok(true);
+    }
+    let yes = app
+        .dialog()
+        .message(format!("Your AI key will be sent to {host} from now on. Only continue if that's the provider the key is for."))
+        .title("Use your AI key with a new address?")
+        .buttons(MessageDialogButtons::OkCancelCustom("Use it there".into(), "Cancel".into()))
+        .blocking_show();
+    if !yes {
+        return Ok(false);
+    }
+    secrets
+        .with_all(true, |all| {
+            bind(all, "ai", Some(&host));
+            secrets.save(all)
+        })
+        .unwrap_or_else(|| Err(REFUSED.into()))
+        .map(|_| true)
+}
+
+#[tauri::command(async)]
 pub fn secret_delete(secrets: State<Secrets>, name: String) -> Result<(), String> {
-    if name == STAMPS {
+    if !WEB_NAMES.contains(&name.as_str()) {
         return Err("Not a key name".into());
     }
     secrets.delete(&name)
 }
 
 /// Whether a key is saved, and its last four characters so Settings can show which one.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn secret_status(secrets: State<Secrets>, name: String) -> Option<String> {
-    if name == STAMPS {
+    if !WEB_NAMES.contains(&name.as_str()) {
         return None;
     }
     secrets.get(&name).map(|v| {
@@ -347,7 +485,7 @@ pub fn secret_status(secrets: State<Secrets>, name: String) -> Option<String> {
 const PHONE_ONLY: &str = "Only the iPhone app syncs keys this way";
 
 /// The phone: each synced key's stamp, to send with a "keys" request.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn secrets_offer(secrets: State<Secrets>) -> Result<HashMap<String, KeyState>, String> {
     if !cfg!(target_os = "ios") {
         return Err(PHONE_ONLY.into());
@@ -356,7 +494,7 @@ pub fn secrets_offer(secrets: State<Secrets>) -> Result<HashMap<String, KeyState
 }
 
 /// The phone: the keys the computer asked for.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn secrets_give(secrets: State<Secrets>, names: Vec<String>) -> Result<HashMap<String, KeyValue>, String> {
     if !cfg!(target_os = "ios") {
         return Err(PHONE_ONLY.into());
@@ -365,7 +503,7 @@ pub fn secrets_give(secrets: State<Secrets>, names: Vec<String>) -> Result<HashM
 }
 
 /// The phone: keys the computer sent. Returns how many changed here.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn secrets_take(secrets: State<Secrets>, take: HashMap<String, KeyValue>) -> Result<usize, String> {
     if !cfg!(target_os = "ios") {
         return Err(PHONE_ONLY.into());
@@ -383,6 +521,46 @@ mod tests {
 
     fn map(items: &[(&str, KeyState)]) -> HashMap<String, KeyState> {
         items.iter().map(|(n, s)| (n.to_string(), *s)).collect()
+    }
+
+    #[test]
+    fn each_key_only_goes_to_its_own_service() {
+        let dir = std::env::temp_dir().join(format!("lactic-secrets-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let s = Secrets::new(dir.clone());
+        // Stands in for the keychain: the bundle as it would be after saves.
+        let mut all = HashMap::new();
+        all.insert("ai".to_string(), "sk-1".to_string());
+        all.insert("phone:abc".to_string(), "k".to_string());
+        bind(&mut all, "ai", Some("models.example.org"));
+        *s.state.lock().unwrap() = Loaded::Yes(all);
+
+        assert!(s.authorize("intervals", "https://intervals.icu/api/v1/athlete/0").is_ok());
+        assert!(s.authorize("intervals", "https://intervals.icu.evil.test/").is_err());
+        assert!(s.authorize("intervals", "http://intervals.icu/").is_err());
+        assert!(s.authorize("strava", "https://www.strava.com/api/v3/uploads").is_ok());
+        assert!(s.authorize("strava", "https://example.org/").is_err());
+        assert!(s.authorize("ai", "https://openrouter.ai/api/v1/chat/completions").is_ok());
+        assert!(s.authorize("ai", "http://localhost:11434/v1/models").is_ok());
+        assert!(s.authorize("ai", "http://192.168.1.20:1234/v1/models").is_ok());
+        assert!(s.authorize("ai", "https://models.example.org/v1/models").is_ok());
+        assert!(s.authorize("ai", "https://evil.test/collect").is_err());
+        assert!(s.authorize("ai", "http://models.example.org/v1/models").is_err());
+        // Never through a request, whatever the address.
+        assert!(s.authorize("phone:abc", "https://intervals.icu/").is_err());
+        assert!(s.authorize("strava.refresh", "https://www.strava.com/").is_err());
+        assert!(s.authorize(HOSTS, "https://intervals.icu/").is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn local_hosts() {
+        for h in ["localhost", "127.0.0.1", "[::1]", "10.0.0.5", "mac-mini.local", "fd12::1"] {
+            assert!(is_local_host(h), "{h}");
+        }
+        for h in ["example.org", "8.8.8.8", "localhost.evil.test", "2001:db8::1"] {
+            assert!(!is_local_host(h), "{h}");
+        }
     }
 
     #[test]
