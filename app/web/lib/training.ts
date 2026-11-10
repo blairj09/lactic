@@ -231,7 +231,7 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     early,
     // Riders who don't track recovery get none, even if some sleep data arrived (intervals.icu wellness), so neither
     // Today's options nor the coach go by a score they never see.
-    features().recovery ? loadRecovery(supabase, today, athlete.sleepNeedHours, daytime).catch((e) => (console.error(e), null)) : null,
+    features().recovery ? loadRecovery(supabase, today, athlete.sleepNeedHours, daytime, athlete.timezone).catch((e) => (console.error(e), null)) : null,
     daytime,
     loadPlanDays(supabase, addDays(today, -LEVEL_WINDOW_DAYS), addDays(today, AHEAD_DAYS)),
     loadPicks(supabase, today),
