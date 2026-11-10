@@ -280,7 +280,8 @@ pub async fn start(app: AppHandle) {
 
 #[derive(Deserialize)]
 struct Envelope {
-    t: i64,
+    /// Milliseconds since 1970. A float: the iPhone sends fractions of a millisecond.
+    t: f64,
     kind: String,
     #[serde(default)]
     body: Value,
@@ -297,7 +298,7 @@ async fn handle(AxState(app): AxState<AppHandle>, headers: HeaderMap, sealed: By
     let Some(key) = key else { return (StatusCode::UNAUTHORIZED, Vec::new()).into_response() };
     let Some(plain) = open(&key, &sealed) else { return (StatusCode::UNAUTHORIZED, Vec::new()).into_response() };
     let Ok(env) = serde_json::from_slice::<Envelope>(&plain) else { return (StatusCode::BAD_REQUEST, Vec::new()).into_response() };
-    if (env.t - now_ms()).abs() > MAX_SKEW_MS {
+    if (env.t - now_ms() as f64).abs() > MAX_SKEW_MS as f64 {
         return (StatusCode::UNAUTHORIZED, Vec::new()).into_response();
     }
     let answer = match answer(&app, &phone, &device, offered.is_some(), &key, env).await {
@@ -461,6 +462,15 @@ pub async fn phone_respond(phone: State<'_, Arc<Phone>>, request_id: u64, result
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_iphone_envelope_parses_with_a_fractional_time() {
+        // Swift's Date gives fractions of a millisecond; this once answered 400 and blocked pairing.
+        let env: Envelope = serde_json::from_str(r#"{"t":1762758840123.456,"kind":"hello","body":{"name":"iPhone"}}"#).unwrap();
+        assert_eq!(env.kind, "hello");
+        let env: Envelope = serde_json::from_str(r#"{"t":1762758840123,"kind":"sync"}"#).unwrap();
+        assert!(env.body.is_null());
+    }
 
     #[test]
     fn sealed_messages_open_only_with_their_key() {

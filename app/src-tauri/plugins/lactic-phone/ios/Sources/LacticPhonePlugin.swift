@@ -214,7 +214,7 @@ enum Link {
   static func send(_ pairing: inout Pairing, kind: String, body: JSONValue, timeout: Double = 30) async throws -> JSONValue {
     guard let keyData = fromB64url(pairing.key) else { throw LacticError("The pairing key is damaged. Pair again.") }
     let key = SymmetricKey(data: keyData)
-    let envelope: [String: JSONValue] = ["t": .number(Date().timeIntervalSince1970 * 1000), "kind": .string(kind), "body": body]
+    let envelope: [String: JSONValue] = ["t": .number((Date().timeIntervalSince1970 * 1000).rounded()), "kind": .string(kind), "body": body]
     let plain = try JSONEncoder().encode(envelope)
     guard let sealed = try AES.GCM.seal(plain, using: key).combined else { throw LacticError("Couldn't seal the request") }
 
