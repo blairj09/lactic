@@ -427,7 +427,8 @@ function checkSegments(z: unknown): SegmentImpedance | undefined {
   return Object.fromEntries(SEGMENT_KEYS.map((k) => [k, record[k]])) as unknown as SegmentImpedance;
 }
 
-const SCALE_SOURCES = ["body_pod", "ble_scale", "mi_scale", "qn_scale", "etekcity"];
+// "manual" is a weight typed in for the weekly weigh-in.
+const SCALE_SOURCES = ["body_pod", "ble_scale", "mi_scale", "qn_scale", "etekcity", "manual"];
 
 /**
  * A weigh-in from a smart scale: stores it with body composition and makes it the current weight.

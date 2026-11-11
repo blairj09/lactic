@@ -4,6 +4,7 @@ import WorkoutProfile from "@/components/workout-profile";
 import { Dash, Panel, PageHeader, Stat } from "@/components/ui";
 import type { StoredRide, StoredStream } from "@/lib/activities";
 import { weighInOn, type BodyMeasurement } from "@/lib/body-data";
+import { weighInDue } from "@/lib/engine/weigh-in-due";
 import { localDate } from "@/lib/engine/activity";
 import { ageOn } from "@/lib/engine/body";
 import type { FtpEstimate } from "@/lib/engine/ftp";
@@ -105,6 +106,7 @@ export default function TodayView({
           day={today}
           recovery={{ in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource }}
           weighIn={todaysWeighIn ? { weightKg: todaysWeighIn.weightKg, bodyFatPercent: todaysWeighIn.bodyFatPercent } : null}
+          weighInDue={body ? weighInDue({ today, timeZone: athlete.timezone, weighIns: body.map((m) => m.measuredAt), rides: rides.map((r) => r.startedAt) }) : undefined}
           profile={
             athlete.heightCm !== null && athlete.sex !== null && athlete.birthDate !== null
               ? { male: athlete.sex === "male", heightCm: athlete.heightCm, age: ageOn(athlete.birthDate, today) }

@@ -15,7 +15,7 @@ const OPTIONS: { key: Feature; title: string; line: string; needs: string }[] = 
   {
     key: "weight",
     title: "Weight",
-    line: "A morning weigh-in, your weight trend and body fat.",
+    line: "A weekly weigh-in, your weight trend and body fat.",
     needs: "From a smart scale, or synced from another app.",
   },
 ];

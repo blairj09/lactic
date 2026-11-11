@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Panel, Result, button } from "@/components/ui";
+import { Panel, Result, button, input } from "@/components/ui";
 import { canReconnectSilently, DEVICES_CHANGED, isPickerCancel, remembered } from "@/lib/ble/devices";
 import { isWebBluetoothAvailable } from "@/lib/ble/sensor-hub";
 import type { StoredMessage } from "@/lib/coach/store";
@@ -18,7 +18,9 @@ import { Prose } from "./coach/prose";
 import { ProposalCard } from "./coach/proposal-card";
 import { STAGE_TEXT } from "./health/weigh-in";
 import { FeelStep, TodayOptions, type CheckinAnswers } from "./checkin";
-import { formatWeight } from "@/lib/units";
+import { formatWeight, weightToKg, weightUnit } from "@/lib/units";
+import { weekStart } from "@/lib/engine/plan";
+import type { WeighInDue } from "@/lib/engine/weigh-in-due";
 import { useFeatures } from "@/lib/use-features";
 import { useUnits } from "@/lib/use-units";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
@@ -29,6 +31,8 @@ export interface MorningProps {
   recovery: { in: boolean; line: string | null; healthLinked?: boolean; source?: RecoverySourceInfo | null };
   /** Today's latest weigh-in. */
   weighIn: { weightKg: number; bodyFatPercent: number | null } | null;
+  /** The weekly weigh-in nudge: due before the week's first ride when there's none from the last week. */
+  weighInDue?: WeighInDue;
   /** For the scale's body composition; null until height, sex and birth date are in Settings. */
   profile: ScaleProfile | null;
   /** Today's brief, and whether it needs writing (again). Null when the coach is off. */
@@ -54,7 +58,7 @@ export interface TodayChoice {
 
 type Weigh = { phase: "idle" } | { phase: "running"; update: WeighInUpdate | null } | { phase: "saved"; kg: number } | { phase: "failed"; message: string };
 
-type Skips = { recovery?: boolean; weigh?: boolean };
+type Skips = { recovery?: boolean };
 
 /**
  * The start of the day on Today: last night's recovery, weigh in on the scale (once one is paired), say how you feel, and the coach's brief on today with its pick among today's options and
@@ -63,7 +67,7 @@ type Skips = { recovery?: boolean; weigh?: boolean };
  * skipped, so it's written once from the full picture; how you feel rewrites it when it lands.
  * Riding never waits on any of it.
  */
-export default function Morning({ day, recovery, weighIn: weighed, profile, brief, today, lastNight, stacked = false, title = "Morning" }: MorningProps) {
+export default function Morning({ day, recovery, weighIn: weighed, weighInDue = { due: false }, profile, brief, today, lastNight, stacked = false, title = "Morning" }: MorningProps) {
   const router = useRouter();
   // Bluetooth and remembered devices are only known in the browser.
   const units = useUnits();
@@ -71,12 +75,16 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
   const tracking = useFeatures();
   const [device, setDevice] = useState<{ bluetooth: boolean; scale: boolean; silent: boolean } | null>(null);
   const [skips, setSkips] = useState<Skips>({});
+  // "Not this week" hides the weigh-in until next Monday.
+  const [weighSkipped, setWeighSkipped] = useState(false);
+  const [typing, setTyping] = useState(false);
   const [weigh, setWeigh] = useState<Weigh>({ phase: "idle" });
   const autoStarted = useRef({ weigh: false });
 
   useEffect(() => {
     setDevice({ bluetooth: isWebBluetoothAvailable(), scale: Boolean(remembered("scale")), silent: canReconnectSilently() });
     setSkips(readSkips(day));
+    setWeighSkipped(readWeighSkip() === weekStart(day));
   }, [day]);
 
   // Pairing a scale in Settings or on Health brings the weigh-in step back.
@@ -85,6 +93,11 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
     window.addEventListener(DEVICES_CHANGED, refresh);
     return () => window.removeEventListener(DEVICES_CHANGED, refresh);
   }, []);
+
+  const skipWeighThisWeek = () => {
+    setWeighSkipped(true);
+    writeWeighSkip(weekStart(day));
+  };
 
   const skip = (...steps: (keyof Skips)[]) => {
     const next = { ...skips };
@@ -96,15 +109,15 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
   const recoveryDone = recovery.in;
   // A step is settled once it's done, skipped, or can't happen. Recovery waits for Apple Health once
   // the shortcut is set up; without it there's nothing to wait for. Without Bluetooth (the phone) the
-  // weigh-in can still arrive from the Mac, so it waits for that or a skip.
+  // weigh-in never holds up the brief: it's a weekly nudge, and weight barely moves day to day.
   const fromHealth = Boolean(recovery.healthLinked);
   const recoveryReady = !tracking.recovery || recoveryDone || skips.recovery || !fromHealth;
   const weighDone = Boolean(weighed) || weigh.phase === "saved";
-  // Weighing in is a step once a scale is paired (in Settings or on Health), or when today's weight is already in.
-  const showWeigh = tracking.weight && (weighDone || Boolean(device?.scale));
-  const weighReady = !showWeigh || weighDone || skips.weigh || (device !== null && device.bluetooth && !profile);
-  const waitingOn = [!recoveryReady && ("recovery" as const), !weighReady && ("weigh" as const)].filter((s) => s !== false);
-  const pending = waitingOn.map((s) => (s === "weigh" ? "weigh-in" : s)).join(" and ");
+  // Weighing in is a step only when the weekly one is due (or was just done here), and not put off this week.
+  const justWeighed = weigh.phase === "saved";
+  const showWeigh = tracking.weight && device !== null && (justWeighed || (weighInDue.due && !weighed && !weighSkipped));
+  const waitingOn = [!recoveryReady && ("recovery" as const)].filter((s) => s !== false);
+  const pending = waitingOn.join(" and ");
 
   const startWeigh = useCallback(
     async (choose = false) => {
@@ -136,11 +149,11 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
 
   // The scale starts listening on its own, if it reconnects without a click.
   useEffect(() => {
-    if (!showWeigh || !device || autoStarted.current.weigh || weighDone || skips.weigh || !profile) return;
+    if (!showWeigh || !device || autoStarted.current.weigh || weighDone || !profile) return;
     if (!device.bluetooth || !device.scale || !device.silent || weigh.phase !== "idle") return;
     autoStarted.current.weigh = true;
     void startWeigh();
-  }, [showWeigh, device, weighDone, skips.weigh, profile, weigh.phase, startWeigh]);
+  }, [showWeigh, device, weighDone, profile, weigh.phase, startWeigh]);
 
 
   const weighedKg = weighed?.weightKg ?? (weigh.phase === "saved" ? weigh.kg : null);
@@ -195,45 +208,42 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
         )}
 
         {showWeigh && (
-        <Step n={weighStep} title="Weigh in" state={weighDone ? "done" : weighReady ? (skips.weigh ? "skipped" : "settled") : "active"}>
+        <Step n={weighStep} title="Weekly weigh-in" state={weighDone ? "done" : "active"}>
           {weighDone ? (
             <p>
-              <span className="num text-ink">{formatWeight(weighedKg!, units)}</span>
-              {weighed?.bodyFatPercent != null && <span className="num"> · {weighed.bodyFatPercent.toFixed(1)}% fat</span>}
-            </p>
-          ) : device === null ? null : skips.weigh ? (
-            <p>Skipped for today.</p>
-          ) : !device.bluetooth ? (
-            <p>Weigh in on your smart scale from the Lactic app.</p>
-          ) : !profile ? (
-            <p>
-              Add height, birth date and sex in{" "}
-              <Link href="/settings" className="text-ink underline underline-offset-4">
-                Settings
-              </Link>{" "}
-              to weigh in.
+              <span className="num text-ink">{formatWeight(weighedKg!, units)}</span> saved. Next one in a week.
             </p>
           ) : weigh.phase === "running" ? (
             <div aria-live="polite">
               {weigh.update?.liveKg != null && <p className="num text-2xl font-medium tracking-tight text-ink">{formatWeight(weigh.update.liveKg, units)}</p>}
               <p>{STAGE_TEXT[weigh.update?.stage ?? "waking"]}</p>
             </div>
-          ) : weigh.phase === "failed" ? (
-            <Result ok={false}>{weigh.message}</Result>
+          ) : typing ? (
+            <TypedWeight
+              onSaved={(kg) => {
+                setTyping(false);
+                setWeigh({ phase: "saved", kg });
+                router.refresh();
+              }}
+              onCancel={() => setTyping(false)}
+            />
           ) : (
-            <p>Tap or step on the scale to wake it, then step on.</p>
+            <>
+              <p>{dueLine(weighInDue)}</p>
+              {weigh.phase === "failed" && <Result ok={false}>{weigh.message}</Result>}
+            </>
           )}
-          {!weighDone && device?.bluetooth && profile && !skips.weigh && weigh.phase !== "running" && (
+          {!weighDone && weigh.phase !== "running" && !typing && (
             <Actions>
-              <button className={button.smallPrimary} onClick={() => startWeigh()}>
-                Weigh in
+              {device.bluetooth && device.scale && profile && (
+                <button className={button.smallPrimary} onClick={() => startWeigh()}>
+                  Weigh in
+                </button>
+              )}
+              <button className={device.bluetooth && device.scale && profile ? button.small : button.smallPrimary} onClick={() => setTyping(true)}>
+                Type it in
               </button>
-              <SkipButton onClick={() => skip("weigh")} />
-            </Actions>
-          )}
-          {!weighReady && (weigh.phase === "running" || (device && !device.bluetooth)) && (
-            <Actions>
-              <SkipButton onClick={() => skip("weigh")} />
+              <SkipButton onClick={skipWeighThisWeek} label="Not this week" />
             </Actions>
           )}
         </Step>
@@ -305,7 +315,7 @@ const LAST_NIGHT_COLUMNS: Record<number, string> = { 1: "", 2: "lg:grid-cols-[3f
 const Actions = ({ children }: { children: React.ReactNode }) => <div className="flex flex-wrap items-center gap-3 pt-1">{children}</div>;
 
 const SkipButton = ({ onClick, label = "Skip today" }: { onClick: () => void; label?: string }) => (
-  <button className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline" onClick={onClick}>
+  <button type="button" className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline" onClick={onClick}>
     {label}
   </button>
 );
@@ -450,6 +460,61 @@ function TodayOptionsFor({ today, pick, className }: { today: TodayChoice; pick:
 
 // Skipped steps are remembered in this browser for the day.
 const SKIPS = "morning.skips";
+const WEIGH_SKIP = "morning.weighSkip";
+
+/** The Monday of the week the weekly weigh-in was put off, if any. */
+function readWeighSkip(): string | null {
+  try {
+    return localStorage.getItem(WEIGH_SKIP);
+  } catch {
+    return null;
+  }
+}
+
+function writeWeighSkip(monday: string) {
+  try {
+    localStorage.setItem(WEIGH_SKIP, monday);
+  } catch {}
+}
+
+function dueLine(due: WeighInDue) {
+  const ago = due.due && due.daysSince !== null ? `Your last weigh-in was ${due.daysSince} days ago. ` : "";
+  return `${ago}Weigh in before your first ride this week so watts per kilo stays right.`;
+}
+
+/** A weight typed in, saved as a weigh-in like the scale's. */
+function TypedWeight({ onSaved, onCancel }: { onSaved: (kg: number) => void; onCancel: () => void }) {
+  const units = useUnits();
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const kg = weightToKg(Number(value), units);
+    if (!(kg >= 20 && kg <= 300)) return setError("Enter your weight.");
+    setSaving(true);
+    const saved = await saveWeighIn({ measuredAt: new Date().toISOString(), weightKg: kg, impedance: {}, source: "manual" });
+    setSaving(false);
+    if (saved.ok) onSaved(kg);
+    else setError(saved.message);
+  };
+  return (
+    <form onSubmit={save} className="space-y-2">
+      <label className="flex items-center gap-2">
+        <span className="sr-only">Weight</span>
+        <input className={`${input} w-24`} inputMode="decimal" autoFocus value={value} onChange={(e) => setValue(e.target.value)} aria-label={`Weight in ${weightUnit(units)}`} />
+        <span>{weightUnit(units)}</span>
+      </label>
+      {error && <Result ok={false}>{error}</Result>}
+      <Actions>
+        <button className={button.smallPrimary} disabled={saving}>
+          Save
+        </button>
+        <SkipButton onClick={onCancel} label="Cancel" />
+      </Actions>
+    </form>
+  );
+}
 
 function readSkips(day: string): Skips {
   try {
