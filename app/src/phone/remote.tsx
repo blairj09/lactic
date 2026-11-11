@@ -15,6 +15,7 @@ import { Notice, button } from "@/components/ui";
 import { isRiding } from "@/lib/live-ride";
 import { endAlert, endAlertKey } from "@/lib/ride/end-alert";
 import { sendableArgs, type ControlMessage, type ControlName, type OverlayPayload } from "~/ride/channel";
+import { useKeepAwake } from "~/platform/keep-awake";
 import { cancelRideEnd, phoneStatus, scheduleRideEnd, send } from "./plugin";
 
 interface Reply {
@@ -179,6 +180,8 @@ export function ComputerRide() {
   const data = ride?.data;
   const status = !data ? "" : data.ended ? "Ended" : data.running ? formatTime(data.position) : data.autoPaused ? "Paused" : data.elapsed > 0 ? "Paused" : "Ready";
   useEffect(() => setAway(ride && computer && data ? { computer, workout: data.workout.name, status } : null), [ride, computer, data, status]);
+  // The remote's open (or the Ride tab's showing the computer's ride): the screen stays on until the ride ends.
+  useKeepAwake(!!data && !data.ended && (open || onRideTab));
 
   if (!ride || !computer || !data) return null;
 
