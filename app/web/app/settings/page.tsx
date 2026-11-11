@@ -128,8 +128,8 @@ export default async function SettingsPage() {
                 </div>
               </Section>
               <Section
-                title="Import FIT files"
-                description=".fit or .fit.gz files, from Documents/Zwift/Activities or the Karoo dashboard. Duplicates are skipped."
+                title="Import ride files"
+                description="FIT, GPX or TCX files (or .gz of them), from Documents/Zwift/Activities or the Karoo dashboard. Duplicates are skipped."
               >
                 <div className="sm:col-span-2">
                   <FitImport />

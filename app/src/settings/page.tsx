@@ -170,7 +170,7 @@ export default async function SettingsPage() {
               )}
             </>
           )}
-          <Section title="Import FIT files" description="From Zwift (Documents/Zwift/Activities), Garmin Connect or your bike computer, or a whole .zip such as Strava's or Garmin's archive of your account. Duplicates are skipped.">
+          <Section title="Import ride files" description="FIT, GPX or TCX files from Zwift (Documents/Zwift/Activities), Garmin Connect or your bike computer, or a whole .zip such as Strava's or Garmin's archive of your account. Duplicates are skipped.">
             <div className="sm:col-span-2">
               <FitImport />
             </div>

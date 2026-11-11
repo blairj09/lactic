@@ -86,7 +86,7 @@ const sessionLine = (s: Session, showLevel: boolean) => `${formatTime(s.duration
 
 /**
  * What to ride: the day's planned session, a workout (from the engine's library or My workouts,
- * where a .zwo file can be imported), or a free ride at one ERG target. Picking loads it into the
+ * where a .zwo, .erg or .mrc file can be imported), or a free ride at one ERG target. Picking loads it into the
  * player and the workout editor. Shown only before a ride starts.
  */
 export default function RideNow({
@@ -123,7 +123,7 @@ export default function RideNow({
   /** Favorite keys (`library:<id>`, `custom:<id>`). */
   favorites: ReadonlySet<string>;
   canSave: boolean;
-  /** A .zwo file is being saved into My workouts. */
+  /** A workout file is being saved into My workouts. */
   importing: boolean;
   onSource: (source: RideSource) => void;
   onLibrary: (choice: LibraryChoice) => void;
@@ -133,7 +133,7 @@ export default function RideNow({
   /** Starts a new workout from a blank warmup and cooldown. */
   onNew: () => void;
   onDelete: (saved: CustomWorkout) => void;
-  /** Imports a .zwo file into My workouts and loads it. */
+  /** Imports a workout file (.zwo, .erg or .mrc) into My workouts and loads it. */
   onFile: (file: File) => void;
 }) {
   const mode: Mode = source === "planned" ? "planned" : source === "erg" ? "erg" : "pick";
@@ -395,7 +395,7 @@ function MyWorkouts({
             <ul className="divide-y divide-rule border-y border-rule">{saved.map((s) => savedRow(s, true))}</ul>
           ) : (
             <p className="text-sm text-muted">
-              {canSave ? "Nothing saved yet. Build one, import a .zwo file, or save any workout from the editor." : "Build one in the editor, or import a .zwo file."}
+              {canSave ? "Nothing saved yet. Build one, import a workout file (.zwo, .erg or .mrc), or save any workout from the editor." : "Build one in the editor, or import a workout file (.zwo, .erg or .mrc)."}
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2">
@@ -403,10 +403,10 @@ function MyWorkouts({
               New workout
             </button>
             <label className={`${button.secondary} cursor-pointer focus-within:outline-2 focus-within:outline-ink ${importing ? "pointer-events-none opacity-50" : ""}`}>
-              {importing ? "Importing..." : "Import .zwo"}
+              {importing ? "Importing..." : "Import workout file"}
               <input
                 type="file"
-                accept=".zwo"
+                accept=".zwo,.erg,.mrc"
                 className="sr-only"
                 disabled={importing}
                 onChange={(e) => {

@@ -7,7 +7,7 @@ import { POWER_SOURCE_PREF, SensorHub, isWebBluetoothAvailable, type PowerSource
 import { rampTestFtp, twentyMinuteTestFtp } from "@/lib/engine/ftp";
 import { isRampTest, type Levels, type Session } from "@/lib/engine/library";
 import { intervalAt, intervals, scaleWorkout, targetWattsAt, workoutDuration, type Workout } from "@/lib/engine/workout";
-import { parseZwo } from "@/lib/engine/zwo";
+import { workoutFromFile } from "@/lib/engine/erg";
 import { AutoPause, easeIn } from "@/lib/ride/auto-pause";
 import { AutoStart } from "@/lib/ride/auto-start";
 import { BLOCKS, DEFAULT_BLOCK, EXTEND_KINDS, clampMinutes, defaultExtendWatts, extendWorkout, extensionMinutes, type ExtendKind, type Extension } from "@/lib/ride/extend";
@@ -578,11 +578,11 @@ export default function RideScreen({
     } else setError(result.message);
   };
 
-  /** Imports a .zwo file into My workouts (signed in) and loads it. */
+  /** Imports a .zwo, .erg or .mrc file into My workouts (signed in) and loads it. */
   const importZwo = async (picked: File) => {
     let workout: Workout;
     try {
-      workout = parseZwo(await picked.text());
+      workout = workoutFromFile(await picked.text(), picked.name, ftp);
     } catch (e) {
       setError(`Couldn't read that workout: ${String(e)}`);
       return;
