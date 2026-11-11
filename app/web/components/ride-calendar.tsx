@@ -17,11 +17,10 @@ import {
   type RideFilters,
   type RideSetting,
 } from "@/lib/engine/ride-calendar";
-import { formatDuration, SOURCE_LABEL } from "@/lib/format";
+import { formatDuration, sourceLabel } from "@/lib/format";
 import Select from "@/components/select";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const sourceLabel = (s: string) => SOURCE_LABEL[s] ?? s;
 const monthName = (month: string) => new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`));
 const dayLabel = (date: string) => new Intl.DateTimeFormat("en-US", { weekday: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
 const zoneColor = (zone: Zone | null) => (zone ? `var(--zone-${zoneStep(zone)})` : "var(--zone-free)");

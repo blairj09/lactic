@@ -97,13 +97,12 @@ export default function HealthView({
           <>
         <section className="space-y-3">
           <SectionTitle meta={night ? "This morning" : "No night recorded yet"}>Today</SectionTitle>
-          <StatStrip cols={3} phone={2}>
+          <StatStrip cols={3} phone={1}>
             <RecoveryStat recovery={recovery} />
             <ExertionStat exertion={exertion} hasWatch={hasWatch} />
             <Stat
               label="Sleep score"
               href={metricHref("sleep-score")}
-              className="col-span-2 sm:col-span-1"
               value={sleep.score ? sleep.score.score : <Dash />}
               unit={sleep.score ? "/ 100" : undefined}
               sub={
@@ -282,12 +281,11 @@ export default function HealthView({
 
 function RecoveryStat({ recovery }: { recovery: RecoveryToday }) {
   const { today, score, baselineDays } = recovery;
-  if (score) return <Stat lead href={metricHref("recovery")} className="col-span-2 sm:col-span-1" label="Recovery" value={score.score} unit={recoveryWord(score.score)} sub={score.reasons.slice(0, 2).join(". ")} />;
+  if (score) return <Stat lead href={metricHref("recovery")} label="Recovery" value={score.score} unit={recoveryWord(score.score)} sub={score.reasons.slice(0, 2).join(". ")} />;
   return (
     <Stat
       lead
       href={metricHref("recovery")}
-      className="col-span-2 sm:col-span-1"
       label="Recovery"
       value={<Dash />}
       sub={today ? `Score after ${MINIMUM_BASELINE_DAYS} nights (${baselineDays} so far)` : "Waiting for last night"}

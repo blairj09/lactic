@@ -11,8 +11,10 @@ import { defaultWeek, saveWeek, WeekForm } from "~/setup/week";
 import { GearSetup } from "~/setup/gear";
 import { RidesSetup } from "~/setup/rides";
 import { CoachSetupPanel } from "~/setup/coach";
+import { keepCoachChoice } from "~/ai/settings";
 import { revalidatePath } from "~/shims/next-cache";
 import { startTour } from "~/tour/store";
+import { FIRST_STOP } from "~/tour/steps";
 import { FeatureChoice } from "~/setup/features";
 import { saveFeatures } from "~/settings/features";
 import { FEATURES_SETTING, parseFeatures, type Features } from "@/lib/features";
@@ -183,7 +185,7 @@ export default function Onboarding() {
     if (!tour) await setSetting("tour.done", true);
     revalidatePath("/");
     navigate("/", { replace: true });
-    if (tour) startTour();
+    if (tour) startTour(FIRST_STOP);
   }
 
   if (at === "done") return <Done onFinish={(tour) => void finish(tour)} />;
@@ -244,7 +246,7 @@ export default function Onboarding() {
       );
     case "coach":
       return (
-        <Frame step={index} tracking={tracking} footer={footer(continueButton(next, "Finish"), false)}>
+        <Frame step={index} tracking={tracking} footer={footer(continueButton(() => void save(() => keepCoachChoice().then(() => ({ ok: true, message: "" }))), "Finish"), false)}>
           <CoachSetupPanel />
           {error && <Result ok={false}>{error}</Result>}
         </Frame>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterRides, monthWeeks, NO_FILTERS, rideSetting, rideTotals, rideType, shiftMonth, zoneFromIntensity, type CalendarRide } from "./ride-calendar";
+import { filterRides, monthWeeks, NO_FILTERS, rideSetting, rideTotals, rideType, shiftMonth, zoneFromIntensity, zoneFromName, type CalendarRide } from "./ride-calendar";
 
 const ride = (over: Partial<CalendarRide>): CalendarRide => ({
   id: "a",
@@ -41,6 +41,19 @@ describe("rideType", () => {
     expect(zoneFromIntensity(0.9)).toBe("sweetSpot");
     expect(zoneFromIntensity(1.1)).toBe("vo2max");
     expect(rideType(null, null)).toBeNull();
+  });
+  it("reads the workout from the ride's name before its intensity", () => {
+    // A sweet spot ride whose whole-ride intensity reads as threshold against an older, lower FTP.
+    expect(rideType(null, 0.95, "Sweet spot 3 × 12")).toEqual({ zone: "sweetSpot", estimated: true });
+    expect(rideType("tempo", 0.95, "Sweet spot 3 × 12")).toEqual({ zone: "tempo", estimated: false });
+    expect(rideType(null, 0.95, "Evening ride")).toEqual({ zone: "threshold", estimated: true });
+    expect(zoneFromName("SST (Long)")).toBe("sweetSpot");
+    expect(zoneFromName("Threshold 2 × 20")).toBe("threshold");
+    expect(zoneFromName("VO2 max 5 × 4")).toBe("vo2max");
+    // Names that point two ways, or nowhere, leave it to intensity.
+    expect(zoneFromName("Endurance with tempo bursts")).toBeNull();
+    expect(zoneFromName("Zwift ride")).toBeNull();
+    expect(zoneFromName(null)).toBeNull();
   });
 });
 

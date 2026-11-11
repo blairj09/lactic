@@ -15,7 +15,7 @@ export interface AnalysisData {
   rides: RangeRide[];
   days: { date: string; fitness: number; fatigue: number; form: number }[];
   ftp: number | null;
-  /** For W/kg in the power profile. */
+  /** The profile weight. The Progress page swaps in the latest weigh-in, so W/kg matches VO2 max. */
   weightKg: number | null;
   sex: "male" | "female" | null;
   /** Rides with power but no histogram: imported before histograms were kept. */

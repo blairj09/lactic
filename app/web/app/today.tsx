@@ -17,10 +17,7 @@ import { markDays } from "@/lib/engine/compliance";
 import { dayRides } from "@/lib/engine/ride-detail";
 import CompletedRide from "./completed-ride";
 import { exertionTodayFor, todayOptions } from "@/lib/today-options";
-import UseEstimateButton from "./use-estimate-button";
 import FtpBanner from "./ftp-banner";
-import ProvenanceTag from "@/components/provenance";
-import { fromRides } from "@/lib/engine/provenance";
 import { checkFtp } from "@/lib/engine/ftp-check";
 import { ChosenSession, SessionLine } from "./checkin";
 import RideSurvey from "./ride-survey";
@@ -128,7 +125,7 @@ export default function TodayView({
           />
           {/* Once today's ride is in, the card beside this is the last ride. */}
           {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} />}
-          <FtpNudge ftp={athlete.ftp} estimate={estimate} windowDays={ftpWindowDays} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} today={today} />
+          <FtpNudge ftp={athlete.ftp} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} />
         </section>
       </div>
     </>
@@ -335,42 +332,25 @@ function nightValues(today: NonNullable<RecoveryToday["today"]>) {
   ].filter(Boolean);
 }
 
-/** FTP lives in Settings; Today only speaks up when there's none, or a recent estimate differs from it. */
-function FtpNudge({ ftp, estimate, windowDays, hasPowerRides, today }: { ftp: number | null; estimate: FtpEstimate | null; windowDays: number; hasPowerRides: boolean; today: string }) {
-  if (!ftp) {
-    return (
-      <Stat
-        className="col-span-2 lg:col-span-1"
-        label="FTP"
-        value={<Dash />}
-        sub={
-          <>
-            {hasPowerRides ? "Rides need an FTP to count toward fitness. " : ""}
-            <Link href="/settings#profile" className="text-ink underline underline-offset-4">
-              Set your FTP
-            </Link>
-          </>
-        }
-      />
-    );
-  }
-  // A higher estimate is the banner above (ftp-banner.tsx); a lower one is only a note here.
-  if (!estimate || Math.round(estimate.watts) >= ftp) return null;
+/**
+ * FTP lives in Settings; this tile only speaks up when there's none. A higher estimate is the banner above
+ * (ftp-banner.tsx). A lower one isn't offered: everyday rides rarely hold a full 20-minute effort, so a
+ * lower estimate usually means no hard effort lately, not lost fitness. The overdue-test banner covers that.
+ */
+function FtpNudge({ ftp, hasPowerRides }: { ftp: number | null; hasPowerRides: boolean }) {
+  if (ftp) return null;
   return (
     <Stat
       className="col-span-2 lg:col-span-1"
-      label="New FTP estimate"
-      value={Math.round(estimate.watts)}
-      unit="W"
-      source={<ProvenanceTag source={fromRides(today)} today={today} />}
+      label="FTP"
+      value={<Dash />}
       sub={
-        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span>
-            {estimate.method === "twentyMinute" ? "95% of your best 20 min" : "Critical power"}, last {windowDays} days. Now{" "}
-            <span className="num whitespace-nowrap text-ink">{ftp} W</span>.
-          </span>
-          <UseEstimateButton estimate={estimate} />
-        </span>
+        <>
+          {hasPowerRides ? "Rides need an FTP to count toward fitness. " : ""}
+          <Link href="/settings#profile" className="text-ink underline underline-offset-4">
+            Set your FTP
+          </Link>
+        </>
       }
     />
   );

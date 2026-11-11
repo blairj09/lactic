@@ -10,6 +10,7 @@ let step: number | null = null;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 
+/** Starts at the intro card; pass FIRST_STOP when the rider just asked for the tour, so it doesn't ask again. */
 export function startTour(at = 0) {
   if (step !== null) return;
   step = at;

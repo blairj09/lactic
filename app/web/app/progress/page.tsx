@@ -32,13 +32,17 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
     loadTrainingState(supabase).catch((e) => (console.error(e), null)),
   ]);
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
-  const fitness = await loadFitness(supabase, athlete, rides).catch((e) => (console.error(e), null));
+  // One weight for the page: the latest weigh-in of the last 90 days, else the profile weight. W/kg in the power
+  // profile and VO2 max both use it.
+  const measurements = await loadBodyMeasurements(supabase, new Date(Date.now() - 90 * 86_400_000)).catch((e) => (console.error(e), []));
+  const weightKg = measurements.at(-1)?.weightKg ?? athlete.weightKg;
+  const fitness = await loadFitness(supabase, athlete, rides, weightKg).catch((e) => (console.error(e), null));
   return (
     <>
       <Nav current="/progress" />
       <Page>
         <ProgressView
-          data={data}
+          data={{ ...data, weightKg }}
           initial={{ from: one(params.from), to: one(params.to), compare: one(params.compare) }}
           tabs={<ProgressTabs tab="trends" />}
           fitness={fitness && <FitnessPanel fitness={fitness} today={localDate(new Date(), athlete.timezone)} />}
@@ -81,21 +85,18 @@ async function RidesTab({ supabase }: { supabase: Awaited<ReturnType<typeof crea
 }
 
 /** VO2 max and fitness age now: best 5 minutes of the last 90 days at your latest weight, or Apple Watch's Cardio Fitness. */
-async function loadFitness(supabase: Awaited<ReturnType<typeof createClient>>, athlete: Athlete, rides: Awaited<ReturnType<typeof loadRides>>) {
+async function loadFitness(supabase: Awaited<ReturnType<typeof createClient>>, athlete: Athlete, rides: Awaited<ReturnType<typeof loadRides>>, weightKg: number | null) {
   const today = localDate(new Date(), athlete.timezone);
   const since = Date.now() - FITNESS_DAYS * 86_400_000;
   const curves = rides.flatMap((r) => (!r.duplicateOf && r.powerCurve && r.startedAt.getTime() >= since ? [r.powerCurve] : []));
-  const [measurements, apple] = await Promise.all([
-    loadBodyMeasurements(supabase, new Date(Date.now() - 90 * 86_400_000)),
-    supabase.from("health_days").select("day, vo2max").not("vo2max", "is", null).lte("day", today).order("day", { ascending: false }).limit(1),
-  ]);
+  const apple = await supabase.from("health_days").select("day, vo2max").not("vo2max", "is", null).lte("day", today).order("day", { ascending: false }).limit(1);
   if (apple.error) console.error(apple.error);
   const latestApple = apple.data?.[0];
   return fitnessSummary({
     athlete,
     today,
     bestFiveMinuteWatts: curves.length ? (mergeCurves(...curves)[300] ?? null) : null,
-    weightKg: measurements.at(-1)?.weightKg ?? athlete.weightKg,
+    weightKg,
     appleVo2max: latestApple ? { day: latestApple.day, value: Number(latestApple.vo2max) } : null,
   });
 }
