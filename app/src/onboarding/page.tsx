@@ -73,7 +73,7 @@ function FromPhoneButton() {
         Bring it from your iPhone
       </button>
       {open && (
-        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 px-2 py-4 sm:px-6 sm:py-16" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
+        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 px-2 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-16 sm:pb-16" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
           <div role="dialog" aria-modal="true" aria-labelledby="from-phone-title" className="relative w-full max-w-lg space-y-4 rounded-xl border border-line bg-ground p-5 text-left text-sm text-ink shadow-2xl sm:p-6">
             <h2 id="from-phone-title" className="text-lg font-semibold">
               Bring your data from your iPhone

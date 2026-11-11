@@ -48,7 +48,7 @@ function RestoreDialog({ fresh, onClose }: { fresh: boolean; onClose: () => void
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 px-2 py-4 sm:px-6 sm:py-16" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
+    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 px-2 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-16 sm:pb-16" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="restore-title" className="relative w-full max-w-lg space-y-4 rounded-xl border border-line bg-ground p-5 text-left text-sm text-ink shadow-2xl outline-none sm:p-6">
         <h2 id="restore-title" className="text-lg font-semibold">
           {fresh ? "Bring your data from another computer" : "Restore from a backup?"}
