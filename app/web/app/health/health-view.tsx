@@ -1,21 +1,21 @@
 import Link from "next/link";
 import Nav from "@/components/nav";
-import { Hypnogram, StageBars } from "@/components/sleep-charts";
+import { StageBars } from "@/components/sleep-charts";
 import TrendChart from "@/components/trend-chart";
 import type { Athlete } from "@/lib/activities";
 import { weighInOn, type BodyMeasurement } from "@/lib/body-data";
 import ProvenanceTag from "@/components/provenance";
-import { nightProvenance, weightProvenance } from "@/lib/engine/provenance";
+import { weightProvenance } from "@/lib/engine/provenance";
 import { localDate } from "@/lib/engine/activity";
 import { ageOn, bodyTrend } from "@/lib/engine/body";
 import { addDays } from "@/lib/engine/pmc";
-import { MIN_EXERTION_BASELINE_DAYS } from "@/lib/engine/exertion";
-import { MINIMUM_BASELINE_DAYS, MINIMUM_TEMP_BASELINE_DAYS, recoveryWord, type RecoveryNormals, type RecoveryTrendDay } from "@/lib/engine/recovery";
+import { type RecoveryNormals, type RecoveryTrendDay } from "@/lib/engine/recovery";
 import { formatDay, signedFixed } from "@/lib/format";
 import type { HealthSummary } from "@/lib/health-summary";
 import type { RecoveryToday, SleepDetail, SleepNightRow, StageNight } from "@/lib/recovery-data";
 import { Dash, Notice, Page, PageHeader, Panel, SectionTitle, Stat, StatStrip } from "@/components/ui";
 import WeighIn from "./weigh-in";
+import LastNight from "../last-night";
 import { ALL_FEATURES, type Features } from "@/lib/features";
 import { metricHref } from "./metrics";
 import { ExertionPanel, hoursMinutes, LinkPanel, WeighInTable } from "./parts";
@@ -55,13 +55,11 @@ export default function HealthView({
   const trendDays = Array.from({ length: TREND_DAYS }, (_, i) => addDays(today, i - (TREND_DAYS - 1)));
   const byDay = new Map(trend.days.map((d) => [d.day, d]));
   const series = (pick: (d: RecoveryTrendDay) => number | null) => trendDays.map((day) => (byDay.has(day) ? pick(byDay.get(day)!) : null));
-  const night = byDay.get(today) ?? null;
   const nights = trend.days.filter((d) => d.hrv !== null || d.restingHeartRate !== null).length;
   const { normals } = trend;
   // Wrist temperature and breathing rate show only once some has arrived.
   const wristTemp = trend.days.some((d) => d.wristTempDeltaC !== null);
   const breathing = trend.days.some((d) => d.respiratoryRate !== null);
-  const statCount = (3 + Number(wristTemp) + Number(breathing)) as 3 | 4 | 5;
   const { exertion, sleep } = summary;
   const fromMap = (map: Map<string, number>) => trendDays.map((day) => map.get(day) ?? null);
 
@@ -70,11 +68,9 @@ export default function HealthView({
   const latest = recent[0];
   const weightChange = bodyTrend(measurementsOldestFirst, new Date());
 
-  const nightSource = recovery.today ? <ProvenanceTag source={nightProvenance(recovery.source, today)} today={today} /> : undefined;
   const weightSource = latest ? <ProvenanceTag source={weightProvenance(latest.source, localDate(latest.measuredAt, tz))} today={today} /> : undefined;
 
   const hrvKind = recovery.today?.hrvKind === "sdnn" ? "SDNN" : "RMSSD";
-  const segments = recovery.sleep?.segments ?? [];
 
   return (
     <>
@@ -95,74 +91,32 @@ export default function HealthView({
 
         {tracking.recovery && (
           <>
+        {/* Last night's one home: Today shows a summary that links here. */}
         <section className="space-y-3">
-          <SectionTitle meta={night ? "This morning" : "No night recorded yet"}>Today</SectionTitle>
-          <StatStrip cols={3} phone={1}>
-            <RecoveryStat recovery={recovery} />
-            <ExertionStat exertion={exertion} hasWatch={hasWatch} />
-            <Stat
-              label="Sleep score"
-              href={metricHref("sleep-score")}
-              value={sleep.score ? sleep.score.score : <Dash />}
-              unit={sleep.score ? "/ 100" : undefined}
-              sub={
-                sleep.debtHours !== null
-                  ? `${sleep.debtHours > 0 ? `${hoursMinutes(sleep.debtHours)} sleep debt` : "No sleep debt"} · need ${hoursMinutes(sleep.needTonight)} tonight`
-                  : "Waiting for last night"
-              }
+          {recovery.today ? (
+            <LastNight
+              recovery={recovery}
+              source={null}
+              timeZone={tz}
+              exertionUsual={exertion.normal?.mean ?? null}
+              hrefs={{
+                recovery: metricHref("recovery"),
+                hrv: metricHref("hrv"),
+                restingHeartRate: metricHref("resting-hr"),
+                sleepHours: metricHref("sleep"),
+                respiratoryRate: metricHref("breathing"),
+                wristTemp: metricHref("wrist-temp"),
+                exertion: metricHref("exertion"),
+              }}
             />
-          </StatStrip>
+          ) : (
+            <Panel title="Last night">
+              <p className="text-sm text-muted">No night recorded yet.</p>
+            </Panel>
+          )}
+          {recovery.sleep && <SleepLine sleep={recovery.sleep} timeZone={tz} />}
           {!hasWatch && (
             <Notice>Exertion counts rides only. Send daytime heart rate from Apple Health to count the whole day.</Notice>
-          )}
-        </section>
-
-        <section className="space-y-3">
-          <SectionTitle meta={night?.sleepHours != null && sleep.score ? <SleepParts score={sleep.score} spread={sleep.spreadMinutes} /> : undefined}>Last night</SectionTitle>
-          <StatStrip cols={statCount} phone={2}>
-            <Stat
-              label="HRV"
-              href={metricHref("hrv")}
-              source={night?.hrv != null ? nightSource : undefined}
-              value={night?.hrv != null ? Math.round(night.hrv) : <Dash />}
-              unit={night?.hrv != null ? "ms" : undefined}
-              sub={normals.hrv !== null ? `Normal ${Math.round(normals.hrv)} ms` : `Normal after ${MINIMUM_BASELINE_DAYS} nights`}
-            />
-            <Stat
-              label="Resting HR"
-              href={metricHref("resting-hr")}
-              source={night?.restingHeartRate != null ? nightSource : undefined}
-              value={night?.restingHeartRate != null ? Math.round(night.restingHeartRate) : <Dash />}
-              unit={night?.restingHeartRate != null ? "bpm" : undefined}
-              sub={normals.restingHeartRate !== null ? `Normal ${Math.round(normals.restingHeartRate)} bpm` : `Normal after ${MINIMUM_BASELINE_DAYS} nights`}
-            />
-            <Stat
-              label="Sleep"
-              href={metricHref("sleep")}
-              source={night?.sleepHours != null ? nightSource : undefined}
-              value={night?.sleepHours != null ? hoursMinutes(night.sleepHours) : <Dash />}
-              sub={`Need ${hoursMinutes(athlete.sleepNeedHours)}`}
-            />
-            {breathing && <Stat
-              label="Breathing"
-              href={metricHref("breathing")}
-              value={night?.respiratoryRate != null ? night.respiratoryRate.toFixed(1) : <Dash />}
-              unit={night?.respiratoryRate != null ? "/min" : undefined}
-              sub={normals.respiratoryRate !== null ? `Normal ${normals.respiratoryRate.toFixed(1)}/min` : `Normal after ${MINIMUM_TEMP_BASELINE_DAYS} nights`}
-            />}
-            {wristTemp && <Stat
-              label="Wrist temp"
-              href={metricHref("wrist-temp")}
-              value={night?.wristTempDeltaC != null ? signedFixed(tempDeltaIn(night.wristTempDeltaC, units)) : <Dash />}
-              unit={night?.wristTempDeltaC != null ? temperatureUnit(units) : undefined}
-              sub={night?.wristTempDeltaC != null ? "Against normal" : `After ${MINIMUM_TEMP_BASELINE_DAYS} nights`}
-            />}
-          </StatStrip>
-          {recovery.sleep && <SleepLine sleep={recovery.sleep} timeZone={tz} />}
-          {segments.length > 0 && (
-            <TrendPanel href={metricHref("sleep")} title="Sleep stages" note="Last night">
-              <Hypnogram segments={segments} timeZone={tz} />
-            </TrendPanel>
           )}
         </section>
 
@@ -180,7 +134,7 @@ export default function HealthView({
               <TrendChart label="Recovery score by day" days={trendDays} values={series((d) => d.score)} domain={[0, 100]} normal={50} normalLabel="A normal day" />
             </TrendPanel>
             <TrendPanel href={metricHref("exertion")} title="Exertion" note="0 to 10, the whole day">
-              <TrendChart label="Exertion by day" days={trendDays} values={fromMap(exertion.byDay)} domain={[0, 10]} normal={exertion.normal?.mean ?? null} normalLabel="Your normal day" decimals={1} />
+              <TrendChart label="Exertion by day" days={trendDays} values={fromMap(exertion.byDay)} domain={[0, 10]} normal={exertion.normal?.mean ?? null} normalLabel="Your usual day" decimals={1} />
             </TrendPanel>
             <TrendPanel href={metricHref("sleep-score")} title="Sleep score" note="Out of 100">
               <TrendChart label="Sleep score by night" days={trendDays} values={fromMap(sleep.byDay)} domain={[0, 100]} />
@@ -279,56 +233,8 @@ export default function HealthView({
   );
 }
 
-function RecoveryStat({ recovery }: { recovery: RecoveryToday }) {
-  const { today, score, baselineDays } = recovery;
-  if (score) return <Stat lead href={metricHref("recovery")} label="Recovery" value={score.score} unit={recoveryWord(score.score)} sub={score.reasons.slice(0, 2).join(". ")} />;
-  return (
-    <Stat
-      lead
-      href={metricHref("recovery")}
-      label="Recovery"
-      value={<Dash />}
-      sub={today ? `Score after ${MINIMUM_BASELINE_DAYS} nights (${baselineDays} so far)` : "Waiting for last night"}
-    />
-  );
-}
 
-function ExertionStat({ exertion, hasWatch }: { exertion: HealthSummary["exertion"]; hasWatch: boolean }) {
-  const y = exertion.yesterday;
-  const target = exertion.target ? `Target today ${exertion.target.low.toFixed(1)} to ${exertion.target.high.toFixed(1)}` : null;
-  return (
-    <Stat
-      label="Exertion yesterday"
-      href={metricHref("exertion")}
-      value={y ? y.exertion.toFixed(1) : <Dash />}
-      unit={y ? "/ 10" : undefined}
-      sub={[
-        exertion.normal
-          ? `Normal ${exertion.normal.mean.toFixed(1)}`
-          : hasWatch
-            ? `Normal after ${MIN_EXERTION_BASELINE_DAYS} days (${exertion.baselineDays} so far)`
-            : y
-              ? "Rides only"
-              : "No heart rate yesterday",
-        target,
-      ]
-        .filter(Boolean)
-        .join(" · ")}
-    />
-  );
-}
 
-/** What last night's sleep score is built from, in plain percentages, as the section's meta line. */
-function SleepParts({ score, spread }: { score: NonNullable<HealthSummary["sleep"]["score"]>; spread: number | null }) {
-  const { parts, measures } = score;
-  const bits = [
-    `${measures.ofNeed}% of your sleep need`,
-    measures.asleep !== null && `asleep ${measures.asleep}% of the time in bed`,
-    measures.deepRem !== null && `${measures.deepRem}% deep + REM`,
-    parts.regularity !== null && spread !== null && `bedtimes vary by ${spread} min`,
-  ].filter(Boolean);
-  return <span className="num">{bits.join(" · ")}</span>;
-}
 
 /** Last night's times and stages, as one quiet line under the stats. */
 function SleepLine({ sleep, timeZone }: { sleep: SleepDetail; timeZone: string }) {

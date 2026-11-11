@@ -28,7 +28,7 @@ export default function TrendChart({
   signed = false,
   domain,
   bridge = false,
-  normalLabel = "Your normal",
+  normalLabel = "Your usual",
   label,
   height: HEIGHT = 128,
 }: {

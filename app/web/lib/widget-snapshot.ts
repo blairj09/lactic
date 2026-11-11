@@ -3,6 +3,7 @@
 // Every number is the engine's; this picks and words them. Written by the app after each Health
 // read and sync (src/phone/widget.ts).
 
+import { formatHours } from "@/lib/engine/hours";
 import { localDate } from "./engine/activity";
 import { ZONE_LABELS } from "./engine/library";
 import { MINIMUM_BASELINE_DAYS, recoveryWord } from "./engine/recovery";
@@ -38,13 +39,9 @@ export interface WidgetSnapshot {
 const WIDGET_METRICS: { key: GlanceKey; label: string; format: (v: number) => string }[] = [
   { key: "hrv", label: "HRV", format: (v) => `${Math.round(v)} ms` },
   { key: "restingHeartRate", label: "Resting HR", format: (v) => `${Math.round(v)} bpm` },
-  { key: "sleepHours", label: "Sleep", format: hoursMinutes },
+  { key: "sleepHours", label: "Sleep", format: formatHours },
 ];
 
-function hoursMinutes(hours: number) {
-  const total = Math.round(hours * 60);
-  return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, "0")}m`;
-}
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const oneDecimal = (n: number) => Math.round(n * 10) / 10;

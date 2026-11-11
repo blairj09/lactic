@@ -5,8 +5,8 @@ export const METRICS = {
     title: "Recovery",
     line: "How ready your body is today, scored against your own last 60 days.",
     about: [
-      "Recovery compares this morning with your own normal, not with other people. HRV is the biggest part (half the weight): it's compared on a log scale against your last 60 nights. Resting heart rate counts 30%, with a higher pulse scoring lower. Sleep against your need counts 20%, and breathing rate 10%, since it rises when you're run down or getting ill.",
-      "Once daytime heart rate comes in from Apple Health, yesterday's exertion against your normal day counts another 10%: a big day costs up to 2 points of the weighted mean, an easy one gives back up to 1. Wrist temperature doesn't change the score; it's shown beside it as a warning sign.",
+      "Recovery compares this morning with your own usual, not with other people. HRV is the biggest part (half the weight): it's compared on a log scale against your last 60 nights. Resting heart rate counts 30%, with a higher pulse scoring lower. Sleep against your need counts 20%, and breathing rate 10%, since it rises when you're run down or getting ill.",
+      "Once daytime heart rate comes in from Apple Health, yesterday's exertion against your usual day counts another 10%: a big day costs up to 2 points of the weighted mean, an easy one gives back up to 1. Wrist temperature doesn't change the score; it's shown beside it as a warning sign.",
       "50 is a normal day for you. 67 and up reads as recovered, below 34 as under-recovered. The score needs 14 nights of HRV before it starts.",
     ],
   },
@@ -15,7 +15,7 @@ export const METRICS = {
     line: "How hard the whole day was on your heart, rides and everything else, 0 to 10.",
     about: [
       "Exertion adds up every minute of heart rate in the day with Banister's TRIMP, which weights a minute more the higher your heart rate sits in its reserve (between resting and max). Inside a ride, the ride's own heart rate wins over the watch. The total goes onto a 0 to 10 scale that flattens out at the top, so a long hard ride reads about 7 to 8 and a quiet day 1 to 2.",
-      "Your normal is the mean of the last 28 days that had at least 8 hours of heart rate, once there are 7 of them. Today's target moves from your normal with your recovery: about 0.4 per 10 points either side of 50.",
+      "Your usual is the mean of the last 28 days that had at least 8 hours of heart rate, once there are 7 of them. Today's target moves from your usual day with your recovery: about 0.4 per 10 points either side of 50.",
     ],
   },
   "sleep-score": {
@@ -31,15 +31,15 @@ export const METRICS = {
     line: "Heart rate variability asleep, the biggest part of recovery.",
     about: [
       "HRV is the small variation in time between heartbeats. When you're rested your nervous system varies it more; stress, hard training, alcohol, illness and poor sleep all bring it down. Your own trend matters, not the number against anyone else's.",
-      "Apple Watch measures SDNN in short readings through the night, which runs differently from the RMSSD a chest strap gives, so the two are never compared with each other. Your normal is the geometric mean of the last 60 nights.",
+      "Apple Watch measures SDNN in short readings through the night, which runs differently from the RMSSD a chest strap gives, so the two are never compared with each other. Your usual is the geometric mean of the last 60 nights.",
     ],
   },
   "resting-hr": {
     title: "Resting HR",
     line: "Your lowest steady heart rate, from Apple Health.",
     about: [
-      "Resting heart rate falls as aerobic fitness builds and rises with fatigue, heat, alcohol, dehydration or illness. A few beats above your normal for more than a day or two is worth noticing.",
-      "Your normal is the mean of the last 60 days. It counts 30% of the recovery score, and it sets the bottom of your heart rate reserve for exertion.",
+      "Resting heart rate falls as aerobic fitness builds and rises with fatigue, heat, alcohol, dehydration or illness. A few beats above your usual for more than a day or two is worth noticing.",
+      "Your usual is the mean of the last 60 days. It counts 30% of the recovery score, and it sets the bottom of your heart rate reserve for exertion.",
     ],
   },
   sleep: {
@@ -54,16 +54,16 @@ export const METRICS = {
     title: "Breathing rate",
     line: "Breaths per minute while asleep.",
     about: [
-      "Breathing rate asleep is very steady for most people, so a rise of a breath a minute or more over your normal often comes before you feel run down or ill. It counts 10% of recovery, with a higher rate scoring lower.",
-      "Your normal is the mean of the last 60 nights, once there are 7.",
+      "Breathing rate asleep is very steady for most people, so a rise of a breath a minute or more over your usual often comes before you feel run down or ill. It counts 10% of recovery, with a higher rate scoring lower.",
+      "Your usual is the mean of the last 60 nights, once there are 7.",
     ],
   },
   "wrist-temp": {
     title: "Wrist temperature",
-    line: "Overnight wrist temperature against your own normal.",
+    line: "Overnight wrist temperature against your own usual.",
     about: [
-      "Apple Watch measures wrist temperature while you sleep. Only the change against your own normal means anything, since the raw reading depends on the room and the bedding. A rise of 0.5 °C (0.9 °F) or more can mean illness, heavy training load, alcohol or a hot room.",
-      "It doesn't change the recovery score; when it's 0.3 °C (0.5 °F) or more off your normal, the score shows it beside the reasons.",
+      "Apple Watch measures wrist temperature while you sleep. Only the change against your own usual means anything, since the raw reading depends on the room and the bedding. A rise of 0.5 °C (0.9 °F) or more can mean illness, heavy training load, alcohol or a hot room.",
+      "It doesn't change the recovery score; when it's 0.3 °C (0.5 °F) or more off your usual, the score shows it beside the reasons.",
     ],
   },
   fitness: {

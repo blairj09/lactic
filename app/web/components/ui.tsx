@@ -200,13 +200,14 @@ export function Segmented<T extends string | number>({
   label: string;
   disabled?: boolean;
   fill?: boolean;
-  wrap?: boolean;
+  /** Two columns on a phone; "always" keeps two columns at every width (a narrow column). */
+  wrap?: boolean | "always";
 }) {
   return (
     <div role="radiogroup" aria-label={label} className={cx(
         "grid w-full auto-cols-fr gap-0.5 rounded-md bg-raised p-0.5",
-        wrap ? "grid-cols-2 sm:grid-flow-col sm:grid-cols-none" : "grid-flow-col",
-        !fill && "sm:inline-grid sm:w-auto",
+        wrap === "always" ? "grid-cols-2" : wrap ? "grid-cols-2 sm:grid-flow-col sm:grid-cols-none" : "grid-flow-col",
+        !fill && wrap !== "always" && "sm:inline-grid sm:w-auto",
       )}>
       {options.map((o) => (
         <button

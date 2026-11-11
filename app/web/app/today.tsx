@@ -7,7 +7,6 @@ import { weighInOn, type BodyMeasurement } from "@/lib/body-data";
 import { localDate } from "@/lib/engine/activity";
 import { ageOn } from "@/lib/engine/body";
 import type { FtpEstimate } from "@/lib/engine/ftp";
-import { ZONE_LABELS } from "@/lib/engine/library";
 import { addDays, formBand } from "@/lib/engine/pmc";
 import { MINIMUM_BASELINE_DAYS, recoveryWord } from "@/lib/engine/recovery";
 import { formatDay, formatDuration, signed } from "@/lib/format";
@@ -23,7 +22,7 @@ import { ChosenSession, SessionLine } from "./checkin";
 import RideSurvey from "./ride-survey";
 import Morning, { type MorningProps } from "./morning";
 import RaceDayPlan from "./race-day";
-import { GOAL_KIND_LABELS, goalMinutes, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES } from "@/lib/engine/plan";
+import { GOAL_KIND_LABELS, goalMinutes, SAFETY_RULE_LABELS } from "@/lib/engine/plan";
 import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
 import WeekReviewCard from "./week-review";
@@ -31,7 +30,10 @@ import RaceReportPrompt from "./race-report-prompt";
 import type { RaceFollowUp } from "@/lib/engine/race/followup";
 import type { WeekReview } from "@/lib/engine/review";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
-import LastNight from "./last-night";
+import LastNight, { ExertionBar } from "./last-night";
+import type { ExertionToday } from "@/lib/engine/recovery-glance";
+import { formatHours } from "@/lib/engine/hours";
+import type { SafetyRule } from "@/lib/engine/plan";
 
 /**
  * Today answers "what do I ride, and am I up for it?": Morning (recovery, weight, the brief), then the session, with
@@ -81,7 +83,7 @@ export default function TodayView({
     <>
       <PageHeader title="Today" line={finding(today, recovery, now.form)} />
 
-      {recovery?.today && <LastNight recovery={recovery} exertion={exertionTodayFor(state)} source={recoverySource} timeZone={athlete.timezone} />}
+      {recovery?.today && <LastNight recovery={recovery} source={recoverySource} timeZone={athlete.timezone} />}
 
       <Morning
         day={today}
@@ -105,7 +107,7 @@ export default function TodayView({
       <RaceSoon state={state} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} />
+        <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} exertion={exertionTodayFor(state)} />
 
         {/* Recovery and weight are in Morning; fitness history is on Progress and FTP lives in Settings, so this column only
             carries form, an FTP nudge when the estimate moves, and the last ride. */}
@@ -124,7 +126,7 @@ export default function TodayView({
             }
           />
           {/* Once today's ride is in, the card beside this is the last ride. */}
-          {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} />}
+          {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} survey={unansweredRide(state)} />}
           <FtpNudge ftp={athlete.ftp} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} />
         </section>
       </div>
@@ -193,19 +195,32 @@ export function ridesOn(state: TrainingState, day: string) {
 }
 
 /** Today's session: the plan's or the one you chose, and how the last ride felt; once ridden, the ride. */
-function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: TrainingState; ridden: ReturnType<typeof ridesOn>; stream: StoredStream | null; intervalsConnected: boolean }) {
+export function TodayWorkout({
+  state,
+  ridden,
+  stream,
+  intervalsConnected,
+  exertion,
+  top,
+  className = "lg:col-span-2",
+}: {
+  state: TrainingState;
+  ridden: ReturnType<typeof ridesOn>;
+  stream: StoredStream | null;
+  intervalsConnected: boolean;
+  /** Today's exertion and where the ride lands it: one line above Start ride. */
+  exertion: ExertionToday | null;
+  /** A line at the top of the card (option B's "Ready to ride?"). */
+  top?: React.ReactNode;
+  className?: string;
+}) {
   const { todayPlan, todayStored, today, rides, athlete } = state;
   const chosen = todayStored?.chosen ?? null;
   const planned = todayPlan?.session ?? null;
   const outside = state.outdoor.find((o) => o.date === today) ?? null;
   const rodeToday = rides.some((r) => localDate(r.startedAt, athlete.timezone) === today);
-  // The latest ride in the last three days with no post-ride answer yet (rides are newest first).
-  const answered = new Set(state.feedback.map((f) => f.rideId));
-  const feltDays = new Set(state.recentDays.filter((d) => d.feelAfter !== null).map((d) => d.day));
-  const unanswered = rides.find((r) => {
-    const day = localDate(r.startedAt, athlete.timezone);
-    return day >= addDays(today, -3) && r.durationSeconds >= 600 && !answered.has(r.id) && !feltDays.has(day);
-  });
+  const eased = Boolean(todayPlan?.rule && EASED.has(todayPlan.rule));
+  const exertionBar = exertion && (exertion.soFar !== null || exertion.target) ? <ExertionBar exertion={exertion} eased={eased} compact /> : null;
 
   const title = outside?.workout
     ? outside.workout.name
@@ -216,7 +231,7 @@ function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: Tr
     : todayPlan?.role === "event" && todayPlan.goal
       ? todayPlan.goal.name
       : planned
-        ? ZONE_LABELS[planned.zone]
+        ? planned.workout.name
         : "Rest day";
 
   let body: React.ReactNode;
@@ -261,7 +276,7 @@ function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: Tr
   } else if (chosen) {
     body = (
       <div className="space-y-4">
-        <ChosenSession session={chosen.session} day={today} ftp={athlete.ftp} action={<RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} href={`/ride?day=${today}`} />} />
+        <ChosenSession session={chosen.session} day={today} ftp={athlete.ftp} named={false} extra={exertionBar} action={<RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} href={`/ride?day=${today}`} />} />
       </div>
     );
   } else if (!athlete.ftp) {
@@ -276,20 +291,16 @@ function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: Tr
   } else {
     body = planned ? (
       <div className="space-y-3">
-        <SessionLine session={planned} />
+        <SessionLine session={planned} named={false} note={todayPlan?.rule ? `Eased: ${SAFETY_RULE_LABELS[todayPlan.rule].toLowerCase()}` : undefined} />
         {todayPlan?.movedFrom && (
           <p className="text-sm text-muted">
             Moved from {weekdayName(todayPlan.movedFrom.date)}, which you missed{todayPlan.movedFrom.shortened ? ", and shortened to fit today" : ""}.
           </p>
         )}
-        {todayPlan?.rule && (
-          <p className="text-sm text-muted">
-            Eased: {SAFETY_RULE_LABELS[todayPlan.rule].toLowerCase()}. {SAFETY_RULE_NOTES[todayPlan.rule]}
-          </p>
-        )}
         {todayPlan?.why && <p className="text-sm text-muted">Coach: {todayPlan.why}</p>}
         {todayPlan?.course && !todayPlan.why && <p className="text-sm text-muted">{todayPlan.course}</p>}
-        <WorkoutProfile workout={planned.workout} height={88} details ftp={athlete.ftp} />
+        <WorkoutProfile workout={planned.workout} height={88} details ftp={athlete.ftp} fit />
+        {exertionBar}
         <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />
       </div>
     ) : (
@@ -305,15 +316,27 @@ function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: Tr
           This week&apos;s plan
         </Link>
       }
-      className="lg:col-span-2"
+      className={className}
     >
+      {top}
       {body}
-      {unanswered && (
-        <div className="mt-6 border-t border-rule pt-5">
-          <RideSurvey key={unanswered.id} ride={{ id: unanswered.id }} name={unanswered.name ?? "your ride"} />
-        </div>
-      )}
     </Panel>
+  );
+}
+
+/** Plan rules that make today easy on purpose: the exertion line defers to them rather than saying "under target". */
+const EASED = new Set<SafetyRule>(["recoveryWeek", "breakWeek", "reentryWeek", "eventTaper", "beforeEvent", "afterEvent"]);
+
+/** The latest ride in the last three days with no post-ride answer yet (rides are newest first). */
+export function unansweredRide(state: TrainingState) {
+  const { rides, athlete, today } = state;
+  const answered = new Set(state.feedback.map((f) => f.rideId));
+  const feltDays = new Set(state.recentDays.filter((d) => d.feelAfter !== null).map((d) => d.day));
+  return (
+    rides.find((r) => {
+      const day = localDate(r.startedAt, athlete.timezone);
+      return day >= addDays(today, -3) && r.durationSeconds >= 600 && !answered.has(r.id) && !feltDays.has(day);
+    }) ?? null
   );
 }
 
@@ -357,7 +380,7 @@ function FtpNudge({ ftp, hasPowerRides }: { ftp: number | null; hasPowerRides: b
 }
 
 /** The latest ride in one line; the rest are on Progress → Rides. */
-function LastRide({ ride, timeZone }: { ride: StoredRide | undefined; timeZone: string }) {
+export function LastRide({ ride, timeZone, survey = null, className }: { ride: StoredRide | undefined; timeZone: string; survey?: StoredRide | null; className?: string }) {
   if (!ride) {
     return (
       <Stat
@@ -374,17 +397,24 @@ function LastRide({ ride, timeZone }: { ride: StoredRide | undefined; timeZone: 
       />
     );
   }
+  // Yesterday's "How was it?" lives with the ride it asks about, not in today's workout card.
   return (
     <Stat
+      className={className}
       label="Last ride"
       value={ride.trainingStress !== null ? Math.round(ride.trainingStress) : <Dash />}
       unit="TSS"
       sub={
         <>
-          {ride.name ?? "Ride"} · {formatDay(ride.startedAt, timeZone)} · {formatDuration(ride.durationSeconds)}.{" "}
+          {ride.name ?? "Ride"} · {formatDay(ride.startedAt, timeZone)} · {formatHours(ride.durationSeconds / 3600)}.{" "}
           <Link href="/progress?tab=rides" className="text-ink underline underline-offset-4">
             All rides
           </Link>
+          {survey && (
+            <div className="mt-4 border-t border-rule pt-4 text-ink">
+              <RideSurvey key={survey.id} ride={{ id: survey.id }} name={survey.name ?? "your ride"} question={survey.id === ride.id ? "How was it?" : undefined} narrow />
+            </div>
+          )}
         </>
       }
     />

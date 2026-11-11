@@ -3,6 +3,7 @@
 // getting ill, sleep debt). Today's options, the coach's brief and its weekly picks read the signs.
 
 import { exertionFromTrimp, type DayExertion } from "./exertion";
+import { formatHours } from "./hours";
 import { addDays } from "./pmc";
 import type { RecoveryTrendDay } from "./recovery";
 
@@ -151,10 +152,6 @@ export function recoverySignals(metrics: GlanceMetric[], sleepDebtHours: number 
 /** The most the signs add to the check-in together, so they don't stack past "easy riding". */
 export const MAX_SIGNAL_STRAIN = 3;
 
-function formatHours(hours: number) {
-  const total = Math.round(hours * 60);
-  return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, "0")}m`;
-}
 
 /** Today's exertion so far, and where the planned ride should land it. */
 export interface ExertionToday {

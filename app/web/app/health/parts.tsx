@@ -1,5 +1,6 @@
 // Pieces the Health page and its detail views share.
 
+import { formatHours } from "@/lib/engine/hours";
 import Link from "next/link";
 import { Chevron, Dash, Panel } from "@/components/ui";
 import type { BodyMeasurement } from "@/lib/body-data";
@@ -27,10 +28,7 @@ export function LinkPanel({ href, title, note, children }: { href: string; title
   );
 }
 
-export const hoursMinutes = (hours: number) => {
-  const total = Math.round(hours * 60);
-  return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, "0")}m`;
-};
+export const hoursMinutes = formatHours;
 
 const BAND_LABELS = ["Light", "Moderate", "Hard", "Very hard"];
 
@@ -74,7 +72,7 @@ export function ExertionPanel({ exertion, activity, href }: { exertion: HealthSu
           </div>
           {exertion.target && (
             <p className="text-muted sm:col-span-2">
-              Today&apos;s target is {exertion.target.low.toFixed(1)} to {exertion.target.high.toFixed(1)}, from your recovery and normal day.
+              Today&apos;s target is {exertion.target.low.toFixed(1)} to {exertion.target.high.toFixed(1)}, from your recovery and usual day.
             </p>
           )}
         </div>
