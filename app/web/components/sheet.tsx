@@ -22,7 +22,7 @@ export default function Sheet({ children, width = "wide" }: { children: React.Re
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 px-2 py-4 sm:px-6 sm:py-10"
+      className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 px-2 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-10 sm:pb-10"
       onClick={(e) => e.target === e.currentTarget && router.back()}
     >
       <div

@@ -163,7 +163,7 @@ export default function CoachDrawer() {
         ref={panel}
         aria-label={name}
         inert={!open}
-        className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-line bg-ground transition-transform duration-200 ease-out sm:w-[28rem] ${open ? "translate-x-0 shadow-2xl xl:shadow-none" : "translate-x-full"}`}
+        className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] border-l border-line bg-ground transition-transform duration-200 ease-out sm:w-[28rem] ${open ? "translate-x-0 shadow-2xl xl:shadow-none" : "translate-x-full"}`}
       >
         {!data ? (
           <Bar>
