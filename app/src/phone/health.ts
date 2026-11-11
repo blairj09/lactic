@@ -9,7 +9,7 @@ import { createClient } from "~/db/supabase-client";
 import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { logEvent } from "~/support/log";
-import { ackPending, authorizeHealth, phoneStatus, readHealth, saveWorkout, takePending } from "./plugin";
+import { ackPending, authorizeHealth, phoneStatus, readHealth, removeDuplicateWorkouts, saveWorkout, takePending } from "./plugin";
 
 // Device-local settings ("phone." never syncs).
 const IMPORTED = "phone.health.imported";
@@ -18,6 +18,8 @@ const REREAD = "phone.health.reread.nights";
 export const WRITE_RIDES = "phone.health.writeRides";
 const WRITE_SINCE = "phone.health.writeSince";
 const WRITTEN = "phone.health.written";
+/** Set once the extra copies left by the old double save were taken out of Health. */
+const DEDUPED = "phone.health.duplicatesRemoved";
 /** Rides older than this are left alone (Health has them from elsewhere, or they're history). */
 const WRITE_WINDOW_DAYS = 14;
 
@@ -107,6 +109,7 @@ export function writeRides(): Promise<number> {
     return writing;
   }
   writing = (async () => {
+    await removeOldDuplicates();
     let saved = 0;
     do {
       writeAgain = false;
@@ -117,6 +120,19 @@ export function writeRides(): Promise<number> {
     writing = null;
   });
   return writing;
+}
+
+/** Once: deletes the second copies of rides that older versions saved to Health twice. */
+async function removeOldDuplicates(): Promise<void> {
+  if (await getSetting<boolean>(DEDUPED, false)) return;
+  try {
+    const { removed } = await removeDuplicateWorkouts();
+    if (removed) logEvent("health", "info", `Removed ${removed} duplicate ${removed === 1 ? "ride" : "rides"} from Apple Health`);
+    await setSetting(DEDUPED, true);
+  } catch (e) {
+    // Not allowed yet, say: try again next time.
+    logEvent("health", "error", `Couldn't remove duplicate rides from Health: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 async function writeNewRides(): Promise<number> {

@@ -7,6 +7,7 @@ permissions = [
   "allow-take-pending",
   "allow-ack-pending",
   "allow-save-workout",
+  "allow-remove-duplicate-workouts",
   "allow-pair",
   "allow-unpair",
   "allow-send",

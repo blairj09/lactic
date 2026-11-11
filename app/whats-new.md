@@ -11,7 +11,7 @@ Write for riders: what they can now do or what works better, one short line each
 - Race courses: road riders can measure their own drag from recent outdoor rides with power (via intervals.icu). Lactic then checks itself by timing each of those rides from its own power, and tells you how close it came.
 - On a computer, Ride is now a tab in the top bar between Plan and Progress, and it stays highlighted while you're on it, so you can always tell where you are.
 - The iPhone screen stays on while it's showing a ride, whether the iPhone is running the trainer or showing the ride on your computer.
-- iPhone: rides no longer show up twice in Apple Health and Fitness.
+- iPhone: rides no longer show up twice in Apple Health and Fitness, and rides that were saved twice before are cleaned up (Lactic keeps one copy).
 
 ## 0.2.0
 
