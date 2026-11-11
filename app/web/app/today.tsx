@@ -22,7 +22,7 @@ import { ChosenSession, SessionLine } from "./checkin";
 import RideSurvey from "./ride-survey";
 import Morning, { type MorningProps } from "./morning";
 import RaceDayPlan from "./race-day";
-import { GOAL_KIND_LABELS, goalMinutes, SAFETY_RULE_LABELS } from "@/lib/engine/plan";
+import { GOAL_KIND_LABELS, goalMinutes, PHASE_LABELS, SAFETY_RULE_LABELS, weekStart } from "@/lib/engine/plan";
 import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
 import WeekReviewCard from "./week-review";
@@ -81,7 +81,7 @@ export default function TodayView({
 
   return (
     <>
-      <PageHeader title="Today" line={finding(today, recovery, now.form)} />
+      <PageHeader title="Today" line={dayLine(state)} />
 
       {recovery?.today && <LastNight recovery={recovery} source={recoverySource} timeZone={athlete.timezone} />}
 
@@ -154,12 +154,16 @@ function RaceSoon({ state }: { state: TrainingState }) {
   );
 }
 
-/** The line under the title: the day, and the one fact that decides how to ride it. */
-function finding(today: string, recovery: RecoveryToday | null, form: number) {
+/**
+ * The line under the title: the day and where it sits in the plan. Recovery and form each have their
+ * own place on the page, so the line doesn't repeat them.
+ */
+export function dayLine(state: TrainingState) {
+  const { today } = state;
   const day = new Date(`${today}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
-  const score = recovery?.score?.score;
-  const ready = score === undefined ? null : score >= 67 ? "Recovered" : score >= 34 ? "Normal recovery" : "Under-recovered";
-  return `${day}. ${ready ? `${ready} (${score}). ` : ""}Form ${signed(form)}, ${formBand(form).word}.`;
+  const week = state.plan.weeks.find((w) => w.start === weekStart(today));
+  const phase = week ? (week.recoveryWeek ? "Recovery week" : `${PHASE_LABELS[week.phase]} week`) : null;
+  return `${day}${phase ? `. ${phase}` : ""}.`;
 }
 
 /** How you feel and today's options, for the morning routine; or why there's nothing to choose. */
@@ -291,7 +295,7 @@ export function TodayWorkout({
   } else {
     body = planned ? (
       <div className="space-y-3">
-        <SessionLine session={planned} named={false} note={todayPlan?.rule ? `Eased: ${SAFETY_RULE_LABELS[todayPlan.rule].toLowerCase()}` : undefined} />
+        <SessionLine session={planned} named={false} note={todayPlan?.rule && todayPlan.rule !== "recoveryWeek" ? `Eased: ${SAFETY_RULE_LABELS[todayPlan.rule].toLowerCase()}` : undefined} />
         {todayPlan?.movedFrom && (
           <p className="text-sm text-muted">
             Moved from {weekdayName(todayPlan.movedFrom.date)}, which you missed{todayPlan.movedFrom.shortened ? ", and shortened to fit today" : ""}.

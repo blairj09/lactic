@@ -416,3 +416,96 @@ export function ExertionBar({ exertion, eased = false, compact = false }: { exer
     </div>
   );
 }
+
+/**
+ * Last night in brief, for Today: the score and its word, the one reason that moved it most, the week,
+ * and sleep. The full card is on Health; this links there. `row` sits in the Morning panel, `line` is
+ * one sentence over the workout, `column` is Today's side column.
+ */
+export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday; variant: "row" | "line" | "column" }) {
+  const units = useUnits();
+  const { glance, score, today } = recovery;
+  const word = score ? recoveryWord(score.score) : null;
+  const reason = score ? (score.reasons[0] ?? null) : `Building your baseline: ${recovery.baselineDays} of ${MINIMUM_BASELINE_DAYS} nights`;
+  const sleep = today?.sleepHours != null ? [hm(today.sleepHours), glance.sleepScore && `${glance.sleepScore.measures.ofNeed}% of your need`].filter(Boolean).join(", ") : null;
+  const more = (
+    <Link href="/health" className="text-sm whitespace-nowrap text-ink underline underline-offset-4">
+      Last night on Health
+    </Link>
+  );
+  const signals = glance.signals.length > 0 && (
+    <ul className="space-y-0.5 text-sm text-warning">
+      {glance.signals.map((s) => (
+        <li key={s.id}>{s.reason}.</li>
+      ))}
+    </ul>
+  );
+
+  if (variant === "line") {
+    return (
+      <div className="space-y-1 text-sm">
+        <p>
+          <span className="font-medium">{score ? `Recovery ${score.score}, ${word}.` : "Recovery: no score yet."}</span>{" "}
+          <span className="text-muted">
+            {reason ? `${reason}.` : ""} {sleep ? `Slept ${sleep}.` : ""}
+          </span>{" "}
+          <Link href="/health" className="whitespace-nowrap text-ink underline underline-offset-4">
+            Last night
+          </Link>
+        </p>
+        {signals}
+      </div>
+    );
+  }
+
+  const head = (
+    <div className="flex items-center gap-3">
+      <ScoreRing score={score?.score ?? null} size={variant === "row" ? 56 : 64} />
+      <div className="min-w-0 text-sm">
+        <div className="text-base font-medium capitalize text-ink">{word ?? "Recovery"}</div>
+        {reason && <div className="text-muted">{reason}</div>}
+      </div>
+    </div>
+  );
+
+  if (variant === "row") {
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          {head}
+          <WeekBars scores={glance.scores} label={false} height={24} />
+        </div>
+        {sleep && <p className="text-sm text-muted">Slept {sleep}.</p>}
+        {signals}
+        {more}
+      </div>
+    );
+  }
+
+  const rows = glance.metrics.filter((m) => m.key !== "exertion" && m.key !== "sleepHours" && m.value !== null);
+  return (
+    <div className="space-y-4">
+      {head}
+      <WeekBars scores={glance.scores} height={28} />
+      <dl className="space-y-1.5 text-sm">
+        {rows.map((m) => (
+          <div key={m.key} className="flex items-baseline justify-between gap-3">
+            <dt className="text-muted">{LABEL[m.key]}</dt>
+            <dd className="num text-right">
+              <span className={m.concern ? "font-medium text-warning" : "font-medium"}>{format(m.key, m.value!, units)}</span>
+              {m.range && <span className="text-muted"> · usual {usual(m.key, m.range, units)}</span>}
+            </dd>
+          </div>
+        ))}
+        {sleep && (
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-muted">Sleep</dt>
+            <dd className="num text-right font-medium">{sleep}</dd>
+          </div>
+        )}
+      </dl>
+      {signals}
+      {more}
+    </div>
+  );
+}

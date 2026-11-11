@@ -35,6 +35,11 @@ export interface MorningProps {
   brief: { message: StoredMessage | null; stale: boolean } | null;
   /** How you feel today and the options it gives; a line about the day instead once it's settled. */
   today: TodayChoice | { settled: string };
+  /** Last night in brief (RecoverySummary), shown as the first, done step once it's in. */
+  lastNight?: React.ReactNode;
+  /** One step under another, for a narrow column. */
+  stacked?: boolean;
+  title?: string;
 }
 
 export interface TodayChoice {
@@ -58,7 +63,7 @@ type Skips = { recovery?: boolean; weigh?: boolean };
  * skipped, so it's written once from the full picture; how you feel rewrites it when it lands.
  * Riding never waits on any of it.
  */
-export default function Morning({ day, recovery, weighIn: weighed, profile, brief, today }: MorningProps) {
+export default function Morning({ day, recovery, weighIn: weighed, profile, brief, today, lastNight, stacked = false, title = "Morning" }: MorningProps) {
   const router = useRouter();
   // Bluetooth and remembered devices are only known in the browser.
   const units = useUnits();
@@ -140,14 +145,14 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
 
   const weighedKg = weighed?.weightKg ?? (weigh.phase === "saved" ? weigh.kg : null);
   // Once last night is in, the Last night card above shows it, so the step only waits for it.
-  const recoveryStep = tracking.recovery && !recoveryDone;
+  const recoveryStep = tracking.recovery && (!recoveryDone || Boolean(lastNight));
   const stepCount = 1 + Number(recoveryStep) + Number(showWeigh);
   const feelStep = stepCount;
   const weighStep = 1 + Number(recoveryStep);
 
   return (
     <Panel
-      title="Morning"
+      title={title}
       meta={
         brief !== null ? (
           <button type="button" onClick={() => openCoach()} className="hover:text-ink">
@@ -156,11 +161,11 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
         ) : undefined
       }
     >
-      <ol className={`grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line ${STEP_COLUMNS[stepCount]}`}>
+      <ol className={`grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line ${stacked ? "" : lastNight && recoveryDone ? LAST_NIGHT_COLUMNS[stepCount] : STEP_COLUMNS[stepCount]}`}>
         {recoveryStep && (
-        <Step n={1} title="Recovery" state={recoveryDone ? "done" : recoveryReady ? (skips.recovery ? "skipped" : "settled") : "active"}>
+        <Step n={1} title={lastNight && recoveryDone ? "Last night" : "Recovery"} state={recoveryDone ? (lastNight ? "settled" : "done") : recoveryReady ? (skips.recovery ? "skipped" : "settled") : "active"} plain={Boolean(lastNight && recoveryDone)}>
           {recoveryDone ? (
-            <p>{recovery.line ?? "Last night is in."}</p>
+            (lastNight ?? <p>{recovery.line ?? "Last night is in."}</p>)
           ) : skips.recovery ? (
             <p>Skipped for today.</p>
           ) : fromHealth ? (
@@ -258,8 +263,8 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
   );
 }
 
-function Step({ n, title, state, children }: { n: number; title: string; state: "waiting" | "active" | "done" | "settled" | "skipped"; children?: React.ReactNode }) {
-  const marker =
+function Step({ n, title, state, children, plain = false }: { n: number; title: string; state: "waiting" | "active" | "done" | "settled" | "skipped"; children?: React.ReactNode; plain?: boolean }) {
+  const marker = plain ? null :
     state === "done" ? (
       <span className="flex size-5 items-center justify-center rounded-full bg-ink text-[11px] text-surface" aria-label="Done">
         ✓
@@ -292,6 +297,8 @@ function clock(iso: string) {
 }
 
 const STEP_COLUMNS: Record<number, string> = { 1: "", 2: "sm:grid-cols-2", 3: "sm:grid-cols-3" };
+// With last night in brief as the first step, it gets the wider share.
+const LAST_NIGHT_COLUMNS: Record<number, string> = { 1: "", 2: "lg:grid-cols-[3fr_2fr]", 3: "lg:grid-cols-[2fr_1fr_2fr]" };
 
 const Actions = ({ children }: { children: React.ReactNode }) => <div className="flex flex-wrap items-center gap-3 pt-1">{children}</div>;
 
