@@ -5,7 +5,8 @@ import { ramp, sprint, steady, type Segment, type Workout } from "./workout";
  * the same on the server and in the browser.
  */
 export function parseZwo(xml: string): Workout {
-  const name = xml.match(/<name>([\s\S]*?)<\/name>/)?.[1]?.trim() ?? "Untitled workout";
+  const raw = xml.match(/<name>([\s\S]*?)<\/name>/)?.[1]?.trim();
+  const name = raw ? unescapeXml(raw) : "Untitled workout";
   const body = xml.match(/<workout>([\s\S]*?)<\/workout>/)?.[1];
   if (body === undefined) throw new Error("No <workout> element");
 
@@ -49,4 +50,45 @@ function attributes(text: string) {
     const n = Number(values.get(key));
     return values.has(key) && Number.isFinite(n) ? n : fallback;
   };
+}
+
+const unescapeXml = (text: string) =>
+  text.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+const escapeXml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const share = (fraction: number) => String(Math.round(fraction * 1000) / 1000);
+
+/**
+ * Writes a workout as a Zwift workout file (.zwo), which Zwift, TrainerDay, MyWhoosh and most
+ * trainer apps open. Reads back through parseZwo as the same workout.
+ */
+export function writeZwo(workout: Workout): string {
+  const segments = workout.segments.filter((s) => s.duration > 0);
+  const lines = segments.map((segment, i) => {
+    const duration = Math.round(segment.duration);
+    switch (segment.kind) {
+      case "steady":
+        if (segment.allOut) return `    <MaxEffort Duration="${duration}"/>`;
+        return `    <SteadyState Duration="${duration}" Power="${share(segment.target)}"/>`;
+      case "ramp": {
+        // Zwift draws a first ramp as the warm-up and a last one as the cool-down.
+        const tag = i === 0 && segment.to >= segment.from ? "Warmup" : i === segments.length - 1 && segment.to < segment.from ? "Cooldown" : "Ramp";
+        return `    <${tag} Duration="${duration}" PowerLow="${share(segment.from)}" PowerHigh="${share(segment.to)}"/>`;
+      }
+      case "freeRide":
+        return `    <FreeRide Duration="${duration}"/>`;
+    }
+  });
+  return [
+    "<workout_file>",
+    "  <author>Lactic</author>",
+    `  <name>${escapeXml(workout.name || "Workout")}</name>`,
+    "  <description>Made in Lactic (lactic.fit).</description>",
+    "  <sportType>bike</sportType>",
+    "  <tags/>",
+    "  <workout>",
+    ...lines,
+    "  </workout>",
+    "</workout_file>",
+    "",
+  ].join("\n");
 }

@@ -99,7 +99,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/ride",
     target: "ride-pick",
     title: "What to ride",
-    body: "Today's workout comes first. Or pick another, import a .zwo, or free ride at one ERG target.",
+    body: "Today's workout comes first. Or pick another, import a workout file, or free ride at one ERG target.",
   },
   {
     id: "ride-player",

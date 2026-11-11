@@ -42,7 +42,7 @@ function StravaGap({ missing }: { missing: StravaMissing }) {
         </li>
         <li>
           <span className="text-ink">Past rides:</span> on strava.com, Settings → My Account → Download or Delete Your Account → Request your archive. Strava
-          emails a .zip; choose it under Import FIT files below. Rides Strava only has as GPX or TCX files can&apos;t come in this way.
+          emails a .zip; choose it under Import ride files below.
         </li>
       </ul>
     </div>
