@@ -258,6 +258,9 @@ jobs:
           set -euo pipefail
           args=()
           while IFS= read -r line; do [ -n "$line" ] && args+=("$line"); done < "$RUNNER_TEMP/tauri-args"
+          # The Rust cache can bring back an earlier run's installers (a Lactic Preview .app, an
+          # older .dmg); clear them so only this build is checked and uploaded.
+          rm -rf src-tauri/target/release/bundle src-tauri/target/*/release/bundle
           npx tauri bundle --bundles ${{ matrix.bundles }} ${args[@]+"${args[@]}"}
         working-directory: app
       - name: Notarize the .dmg too (Mac)
