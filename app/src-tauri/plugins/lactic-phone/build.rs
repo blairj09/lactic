@@ -7,6 +7,7 @@ const COMMANDS: &[&str] = &[
     "take_pending",
     "ack_pending",
     "save_workout",
+    "remove_duplicate_workouts",
     "pair",
     "unpair",
     "send",

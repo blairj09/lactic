@@ -2,12 +2,17 @@
 import { describe, expect, it, vi } from "vitest";
 
 const saved: string[] = [];
+let cleanups = 0;
 vi.mock("./plugin", () => ({
   saveWorkout: async (w: { id: string }) => {
     // HealthKit takes a while to finish a workout with its samples.
     await new Promise((r) => setTimeout(r, 20));
     saved.push(w.id);
     return { saved: true, reason: null };
+  },
+  removeDuplicateWorkouts: async () => {
+    cleanups++;
+    return { removed: 1 };
   },
   ackPending: async () => {},
   authorizeHealth: async () => ({ granted: true }),
@@ -42,5 +47,9 @@ describe("writeRides", () => {
     await Promise.all([writeRides(), writeRides(), writeRides()]);
     await writeRides();
     expect(saved).toEqual(["ride-1"]);
+  });
+
+  it("removes the duplicates older versions left in Health once", () => {
+    expect(cleanups).toBe(1);
   });
 });

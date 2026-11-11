@@ -97,6 +97,10 @@ struct Saved: Encodable {
   let reason: String?
 }
 
+struct Removed: Encodable {
+  let removed: Int
+}
+
 struct HealthEvent: Encodable {
   let pending: String
 }
@@ -436,6 +440,13 @@ enum Health {
 
   /// Saves one workout at a time, so the "already in Health?" check always sees the one before.
   /// Two saves of the same ride side by side both found nothing and both wrote it.
+  static func lastSaveDone() async {
+    saveLock.lock()
+    let last = lastSave
+    saveLock.unlock()
+    _ = await last?.result
+  }
+
   static func saveInTurn(_ w: WorkoutArgs) async throws -> Saved {
     saveLock.lock()
     let before = lastSave
@@ -446,6 +457,36 @@ enum Health {
     lastSave = task
     saveLock.unlock()
     return try await task.value
+  }
+
+  /// Deletes the extra copies of rides Lactic saved more than once (two saves used to race), with
+  /// the heart rate, power and other samples saved with each copy. Keeps one copy of each ride and
+  /// only ever touches workouts this app wrote that carry a Lactic ride id.
+  static func removeDuplicates(days: Double) async throws -> Removed {
+    let since = Date().addingTimeInterval(-days * 86_400)
+    let mine = try await samples(HKObjectType.workoutType(), since: since)
+      .compactMap { $0 as? HKWorkout }
+      .filter { $0.sourceRevision.source.bundleIdentifier == HKSource.default().bundleIdentifier }
+    var seen = Set<String>()
+    var extra: [HKWorkout] = []
+    for w in mine {
+      guard let id = w.metadata?[HKMetadataKeyExternalUUID] as? String else { continue }
+      if seen.contains(id) { extra.append(w) } else { seen.insert(id) }
+    }
+    if extra.isEmpty { return Removed(removed: 0) }
+    var types: [HKSampleType] = [
+      HKQuantityType(.heartRate), HKQuantityType(.activeEnergyBurned), HKQuantityType(.distanceCycling),
+    ]
+    if #available(iOS 17.0, *) {
+      types += [HKQuantityType(.cyclingPower), HKQuantityType(.cyclingCadence)]
+    }
+    for w in extra {
+      for type in types {
+        _ = try await store.deleteObjects(of: type, predicate: HKQuery.predicateForObjects(from: w))
+      }
+      try await store.delete(w)
+    }
+    return Removed(removed: extra.count)
   }
 
   static func save(_ w: WorkoutArgs) async throws -> Saved {
@@ -749,6 +790,15 @@ class LacticPhonePlugin: Plugin {
     let args = try invoke.parseArgs(WorkoutArgs.self)
     Task {
       do { invoke.resolve(try await Health.saveInTurn(args)) }
+      catch { invoke.reject(error.localizedDescription) }
+    }
+  }
+
+  @objc public func removeDuplicateWorkouts(_ invoke: Invoke) throws {
+    Task {
+      // After any save still finishing, so a ride part-way through saving isn't counted.
+      _ = await Health.lastSaveDone()
+      do { invoke.resolve(try await Health.removeDuplicates(days: 60)) }
       catch { invoke.reject(error.localizedDescription) }
     }
   }
