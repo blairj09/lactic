@@ -309,12 +309,12 @@ async function ExertionDetail(ctx: Ctx) {
       {!hasWatch && <Notice>Exertion counts rides only. Send daytime heart rate from Apple Health to count the whole day.</Notice>}
       <StatStrip cols={4} phone={2}>
         <Stat lead label="Yesterday" value={y ? y.exertion.toFixed(1) : <Dash />} unit={y ? "/ 10" : undefined} sub={y ? `${Math.round(y.trimp)} TRIMP` : "No heart rate yesterday"} />
-        <Stat label="Your normal" value={exertion.normal ? exertion.normal.mean.toFixed(1) : <Dash />} sub={exertion.normal ? `From ${exertion.normal.days} days` : "After a week of heart rate"} />
-        <Stat label="Target today" value={exertion.target ? `${exertion.target.low.toFixed(1)}–${exertion.target.high.toFixed(1)}` : <Dash />} sub={exertion.target ? "From recovery and your normal" : "Needs recovery and a normal"} />
+        <Stat label="Your usual day" value={exertion.normal ? exertion.normal.mean.toFixed(1) : <Dash />} sub={exertion.normal ? `From ${exertion.normal.days} days` : "After a week of heart rate"} />
+        <Stat label="Target today" value={exertion.target ? `${exertion.target.low.toFixed(1)}–${exertion.target.high.toFixed(1)}` : <Dash />} sub={exertion.target ? "From recovery and your usual day" : "Needs recovery and a usual day"} />
         <Stat label="Average" value={stats.mean !== null ? stats.mean.toFixed(1) : <Dash />} sub={`${stats.count} day${stats.count === 1 ? "" : "s"} counted`} />
       </StatStrip>
       <ChartPanel title="Exertion by day" meta={periodLabel(window)}>
-        <TrendChart label="Exertion by day" days={window} values={series} domain={[0, 10]} normal={exertion.normal?.mean ?? null} normalLabel="Your normal day" decimals={1} height={CHART_HEIGHT} />
+        <TrendChart label="Exertion by day" days={window} values={series} domain={[0, 10]} normal={exertion.normal?.mean ?? null} normalLabel="Your usual day" decimals={1} height={CHART_HEIGHT} />
       </ChartPanel>
       <ExertionPanel exertion={exertion} activity={summary.activity} />
       <DayTable
@@ -480,7 +480,7 @@ const NIGHTLY = {
   hrv: { pick: (d: RecoveryTrendDay) => d.hrv, unit: "ms", decimals: 0, compare: "percent", chart: "HRV by night" },
   "resting-hr": { pick: (d: RecoveryTrendDay) => d.restingHeartRate, unit: "bpm", decimals: 0, compare: "difference", chart: "Resting heart rate by night" },
   breathing: { pick: (d: RecoveryTrendDay) => d.respiratoryRate, unit: "/min", decimals: 1, compare: "difference", chart: "Breathing rate by night" },
-  "wrist-temp": { pick: (d: RecoveryTrendDay) => d.wristTempDeltaC, unit: "°C", decimals: 1, compare: null, chart: "Wrist temperature against normal by night" },
+  "wrist-temp": { pick: (d: RecoveryTrendDay) => d.wristTempDeltaC, unit: "°C", decimals: 1, compare: null, chart: "Wrist temperature against usual by night" },
 } as const;
 
 async function NightlyDetail(ctx: Ctx, metric: MetricKey) {
@@ -516,13 +516,13 @@ async function NightlyDetail(ctx: Ctx, metric: MetricKey) {
           label="Last night"
           value={lastNight !== null ? (isTemp ? signedFixed(lastNight) : lastNight.toFixed(config.decimals)) : <Dash />}
           unit={lastNight !== null ? unit : undefined}
-          sub={lastNight !== null && config.compare && normal !== null ? `${vsNormal(lastNight)} against normal` : kind ?? undefined}
+          sub={lastNight !== null && config.compare && normal !== null ? `${vsNormal(lastNight)} against usual` : kind ?? undefined}
         />
         <Stat
-          label={isTemp ? "Normal" : "Your normal"}
+          label={isTemp ? "Usual" : "Your usual"}
           value={isTemp ? "0.0" : normal !== null ? normal.toFixed(config.decimals) : <Dash />}
           unit={isTemp || normal !== null ? unit : undefined}
-          sub={isTemp ? "Your own wrist-temp normal" : normal !== null ? "Last 60 days" : `After ${needs} nights`}
+          sub={isTemp ? "Your own wrist-temp usual" : normal !== null ? "Last 60 days" : `After ${needs} nights`}
         />
         <Stat label="Average" value={show(stats.mean) ?? <Dash />} sub={`${stats.count} night${stats.count === 1 ? "" : "s"}`} />
         <Stat label="Range" value={show(stats.min) ?? <Dash />} sub={stats.max !== null ? `to ${show(stats.max)}` : undefined} />
@@ -533,7 +533,7 @@ async function NightlyDetail(ctx: Ctx, metric: MetricKey) {
           days={window}
           values={values}
           normal={normal}
-          normalLabel={isTemp ? "Your normal" : undefined}
+          normalLabel={isTemp ? "Your usual" : undefined}
           unit={unit}
           decimals={config.decimals}
           signed={isTemp}
@@ -543,7 +543,7 @@ async function NightlyDetail(ctx: Ctx, metric: MetricKey) {
       <DayTable
         title="Night by night"
         noun="night"
-        columns={[{ label: "Night" }, { label: isTemp ? "Against normal" : METRICS[metric].title }, ...(config.compare ? [{ label: "Against normal" }] : [])]}
+        columns={[{ label: "Night" }, { label: isTemp ? "Against usual" : METRICS[metric].title }, ...(config.compare ? [{ label: "Against usual" }] : [])]}
         rows={[...window].reverse().flatMap((day, i) => {
           const v = values[window.length - 1 - i];
           if (v === null) return [];

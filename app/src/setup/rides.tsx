@@ -7,7 +7,7 @@ import { button, input, Pill, Result } from "@/components/ui";
 import { connect, loadConnection } from "@/lib/intervals/client";
 import { LOCAL_USER } from "~/db/schema";
 import { createClient } from "~/db/supabase-client";
-import { openExternal } from "~/platform/native";
+import { isPhone, openExternal } from "~/platform/native";
 import { deleteSecret, placeholder, saveSecret, SECRET_INTERVALS } from "~/platform/secrets";
 import { notifyChanged } from "~/integrations/background";
 import { HealthSetup } from "./health";
@@ -95,7 +95,9 @@ export function RidesSetup({ sleep = true }: { sleep?: boolean }) {
       <div className="space-y-3 rounded-lg border border-line p-4">
         <div>
           <p className="font-medium">FIT files</p>
-          <p className="text-sm text-muted">Or import files from Garmin Connect, Wahoo or Zwift (Documents/Zwift/Activities).</p>
+          <p className="text-sm text-muted">
+            {isPhone() ? "Or import FIT files from the Files app: exports from Garmin Connect, Wahoo or Zwift." : "Or import files from Garmin Connect, Wahoo or Zwift (Documents/Zwift/Activities)."}
+          </p>
         </div>
         <FitImport />
       </div>

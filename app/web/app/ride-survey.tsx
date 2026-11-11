@@ -33,6 +33,8 @@ export default function RideSurvey({
   name,
   session,
   onDone,
+  question,
+  narrow = false,
 }: {
   /** A stored ride's id, or the start time of a ride just saved on the Ride page. */
   ride: { id: string } | { appStartedAt: string };
@@ -40,6 +42,10 @@ export default function RideSurvey({
   /** The library workout ridden, when it wasn't the plan's session. */
   session?: Pick<Session, "zone" | "level" | "duration" | "stress"> | null;
   onDone?: () => void;
+  /** In place of "How was {name}?", where the ride is already named. */
+  question?: string;
+  /** In a narrow column: the answers stay two by two. */
+  narrow?: boolean;
 }) {
   const router = useRouter();
   const key = "id" in ride ? ride.id : ride.appStartedAt;
@@ -76,14 +82,14 @@ export default function RideSurvey({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm font-medium">How was {name}?</p>
+      <p className="text-sm font-medium">{question ?? `How was ${name}?`}</p>
       <Segmented
         label="Difficulty"
         options={DIFFICULTIES.map((d) => ({ value: d, label: DIFFICULTY_LABELS[d] }))}
         value={difficulty}
         onChange={setDifficulty}
         disabled={pending}
-        wrap
+        wrap={narrow ? "always" : true}
       />
       {difficulty && (
         <>

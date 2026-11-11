@@ -1,5 +1,6 @@
 "use client";
 
+import { formatHours } from "@/lib/engine/hours";
 import { useEffect, useRef, useState } from "react";
 
 /** A container ref and its current width, for SVG charts that fill their column. */
@@ -35,10 +36,7 @@ export function shortDuration(seconds: number): string {
 
 /** "3h 20m": time spent, for hours of riding. */
 export function hoursMinutes(seconds: number): string {
-  const total = Math.round(seconds / 60);
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  return h ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m`;
+  return formatHours(seconds / 3600);
 }
 
 /** A short colored stroke and a label, as legends and readouts key their series. */

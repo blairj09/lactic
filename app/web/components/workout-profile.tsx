@@ -29,12 +29,15 @@ export default function WorkoutProfile({
   className = "",
   details = false,
   ftp,
+  fit = false,
 }: {
   workout: Workout;
   height?: number;
   className?: string;
   details?: boolean;
   ftp?: number | null;
+  /** Crop the empty band above an easy workout: same scale, shorter chart. */
+  fit?: boolean;
 }) {
   const [at, setAt] = useState<number | null>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -53,7 +56,13 @@ export default function WorkoutProfile({
 
   if (total <= 0) return null;
   const top = 1.3;
-  const y = (target: number) => height * (1 - Math.min(target, top) / top);
+  // Same scale as always (1.3 × FTP at the top); `fit` only trims the empty band above the highest part.
+  const scale = height;
+  if (fit) {
+    const peak = Math.max(...workout.segments.map((s) => (s.kind === "freeRide" ? 0.5 : s.kind === "ramp" ? Math.max(s.from, s.to) : s.target)));
+    height = Math.max(24, Math.round(scale * Math.min(1, (peak * 1.1) / top)));
+  }
+  const y = (target: number) => scale * (1 - Math.min(target, top) / top) - (scale - height);
   let start = 0;
   const shapes = workout.segments.map((s, i) => {
     const x0 = (start / total) * 1000;

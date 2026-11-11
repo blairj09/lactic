@@ -7,7 +7,7 @@ import { formatMonthly, monthlyEstimate } from "~/ai/cost";
 import { knownPrice, PROVIDERS, preset, type ProviderKind } from "~/ai/providers";
 import { coachSetup, saveCoachSetup, SECRET_AI, type CoachMode, type CoachSetup, type ModelChoice } from "~/ai/settings";
 import { listModels, testModel, type ModelInfo } from "~/ai/test";
-import { invoke, isDesktop, openExternal } from "~/platform/native";
+import { invoke, isDesktop, isPhone, openExternal } from "~/platform/native";
 import { deleteSecret, rebindSecret, saveSecret, secretStatus } from "~/platform/secrets";
 
 const MODES: { mode: CoachMode; title: string; line: string }[] = [
@@ -15,6 +15,13 @@ const MODES: { mode: CoachMode; title: string; line: string }[] = [
   { mode: "external", title: "An AI app you already use", line: "Coach through Claude Desktop (or another app that speaks MCP): you chat there, it reads your training from Lactic and suggests changes." },
   { mode: "none", title: "No coach", line: "Just the plan, the workouts and your numbers. You can add a coach later." },
 ];
+
+/**
+ * On the iPhone: no models on this device and no MCP server, so a cloud key or no coach. A choice
+ * synced from the computer (an AI app, Ollama) keeps working there and is named here.
+ */
+const PHONE_MODES = new Set<CoachMode>(["builtin", "none"]);
+const modeLine = (m: (typeof MODES)[number]) => (isPhone() && m.mode === "builtin" ? "Chat with a coach inside Lactic, on an AI model you pick, with a key from an AI provider." : m.line);
 
 export function useCoachSetup() {
   const [setup, setSetup] = useState<CoachSetup | null>(null);
@@ -62,13 +69,14 @@ export function CoachSetupPanel() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        {MODES.map((m) => (
-          <ModeCard key={m.mode} active={setup.mode === m.mode} title={m.title} line={m.line} onPick={() => void update({ ...setup, mode: m.mode })} />
+        {MODES.filter((m) => !isPhone() || PHONE_MODES.has(m.mode)).map((m) => (
+          <ModeCard key={m.mode} active={setup.mode === m.mode} title={m.title} line={modeLine(m)} onPick={() => void update({ ...setup, mode: m.mode })} />
         ))}
       </div>
+      {isPhone() && setup.mode === "external" && <Notice>Your coach is an AI app on your computer. Chat with it there; its suggestions show up here too.</Notice>}
       {setup.mode === "builtin" && <BuiltinSetup setup={setup} update={update} />}
-      {setup.mode === "builtin" && <AlongsideSetup on={Boolean(setup.alongside)} onChange={(alongside) => void update({ ...setup, alongside })} />}
-      {setup.mode === "external" && <ExternalSetup />}
+      {setup.mode === "builtin" && !isPhone() && <AlongsideSetup on={Boolean(setup.alongside)} onChange={(alongside) => void update({ ...setup, alongside })} />}
+      {setup.mode === "external" && !isPhone() && <ExternalSetup />}
     </div>
   );
 }
@@ -129,16 +137,16 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
   }
 
   const suggested = info?.suggested ?? [];
-  const localMissing = info?.local && modelsError;
+  const localMissing = info?.local && modelsError && !isPhone();
   const installed = info?.local ? (models ?? []) : [];
   const priceOf = (id: string) => models?.find((m) => m.id === id)?.price ?? knownPrice(kind ?? undefined, id);
   const unpriced = Boolean(info && !info.local && setup.chat && !setup.chat.price && !priceOf(setup.chat.model));
 
   return (
     <div className="space-y-6 rounded-lg border border-line p-5">
-      <Group label="Where the model runs">
+      <Group label={isPhone() ? "AI provider" : "Where the model runs"}>
         <div className="grid gap-2 sm:grid-cols-2">
-          {PROVIDERS.map((p) => (
+          {PROVIDERS.filter((p) => !(isPhone() && p.local)).map((p) => (
             <button
               key={p.kind}
               type="button"
@@ -155,6 +163,7 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
           ))}
         </div>
       </Group>
+      {isPhone() && info?.local && <Notice>{info.label.replace(/ \(.*\)/, "")} runs on your computer, so this coach chats there. Pick a provider above to chat on this iPhone too.</Notice>}
 
       {info && kind === "custom" && (
         <Field label="Base URL" hint="The address before /chat/completions, e.g. https://api.groq.com/openai/v1">
@@ -181,7 +190,7 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
           label="API key"
           hint={
             <>
-              Kept in your computer&apos;s keychain; Lactic never shows it again.{" "}
+              Kept in {isPhone() ? "this iPhone" : "your computer"}&apos;s keychain; Lactic never shows it again.{" "}
               {info.keyUrl && (
                 <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal(info.keyUrl!)}>
                   Get a {info.label} key
@@ -347,7 +356,7 @@ function ModelGuide({ local }: { local: boolean }) {
           <span className="font-medium text-ink">Privacy.</span>{" "}
           {local
             ? "This model runs on your computer, so your training data never leaves it."
-            : "Each reply sends the parts of your training the coach looked up (plan, rides, recovery, weight) to the provider you chose. Your API key stays in your keychain. On OpenRouter you can limit routing to providers that don't keep or train on prompts in its privacy settings. For nothing to leave your computer, use Ollama or LM Studio."}
+            : "Each reply sends the parts of your training the coach looked up (plan, rides, recovery, weight) to the provider you chose. Your API key stays in your keychain. On OpenRouter you can limit routing to providers that don't keep or train on prompts in its privacy settings." + (isPhone() ? "" : " For nothing to leave your computer, use Ollama or LM Studio.")}
         </p>
       </div>
     </details>

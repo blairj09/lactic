@@ -53,7 +53,7 @@ jobs:
   check:
     needs: changes
     if: needs.changes.outputs.app == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # pinned: the 26.04 image fails to fetch the Tauri Linux packages
     outputs:
       # "release": this run ships v<version> (a version tag, a manual run with "release" ticked,
       # or main with a version that has no release yet). "preview": everything else (pull
