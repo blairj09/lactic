@@ -13,6 +13,7 @@ const COMMANDS: &[&str] = &[
     "schedule_ride_end",
     "cancel_ride_end",
     "save_widget",
+    "web_auth",
     "register_listener",
     "remove_listener",
 ];
