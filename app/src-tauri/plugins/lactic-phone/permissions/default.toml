@@ -13,6 +13,8 @@ permissions = [
   "allow-schedule-ride-end",
   "allow-cancel-ride-end",
   "allow-save-widget",
+  "allow-ride-activity",
+  "allow-end-ride-activity",
   "allow-web-auth",
   "allow-register-listener",
   "allow-remove-listener",

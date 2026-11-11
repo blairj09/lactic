@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- On iPhone, your ride shows on the lock screen and in the Dynamic Island: the interval under way with its countdown, power against target, heart rate, cadence, what's next and time left. It shows for rides on the iPhone and, while Lactic is open on it, for a ride on your computer too.
+
 ## 0.2.0
 
 - Post rides to Strava from the iPhone app (an experiment): connect Strava in Settings on an iPhone you use on its own, or, if it's paired with your computer, rides you record on the iPhone go to Strava from your computer once they sync, so none shows up twice.

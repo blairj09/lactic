@@ -32,6 +32,7 @@ import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type Ride
 import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
+import { LiveActivityHost } from "~/phone/live-activity";
 import { RemoteHost } from "~/ride/remote";
 import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
 import { isDesktop, isPhone } from "~/platform/native";
@@ -1072,6 +1073,7 @@ function RideOnThisDevice({
         </div>
         {pip.pip && <OverlayPortal pip={pip.pip} data={data} controls={controls} onResize={resizeOverlay} />}
         {isDesktop && !isPhone() && <RemoteHost data={data} controls={controls} />}
+        {isPhone() && <LiveActivityHost ride={data} />}
       </Page>
     </div>
   );
