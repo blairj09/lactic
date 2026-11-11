@@ -55,6 +55,12 @@ export function AboutSetting() {
         </button>
       </p>
       <p className="text-muted">
+        Curious how the numbers are worked out?{" "}
+        <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal("https://lactic.fit/science")}>
+          The science behind Lactic
+        </button>
+      </p>
+      <p className="text-muted">
         Enjoying it? Chip in to keep it going.{" "}
         <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal(SUPPORT_URL)}>
           Support Lactic

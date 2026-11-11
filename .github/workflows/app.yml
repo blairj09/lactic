@@ -258,6 +258,9 @@ jobs:
           set -euo pipefail
           args=()
           while IFS= read -r line; do [ -n "$line" ] && args+=("$line"); done < "$RUNNER_TEMP/tauri-args"
+          # The Rust cache can bring back an earlier run's installers (a Lactic Preview .app, an
+          # older .dmg); clear them so only this build is checked and uploaded.
+          rm -rf src-tauri/target/release/bundle src-tauri/target/*/release/bundle
           npx tauri bundle --bundles ${{ matrix.bundles }} ${args[@]+"${args[@]}"}
         working-directory: app
       - name: Notarize the .dmg too (Mac)
@@ -354,6 +357,15 @@ jobs:
           fail_on_unmatched_files: true
           generate_release_notes: true
           body_path: release-body.md
+      - name: Put this release on lactic.fit (the homepage demo is built from the latest release)
+        if: steps.version.outputs.skip != 'true'
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          # A Vercel deploy hook for the lactic-site project (main). Without it the site still
+          # catches up on the next push to main (site/scripts/should-build.mjs).
+          if [ -z "$HOOK" ]; then echo "::notice::No VERCEL_DEPLOY_HOOK_URL secret: lactic.fit shows this release after the next push to main."; exit 0; fi
+          curl -fsS -X POST "$HOOK" >/dev/null && echo "Asked Vercel to redeploy lactic.fit."
 
   preview:
     # Lactic Preview from main: each push to main that isn't a release replaces the rolling

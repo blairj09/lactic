@@ -476,6 +476,10 @@ export const TABLES: Record<string, Table> = {
       forecast_at: { type: "ts" },
       created_at: now,
       updated_at: now,
+      /** A finish time the rider is aiming for, seconds. */
+      target_seconds: { type: "int" },
+      /** How it's ridden: "solo", "group" or "bunch"; the event kind's usual when null. */
+      pack: { type: "text" },
     },
     primaryKey: ["id"],
     unique: [["goal_id"]],

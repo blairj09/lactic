@@ -6,6 +6,13 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Race courses: set a target finish time and Lactic works out the FTP it takes, whether that's realistic by race day, and the power to hold on each climb to make it. If you need more FTP, the plan builds toward it. Pick how you'll ride the event (solo, a small group or a bunch) and times allow for the draft, with what getting dropped on the main climb would cost you.
+- Race courses: times now show a likely range, and allow for racing at altitude (Lactic asks where you live) and in the heat. Fueling follows the current sports-nutrition guidelines. Curious how it's all worked out? Settings → About links to the science behind it.
+- Race courses: road riders can measure their own drag from recent outdoor rides with power (via intervals.icu). Lactic then checks itself by timing each of those rides from its own power, and tells you how close it came.
+- The iPhone screen stays on while it's showing a ride, whether the iPhone is running the trainer or showing the ride on your computer.
+
+## 0.2.0
+
 - Post rides to Strava from the iPhone app (an experiment): connect Strava in Settings on an iPhone you use on its own, or, if it's paired with your computer, rides you record on the iPhone go to Strava from your computer once they sync, so none shows up twice.
 - Sleep debt is fixed: reading Health from your iPhone could keep only the last hour or two of some nights, which made sleep debt far too high. The iPhone reads your last 60 days once more to put those nights back, and debt now counts only the last 7 days.
 - Today no longer shows a weekly sleep debt warning. When you're behind on sleep it just says how long to aim for tonight to catch up; the week's total is still on the Sleep page.

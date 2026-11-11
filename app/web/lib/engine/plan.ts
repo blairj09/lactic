@@ -5,6 +5,7 @@
 import { buildSession, INTERVAL_ZONES, openers, rampTest, ZONE_LABELS, type Levels, type Session, type Zone, MAX_LEVEL, MIN_LEVEL } from "./library";
 import { addDays, fitnessSeries, type FitnessDay } from "./pmc";
 import { pickTemplate, WORK_TOTAL, type Focus } from "./templates";
+import type { Pack } from "./course/pacing";
 import { courseShape, type CourseDemands } from "./course/shape";
 import { libraryFits, librarySession } from "./workout-library";
 
@@ -77,6 +78,31 @@ export interface Goal {
   startTime?: string | null;
   /** What the event's course asks of you, when a course file is attached (course/shape.ts). */
   course?: CourseDemands | null;
+  /** How it's ridden: solo, in a small group or in a bunch (course/pacing.ts); the kind's usual when not set. */
+  pack?: Pack | null;
+  /** A finish time the rider is aiming for and the FTP it takes on the course (course/target.ts). */
+  timeTarget?: TimeTarget | null;
+}
+
+export interface TimeTarget {
+  seconds: number;
+  /** FTP the target takes. */
+  neededFtp: number;
+  /** FTP now. */
+  ftp: number;
+}
+
+/** "4:05" from seconds. */
+const hm = (seconds: number) => {
+  const m = Math.round(seconds / 60);
+  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+};
+
+/** When a target time takes more FTP than the rider has, the note on the days that build it; else null. */
+export function targetNote(goal: Goal | null): string | null {
+  const t = goal?.timeTarget;
+  if (!t || t.neededFtp <= t.ftp * 1.01) return null;
+  return `Builds FTP toward your ${hm(t.seconds)} target: it takes about ${t.neededFtp} W, from ${t.ftp} W now.`;
 }
 
 export const goalMinutes = (g: Goal) => g.minutes ?? KIND_DEFAULTS[g.kind].minutes;
@@ -354,6 +380,11 @@ const KEY_ZONES: Record<"base" | "build", Zone[]> = {
   build: ["threshold", "vo2max"],
 };
 
+/** Base key zones when chasing a target time that takes more FTP. */
+const TARGET_BASE_ZONES: Zone[] = ["sweetSpot", "threshold"];
+/** Zones that raise FTP. */
+const FTP_ZONES: Zone[] = ["sweetSpot", "threshold", "vo2max"];
+
 /** Longest planned key session, in minutes; longer days are easier riding. */
 const KEY_CAP_MINUTES: Record<Zone, number> = { recovery: 60, endurance: 300, tempo: 120, sweetSpot: 105, threshold: 90, vo2max: 75, anaerobic: 60 };
 
@@ -385,6 +416,9 @@ export function buildPlan(input: PlanInput): Plan {
   const { target } = schedule;
   if (schedule.end < today) return { target, frame, weeks: [], forecast: [] };
   const shape = target ? courseShape(target) : null;
+  // A target time that takes more FTP than the rider has: base trains threshold, not tempo, and the
+  // key days that raise FTP say so.
+  const chasing = targetNote(target);
   // Always from this week, so events before a saved plan starts still show on their days.
   const firstWeek = thisWeek;
   const weekCount = Math.min(MAX_WEEKS, daysBetween(firstWeek, weekStart(schedule.end)) / 7 + 1);
@@ -413,7 +447,7 @@ export function buildPlan(input: PlanInput): Plan {
     const weekAvail = week.availability;
     const weekGoals = upcoming.filter((g) => g.date >= start && g.date <= addDays(start, 6) && g.date <= schedule.end);
     const late = phase === "specialty" || phase === "taper";
-    const zones = late && target ? (shape?.zones ?? specialtyZones(target)) : KEY_ZONES[phase === "base" ? "base" : "build"];
+    const zones = late && target ? (shape?.zones ?? specialtyZones(target)) : phase === "base" && chasing ? TARGET_BASE_ZONES : KEY_ZONES[phase === "base" ? "base" : "build"];
     const focus = late && shape ? shape.focus : phaseFocus(phase, target);
     const climb = shape?.climb && (phase === "build" || phase === "specialty") ? { ...shape.climb, note: shape.note } : null;
     // Long events need long rides: from build on, the long ride works toward three quarters of the event's time.
@@ -433,6 +467,9 @@ export function buildPlan(input: PlanInput): Plan {
     const weekRule: SafetyRule | undefined =
       phase === "taper" && target ? "eventTaper" : phase === "test" ? "testWeek" : recoveryWeek ? (breakNote === "break" ? "breakWeek" : breakNote === "reentry" ? "reentryWeek" : "recoveryWeek") : undefined;
     if (weekRule) for (const day of days) if (day.session && day.role !== "test") day.rule = weekRule;
+    if (chasing && !weekRule && phase !== "taper" && phase !== "test") {
+      for (const day of days) if (day.role === "key" && day.session && FTP_ZONES.includes(day.session.zone) && !day.course) day.course = chasing;
+    }
     for (const goal of weekGoals) if (goal !== target) applyEvent(days, goal, weekAvail, levels);
     // Days outside a saved plan's dates are left open, apart from the events on them.
     for (const day of days) if ((day.date < schedule.firstDay || day.date > schedule.end) && day.role !== "event") Object.assign(day, { role: "rest", session: null, rule: undefined, course: undefined });

@@ -34,7 +34,9 @@ import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
 import { loadTrainingState, saveKeptWeek, type CheckinRecord, type TrainingState } from "@/lib/training";
 import { todayOptions } from "@/lib/today-options";
 import { createClient } from "@/lib/supabase/server";
-import { courseFromFile, courseFromUrl, saveCourse } from "@/lib/course";
+import { courseFromFile, courseFromUrl, saveCourse, saveCourseTarget } from "@/lib/course";
+import { PACKS, type Pack } from "@/lib/engine/course/pacing";
+import { parseFinishTime } from "@/lib/engine/course/target";
 import { experiments } from "@/lib/experiments";
 import { courseSaved } from "./course-actions";
 import type { ActionResult } from "../actions";
@@ -90,6 +92,11 @@ export async function saveGoal(_: ActionResult | null, form: FormData): Promise<
         : link
           ? await courseFromUrl(link)
           : null;
+    const targetText = String(form.get("target_time") ?? "").trim();
+    const targetSeconds = course && targetText ? parseFinishTime(targetText) : null;
+    if (course && targetText && targetSeconds === null) throw new Error("Give the target time as hours and minutes, like 4:30");
+    const packValue = String(form.get("pack") ?? "");
+    const pack = PACKS.includes(packValue as Pack) ? (packValue as Pack) : null;
     const supabase = await createClient();
     const goalId = id || crypto.randomUUID();
     if (id) {
@@ -100,6 +107,7 @@ export async function saveGoal(_: ActionResult | null, form: FormData): Promise<
       if (error) throw error;
     }
     const withCourse = course ? ` ${await courseSaved(await saveCourse(supabase, goalId, course.name, course.track))}` : "";
+    if (course && (targetSeconds || pack)) await saveCourseTarget(supabase, goalId, targetSeconds, pack);
     return id ? `Updated ${name}.${withCourse}` : `Added ${name}. The plan now builds toward it.${withCourse}`;
   });
 }
