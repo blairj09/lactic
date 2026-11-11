@@ -170,6 +170,7 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .feature { background: var(--surface); border: 1px solid #e3e6ec; border-radius: 12px; padding: 22px; display: grid; gap: 8px; align-content: start; }
 .feature h3 { font-size: 19px; }
 .feature p { font-size: 16px; line-height: 1.55; color: var(--body); }
+.feature-tag { display: inline-block; vertical-align: 3px; margin-left: 6px; font: 600 11px/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); background: var(--accent-tint); padding: 4px 6px; border-radius: 5px; }
 
 /* Download */
 .download { background: var(--accent); color: #fff; }
