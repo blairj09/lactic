@@ -108,7 +108,8 @@ export function widgetSnapshot(state: TrainingState, exertion: ExertionToday | n
       : null,
     metrics,
     sleepScore: glance?.sleepScore?.score ?? null,
-    signal: glance?.signals[0]?.reason ?? null,
+    // Sleep debt stays off the widget (a weekly total read as alarming; Today shows tonight's aim instead).
+    signal: glance?.signals.find((s) => s.id !== "sleepDebt")?.reason ?? null,
     today: todayLine(state),
     exertion:
       exertion && (exertion.soFar !== null || exertion.target)
