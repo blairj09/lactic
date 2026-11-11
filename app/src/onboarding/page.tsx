@@ -9,7 +9,9 @@ import { getSetting, setSetting } from "~/settings/store";
 import { ProfileForm, saveProfile, useProfile } from "~/setup/profile";
 import { defaultWeek, saveWeek, WeekForm } from "~/setup/week";
 import { GearSetup } from "~/setup/gear";
-import { RidesSetup } from "~/setup/rides";
+import { RideSources } from "~/setup/bring-rides";
+import { historySoFar } from "~/setup/history";
+import { HealthSetup } from "~/setup/health";
 import { CoachSetupPanel } from "~/setup/coach";
 import { keepCoachChoice } from "~/ai/settings";
 import { revalidatePath } from "~/shims/next-cache";
@@ -25,34 +27,28 @@ import { PhoneSleepSetup } from "~/phone/setup-health";
 import { SOLO } from "~/phone/welcome";
 
 const STEPS = [
+  { id: "rides", title: "Bring your training", line: "You're not starting from zero. Your past rides set your fitness, FTP and plan from day one." },
   { id: "you", title: "About you", line: "So your zones and plan fit you." },
   { id: "week", title: "Your week and goal", line: "Lactic plans around the time you have." },
   { id: "track", title: "What to track", line: "Rides and your plan are always on. Add these if you want them." },
   { id: "sleep", title: "Sleep and recovery", line: "Last night's sleep gives you a recovery score each morning." },
   { id: "gear", title: "Your gear", line: "Wake your trainer and sensors and Lactic finds them." },
-  { id: "rides", title: "Your rides and sleep", line: "Your history sets your fitness from day one. Sleep gives you a daily recovery score." },
   { id: "coach", title: "Your coach", line: "Pick a coach, or go without." },
 ] as const;
 type StepId = (typeof STEPS)[number]["id"];
 type Step = (typeof STEPS)[number];
 
 /**
- * The steps for this device and what the rider tracks. The computer sets up sleep with the rides
- * (intervals.icu or a paired iPhone); an iPhone on its own gets its own step, for Apple Health.
+ * The steps for what the rider tracks. Past rides come first, so About you can suggest an FTP from
+ * them and the plan starts at the rider's real fitness; sleep gets its own step when it's tracked.
  */
 function stepsFor(tracking: Features): Step[] {
-  return STEPS.filter((s) => s.id !== "sleep" || (isPhone() && tracking.recovery));
+  return STEPS.filter((s) => s.id !== "sleep" || tracking.recovery);
 }
 
-/** A step's title and line for what the rider chose to track. */
-function stepText(s: Step, tracking: Features) {
-  if (s.id === "rides" && (!tracking.recovery || isPhone())) return { title: "Your rides", line: "Your history sets your fitness from day one." };
-  return s;
-}
-
-function Frame({ step, steps, tracking, children, footer }: { step: number; steps: Step[]; tracking: Features; children: React.ReactNode; footer: React.ReactNode }) {
+function Frame({ step, steps, children, footer }: { step: number; steps: Step[]; children: React.ReactNode; footer: React.ReactNode }) {
   const STEPS = steps;
-  const s = stepText(STEPS[step], tracking);
+  const s = STEPS[step];
   return (
     <div className="min-h-screen bg-ground">
       <div className="lactic-drag lactic-titlebar flex h-12 items-center px-5">
@@ -121,6 +117,16 @@ function Welcome({ onStart }: { onStart: () => void }) {
           </button>
           <p className="text-sm text-faint">5 minutes and you'll be riding intervals.</p>
         </div>
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Your rides come with you</p>
+          <ul className="flex flex-wrap justify-center gap-1.5" aria-label="Bring rides from">
+            {["Zwift", "Garmin", "Wahoo", "Strava", "intervals.icu"].map((name) => (
+              <li key={name} className="rounded-full border border-line bg-raised px-2.5 py-0.5 text-xs text-muted">
+                {name}
+              </li>
+            ))}
+          </ul>
+        </div>
         {isDesktop && (
           <div className="space-y-1.5 text-sm text-muted">
             <p>
@@ -176,6 +182,16 @@ export default function Onboarding() {
   const back = () => (index <= 0 && isPhone() ? void setSetting(SOLO, false) : go(index > 0 ? STEPS[index - 1].id : ""));
 
   const profile = useProfile();
+  // Rides brought in on the first step suggest an FTP on About you, and the plan is built from them.
+  const [fromRides, setFromRides] = useState<{ rides: number; ftp: number | null } | null>(null);
+  const { loaded, values, setValues } = profile;
+  useEffect(() => {
+    if (at !== "you" && at !== "week") return;
+    void historySoFar().then((h) => setFromRides({ rides: h.rides, ftp: h.ftp }), () => {});
+  }, [at]);
+  useEffect(() => {
+    if (at === "you" && loaded && fromRides?.ftp && !values.ftp && !values.ftpUnknown) setValues((v) => ({ ...v, ftp: String(fromRides.ftp) }));
+  }, [at, loaded, fromRides, values.ftp, values.ftpUnknown, setValues]);
   const [week, setWeek] = useState(defaultWeek);
   useEffect(() => {
     void getSetting<unknown>(FEATURES_SETTING, null).then((saved) => {
@@ -203,7 +219,7 @@ export default function Onboarding() {
   }
 
   if (at === "done") return <Done onFinish={(tour) => void finish(tour)} />;
-  if (index < 0) return isPhone() ? <Navigate to="/welcome/you" replace /> : <Welcome onStart={() => go("you")} />;
+  if (index < 0) return isPhone() ? <Navigate to="/welcome/rides" replace /> : <Welcome onStart={() => go("rides")} />;
 
   const footer = (primary: React.ReactNode, skip = true) => (
     <>
@@ -229,44 +245,58 @@ export default function Onboarding() {
   switch (STEPS[index].id) {
     case "you":
       return (
-        <Frame step={index} steps={STEPS} tracking={tracking} footer={footer(continueButton(() => void save(() => saveProfile(profile.values))), false)}>
-          {profile.loaded && <ProfileForm values={profile.values} onChange={profile.setValues} error={error} />}
+        <Frame step={index} steps={STEPS} footer={footer(continueButton(() => void save(() => saveProfile(profile.values))), false)}>
+          {profile.loaded && (
+            <ProfileForm
+              values={profile.values}
+              onChange={profile.setValues}
+              error={error}
+              ftpHint={fromRides?.ftp && profile.values.ftp === String(fromRides.ftp) ? "From your rides: your best efforts in the last 90 days. Change it if you know better." : undefined}
+            />
+          )}
         </Frame>
       );
     case "week":
       return (
-        <Frame step={index} steps={STEPS} tracking={tracking} footer={footer(continueButton(() => void save(() => saveWeek(week)), "Build my plan"))}>
+        <Frame step={index} steps={STEPS} footer={footer(continueButton(() => void save(() => saveWeek(week)), fromRides?.rides ? "Build my plan from my rides" : "Build my plan"))}>
           <WeekForm values={week} onChange={setWeek} error={error} />
         </Frame>
       );
     case "track":
       return (
-        <Frame step={index} steps={STEPS} tracking={tracking} footer={footer(continueButton(() => void save(async () => (await saveFeatures(tracking), { ok: true, message: "" }))), false)}>
+        <Frame step={index} steps={STEPS} footer={footer(continueButton(() => void save(async () => (await saveFeatures(tracking), { ok: true, message: "" }))), false)}>
           <FeatureChoice values={tracking} onChange={setTracking} />
           <p className="mt-4 text-sm text-muted">Not ready? Leave them off and turn them on any time in Settings → What you track.</p>
         </Frame>
       );
     case "sleep":
       return (
-        <Frame step={index} steps={STEPS} tracking={tracking} footer={footer(continueButton(next))}>
-          <PhoneSleepSetup />
+        <Frame step={index} steps={STEPS} footer={footer(continueButton(next))}>
+          {isPhone() ? (
+            <PhoneSleepSetup />
+          ) : (
+            <>
+              <HealthSetup />
+              <p className="mt-4 text-sm text-muted">No time now? Skip it and connect your sleep later in Settings → Sleep and recovery.</p>
+            </>
+          )}
         </Frame>
       );
     case "gear":
       return (
-        <Frame step={index} steps={STEPS} tracking={tracking} footer={footer(continueButton(next))}>
+        <Frame step={index} steps={STEPS} footer={footer(continueButton(next))}>
           <GearSetup scale={tracking.weight} />
         </Frame>
       );
     case "rides":
       return (
-        <Frame step={index} steps={STEPS} tracking={tracking} footer={footer(continueButton(next))}>
-          <RidesSetup sleep={tracking.recovery && !isPhone()} />
+        <Frame step={index} steps={STEPS} footer={footer(continueButton(next))}>
+          <RideSources />
         </Frame>
       );
     case "coach":
       return (
-        <Frame step={index} steps={STEPS} tracking={tracking} footer={footer(continueButton(() => void save(() => keepCoachChoice().then(() => ({ ok: true, message: "" }))), "Finish"), false)}>
+        <Frame step={index} steps={STEPS} footer={footer(continueButton(() => void save(() => keepCoachChoice().then(() => ({ ok: true, message: "" }))), "Finish"), false)}>
           <CoachSetupPanel />
           {error && <Result ok={false}>{error}</Result>}
         </Frame>

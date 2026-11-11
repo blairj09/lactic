@@ -8,7 +8,8 @@ import { importRides } from "../actions";
 
 const BATCH = 25;
 
-export default function FitImport() {
+/** Reads ride files (or zips of them) and imports the rides, with a running log of what happened. */
+export function useRideImport() {
   const [busy, setBusy] = useState(false);
   const [lines, setLines] = useState<string[]>([]);
 
@@ -54,7 +55,23 @@ export default function FitImport() {
     if (!rides.length && !log.length) note("No rides found in those files.");
     setBusy(false);
   };
+  return { busy, lines, run };
+}
 
+/** What an import said, one line each. */
+export function ImportLog({ lines }: { lines: string[] }) {
+  if (!lines.length) return null;
+  return (
+    <ul className="space-y-0.5 text-sm text-muted">
+      {lines.map((line, i) => (
+        <li key={i}>{line}</li>
+      ))}
+    </ul>
+  );
+}
+
+export default function FitImport() {
+  const { busy, lines, run } = useRideImport();
   return (
     <div className="space-y-2">
       <input
@@ -70,13 +87,7 @@ export default function FitImport() {
         }}
       />
       {busy && <p className="text-sm text-muted">Importing...</p>}
-      {lines.length > 0 && (
-        <ul className="space-y-0.5 text-sm text-muted">
-          {lines.map((line, i) => (
-            <li key={i}>{line}</li>
-          ))}
-        </ul>
-      )}
+      <ImportLog lines={lines} />
     </div>
   );
 }
