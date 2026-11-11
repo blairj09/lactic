@@ -144,7 +144,7 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
 
   return (
     <div className="space-y-6 rounded-lg border border-line p-5">
-      <Group label="Where the model runs">
+      <Group label={isPhone() ? "AI provider" : "Where the model runs"}>
         <div className="grid gap-2 sm:grid-cols-2">
           {PROVIDERS.filter((p) => !(isPhone() && p.local)).map((p) => (
             <button
