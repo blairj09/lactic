@@ -26,6 +26,8 @@ export interface ComplianceDay {
   rides: ComplianceRide[];
   /** A missed key session moved off this day (adapt.ts): the day it went to. */
   movedTo?: string;
+  /** Before the saved plan started: its rides aren't measured against the plan, make nothing up and don't count. */
+  beforePlan?: true;
 }
 
 export interface DayResult {
@@ -42,7 +44,7 @@ export interface DayResult {
  * DONE_SHARE is done, ridden less is partly done, and one with no ride is missed unless a ride on the
  * rest day just before or after it made it up (moved). Rides on rest days that made nothing up are
  * unplanned. Rest days without a ride get no mark. A day whose missed session the plan moved later in the week
- * (movedTo) is marked moved.
+ * (movedTo) is marked moved. Days before the plan started (beforePlan) get no mark and make nothing up.
  */
 export function markDays(days: ComplianceDay[], today: string): Map<string, DayResult> {
   const byDate = new Map(days.map((d) => [d.date, d]));
@@ -52,7 +54,7 @@ export function markDays(days: ComplianceDay[], today: string): Map<string, DayR
     durationSeconds: rides.reduce((t, r) => t + r.durationSeconds, 0),
     trainingStress: rides.some((r) => r.trainingStress !== null) ? rides.reduce((t, r) => t + (r.trainingStress ?? 0), 0) : null,
   });
-  const sorted = [...days].filter((d) => d.date <= today).sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = [...days].filter((d) => d.date <= today && !d.beforePlan).sort((a, b) => a.date.localeCompare(b.date));
 
   for (const day of sorted) {
     if (day.movedTo && !day.rides.length) out.set(day.date, { mark: "moved", share: null, movedTo: day.movedTo });
@@ -67,7 +69,7 @@ export function markDays(days: ComplianceDay[], today: string): Map<string, DayR
     // A rest day next to it with a ride on it (the day before first) made it up.
     const swap = [addDays(day.date, -1), addDays(day.date, 1)]
       .map((date) => byDate.get(date))
-      .find((d) => d && d.date <= today && (!d.planned || d.planned.stress <= 0) && d.rides.length && !claimed.has(d.date));
+      .find((d) => d && d.date <= today && !d.beforePlan && (!d.planned || d.planned.stress <= 0) && d.rides.length && !claimed.has(d.date));
     if (swap) {
       claimed.add(swap.date);
       const share = completion(day.planned, total(swap.rides));
@@ -88,7 +90,7 @@ export interface WeekProgress {
   planned: number;
   /** Stress of the sessions on days before today. */
   plannedToDate: number;
-  /** Stress ridden in the week so far, planned or not. */
+  /** Stress ridden in the week so far, planned or not, from the day the plan started. */
   done: number;
 }
 
@@ -97,7 +99,7 @@ export function weekProgress(days: ComplianceDay[], today: string): WeekProgress
   return {
     planned: Math.round(days.reduce((t, d) => t + stress(d), 0)),
     plannedToDate: Math.round(days.filter((d) => d.date < today).reduce((t, d) => t + stress(d), 0)),
-    done: Math.round(days.filter((d) => d.date <= today).reduce((t, d) => t + d.rides.reduce((s, r) => s + (r.trainingStress ?? 0), 0), 0)),
+    done: Math.round(days.filter((d) => d.date <= today && !d.beforePlan).reduce((t, d) => t + d.rides.reduce((s, r) => s + (r.trainingStress ?? 0), 0), 0)),
   };
 }
 
@@ -112,6 +114,7 @@ export const LINK_WINDOW_DAYS = 3;
 export function suggestDay(days: ComplianceDay[], rideDate: string, today: string): string | null {
   const byDate = new Map(days.map((d) => [d.date, d]));
   const own = byDate.get(rideDate);
+  if (own?.beforePlan) return null;
   if (own?.planned && own.planned.stress > 0) return null;
   for (let k = 1; k <= LINK_WINDOW_DAYS; k++) {
     for (const date of [addDays(rideDate, -k), addDays(rideDate, k)]) {

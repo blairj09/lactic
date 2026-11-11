@@ -476,6 +476,7 @@ function plannedOrSnapshot(state: TrainingState, day: string, snapshot?: Map<str
 /** Each day from `from` through `through` with what was planned and the rides on it, for marking planned against done. */
 export function complianceDays(state: TrainingState, from: string, through: string, snapshot?: Map<string, { duration: number; stress: number }>): ComplianceDay[] {
   const days: ComplianceDay[] = [];
+  const planStart = state.plan.frame?.start;
   for (let date = from; date <= through; date = addDays(date, 1)) {
     const move = state.moves.find((m) => m.from === date);
     const planned = move ? null : plannedOrSnapshot(state, date, snapshot);
@@ -484,6 +485,7 @@ export function complianceDays(state: TrainingState, from: string, through: stri
       planned: planned && { duration: planned.duration, stress: planned.stress },
       rides: date <= state.today ? ridesFor(state, date) : [],
       ...(move ? { movedTo: move.to } : {}),
+      ...(planStart && date < planStart ? { beforePlan: true as const } : {}),
     });
   }
   return days;

@@ -34,6 +34,18 @@ describe("markDays", () => {
     expect(marks.get("2026-10-27")).toMatchObject({ mark: "moved", movedFrom: "2026-10-26" });
     expect(marks.get("2026-10-28")?.mark).toBe("unplanned");
   });
+
+  it("ignores rides from before the plan started", () => {
+    // The plan starts on Wednesday; Tuesday's ride came before it and can't stand in for Wednesday's session.
+    const days: ComplianceDay[] = [
+      { date: "2026-11-02", planned: null, rides: [ride("a", 50)], beforePlan: true },
+      { date: "2026-11-03", planned: null, rides: [ride("b", 78)], beforePlan: true },
+      { date: "2026-11-04", planned: session(60), rides: [] },
+    ];
+    const marks = markDays(days, "2026-11-04");
+    expect(marks.size).toBe(0);
+    expect(markDays(days, "2026-11-05").get("2026-11-04")?.mark).toBe("missed");
+  });
 });
 
 describe("weekProgress", () => {
@@ -44,6 +56,14 @@ describe("weekProgress", () => {
       { date: "2026-10-28", planned: session(80), rides: [] },
     ];
     expect(weekProgress(days, "2026-10-28")).toEqual({ planned: 140, plannedToDate: 60, done: 75 });
+  });
+
+  it("leaves out rides from before the plan started", () => {
+    const days: ComplianceDay[] = [
+      { date: "2026-11-03", planned: null, rides: [ride("a", 78)], beforePlan: true },
+      { date: "2026-11-04", planned: session(60), rides: [ride("b", 58)] },
+    ];
+    expect(weekProgress(days, "2026-11-04")).toEqual({ planned: 60, plannedToDate: 0, done: 58 });
   });
 });
 
@@ -67,5 +87,13 @@ describe("suggestDay", () => {
     ];
     expect(suggestDay(days, "2026-11-03", "2026-11-04")).toBeNull();
     expect(suggestDay(days, "2026-11-04", "2026-11-04")).toBeNull();
+  });
+
+  it("suggests nothing for a ride from before the plan started", () => {
+    const days: ComplianceDay[] = [
+      { date: "2026-11-03", planned: null, rides: [ride("a", 60)], beforePlan: true },
+      { date: "2026-11-04", planned: session(60), rides: [] },
+    ];
+    expect(suggestDay(days, "2026-11-03", "2026-11-04")).toBeNull();
   });
 });
