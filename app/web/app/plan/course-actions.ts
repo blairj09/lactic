@@ -1,13 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { courseFromFile, courseFromUrl, findEventCourse, loadCourse, refreshForecast, removeCourse, saveCourse, searchEvents } from "@/lib/course";
+import { courseFromFile, courseFromUrl, findEventCourse, loadCourse, refreshForecast, removeCourse, saveCourse, saveCourseTarget, saveHomeElevation, searchEvents } from "@/lib/course";
+import { PACK_LABELS, PACKS, type Pack } from "@/lib/engine/course/pacing";
+import { clock, parseFinishTime } from "@/lib/engine/course/target";
 import type { CourseLink, EventHit } from "@/lib/engine/course/events";
 import { COURSE_TYPE_LABELS, type CourseSummary } from "@/lib/engine/course/profile";
 import { localDate } from "@/lib/engine/activity";
 import { loadAthlete } from "@/lib/activities";
 import { loadGoals } from "@/lib/training";
 import { createClient } from "@/lib/supabase/server";
+import { measureRiderDrag } from "@/lib/calibration";
 import type { ActionResult } from "../actions";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -74,6 +77,39 @@ export async function applyCourseDuration(goalId: string, minutes: number): Prom
     const { error } = await (await createClient()).from("training_goals").update({ duration_minutes: m }).eq("id", goalId);
     if (error) throw error;
     return `Event duration set to ${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} min.`;
+  });
+}
+
+/** Sets an event's target finish time ("4:30", blank to clear) and how it's ridden ("" for the kind's usual). */
+export async function saveRaceTarget(goalId: string, target: string, pack: string): Promise<ActionResult> {
+  return attempt(async () => {
+    check(goalId);
+    const seconds = target.trim() ? parseFinishTime(target) : null;
+    if (target.trim() && seconds === null) throw new Error("Give the time as hours and minutes, like 4:30");
+    const p = PACKS.includes(pack as Pack) ? (pack as Pack) : null;
+    await saveCourseTarget(await createClient(), goalId, seconds, p);
+    const how = p ? ` Riding it: ${PACK_LABELS[p].toLowerCase()}.` : "";
+    return seconds ? `Target set: ${clock(seconds)}.${how}` : `Target cleared.${how}`;
+  });
+}
+
+/** Where the rider lives and trains, meters (from what they typed in their units). */
+export async function setHomeElevation(meters: number): Promise<ActionResult> {
+  return attempt(async () => {
+    if (!(Number.isFinite(meters) && meters >= -450 && meters <= 5500)) throw new Error("That elevation doesn't look right");
+    await saveHomeElevation(meters);
+    return "Saved. Times and watts now allow for the altitude.";
+  });
+}
+
+/** Measures the rider's own drag from their recent outdoor rides on intervals.icu. */
+export async function measureDrag(): Promise<ActionResult> {
+  return attempt(async () => {
+    const supabase = await createClient();
+    const athlete = await loadAthlete(supabase);
+    const d = await measureRiderDrag(supabase, athlete.weightKg);
+    const check = d.error !== null ? ` Timed from their own power, the model was within ${Math.max(1, Math.round(d.error * 100))}% on a typical ride.` : "";
+    return `Measured from ${d.rides} outdoor rides: drag area ${d.cda.toFixed(2)} m².${check}`;
   });
 }
 

@@ -135,6 +135,23 @@ export function GoalForm({ today, goal, onDone }: { today: string; goal?: Goal; 
             className={`${input} w-full`}
           />
           <span className="block text-xs text-muted">GPX, TCX or FIT from the organizer, Ride with GPS, Strava or Komoot. You get a pre-race report, and the plan trains for its climbs.</span>
+          <div className="flex flex-wrap gap-3 pt-1">
+            <label className="grid gap-1">
+              <span>
+                Target time <span className="text-muted">(optional)</span>
+              </span>
+              <input name="target_time" placeholder="4:30" inputMode="numeric" aria-label="Target finish time, hours and minutes" className={`${input} w-28`} />
+            </label>
+            <label className="grid gap-1">
+              <span>How you&apos;ll ride it</span>
+              <select name="pack" defaultValue="" className={input}>
+                <option value="">Usual for the event</option>
+                <option value="solo">Solo</option>
+                <option value="group">Small group (2 to 15)</option>
+                <option value="bunch">Bunch (a peloton)</option>
+              </select>
+            </label>
+          </div>
         </div>
       )}
       <div className="flex gap-2">

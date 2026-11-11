@@ -1,7 +1,9 @@
 // Everything the plan, the check-in and the coach read, loaded once per request: rides, fitness,
 // recovery, goals, levels and the plan computed from them.
 
-import { loadCourseSummaries } from "./course";
+import { loadCourseSummaries, loadCourseTrack } from "./course";
+import { courseProfile } from "./engine/course/profile";
+import { targetPlan } from "./engine/course/target";
 import { courseDemands } from "./engine/course/shape";
 import { experiments } from "./experiments";
 import { loadAthlete, loadRides, type Athlete, type StoredRide } from "./activities";
@@ -241,10 +243,25 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     loadFavorites(supabase).catch((e) => (console.error(e), [] as string[])),
   ]);
   // Events with a course file carry what the course asks of you, so the plan can train for it (course/shape.ts).
-  const goals = eventGoals.map((g) => {
-    const course = courses?.get(g.id);
-    return course ? { ...g, course: courseDemands(course, g.kind, g, { ftp: athlete.ftp, weightKg: athlete.weightKg }) } : g;
-  });
+  // A target finish time carries the FTP it takes on the course, so the plan can build toward it (course/target.ts).
+  const rider = { ftp: athlete.ftp, weightKg: athlete.weightKg };
+  const goals = await Promise.all(
+    eventGoals.map(async (g) => {
+      const course = courses?.get(g.id);
+      if (!course) return g;
+      const withCourse = { ...g, pack: course.pack, course: courseDemands(course.summary, g.kind, { ...g, pack: course.pack }, rider) };
+      if (!course.targetSeconds || g.date < today) return withCourse;
+      const track = await loadCourseTrack(supabase, g.id).catch(() => null);
+      if (!track) return withCourse;
+      try {
+        const t = targetPlan(courseProfile(track), withCourse, rider, course.targetSeconds, today);
+        return { ...withCourse, timeTarget: { seconds: t.seconds, neededFtp: t.neededFtp, ftp: t.ftp } };
+      } catch (e) {
+        console.error(e);
+        return withCourse;
+      }
+    }),
+  );
   const feedback = feedbackFor(feedbackRows, rides, addDays(today, -LEVEL_WINDOW_DAYS), tz);
   const ahead = allDays.filter((d) => d.day >= today);
   const storedDays = allDays.filter((d) => d.day <= today);

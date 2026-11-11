@@ -96,7 +96,7 @@ export const TOOLS = [
     from: date("First day, default this Monday"),
     to: date("Last day, default two weeks on; at most 12 weeks"),
   }),
-  fn("get_events", "All goal events, past and upcoming, with priority (A peak, B short taper, C train through)."),
+  fn("get_events", "All goal events, past and upcoming, with priority (A peak, B short taper, C train through). Events with a course carry what it demands (course), how it is ridden (pack: solo, group or bunch) and any target finish time with the FTP it takes (timeTarget)."),
   fn("get_recovery", "Today's recovery score and its reasons, and daily HRV, resting heart rate, sleep stages, breathing rate and wrist temperature, plus each day's exertion (0-10, from heart rate all day: rides and off the bike) against your normal day.", { days: { type: "integer", minimum: 1, maximum: 365, description: "Default 14" } }),
   fn("get_body", "Weigh-ins (weight, body fat, BMI) and the 30-day trend.", { days: { type: "integer", minimum: 1, maximum: 730, description: "Default 90" } }),
   fn("get_power", "Best power at standard durations over a window, watts per kg, the engine's FTP estimate, and FTP history.", {
