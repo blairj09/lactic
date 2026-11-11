@@ -57,9 +57,9 @@ export default function LastNight({
             </div>
           </div>
           <WeekBars scores={glance.scores} />
-          {glance.signals.length > 0 && (
+          {shownSignals(glance).length > 0 && (
             <ul className="mt-3 space-y-1 text-sm text-warning">
-              {glance.signals.map((s) => (
+              {shownSignals(glance).map((s) => (
                 <li key={s.id}>{s.reason}.</li>
               ))}
             </ul>
@@ -276,9 +276,22 @@ function Spark({ metric }: { metric: GlanceMetric }) {
 export function sleepLines(glance: RecoveryToday["glance"]): string[] {
   const lines: string[] = [];
   if (glance.sleepScore) lines.push(`${glance.sleepScore.measures.ofNeed}% of your need`);
-  if (glance.sleepDebtHours !== null)
-    lines.push(glance.sleepDebtHours > 0 ? `${hm(glance.sleepDebtHours)} short this week · aim for ${hm(glance.sleepNeedTonight)} tonight` : `On track this week · aim for ${hm(glance.sleepNeedTonight)} tonight`);
+  if (glance.sleepDebtHours !== null) lines.push(`Aim for ${hm(glance.sleepNeedTonight)} tonight${glance.sleepDebtHours > 0 ? " to catch up" : ""}`);
   return lines;
+}
+
+/**
+ * Warning signs to show. Sleep debt isn't one of them: a week's total read as alarming and gave
+ * nothing to do, so it shows as tonight's aim instead (catchUp). The engine still weighs it, and the
+ * Sleep page and the coach still have the number.
+ */
+export function shownSignals(glance: RecoveryToday["glance"]) {
+  return glance.signals.filter((s) => s.id !== "sleepDebt");
+}
+
+/** "Aim for 8h 30m tonight to catch up." when there's sleep debt; nothing otherwise. */
+export function catchUp(glance: RecoveryToday["glance"]): string | null {
+  return glance.sleepDebtHours !== null && glance.sleepDebtHours > 0 ? `Aim for ${hm(glance.sleepNeedTonight)} tonight to catch up.` : null;
 }
 
 function SleepCell({ recovery, timeZone, href }: { recovery: RecoveryToday; timeZone: string; href?: string }) {
@@ -433,12 +446,19 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
       Last night on Health
     </Link>
   );
-  const signals = glance.signals.length > 0 && (
-    <ul className="space-y-0.5 text-sm text-warning">
-      {glance.signals.map((s) => (
-        <li key={s.id}>{s.reason}.</li>
-      ))}
-    </ul>
+  const warnings = shownSignals(glance);
+  const aim = catchUp(glance);
+  const signals = (warnings.length > 0 || aim) && (
+    <div className="space-y-0.5 text-sm">
+      {warnings.length > 0 && (
+        <ul className="space-y-0.5 text-warning">
+          {warnings.map((s) => (
+            <li key={s.id}>{s.reason}.</li>
+          ))}
+        </ul>
+      )}
+      {aim && <p className="text-muted">{aim}</p>}
+    </div>
   );
 
   if (variant === "line") {

@@ -158,6 +158,13 @@ describe("sleep score", () => {
     expect(sleepNeedTonight(8, 3, 8)).toBe(9.25);
   });
 
+  it("counts sleep debt over the last 7 dates, not the last 7 nights on record", () => {
+    // A week away from the watch: nights 9 and 10 days back mustn't count this week.
+    const nights = [night("2026-11-01", 4, 0), night("2026-11-02", 4, 0), night("2026-11-10", 7, 0), night("2026-11-11", 7, 0)];
+    expect(sleepDebt(nights, 8, 7, "2026-11-11")).toBe(2);
+    expect(sleepDebt(nights, 8)).toBe(10);
+  });
+
   it("measures bedtime spread across midnight", () => {
     const nights = [23 * 60, 23 * 60 + 30, 30, 23 * 60 + 15, 23 * 60 + 45].map((b, i) => night(String(i), 8, b));
     expect(bedtimeSpreadMinutes(nights)).toBe(24);
