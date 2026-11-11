@@ -15,11 +15,46 @@ export function formatDay(date: Date, timeZone: string): string {
 export const SOURCE_LABEL: Record<string, string> = {
   app: "This app",
   strava: "Strava",
+  zwift: "Zwift",
   zwift_fit: "Zwift file",
   karoo_fit: "Karoo file",
   fit: "FIT file",
   health: "Health",
+  intervals: "intervals.icu",
 };
+
+/** Brand names as they're written, for sources the list above doesn't name. */
+const BRANDS: Record<string, string> = {
+  zwift: "Zwift",
+  garmin: "Garmin",
+  wahoo: "Wahoo",
+  karoo: "Karoo",
+  hammerhead: "Karoo",
+  intervals: "intervals.icu",
+  lactic: "Lactic",
+  strava: "Strava",
+  fit: "FIT",
+  gpx: "GPX",
+  tcx: "TCX",
+  trainerroad: "TrainerRoad",
+  rouvy: "Rouvy",
+  mywhoosh: "MyWhoosh",
+};
+
+/** A ride's source as riders read it: "Zwift", "Garmin file", never "zwift" or "garmin_fit". */
+export function sourceLabel(source: string): string {
+  if (SOURCE_LABEL[source]) return SOURCE_LABEL[source];
+  const words = source.split(/[_\s-]+/).filter(Boolean);
+  if (!words.length) return source;
+  return words
+    .map((w, i) => {
+      const key = w.toLowerCase();
+      if (key === "fit" && i > 0) return "file";
+      if (BRANDS[key]) return BRANDS[key];
+      return i === 0 ? key.charAt(0).toUpperCase() + key.slice(1) : key;
+    })
+    .join(" ");
+}
 
 /** A whole number with its sign, using a true minus: +4, −6, 0. */
 export function signed(value: number): string {

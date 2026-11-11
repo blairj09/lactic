@@ -61,7 +61,7 @@ export async function loadCalendarRides(supabase: Supabase, rides: StoredRide[],
   return rides.map((r) => {
     const id = main(r);
     const parent = byId.get(id)!;
-    const type = rideType(logged.get(id) ?? planned.get(id) ?? null, parent.intensityFactor ?? r.intensityFactor);
+    const type = rideType(logged.get(id) ?? planned.get(id) ?? null, parent.intensityFactor ?? r.intensityFactor, parent.name ?? r.name);
     return {
       id: r.id,
       name: r.name,

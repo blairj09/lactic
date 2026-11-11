@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { CalendarRide } from "@/lib/engine/ride-calendar";
 import { ZONE_LABELS } from "@/lib/engine/library";
 import { Dash } from "@/components/ui";
-import { formatDay, formatDuration, intervalsUrl, SOURCE_LABEL } from "@/lib/format";
+import { formatDay, formatDuration, intervalsUrl, sourceLabel } from "@/lib/format";
 
 /** Rides as rows. `intervalsId` already points a counted ride at its intervals.icu copy. */
 export default function RideTable({ rides, timeZone }: { rides: CalendarRide[]; timeZone: string }) {
@@ -27,7 +27,7 @@ export default function RideTable({ rides, timeZone }: { rides: CalendarRide[]; 
                   {r.name ?? "Ride"}
                 </Link>
                 <div className="text-xs text-muted">
-                  {formatDay(new Date(r.startedAt), timeZone)} · {SOURCE_LABEL[r.source] ?? r.source}
+                  {formatDay(new Date(r.startedAt), timeZone)} · {sourceLabel(r.source)}
                   {r.zone ? ` · ${ZONE_LABELS[r.zone]}${r.zoneEstimated ? " (est.)" : ""}` : ""}
                   {r.duplicateOf ? " · copy, not counted" : ""}
                   {intervalsId && (

@@ -36,7 +36,7 @@ import {
   type RideInterval,
 } from "@/lib/engine/ride-detail";
 import type { Workout } from "@/lib/engine/workout";
-import { formatDay, formatDuration, intervalsUrl, SOURCE_LABEL } from "@/lib/format";
+import { formatDay, formatDuration, intervalsUrl, sourceLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import {
   complianceDays,
@@ -132,7 +132,7 @@ export default async function RideDetail({
         line={
           <>
             {formatDay(ride.startedAt, tz)} at {time(ride.startedAt, tz)} ·{" "}
-            {SOURCE_LABEL[ride.source] ?? ride.source}
+            {sourceLabel(ride.source)}
             {intervalsId && (
               <>
                 {" · "}
