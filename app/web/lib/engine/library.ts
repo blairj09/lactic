@@ -2,7 +2,7 @@
 // TrainerRoad's progression levels) and a structure per workout (templates.ts). Targets are
 // fractions of FTP, as in workout.ts.
 
-import { plannedStress, ramp, steady, workoutDuration, type Segment, type Workout } from "./workout";
+import { alignRamps, plannedStress, ramp, steady, workoutDuration, type Segment, type Workout } from "./workout";
 import { classicTemplate, clampTweaks, templateById, type Params, type Template } from "./templates";
 
 export const ZONES = ["recovery", "endurance", "tempo", "sweetSpot", "threshold", "vo2max", "anaerobic"] as const;
@@ -114,7 +114,8 @@ function fromTemplate(template: Template, level: number, duration: number, tweak
   };
 }
 
-function finish(zone: Zone, level: number, workout: Workout): Session {
+function finish(zone: Zone, level: number, built: Workout): Session {
+  const workout = { ...built, segments: alignRamps(built.segments) };
   return { zone, level: Math.round(level * 10) / 10, workout, duration: workoutDuration(workout), stress: plannedStress(workout) };
 }
 

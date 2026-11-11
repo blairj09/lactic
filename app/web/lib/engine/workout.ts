@@ -28,6 +28,46 @@ export const steady = (duration: number, target: number): SteadySegment => ({ ki
 export const sprint = (duration: number, target: number): SteadySegment => ({ kind: "steady", duration, target, allOut: true });
 export const ramp = (duration: number, from: number, to: number): Segment => ({ kind: "ramp", duration, from, to });
 
+/** Easy riding tops out here: a warm-up climbs to meet an interval this easy, and steps up into anything harder. */
+export const RAMP_MEET_MAX = 0.8;
+
+const startOf = (s: Segment) => (s.kind === "steady" ? s.target : s.kind === "ramp" ? s.from : null);
+const endOf = (s: Segment) => (s.kind === "steady" ? s.target : s.kind === "ramp" ? s.to : null);
+
+/**
+ * The warm-up ramp ends at the power the next interval starts at, and the cool-down ramp starts at
+ * the power the last interval ends at, so the profile has no step at either end. Only when that
+ * neighbor is easy riding (up to RAMP_MEET_MAX) and on the ramp's side of its other end; a hard
+ * first effort or sprint keeps the step up into it.
+ */
+export function alignRamps(segments: Segment[], ends: { start?: boolean; end?: boolean } = {}): Segment[] {
+  if (segments.length < 2) return segments;
+  const out = [...segments];
+  const first = out[0];
+  const next = out[1];
+  const meet = startOf(next);
+  if (ends.start !== false && first.kind === "ramp" && first.to > first.from && meet !== null && !isAllOut(next) && meet <= RAMP_MEET_MAX && meet > first.from)
+    out[0] = { ...first, to: meet };
+  const end = out.length - 1;
+  const last = out[end];
+  const prev = out[end - 1];
+  const leave = endOf(prev);
+  if (ends.end !== false && last.kind === "ramp" && last.from > last.to && leave !== null && !isAllOut(prev) && leave <= RAMP_MEET_MAX && leave > last.to)
+    out[end] = { ...last, from: leave };
+  return out;
+}
+
+/** Whether the warm-up ramp meets the first interval, and the cool-down ramp the last one. */
+export function rampsJoined(segments: Segment[]): { start: boolean; end: boolean } {
+  const n = segments.length;
+  if (n < 2) return { start: false, end: false };
+  const [first, next, prev, last] = [segments[0], segments[1], segments[n - 2], segments[n - 1]];
+  return {
+    start: first.kind === "ramp" && first.to === startOf(next),
+    end: last.kind === "ramp" && last.from === endOf(prev),
+  };
+}
+
 export function workoutDuration(workout: Workout): number {
   return workout.segments.reduce((total, s) => total + s.duration, 0);
 }

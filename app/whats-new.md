@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Warm-ups now finish at the power of your first interval and cool-downs start at the power of your last, so there's no jump or drop where they meet. Hard first efforts still start with a step up. Edit the first interval and the warm-up follows it.
 - Post rides to Strava from the iPhone app (an experiment): connect Strava in Settings on an iPhone you use on its own, or, if it's paired with your computer, rides you record on the iPhone go to Strava from your computer once they sync, so none shows up twice.
 - Sleep debt is fixed: reading Health from your iPhone could keep only the last hour or two of some nights, which made sleep debt far too high. The iPhone reads your last 60 days once more to put those nights back, and debt now counts only the last 7 days.
 - Today no longer shows a weekly sleep debt warning. When you're behind on sleep it just says how long to aim for tonight to catch up; the week's total is still on the Sleep page.
