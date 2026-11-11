@@ -63,7 +63,7 @@ export async function GET(request) {
     });
   }
   if (get) {
-    const installer = data.installers[get];
+    const installer = Object.hasOwn(data.installers, get) ? data.installers[get] : null;
     return new Response(null, {
       status: 302,
       headers: { location: installer ? installer.url : RELEASES, "cache-control": CACHE },

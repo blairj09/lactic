@@ -24,6 +24,29 @@ function random(seed: number) {
 
 type Kind = [string, (out: number[]) => void];
 
+const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** A believable night: 90-minute cycles of core, deep (early in the night), core and REM, with a few short wakes. */
+function sleepSegments(start: Date, end: Date, rnd: () => number): [number, number, string][] {
+  const out: [number, number, string][] = [];
+  let t = start.getTime() / 1000;
+  const stop = end.getTime() / 1000;
+  const push = (minutes: number, stage: string) => {
+    if (t >= stop) return;
+    const next = Math.min(t + minutes * 60, stop);
+    out.push([Math.round(t), Math.round(next), stage]);
+    t = next;
+  };
+  for (let cycle = 0; t < stop; cycle++) {
+    push(15 + rnd() * 15, "core");
+    push(cycle < 2 ? 30 + rnd() * 20 : cycle < 4 ? 10 + rnd() * 10 : 0, "deep");
+    push(15 + rnd() * 10, "core");
+    push(10 + cycle * 5 + rnd() * 10, "rem");
+    if (rnd() < 0.4) push(2 + rnd() * 6, "awake");
+  }
+  return out.filter(([a, b]) => b > a);
+}
+
 async function seedHistory() {
   const supa = createLocalClient();
   const rnd = random(7);
@@ -63,6 +86,8 @@ async function seedHistory() {
 
   const recovery = [];
   const body = [];
+  // A second sequence, so these extras leave the rest of the sample data as it was.
+  const extra = random(11);
   for (let d = 84; d >= 0; d--) {
     const day = new Date(now);
     day.setDate(now.getDate() - d);
@@ -84,6 +109,9 @@ async function seedHistory() {
       sleep_awake_hours: 0.4,
       sleep_start: start.toISOString(),
       sleep_end: end.toISOString(),
+      respiratory_rate: +(14 + (extra() - 0.5) * 0.8).toFixed(1),
+      wrist_temp_c: +(35.9 + (extra() - 0.5) * 0.3).toFixed(2),
+      sleep_segments: d <= 30 ? sleepSegments(start, end, extra) : null,
       source: "shortcut",
     });
     const morning = new Date(day);
@@ -99,10 +127,21 @@ async function seedHistory() {
       const awake = m > 420 && m < 1380;
       let v = awake ? 68 + Math.round(rnd() * 14) : 50 + Math.round(rnd() * 5);
       if (m > 1050 && m < 1130 && day.getDay() % 2 === 0) v = 135 + Math.round(rnd() * 25);
+      // A walk at lunch, longer some days.
+      if (m > 730 && m < 760 + (d % 4) * 15) v = 104 + (m % 9);
       minutes.push(v);
     }
     health.push({ day: day.toISOString().slice(0, 10), hr_minutes: minutes, steps: 6000 + Math.round(rnd() * 5000), active_kcal: 500 + Math.round(rnd() * 500), source: "apple_health" });
   }
+  // This morning so far: heart rate up to now.
+  const nowMinute = now.getHours() * 60 + now.getMinutes();
+  health.push({
+    day: localDay(now),
+    hr_minutes: Array.from({ length: 1440 }, (_, m) => (m > nowMinute ? null : m > 420 ? 70 + Math.round(rnd() * 14) : 50 + Math.round(rnd() * 5))),
+    steps: 1500,
+    active_kcal: 120,
+    source: "apple_health",
+  });
   await supa.from("health_days").upsert(health, { onConflict: "user_id,day" });
   await supa.from("recovery_days").upsert(recovery, { onConflict: "user_id,day" });
   await supa.from("body_measurements").insert(body);

@@ -7,6 +7,7 @@ import { button, Pill, Result } from "@/components/ui";
 import { invoke, listen, os } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 import { connectHealth, syncPhoneHealth, WRITE_RIDES } from "./health";
+import { updateWidget, WIDGET_STATUS, type WidgetStatus } from "./widget";
 import { onLinkState, resetLink, syncWithComputer, type LinkState } from "./link";
 import { pair, phoneStatus, readable, send, unpair, type PhoneStatus } from "./plugin";
 
@@ -309,6 +310,32 @@ export function ComputerLink() {
   );
 }
 
+/** When the home screen, lock screen and Watch widgets last got today's numbers, or why not. */
+function WidgetLine() {
+  const [last, setLast] = useState<WidgetStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = () => void getSetting<WidgetStatus | null>(WIDGET_STATUS, null).then(setLast);
+  useEffect(load, []);
+
+  async function update() {
+    setBusy(true);
+    await updateWidget();
+    load();
+    setBusy(false);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className={last?.error ? "text-warning" : "text-muted"}>
+        {!last ? "Widgets not updated yet." : last.error ? `Widgets not updated: ${last.error}` : `Widgets updated ${ago(Date.parse(last.at))}.`}
+      </span>
+      <button type="button" className={button.ghost} disabled={busy} onClick={() => void update()}>
+        {busy ? "Updating…" : "Update widgets"}
+      </button>
+    </div>
+  );
+}
+
 export function PhoneHealth() {
   const [status, setStatus] = useState<PhoneStatus | null>(null);
   const [writeRides, setWriteRides] = useState(true);
@@ -374,6 +401,7 @@ export function PhoneHealth() {
           <span className="block text-muted">With heart rate, power, cadence, distance and energy. Rides Zwift or your bike computer already put there are skipped.</span>
         </span>
       </label>
+      <WidgetLine />
       {status.healthAsked && <p className="text-sm text-muted">To change what Lactic can read or write, open the Health app → your picture → Apps → Lactic.</p>}
       {result && <Result ok={result.ok}>{result.message}</Result>}
     </div>

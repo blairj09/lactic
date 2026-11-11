@@ -32,7 +32,7 @@ export interface AthleteOptions {
   /** Rides in the last few days, newest first, on top of the usual weeks. */
   extraRides?: Partial<StoredRide>[];
   /** Today's recovery from Apple Health: score null while the baseline builds. */
-  recovery?: { hrv: number; restingHr: number; sleepHours: number; score: number | null; reasons?: string[]; baselineDays?: number } | null;
+  recovery?: { hrv: number; restingHr: number; sleepHours: number; score: number | null; reasons?: string[]; baselineDays?: number; signals?: string[] } | null;
   /** Nights before today, oldest first; defaults to a steady fortnight. */
   nights?: Partial<RecoveryDay>[];
   /** Today's check-in: how they feel, ill or not, time they have, and a note. */
@@ -102,6 +102,14 @@ export function athlete(o: AthleteOptions = {}): CoachData {
         score: rec.score === null ? null : { score: rec.score, reasons: rec.reasons ?? [] },
         baselineDays: rec.baselineDays ?? 30,
         sleep: null,
+        glance: {
+          metrics: [],
+          signals: (rec.signals ?? []).map((reason) => ({ id: "hrvLow" as const, strain: 1, reason })),
+          scores: [],
+          sleepScore: null,
+          sleepDebtHours: null,
+          sleepNeedTonight: 8,
+        },
       }
     : null;
   const nights = o.nights ?? Array.from({ length: 13 }, (_, i) => ({ hrvMs: 60 + ((i * 7) % 9) - 4, restingHr: 49 + (i % 3) - 1, sleepHours: 7.4 + ((i * 3) % 5) / 10 - 0.2 }));

@@ -22,5 +22,10 @@
   <array>
     <string>iCloud.fit.lactic.app</string>
   </array>
+  <!-- Shared with the widgets (ios/widgets): the app writes today's snapshot there. -->
+  <key>com.apple.security.application-groups</key>
+  <array>
+    <string>group.fit.lactic.app</string>
+  </array>
 </dict>
 </plist>

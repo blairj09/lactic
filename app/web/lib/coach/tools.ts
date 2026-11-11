@@ -22,7 +22,7 @@ import { mergeCurves, type PowerCurve } from "../engine/power";
 import { weighInOn, type BodyMeasurement } from "../body-data";
 import type { StoredRide } from "../activities";
 import type { StoredFeedback, StoredPlanDay, TrainingState } from "../training";
-import { todayOptions } from "../today-options";
+import { exertionTodayFor, todayOptions } from "../today-options";
 import type { Persona } from "./persona";
 import { CM_PER_IN, LB_PER_KG, M_PER_MILE, type UnitSystem } from "../units";
 import { CHANGE_WINDOW_DAYS, resolveChange, type PlanChange, type Proposal } from "./changes";
@@ -376,6 +376,10 @@ export function status(data: CoachData) {
         ? `In for today (see recoveryToday); no score until the HRV baseline has ${MINIMUM_BASELINE_DAYS} nights (${state.recovery.baselineDays} so far)`
         : "No recovery data today",
     yesterdayExertion: tracking.recovery ? yesterdayExertion(state) : undefined,
+    // Runs of poor nights and signs of illness the single score can't show; today's options already count them.
+    recoverySignals: tracking.recovery ? (state.recovery?.glance.signals.map((x) => x.reason) ?? []) : undefined,
+    sleepDebtHours: tracking.recovery ? (state.recovery?.glance.sleepDebtHours ?? null) : undefined,
+    exertionToday: tracking.recovery ? exertionTodaySummary(state) : undefined,
     recoveryToday: tracking.recovery && state.recovery?.today
       ? { hrvMs: opt(state.recovery.today.hrv), restingHr: opt(state.recovery.today.restingHeartRate), sleepHours: opt(state.recovery.today.sleepHours, 1) }
       : null,
@@ -552,6 +556,13 @@ function pastDays(data: CoachData, from: string, to: string) {
 function getEvents(data: CoachData) {
   const { today, goals } = data.state;
   return { events: goals.map((g) => ({ ...g, daysAway: daysBetween(today, g.date), past: g.date < today || undefined })) };
+}
+
+/** Today's exertion so far against its target, and where the session still to ride should land it. */
+function exertionTodaySummary(state: TrainingState) {
+  const t = exertionTodayFor(state);
+  if (!t || (t.soFar === null && !t.target)) return null;
+  return { soFar: t.soFar, target: t.target, plannedRideLandsAt: t.planned?.landsAt ?? null };
 }
 
 /** Yesterday's whole-day exertion for the status, or null without heart rate for it. */
