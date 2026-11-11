@@ -6,6 +6,10 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Progress works out W/kg in the power profile from your latest weigh-in, the same weight VO2 max uses, and weigh-ins from intervals.icu now keep your profile weight up to date too.
+- Today no longer offers to lower your FTP when your recent rides didn't include a hard enough effort; it only offers a new number when rides say FTP has gone up.
+- Your plan's first week no longer counts rides from before the plan started, or shows them making up a planned session.
+- Rides named for a workout, like "Sweet spot 3 × 12", now show that type in your rides list instead of a guess from intensity, and ride sources read properly: Zwift, not "zwift".
 - Import rides from GPX and TCX files as well as FIT, on their own or inside a zip like Strava's account archive, so older Strava rides come in too.
 - Import .erg and .mrc workout files (from TrainerRoad, Golden Cheetah and others) on the Ride screen, alongside .zwo.
 - Save any workout as a file from the Ride screen: a .fit workout to copy onto a Garmin (or open in another head unit or app), or a .zwo for Zwift and most trainer apps. No intervals.icu needed.
