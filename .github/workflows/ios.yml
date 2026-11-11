@@ -4,10 +4,12 @@ name: iPhone app
 # each run (tauri ios init) and given the app's entitlements (Apple Health) from
 # app/src-tauri/ios/Lactic.entitlements, the widgets (app/src-tauri/ios/widgets) and the Watch app (app/src-tauri/ios/watch).
 #
-# Every run builds the Rust core and the Swift plugins for the simulator, which checks they
-# compile for iOS. With the App Store Connect key (APPLE_API_KEY, APPLE_API_ISSUER and
-# APPLE_API_KEY_P8, shared with the Mac signing), runs on main and on pull requests from this repo
-# also make a signed build and upload it to TestFlight, numbered by the run. Xcode signs it with
+# Pull requests that touch the Rust core, the plugins or the iOS setup build them for the simulator,
+# which checks they compile for iOS (web-only changes can't break that, so they skip it; so do
+# drafts). With the App Store Connect key (APPLE_API_KEY, APPLE_API_ISSUER and APPLE_API_KEY_P8,
+# shared with the Mac signing), main makes a signed build and uploads it to TestFlight, numbered by
+# the run. To put a branch on TestFlight before it merges: Actions → iPhone app → Run workflow on
+# that branch. Xcode signs it with
 # certificates Apple manages, so no iPhone certificate secret is needed, but the key must be
 # allowed to manage them (Admin or App Manager role).
 
@@ -16,18 +18,29 @@ on:
     branches: [main]
     paths: ["app/**", ".github/workflows/ios.yml"]
   pull_request:
-    paths: ["app/**", ".github/workflows/ios.yml"]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "app/src-tauri/**"
+      - "app/package.json"
+      - "app/package-lock.json"
+      - ".github/workflows/ios.yml"
+      - ".github/scripts/**"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# A new push to a pull request cancels the run it replaces. On main, a TestFlight build in progress
+# finishes, and merges meanwhile wait as one queued run (the newest replaces the waiting one).
 concurrency:
-  group: ios-${{ github.ref }}
-  cancel-in-progress: true
+  group: ios-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   simulator:
+    # The TestFlight build on main compiles the same code for a real iPhone, so this is for
+    # pull requests only.
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
@@ -85,8 +98,7 @@ jobs:
   testflight:
     # A signed build on TestFlight. Needs the App Store Connect key, and the app created once in
     # App Store Connect (bundle id fit.lactic.app).
-    needs: simulator
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name != 'pull_request'
     # App Store Connect only takes builds made with the iOS 26 SDK (Xcode 26) or later.
     runs-on: macos-26
     env:
