@@ -7,7 +7,8 @@ import { customKey, libraryKey, LIBRARY_CATEGORIES, LIBRARY_CATEGORY_LABELS, WOR
 import type { CustomWorkout } from "@/lib/custom-workouts";
 import FavoriteButton from "@/components/favorite-button";
 import { useState } from "react";
-import { Panel, Segmented, button } from "@/components/ui";
+import { Panel, Segmented, button, input } from "@/components/ui";
+import Select from "@/components/select";
 import { formatTime } from "./player";
 
 /** What the player is set up to ride: the plan's session, a generated workout, a starter library workout, one of My workouts, or free ERG. */
@@ -42,8 +43,44 @@ export function librarySession(choice: LibraryChoice, levels: Levels): Session {
   return buildSession(choice.kind, level, choice.minutes * 60, { template: choice.template });
 }
 
-const chip =
-  "h-8 rounded-md border border-control px-3 text-sm text-muted transition-colors hover:text-ink disabled:opacity-50 aria-checked:border-ink aria-checked:font-medium aria-checked:text-ink";
+/** A style's name without its type ("Threshold with hard starts" → "Hard starts"), since the Type menu says it. */
+export function styleName(name: string, kind: LibraryKind): string {
+  if (kind === "rampTest") return name;
+  const label = ZONE_LABELS[kind];
+  if (!name.toLowerCase().startsWith(`${label.toLowerCase()} `)) return name;
+  const rest = name.slice(label.length + 1).replace(/^with /, "");
+  const short = rest.charAt(0).toUpperCase() + rest.slice(1);
+  // "Endurance with tempo" would read as just "Tempo", another type: keep the full name.
+  return (Object.values(ZONE_LABELS) as string[]).includes(short) ? name : short;
+}
+
+/** A small label above a menu. */
+function Field({ label, className = "", children }: { label: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={`space-y-1 ${className}`}>
+      <span className="block text-xs text-faint">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+/** Level − / +: one step easier or harder than where you are in the zone. */
+function LevelStepper({ level, onChange }: { level: number; onChange: (delta: -1 | 1) => void }) {
+  const step = "h-full w-9 text-lg text-muted transition-colors hover:text-ink disabled:opacity-40";
+  return (
+    <div className="inline-flex h-9 shrink-0 items-center rounded-md border border-control bg-surface" role="group" aria-label="Level">
+      <button type="button" className={step} disabled={level <= MIN_LEVEL} onClick={() => onChange(-1)} aria-label="Easier">
+        −
+      </button>
+      <span className="num flex h-full items-center whitespace-nowrap border-x border-control px-2.5 text-sm" aria-live="polite">
+        Level {level}
+      </span>
+      <button type="button" className={step} disabled={level >= MAX_LEVEL} onClick={() => onChange(1)} aria-label="Harder">
+        +
+      </button>
+    </div>
+  );
+}
 
 const sessionLine = (s: Session, showLevel: boolean) => `${formatTime(s.duration)} · TSS ${Math.round(s.stress)}${showLevel ? ` · level ${s.level}` : ""}`;
 
@@ -113,6 +150,22 @@ export default function RideNow({
       ? []
       : [...(library.kind === "endurance" ? [{ id: undefined, name: "Steady" }] : []), ...templatesFor(library.kind).map((t) => ({ id: t.id as string | undefined, name: t.name }))];
   const picked = templateById(session.template);
+  const style = library.template ?? (library.kind === "endurance" ? undefined : `${library.kind}-intervals`);
+  const stepper = <LevelStepper level={session.level} onChange={(d) => onLibrary({ ...library, shift: library.shift + d })} />;
+  const styleSelect = structures.length > 1 && (
+    <Select
+      aria-label="Style"
+      value={style ?? "steady"}
+      onChange={(id) => onLibrary({ ...library, template: id === "steady" ? undefined : id })}
+      className={`${input} w-full sm:w-48`}
+    >
+      {structures.map((t) => (
+        <option key={t.id ?? "steady"} value={t.id ?? "steady"}>
+          {styleName(t.name, library.kind)}
+        </option>
+      ))}
+    </Select>
+  );
   const shelfOpen = source === "custom" || source === "starter";
 
   return (
@@ -132,72 +185,62 @@ export default function RideNow({
           </p>
         )}
 
-        {mode === "pick" && (
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Workout type">
-            {KINDS.map((k) => (
-              <button
-                key={k.value}
-                type="button"
-                role="radio"
-                aria-checked={source === "library" && library.kind === k.value}
-                onClick={() => onLibrary({ ...library, kind: k.value, shift: 0, template: undefined })}
-                className={chip}
-              >
-                {k.label}
-              </button>
-            ))}
-            <button type="button" role="radio" aria-checked={shelfOpen} onClick={() => onSource("custom")} className={chip}>
-              My workouts
+        {source === "library" && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
+              <Field label="Type">
+                <Select
+                  aria-label="Workout type"
+                  value={library.kind}
+                  onChange={(kind) => onLibrary({ ...library, kind: kind as LibraryKind, shift: 0, template: undefined })}
+                  className={`${input} w-full sm:w-40`}
+                >
+                  {KINDS.map((k) => (
+                    <option key={k.value} value={k.value}>
+                      {k.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              {library.kind !== "rampTest" && (
+                <Field label="Length" className="sm:order-2">
+                  <Select
+                    aria-label="Length"
+                    value={library.minutes}
+                    onChange={(m) => onLibrary({ ...library, minutes: Number(m) })}
+                    className={`${input} w-full sm:w-28`}
+                  >
+                    {MINUTES.map((m) => (
+                      <option key={m} value={m}>
+                        {m} min
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
+              {structures.length > 1 && (
+                <Field label="Style" className="col-span-2 sm:order-1">
+                  {styleSelect}
+                </Field>
+              )}
+              {leveled && <span className="hidden sm:order-3 sm:block">{stepper}</span>}
+            </div>
+            {/* The player below shows the workout's name, so this says only how long, how hard, and what it's for. */}
+            <div className="flex items-center justify-between gap-3">
+              <p className="num text-sm text-muted">{sessionLine(session, false)}</p>
+              {leveled && <span className="sm:hidden">{stepper}</span>}
+            </div>
+            {picked && <p className="-mt-2 text-sm text-muted">{picked.description}</p>}
+            <button type="button" className={button.ghost} onClick={() => onSource("custom")}>
+              Library and my workouts
             </button>
           </div>
         )}
 
-        {source === "library" && (
-          <div className="space-y-4">
-            {structures.length > 1 && (
-              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Workout structure">
-                {structures.map((t) => (
-                  <button
-                    key={t.id ?? "steady"}
-                    type="button"
-                    role="radio"
-                    aria-checked={(library.template ?? (library.kind === "endurance" ? undefined : `${library.kind}-intervals`)) === t.id}
-                    onClick={() => onLibrary({ ...library, template: t.id })}
-                    className={chip}
-                  >
-                    {t.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            {library.kind !== "rampTest" && (
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                <Segmented
-                  label="Length"
-                  options={MINUTES.map((m) => ({ value: m, label: `${m} min` }))}
-                  value={library.minutes}
-                  onChange={(minutes) => onLibrary({ ...library, minutes })}
-                />
-                {leveled && (
-                  <span className="flex items-center gap-2">
-                    <button className={button.small} onClick={() => onLibrary({ ...library, shift: library.shift - 1 })}>
-                      Easier
-                    </button>
-                    <button className={button.small} onClick={() => onLibrary({ ...library, shift: library.shift + 1 })}>
-                      Harder
-                    </button>
-                  </span>
-                )}
-              </div>
-            )}
-            <div className="space-y-1">
-              <p className="text-sm text-muted">
-                <span className="text-[15px] font-medium text-ink">{session.workout.name}</span>
-                <span className="num"> · {sessionLine(session, leveled)}</span>
-              </p>
-              {picked && <p className="text-sm text-muted">{picked.description}</p>}
-            </div>
-          </div>
+        {shelfOpen && (
+          <button type="button" className={`${button.ghost} -mt-1`} onClick={() => onSource("library")}>
+            Back to building a workout
+          </button>
         )}
 
         {shelfOpen && (
@@ -328,13 +371,13 @@ function MyWorkouts({
 
       {shelf === "library" && (
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Library type">
+          <Select aria-label="Library type" value={category} onChange={(c) => setCategory(c as LibraryCategory | "all")} className={`${input} w-full sm:w-48`}>
             {(["all", ...LIBRARY_CATEGORIES] as const).map((c) => (
-              <button key={c} type="button" role="radio" aria-checked={category === c} onClick={() => setCategory(c)} className={chip}>
-                {c === "all" ? "All" : LIBRARY_CATEGORY_LABELS[c]}
-              </button>
+              <option key={c} value={c}>
+                {c === "all" ? "All types" : LIBRARY_CATEGORY_LABELS[c]}
+              </option>
             ))}
-          </div>
+          </Select>
           <ul className="max-h-[28rem] divide-y divide-rule overflow-y-auto border-y border-rule">{shown.map(libraryRow)}</ul>
         </div>
       )}

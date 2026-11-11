@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Save any workout as a file from the Ride screen: a .fit workout to copy onto a Garmin (or open in another head unit or app), or a .zwo for Zwift and most trainer apps. No intervals.icu needed.
+- Pick a workout is simpler: choose the type, style and length from three menus, and make it easier or harder with one Level − / + control. The library and your saved workouts sit behind one link.
 - On the iPhone, the coach panel and pop-up windows no longer slide under the clock and battery at the top or the home bar at the bottom.
 - If your iPhone widgets stay empty, they now say why, and the iPhone app's settings show when they last updated, with a button to update them now.
 - Lactic on your Apple Watch: last night's recovery, HRV, resting heart rate, sleep and today's ride in the Watch app, plus a Smart Stack widget and complications for your watch face. Your iPhone sends them over whenever it updates.
