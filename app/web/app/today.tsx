@@ -30,7 +30,7 @@ import RaceReportPrompt from "./race-report-prompt";
 import type { RaceFollowUp } from "@/lib/engine/race/followup";
 import type { WeekReview } from "@/lib/engine/review";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
-import LastNight, { ExertionBar } from "./last-night";
+import { ExertionBar, RecoverySummary } from "./last-night";
 import type { ExertionToday } from "@/lib/engine/recovery-glance";
 import { formatHours } from "@/lib/engine/hours";
 import type { SafetyRule } from "@/lib/engine/plan";
@@ -84,21 +84,6 @@ export default function TodayView({
     <>
       <PageHeader title="Today" line={dayLine(state)} />
 
-      {recovery?.today && <LastNight recovery={recovery} source={recoverySource} timeZone={athlete.timezone} />}
-
-      <Morning
-        day={today}
-        recovery={{ in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource }}
-        weighIn={todaysWeighIn ? { weightKg: todaysWeighIn.weightKg, bodyFatPercent: todaysWeighIn.bodyFatPercent } : null}
-        profile={
-          athlete.heightCm !== null && athlete.sex !== null && athlete.birthDate !== null
-            ? { male: athlete.sex === "male", heightCm: athlete.heightCm, age: ageOn(athlete.birthDate, today) }
-            : null
-        }
-        brief={brief}
-        today={todayChoice(state, coachEnabled)}
-      />
-
       {raceFollowUp && <RaceReportPrompt followUp={raceFollowUp} />}
 
       {review && <WeekReviewCard {...review} />}
@@ -107,14 +92,32 @@ export default function TodayView({
 
       <RaceSoon state={state} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* Two columns on a computer: what to ride on the left, with form and the last ride under it, and whether you're
+          up for it on the right. On a phone: the workout, then This morning, then form and the last ride. The second
+          row takes any extra height, so the strip stays right under the workout. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:grid-rows-[auto_1fr]">
         <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} exertion={exertionTodayFor(state)} />
+        <div className="self-start lg:col-start-3 lg:row-span-2 lg:row-start-1">
+        <Morning
+          title="This morning"
+          stacked
+          lastNight={recovery?.today ? <RecoverySummary recovery={recovery} variant="column" /> : undefined}
+          day={today}
+          recovery={{ in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource }}
+          weighIn={todaysWeighIn ? { weightKg: todaysWeighIn.weightKg, bodyFatPercent: todaysWeighIn.bodyFatPercent } : null}
+          profile={
+            athlete.heightCm !== null && athlete.sex !== null && athlete.birthDate !== null
+              ? { male: athlete.sex === "male", heightCm: athlete.heightCm, age: ageOn(athlete.birthDate, today) }
+              : null
+          }
+          brief={brief}
+          today={todayChoice(state, coachEnabled)}
+        />
+        </div>
 
-        {/* Recovery and weight are in Morning; fitness history is on Progress and FTP lives in Settings, so this column only
-            carries form, an FTP nudge when the estimate moves, and the last ride. */}
-        <section aria-label="Training" className="grid grid-cols-2 gap-px self-start overflow-hidden rounded-lg border border-line bg-line lg:grid-cols-1">
+        <section aria-label="Training" className="grid grid-cols-2 gap-px self-start overflow-hidden rounded-lg border border-line bg-line lg:col-span-2">
           <Stat
-            className={ridden || survey ? "col-span-2 lg:col-span-1" : undefined}
+            className={survey ? "col-span-2 sm:col-span-1" : undefined}
             label="Form"
             value={signed(now.form)}
             sub={
@@ -126,8 +129,7 @@ export default function TodayView({
               </>
             }
           />
-          {/* Once today's ride is in, the card beside this is the last ride. */}
-          {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} survey={survey} className={survey ? "col-span-2 lg:col-span-1" : undefined} />}
+          {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} survey={survey} className={survey ? "col-span-2 sm:col-span-1" : undefined} />}
           <FtpNudge ftp={athlete.ftp} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} />
         </section>
       </div>
