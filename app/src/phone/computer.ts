@@ -4,6 +4,7 @@
 // refreshes the screens.
 
 import { ingestHealth, IPHONE_SETTING, type IphoneHealth } from "~/integrations/apple-health";
+import { notifyChanged } from "~/integrations/background";
 import { invoke, isDesktop, isPhone, listen } from "~/platform/native";
 import { applySharedPrefs } from "~/settings/shared-prefs";
 import { getSetting, setSetting } from "~/settings/store";
@@ -51,6 +52,8 @@ export function startPhoneBridge(): () => void {
       // Units or a ride habit changed on the phone (settings/shared-prefs.ts).
       void applySharedPrefs().catch(() => {});
       revalidatePath("/");
+      // A ride recorded on the phone may be waiting for Strava, which this computer posts.
+      notifyChanged("strava");
     }),
     // A key typed on the phone arrived (secrets.rs): Settings shows it's saved.
     listen("secrets:changed", () => {

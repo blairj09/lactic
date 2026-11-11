@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Post rides to Strava from the iPhone app (an experiment): connect Strava in Settings on an iPhone you use on its own, or, if it's paired with your computer, rides you record on the iPhone go to Strava from your computer once they sync, so none shows up twice.
 - Progress works out W/kg in the power profile from your latest weigh-in, the same weight VO2 max uses, and weigh-ins from intervals.icu now keep your profile weight up to date too.
 - Today no longer offers to lower your FTP when your recent rides didn't include a hard enough effort; it only offers a new number when rides say FTP has gone up.
 - Your plan's first week no longer counts rides from before the plan started, or shows them making up a planned session.

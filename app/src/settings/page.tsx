@@ -152,6 +152,7 @@ export default async function SettingsPage() {
               <Section id="health" title="Apple Health" description="Sleep and recovery in, rides out.">
                 <PhoneHealth />
               </Section>
+              <StravaSection />
             </>
           ) : (
             <>
