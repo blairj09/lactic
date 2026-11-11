@@ -6,6 +6,7 @@ import { useExperiments } from "@/lib/use-experiments";
 import { ExperimentalTag } from "@/components/experimental-tag";
 import { revalidatePath } from "~/shims/next-cache";
 import { getSetting, setSetting } from "./store";
+import { isPhone } from "~/platform/native";
 
 /** Reads the saved choice into the app. Nothing saved means every experiment is off. */
 export async function loadExperiments(): Promise<Experiments> {
@@ -25,7 +26,8 @@ export function ExperimentsSetting() {
   const values = useExperiments();
   return (
     <div className="space-y-3 sm:col-span-2">
-      {EXPERIMENTS.map((x) => (
+      {/* Strava uploads run in the computer's background jobs (and sign-in needs its browser), never on the iPhone. */}
+      {EXPERIMENTS.filter((x) => !(isPhone() && x.id === "strava_upload")).map((x) => (
         <label
           key={x.id}
           className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-4 transition-colors hover:border-control has-[:checked]:border-ink"

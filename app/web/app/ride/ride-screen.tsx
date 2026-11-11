@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
-import { setLiveRide } from "@/lib/live-ride";
+import { isRiding, setLiveRide } from "@/lib/live-ride";
 import { POWER_SOURCE_PREF, SensorHub, isWebBluetoothAvailable, type PowerSource } from "@/lib/ble/sensor-hub";
 import { rampTestFtp, twentyMinuteTestFtp } from "@/lib/engine/ftp";
 import { isRampTest, type Levels, type Session } from "@/lib/engine/library";
@@ -33,6 +33,7 @@ import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
 import { RemoteHost } from "~/ride/remote";
+import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
 import { isDesktop, isPhone } from "~/platform/native";
 import { isDemo } from "~/demo/flag";
 import type { TracePoint } from "./workout-chart";
@@ -75,7 +76,30 @@ function writePref(key: string, value: string) {
   } catch {}
 }
 
-export default function RideScreen({
+type RideScreenProps = Parameters<typeof RideOnThisDevice>[0];
+
+/**
+ * The Ride tab. On an iPhone paired with a computer whose Ride page is open, the computer holds the
+ * trainer: the tab opens the remote for that ride instead of a second ride screen reaching for it.
+ */
+export default function RideScreen(props: RideScreenProps) {
+  const away = useComputerRide();
+  if (away && isPhone() && !isRiding()) return <RidingOnComputerPage ride={away} />;
+  return <RideOnThisDevice {...props} />;
+}
+
+function RidingOnComputerPage({ ride }: { ride: AwayRide }) {
+  return (
+    <>
+      <Nav current="/ride" />
+      <Page>
+        <RidingOnComputer ride={ride} />
+      </Page>
+    </>
+  );
+}
+
+function RideOnThisDevice({
   initialFtp,
   canSave,
   planned = null,

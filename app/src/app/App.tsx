@@ -74,6 +74,7 @@ function Shell() {
       const key = (e as CustomEvent<string>).detail;
       if (key === "onboarding.done") void getSetting("onboarding.done", false).then(setOnboarded);
       if (key === "coach.setup") void refreshCoachMode();
+      if (key === SOLO && isPhone()) void getSetting<boolean>(SOLO, false).then(setSolo);
     };
     window.addEventListener("lactic:settings", onSettings);
     return () => window.removeEventListener("lactic:settings", onSettings);
