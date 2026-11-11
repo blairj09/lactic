@@ -12,6 +12,10 @@
 // request is JSON sealed with AES-256-GCM under that key (nonce + ciphertext + tag, which is
 // CryptoKit's combined layout and what the computer's phone.rs expects), posted over the local
 // network, and the answer comes back sealed the same way.
+//
+// The end of a ride on the computer: a local notification with Extend and End buttons, scheduled
+// by the remote for the workout's end (see RideEnd below). The buttons run in the background, so
+// they work from the lock screen and an Apple Watch without opening the app.
 
 import CryptoKit
 import Foundation
@@ -20,6 +24,7 @@ import Security
 import SwiftRs
 import Tauri
 import UIKit
+import UserNotifications
 import WebKit
 
 // MARK: - Arguments and answers
@@ -40,6 +45,18 @@ struct SendArgs: Decodable {
   let kind: String
   let body: JSONValue
   var timeout: Double?
+}
+
+struct RideEndArgs: Decodable {
+  let key: String
+  let inSeconds: Double
+  let title: String
+  let body: String
+  let extendLabel: String
+  let extendSeconds: Double
+  let computer: String
+  let workoutName: String
+  let duration: Double
 }
 
 struct WorkoutArgs: Decodable {
@@ -92,42 +109,23 @@ struct PairedAnswer: Encodable {
   let computer: String
 }
 
-/// Any JSON, decoded from the web layer and passed through untouched.
-enum JSONValue: Codable {
-  case null
-  case bool(Bool)
-  case number(Double)
-  case string(String)
-  case array([JSONValue])
-  case object([String: JSONValue])
-
-  init(from decoder: Decoder) throws {
-    let c = try decoder.singleValueContainer()
-    if c.decodeNil() { self = .null }
-    else if let b = try? c.decode(Bool.self) { self = .bool(b) }
-    else if let n = try? c.decode(Double.self) { self = .number(n) }
-    else if let s = try? c.decode(String.self) { self = .string(s) }
-    else if let a = try? c.decode([JSONValue].self) { self = .array(a) }
-    else { self = .object(try c.decode([String: JSONValue].self)) }
+extension JSONValue {
+  subscript(_ key: String) -> JSONValue? {
+    if case .object(let o) = self { return o[key] }
+    return nil
   }
-
-  func encode(to encoder: Encoder) throws {
-    var c = encoder.singleValueContainer()
-    switch self {
-    case .null: try c.encodeNil()
-    case .bool(let b): try c.encode(b)
-    case .number(let n): try c.encode(n)
-    case .string(let s): try c.encode(s)
-    case .array(let a): try c.encode(a)
-    case .object(let o): try c.encode(o)
-    }
+  var number: Double? {
+    if case .number(let n) = self { return n }
+    return nil
   }
-}
-
-struct LacticError: LocalizedError {
-  let message: String
-  init(_ message: String) { self.message = message }
-  var errorDescription: String? { message }
+  var flag: Bool? {
+    if case .bool(let b) = self { return b }
+    return nil
+  }
+  var text: String? {
+    if case .string(let s) = self { return s }
+    return nil
+  }
 }
 
 // MARK: - Pairing, kept in the keychain
@@ -185,15 +183,8 @@ enum PairingStore {
 // MARK: - The link to the computer
 
 enum Link {
-  static func b64url(_ data: Data) -> String {
-    data.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
-  }
-
-  static func fromB64url(_ text: String) -> Data? {
-    var s = text.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
-    while s.count % 4 != 0 { s += "=" }
-    return Data(base64Encoded: s)
-  }
+  static func b64url(_ data: Data) -> String { Wire.b64url(data) }
+  static func fromB64url(_ text: String) -> Data? { Wire.fromB64url(text) }
 
   /// The QR code's link: https://lactic.fit/pair#v=1&d=<device>&k=<key>&p=<port>&h=<host,host>&n=<name>
   static func parse(_ url: String) throws -> Pairing {
@@ -210,46 +201,108 @@ enum Link {
     return Pairing(deviceId: d, key: k, hosts: hosts, port: p, computer: fields["n"] ?? "your computer", lastHost: nil, lastSentAt: nil)
   }
 
-  /// Seals `kind` + `body`, posts it to the first address that answers, and opens the reply.
+  /// The computer answered `{ok: false, error}`: it was reached, so the request ends there.
+  struct ComputerSaid: Error {
+    let message: String
+  }
+
+  /// Seals `kind` + `body`, sends it to the computer by the first way that works, and opens the reply.
   static func send(_ pairing: inout Pairing, kind: String, body: JSONValue, timeout: Double = 30) async throws -> JSONValue {
     guard let keyData = fromB64url(pairing.key) else { throw LacticError("The pairing key is damaged. Pair again.") }
     let key = SymmetricKey(data: keyData)
-    let envelope: [String: JSONValue] = ["t": .number(Date().timeIntervalSince1970 * 1000), "kind": .string(kind), "body": body]
-    let plain = try JSONEncoder().encode(envelope)
-    guard let sealed = try AES.GCM.seal(plain, using: key).combined else { throw LacticError("Couldn't seal the request") }
+    let sealed = try Wire.request(kind: kind, body: body, key: key)
 
-    var hosts = pairing.hosts
-    if let last = pairing.lastHost, let i = hosts.firstIndex(of: last) {
-      hosts.remove(at: i)
-      hosts.insert(last, at: 0)
+    let computer = pairing.computer
+    /// The computer's answer, or a LacticError that ends the request (a wrong key, a refusal).
+    func answer(status: Int, data: Data) throws -> JSONValue {
+      if status == 401 { throw LacticError("\(computer) doesn't know this iPhone anymore. Pair again from Lactic's Settings on the computer.") }
+      guard status == 200 else { throw LacticError("\(computer) answered \(status)") }
+      let reply = try Wire.reply(data, key: key)
+      if case .bool(true) = reply["ok"] ?? .null { return reply["body"] ?? .null }
+      if case .string(let e) = reply["error"] ?? .null { throw ComputerSaid(message: e) }
+      throw ComputerSaid(message: "\(computer) couldn't do that")
     }
-    var lastError: Error = LacticError("Can't reach \(pairing.computer). Is Lactic open on it, on the same Wi-Fi?")
-    for host in hosts {
+    func overNetwork(_ host: String, timeout: Double) async throws -> JSONValue {
       let h = host.contains(":") ? "[\(host)]" : host
-      guard let url = URL(string: "http://\(h):\(pairing.port)/lactic/phone") else { continue }
+      guard let url = URL(string: "http://\(h):\(pairing.port)/lactic/phone") else { throw URLError(.badURL) }
       var req = URLRequest(url: url)
       req.httpMethod = "POST"
       req.httpBody = sealed
       req.timeoutInterval = timeout
       req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
       req.setValue(pairing.deviceId, forHTTPHeaderField: "X-Lactic-Device")
+      let (data, response) = try await URLSession.shared.data(for: req)
+      return try answer(status: (response as? HTTPURLResponse)?.statusCode ?? 0, data: data)
+    }
+    let headers = ["Content-Type": "application/octet-stream", "X-Lactic-Device": pairing.deviceId]
+
+    var lastError: Error = LacticError("Can't reach \(computer). Is Lactic open on it, nearby?")
+    // 1. Where it answered last time, quickly.
+    if let last = pairing.lastHost, last != Direct.tag, pairing.hosts.contains(last) {
       do {
-        let (data, response) = try await URLSession.shared.data(for: req)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if status == 401 { throw LacticError("\(pairing.computer) doesn't know this iPhone anymore. Pair again from Lactic's Settings on the computer.") }
-        guard status == 200 else { throw LacticError("\(pairing.computer) answered \(status)") }
-        let opened = try AES.GCM.open(AES.GCM.SealedBox(combined: data), using: key)
-        let reply = try JSONDecoder().decode([String: JSONValue].self, from: opened)
+        let v = try await overNetwork(last, timeout: min(timeout, 4))
+        pairing.lastSentAt = Date().timeIntervalSince1970 * 1000
+        return v
+      } catch let e as ComputerSaid { pairing.lastSentAt = Date().timeIntervalSince1970 * 1000; throw LacticError(e.message) }
+      catch let e as LacticError { throw e }
+      catch { lastError = error }
+    }
+    // 2. Directly, found by Bonjour: over the network when they share one, otherwise over
+    //    peer-to-peer Wi-Fi the way AirDrop works. A computer that doesn't know this iPhone (401)
+    //    is someone else's: try the next.
+    let found = await Direct.candidates(within: 2)
+    for endpoint in found {
+      do {
+        let (status, data) = try await Direct.post(to: endpoint, path: "/lactic/phone", body: sealed, headers: headers, timeout: timeout)
+        if status == 401 { lastError = LacticError("\(computer) doesn't know this iPhone anymore. Pair again from Lactic's Settings on the computer."); continue }
+        let v = try answer(status: status, data: data)
+        Direct.remember(endpoint)
+        pairing.lastHost = Direct.tag
+        pairing.lastSentAt = Date().timeIntervalSince1970 * 1000
+        return v
+      } catch let e as ComputerSaid {
+        Direct.remember(endpoint)
+        pairing.lastHost = Direct.tag
+        throw LacticError(e.message)
+      } catch let e as LacticError {
+        lastError = e
+      } catch {
+        continue  // Not reachable this way: the next, then the listed addresses.
+      }
+    }
+    // 3. Every address the pairing code listed.
+    for host in pairing.hosts where host != pairing.lastHost {
+      do {
+        let v = try await overNetwork(host, timeout: timeout)
         pairing.lastHost = host
         pairing.lastSentAt = Date().timeIntervalSince1970 * 1000
-        if case .bool(true) = reply["ok"] ?? .null { return reply["body"] ?? .null }
-        if case .string(let e) = reply["error"] ?? .null { throw LacticError(e) }
-        throw LacticError("\(pairing.computer) couldn't do that")
+        return v
+      } catch let e as ComputerSaid {
+        pairing.lastHost = host
+        throw LacticError(e.message)
       } catch let e as LacticError {
         throw e
       } catch {
         lastError = error  // Not at this address: try the next.
       }
+    }
+    // 4. Through iCloud: only sync, which is safe to answer late or twice.
+    if kind == "sync" {
+      if let data = try await Mailbox.exchange(device: pairing.deviceId, sealed: sealed, wait: min(timeout, 45)) {
+        pairing.lastSentAt = Date().timeIntervalSince1970 * 1000
+        do { return try answer(status: 200, data: data) } catch let e as ComputerSaid { throw LacticError(e.message) }
+      }
+      if Mailbox.folder(device: pairing.deviceId) != nil {
+        throw LacticError("Can't reach \(computer) directly, so this sync went through iCloud. It finishes when Lactic is open on \(computer).")
+      }
+    }
+    // Nothing answered anywhere: say where it looked, which is what checking the network needs.
+    if lastError is URLError {
+      let tried = pairing.hosts.joined(separator: ", ")
+      if let mine = wifiNetwork(), !pairing.hosts.contains(where: { mine.holds($0) }), pairing.hosts.contains(where: { ipv4($0) != nil }) {
+        throw LacticError("This iPhone and \(pairing.computer) are on different networks: the iPhone is \(mine.address), the computer is \(tried). Join the iPhone to the same Wi-Fi as the computer (often two routers each make their own network), then try again.")
+      }
+      throw LacticError("Can't reach \(pairing.computer) (tried \(tried), port \(pairing.port), and nearby). Check that Lactic is open on it, Wi-Fi is on for both, and the computer's firewall lets Lactic accept connections.")
     }
     throw lastError
   }
@@ -462,6 +515,141 @@ enum Queue {
   }
 }
 
+// MARK: - The ride-end notification
+
+/// The notification at the end of a workout running on the computer. One at a time: each schedule
+/// replaces the last. UserDefaults keeps which end it's for and when it goes off, so the remote
+/// seeing the finished workout after it went off doesn't send it twice.
+final class RideEnd: NSObject, UNUserNotificationCenterDelegate {
+  static let shared = RideEnd()
+  static let id = "lactic.ride-end"
+  static let category = "lactic.ride-end"
+  static let extendAction = "extend"
+  static let endAction = "end"
+  static let keyPref = "lactic.rideEnd.key"
+  static let atPref = "lactic.rideEnd.at"
+
+  let center = UNUserNotificationCenter.current()
+
+  /// Before the app finishes launching, so a button pressed while it wasn't running still lands here.
+  func start() {
+    center.delegate = self
+  }
+
+  func allowed() async -> Bool {
+    let settings = await center.notificationSettings()
+    switch settings.authorizationStatus {
+    case .notDetermined: return (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+    case .authorized, .provisional, .ephemeral: return true
+    default: return false
+    }
+  }
+
+  func setCategory(extendLabel: String) {
+    let extend = UNNotificationAction(identifier: Self.extendAction, title: extendLabel, options: [])
+    let end = UNNotificationAction(identifier: Self.endAction, title: "End ride", options: [.destructive])
+    center.setNotificationCategories([UNNotificationCategory(identifier: Self.category, actions: [extend, end], intentIdentifiers: [], options: [])])
+  }
+
+  func schedule(_ a: RideEndArgs) async {
+    let now = Date().timeIntervalSince1970
+    let at = now + max(0, a.inSeconds)
+    let d = UserDefaults.standard
+    if d.string(forKey: Self.keyPref) == a.key {
+      let was = d.double(forKey: Self.atPref)
+      // Already went off for this end, or still set for (about) the same moment.
+      if was <= now || abs(was - at) < 2 { return }
+    }
+    guard await allowed() else { return }
+    setCategory(extendLabel: a.extendLabel)
+    let content = UNMutableNotificationContent()
+    content.title = a.title
+    content.body = a.body
+    content.sound = .default
+    content.categoryIdentifier = Self.category
+    content.interruptionLevel = .active
+    content.userInfo = [
+      "title": a.title, "body": a.body, "extendLabel": a.extendLabel, "extendSeconds": a.extendSeconds,
+      "computer": a.computer, "workoutName": a.workoutName, "duration": a.duration,
+    ]
+    let trigger = a.inSeconds >= 1 ? UNTimeIntervalNotificationTrigger(timeInterval: a.inSeconds, repeats: false) : nil
+    do {
+      try await center.add(UNNotificationRequest(identifier: Self.id, content: content, trigger: trigger))
+      d.set(a.key, forKey: Self.keyPref)
+      d.set(at, forKey: Self.atPref)
+    } catch {}
+  }
+
+  /// No end to tell about (paused, ended, the computer's Ride page closed): drop it, and take an
+  /// early one that went off while paused off the lock screen too.
+  func cancel() {
+    center.removePendingNotificationRequests(withIdentifiers: [Self.id])
+    center.removeDeliveredNotifications(withIdentifiers: [Self.id])
+    UserDefaults.standard.removeObject(forKey: Self.keyPref)
+    UserDefaults.standard.removeObject(forKey: Self.atPref)
+  }
+
+  // Open: still show it, with its sound (the remote opens on the Extend panel as well).
+  func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
+    done(notification.request.identifier == Self.id ? [.banner, .list, .sound] : [.banner, .list])
+  }
+
+  func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler done: @escaping () -> Void) {
+    let action = response.actionIdentifier
+    guard action == Self.extendAction || action == Self.endAction else { return done() }
+    let info = response.notification.request.content.userInfo
+    Task {
+      await self.press(action, info: info)
+      done()
+    }
+  }
+
+  /// Runs Extend or End on the computer, as the remote's buttons do. Extend only counts there if
+  /// the workout really is at its end, and then the next end is scheduled from the answer.
+  func press(_ action: String, info: [AnyHashable: Any]) async {
+    let computer = info["computer"] as? String ?? "your computer"
+    guard var pairing = PairingStore.load() else { return }
+    let extend = action == Self.extendAction
+    let control: JSONValue = .object(["name": .string(extend ? "onExtend" : "onEnd"), "args": .array([])])
+    let reply: JSONValue
+    do {
+      reply = try await Link.send(&pairing, kind: "ride", body: .object(["control": control, "whenFinished": .bool(extend)]), timeout: 15)
+      PairingStore.save(pairing)
+    } catch {
+      await failed(extend ? "Extend" : "End ride", computer: computer)
+      return
+    }
+    cancel()
+    guard extend, let data = reply["ride"]?["data"] else { return }
+    let name = data["workout"]?["name"]?.text ?? info["workoutName"] as? String ?? "Workout"
+    let duration = data["duration"]?.number ?? 0
+    let position = data["position"]?.number ?? 0
+    let extendSeconds = info["extendSeconds"] as? Double ?? 300
+    let next: (key: String, inSeconds: Double)
+    if data["running"]?.flag == true, duration > position {
+      next = ("\(name)|\(Int(duration.rounded()))", duration - position)
+    } else if data["finished"]?.flag == true {
+      // Not under way yet in the answer: the longer workout ends about Extend's length from now.
+      next = ("\(name)|\(Int((duration + extendSeconds).rounded()))", extendSeconds)
+    } else {
+      return
+    }
+    await schedule(RideEndArgs(
+      key: next.key, inSeconds: next.inSeconds, title: info["title"] as? String ?? "Workout done",
+      body: info["body"] as? String ?? "\(name) on \(computer). Extend it or end the ride.",
+      extendLabel: info["extendLabel"] as? String ?? "Extend", extendSeconds: extendSeconds,
+      computer: computer, workoutName: name, duration: duration))
+  }
+
+  func failed(_ what: String, computer: String) async {
+    let content = UNMutableNotificationContent()
+    content.title = "Couldn't reach \(computer)"
+    content.body = "\(what) didn't go through. Open Lactic to try again, or use the controls on \(computer)."
+    content.sound = .default
+    try? await center.add(UNNotificationRequest(identifier: "lactic.ride-end.failed", content: content, trigger: nil))
+  }
+}
+
 // MARK: - The plugin
 
 class LacticPhonePlugin: Plugin {
@@ -470,6 +658,8 @@ class LacticPhonePlugin: Plugin {
 
   override init() {
     super.init()
+    RideEnd.shared.start()
+    WatchLink.shared.start()
     // Every launch, including the ones iOS makes in the background for new Health data.
     if UserDefaults.standard.bool(forKey: Self.askedKey) { watch() }
   }
@@ -551,8 +741,21 @@ class LacticPhonePlugin: Plugin {
     Task {
       do {
         var pairing = try Link.parse(args.url)
-        let reply = try await Link.send(&pairing, kind: "hello", body: .object(["name": .string(UIDevice.current.name)]), timeout: 8)
-        if case .object(let o) = reply, case .string(let name) = o["computer"] ?? .null { pairing.computer = name }
+        // The code's key seals only this hello. With it goes a fresh public key; the computer
+        // answers with its own and both keep the key they work out (Wire.pairingKey). An older
+        // Lactic on the computer answers without one, and the code's key stays, as before.
+        let mine = Curve25519.KeyAgreement.PrivateKey()
+        let hello: JSONValue = .object(["name": .string(UIDevice.current.name), "pub": .string(Wire.b64url(mine.publicKey.rawRepresentation))])
+        let reply = try await Link.send(&pairing, kind: "hello", body: hello, timeout: 8)
+        if case .object(let o) = reply {
+          if case .string(let name) = o["computer"] ?? .null { pairing.computer = name }
+          if case .string(let theirs) = o["pub"] ?? .null {
+            guard let theirKey = Wire.fromB64url(theirs), let code = Wire.fromB64url(pairing.key) else {
+              throw LacticError("That code didn't work. Show a new one on the computer and scan again.")
+            }
+            pairing.key = Wire.b64url(try Wire.pairingKey(mine: mine, theirs: theirKey, code: code, deviceId: pairing.deviceId))
+          }
+        }
         PairingStore.save(pairing)
         invoke.resolve(PairedAnswer(computer: pairing.computer))
       } catch {
@@ -581,7 +784,56 @@ class LacticPhonePlugin: Plugin {
   }
 }
 
+extension LacticPhonePlugin {
+  @objc public func scheduleRideEnd(_ invoke: Invoke) throws {
+    let args = try invoke.parseArgs(RideEndArgs.self)
+    Task {
+      await RideEnd.shared.schedule(args)
+      invoke.resolve()
+    }
+  }
+
+  @objc public func cancelRideEnd(_ invoke: Invoke) throws {
+    RideEnd.shared.cancel()
+    invoke.resolve()
+  }
+}
+
 @_cdecl("init_plugin_lactic_phone")
 func initPlugin() -> Plugin {
   return LacticPhonePlugin()
+}
+
+/// The iPhone's own Wi-Fi IPv4 address and netmask, to tell "different network" apart from "not answering".
+struct WifiNetwork {
+  let address: String
+  let ip: UInt32
+  let mask: UInt32
+  func holds(_ host: String) -> Bool {
+    guard let h = ipv4(host) else { return false }
+    return h & mask == ip & mask
+  }
+}
+
+func ipv4(_ s: String) -> UInt32? {
+  var a = in_addr()
+  guard inet_pton(AF_INET, s, &a) == 1 else { return nil }
+  return UInt32(bigEndian: a.s_addr)
+}
+
+func wifiNetwork() -> WifiNetwork? {
+  var list: UnsafeMutablePointer<ifaddrs>?
+  guard getifaddrs(&list) == 0, let first = list else { return nil }
+  defer { freeifaddrs(list) }
+  for p in sequence(first: first, next: { $0.pointee.ifa_next }) {
+    let i = p.pointee
+    guard String(cString: i.ifa_name) == "en0", let addr = i.ifa_addr, let mask = i.ifa_netmask,
+      addr.pointee.sa_family == UInt8(AF_INET)
+    else { continue }
+    let ip = addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { UInt32(bigEndian: $0.pointee.sin_addr.s_addr) }
+    let m = mask.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { UInt32(bigEndian: $0.pointee.sin_addr.s_addr) }
+    let text = "\(ip >> 24).\((ip >> 16) & 255).\((ip >> 8) & 255).\(ip & 255)"
+    return WifiNetwork(address: text, ip: ip, mask: m)
+  }
+  return nil
 }

@@ -9,8 +9,33 @@
   <string>Lactic saves your rides to Health as cycling workouts, with heart rate, power, cadence, distance and energy.</string>
   <key>NSCameraUsageDescription</key>
   <string>Lactic uses the camera to scan the pairing code your computer shows.</string>
+  <!-- The link to the computer is plain HTTP on the local network, every request sealed with AES-GCM. -->
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+  </dict>
   <key>NSLocalNetworkUsageDescription</key>
-  <string>Lactic syncs with Lactic on your computer over your Wi-Fi.</string>
+  <string>Lactic finds Lactic on your computer nearby and syncs with it over Wi-Fi.</string>
+  <!-- The direct link (Direct.swift): Lactic on a Mac nearby, over the network or peer-to-peer Wi-Fi. -->
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_lactic._tcp</string>
+  </array>
+  <!-- Lactic's iCloud container (the sync fallback, Mailbox.swift). Shown in iCloud Drive as
+       "Lactic" so the Mac keeps it in step too; it only holds encrypted sync files. -->
+  <key>NSUbiquitousContainers</key>
+  <dict>
+    <key>iCloud.fit.lactic.app</key>
+    <dict>
+      <key>NSUbiquitousContainerIsDocumentScopePublic</key>
+      <true/>
+      <key>NSUbiquitousContainerName</key>
+      <string>Lactic</string>
+      <key>NSUbiquitousContainerSupportedFolderLevels</key>
+      <string>Any</string>
+    </dict>
+  </dict>
   <key>UIBackgroundModes</key>
   <array>
     <!-- Keeps the trainer and sensors connected when the screen locks mid-ride. -->

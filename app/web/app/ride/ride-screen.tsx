@@ -32,6 +32,8 @@ import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type Ride
 import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
+import { RemoteHost } from "~/ride/remote";
+import { isDesktop, isPhone } from "~/platform/native";
 import { isDemo } from "~/demo/flag";
 import type { TracePoint } from "./workout-chart";
 import WorkoutEditor from "./workout-editor";
@@ -983,7 +985,9 @@ export default function RideScreen({
                       </>
                     ) : (
                       <p className="text-sm text-muted">
-                        {isDemo
+                        {isPhone()
+                          ? "On iPhone the ride screen is the overlay: iOS doesn't let apps float a window over other apps. Ride Zwift on your computer and keep this screen in view."
+                          : isDemo
                           ? "In the app, a small window with the interval, targets and what's next stays on top of whatever else you have open: Zwift, a video, a browser."
                           : "The overlay needs Chrome 116 or later on a desktop."}
                       </p>
@@ -1043,6 +1047,7 @@ export default function RideScreen({
           </Panel>
         </div>
         {pip.pip && <OverlayPortal pip={pip.pip} data={data} controls={controls} onResize={resizeOverlay} />}
+        {isDesktop && !isPhone() && <RemoteHost data={data} controls={controls} />}
       </Page>
     </div>
   );

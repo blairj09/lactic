@@ -50,7 +50,7 @@ function DeleteDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 px-2 py-4 sm:px-6 sm:py-16" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
+    <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 px-2 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-16 sm:pb-16" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div ref={panel} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="delete-title" className="relative w-full max-w-lg space-y-4 rounded-xl border border-line bg-ground p-5 text-sm shadow-2xl outline-none sm:p-6">
         <h2 id="delete-title" className="text-lg font-semibold">Delete all your data?</h2>
         <div className="space-y-1.5">

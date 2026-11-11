@@ -1,0 +1,31 @@
+import { describe, expect, it } from "vitest";
+import { athlete, TODAY } from "../../evals/athlete";
+import { widgetSnapshot } from "./widget-snapshot";
+
+describe("widgetSnapshot", () => {
+  it("words last night and today's ride for the widget", () => {
+    const { state } = athlete({ recovery: { hrv: 52, restingHr: 49, sleepHours: 7.5, score: 72, reasons: ["HRV 8% above your normal"] } });
+    const s = widgetSnapshot(state, null, new Date("2026-10-29T14:00:00Z"));
+    expect(s.day).toBe(TODAY);
+    expect(s.recovery).toMatchObject({ score: 72, word: "Recovered", reason: "HRV 8% above your normal" });
+    expect(s.today.state).toMatch(/planned|rest/);
+    if (s.today.state === "planned") expect(s.today.detail).toMatch(/^\d+ min · /);
+  });
+
+  it("says the baseline is still building", () => {
+    const { state } = athlete({ recovery: { hrv: 52, restingHr: 49, sleepHours: 7.5, score: null, baselineDays: 9 } });
+    const s = widgetSnapshot(state, null);
+    expect(s.recovery).toMatchObject({ score: null, word: null, reason: "Building your baseline: 9 of 14 nights" });
+  });
+
+  it("rounds exertion and keeps the planned landing", () => {
+    const { state } = athlete();
+    const s = widgetSnapshot(state, { soFar: 1.234, rideTrimp: 0, offBikeTrimp: 10, target: { low: 3.44, high: 4.46 }, planned: { add: 2.5, landsAt: 3.77 } });
+    expect(s.exertion).toEqual({ soFar: 1.2, low: 3.4, high: 4.5, landsAt: 3.8 });
+  });
+
+  it("says a ride is done", () => {
+    const { state } = athlete({ extraRides: [{ name: "Morning spin", durationSeconds: 3600, startedAt: new Date("2026-10-29T16:00:00Z") }] });
+    expect(widgetSnapshot(state, null).today).toEqual({ title: "Ride done", detail: "60 min today", state: "done" });
+  });
+});

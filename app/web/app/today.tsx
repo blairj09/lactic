@@ -16,7 +16,7 @@ import { complianceDays, plannedOn, ridesFor, type TrainingState } from "@/lib/t
 import { markDays } from "@/lib/engine/compliance";
 import { dayRides } from "@/lib/engine/ride-detail";
 import CompletedRide from "./completed-ride";
-import { todayOptions } from "@/lib/today-options";
+import { exertionTodayFor, todayOptions } from "@/lib/today-options";
 import UseEstimateButton from "./use-estimate-button";
 import FtpBanner from "./ftp-banner";
 import ProvenanceTag from "@/components/provenance";
@@ -34,6 +34,7 @@ import RaceReportPrompt from "./race-report-prompt";
 import type { RaceFollowUp } from "@/lib/engine/race/followup";
 import type { WeekReview } from "@/lib/engine/review";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
+import LastNight from "./last-night";
 
 /**
  * Today answers "what do I ride, and am I up for it?": Morning (recovery, weight, the brief), then the session, with
@@ -82,6 +83,8 @@ export default function TodayView({
   return (
     <>
       <PageHeader title="Today" line={finding(today, recovery, now.form)} />
+
+      {recovery?.today && <LastNight recovery={recovery} exertion={exertionTodayFor(state)} source={recoverySource} timeZone={athlete.timezone} />}
 
       <Morning
         day={today}
@@ -373,7 +376,7 @@ function FtpNudge({ ftp, estimate, windowDays, hasPowerRides, today }: { ftp: nu
   );
 }
 
-/** The latest ride in one line; the rest are on Progress. */
+/** The latest ride in one line; the rest are on Progress → Rides. */
 function LastRide({ ride, timeZone }: { ride: StoredRide | undefined; timeZone: string }) {
   if (!ride) {
     return (
@@ -399,7 +402,7 @@ function LastRide({ ride, timeZone }: { ride: StoredRide | undefined; timeZone: 
       sub={
         <>
           {ride.name ?? "Ride"} · {formatDay(ride.startedAt, timeZone)} · {formatDuration(ride.durationSeconds)}.{" "}
-          <Link href="/progress" className="text-ink underline underline-offset-4">
+          <Link href="/progress?tab=rides" className="text-ink underline underline-offset-4">
             All rides
           </Link>
         </>

@@ -2,7 +2,7 @@ name: iPhone app
 
 # Lactic for iPhone: the same app (app/), built for iOS. The Xcode project is generated fresh on
 # each run (tauri ios init) and given the app's entitlements (Apple Health) from
-# app/src-tauri/ios/Lactic.entitlements.
+# app/src-tauri/ios/Lactic.entitlements, the widgets (app/src-tauri/ios/widgets) and the Watch app (app/src-tauri/ios/watch).
 #
 # Pull requests that touch the Rust core, the plugins or the iOS setup build them for the simulator,
 # which checks they compile for iOS (web-only changes can't break that, so they skip it; so do
@@ -24,8 +24,11 @@ on:
       - "app/package.json"
       - "app/package-lock.json"
       - ".github/workflows/ios.yml"
-      - ".github/scripts/ios-project.sh"
+      - ".github/scripts/**"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 # A new push to a pull request cancels the run it replaces. On main, a TestFlight build in progress
 # finishes, and merges meanwhile wait as one queued run (the newest replaces the waiting one).
@@ -48,10 +51,10 @@ jobs:
           cache-dependency-path: app/package-lock.json
       - run: npm ci
         working-directory: app
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
         with:
           workspaces: app/src-tauri
           key: ios
@@ -68,6 +71,30 @@ jobs:
           # What tauri ios build sets from bundle.iOS.minimumSystemVersion.
           IPHONEOS_DEPLOYMENT_TARGET: "16.0"
 
+      - name: The widgets and the Watch app compile
+        # The iPhone widgets and the Watch app with its widgets (targets the TestFlight job adds to the project).
+        run: |
+          ios=$(xcrun --sdk iphonesimulator --show-sdk-path)
+          swiftc -typecheck -parse-as-library -sdk "$ios" -target arm64-apple-ios17.0-simulator src-tauri/ios/widgets/Shared.swift src-tauri/ios/widgets/iPhone.swift
+          watch=$(xcrun --sdk watchsimulator --show-sdk-path)
+          swiftc -typecheck -parse-as-library -sdk "$watch" -target arm64-apple-watchos10.0-simulator src-tauri/ios/widgets/Shared.swift src-tauri/ios/watch/App.swift
+          swiftc -typecheck -parse-as-library -sdk "$watch" -target arm64-apple-watchos10.0-simulator src-tauri/ios/widgets/Shared.swift src-tauri/ios/watch/Widgets.swift
+        working-directory: app
+
+      - name: The iPhone and the computer speak the same wire format, directly too
+        # The iPhone's own Swift (Sources/Wire.swift) seals a hello, the Mac's Rust opens and
+        # answers it, and the Swift opens the answer. Catches a mismatch before it reaches a phone.
+        run: |
+          dir="$RUNNER_TEMP/wire" && mkdir -p "$dir"
+          ios=plugins/lactic-phone/ios
+          swiftc $ios/Sources/Wire.swift $ios/Sources/Direct.swift $ios/WireCheck/main.swift -o "$dir/wire-check"
+          "$dir/wire-check" request "$dir"
+          LACTIC_SWIFT_WIRE="$dir" cargo test --locked --lib phone::tests::swift_wire -- --exact
+          "$dir/wire-check" reply "$dir"
+          # The direct link end to end: the Mac's listener and Bonjour, the iPhone's Swift finding it.
+          LACTIC_SWIFT_WIRE="$dir" cargo test --locked --lib phone::tests::swift_direct -- --exact --nocapture
+        working-directory: app/src-tauri
+
   testflight:
     # A signed build on TestFlight. Needs the App Store Connect key, and the app created once in
     # App Store Connect (bundle id fit.lactic.app).
@@ -77,7 +104,7 @@ jobs:
     env:
       HAS_KEY: ${{ secrets.APPLE_API_KEY_P8 != '' }}
     steps:
-      - uses: maxim-lobanov/setup-xcode@v1
+      - uses: maxim-lobanov/setup-xcode@1242409711ff5721add51979e9e11e23ebb7e5a4 # v1
         if: env.HAS_KEY == 'true'
         with:
           xcode-version: latest-stable
@@ -92,11 +119,11 @@ jobs:
       - run: npm ci
         if: env.HAS_KEY == 'true'
         working-directory: app
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         if: env.HAS_KEY == 'true'
         with:
           targets: aarch64-apple-ios
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
         if: env.HAS_KEY == 'true'
         with:
           workspaces: app/src-tauri
@@ -117,12 +144,43 @@ jobs:
           key_path=~/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY.p8
           printf '%s\n' "$APPLE_API_KEY_P8" > "$key_path"
           export APPLE_API_KEY_PATH="$key_path"
+          # Builds the embedded Watch app with the watchOS SDK (see the script).
+          mkdir -p "$RUNNER_TEMP/shim" && cp ../.github/scripts/xcodebuild-shim.sh "$RUNNER_TEMP/shim/xcodebuild"
+          export PATH="$RUNNER_TEMP/shim:$PATH"
           # TestFlight needs a new build number every upload.
           printf '{"bundle":{"iOS":{"bundleVersion":"%s"}}}' "$GITHUB_RUN_NUMBER" > src-tauri/tauri.ios-build.conf.json
           npx tauri ios build --export-method app-store-connect --config src-tauri/tauri.ios-build.conf.json
           ipa=$(find src-tauri/gen/apple/build -name '*.ipa' | head -1)
           test -n "$ipa"
           echo "IPA=$ipa" >> "$GITHUB_ENV"
+        working-directory: app
+      - name: Signed entitlements
+        # What the app and each extension were signed with, and what their profiles allow. Stops
+        # the upload if any lacks the App Group the widgets share.
+        if: env.HAS_KEY == 'true'
+        run: |
+          dir=$(mktemp -d) && unzip -q "$IPA" -d "$dir"
+          missing=0
+          while read -r b; do
+            name=${b#"$dir/Payload/"}
+            signed=$(codesign -d --entitlements - --xml "$b" 2>/dev/null | plutil -convert json -o - - 2>/dev/null || echo '?')
+            profile=$(security cms -D -i "$b/embedded.mobileprovision" 2>/dev/null | plutil -extract Entitlements json -o - - 2>/dev/null || echo 'no profile')
+            echo "::notice title=$name signed::$signed"
+            echo "::notice title=$name profile::$profile"
+            case "$signed" in
+              *group.fit.lactic.app*) ;;
+              *) echo "::error title=$name::Signed without the App Group the widgets share"; missing=1 ;;
+            esac
+          done < <(find "$dir/Payload" -maxdepth 6 \( -name '*.app' -o -name '*.appex' \))
+          exit "$missing"
+        working-directory: app
+      - name: What Apple has registered
+        # After a signing failure: the team's Lactic App IDs and their capabilities (identifiers only).
+        if: failure() && env.HAS_KEY == 'true'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: APPLE_API_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY.p8 ruby ../.github/scripts/asc-bundle-ids.rb
         working-directory: app
       - name: Upload to TestFlight
         if: env.HAS_KEY == 'true'

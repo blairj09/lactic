@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { niceCeil } from "./chart-utils";
+import { spaceTicks } from "./chart-ticks";
 import { useBrush } from "./use-brush";
 
 export interface ChartDay {
@@ -106,7 +107,7 @@ export default function FitnessChart({
   const hover = hoverIndex !== null && hoverIndex <= last ? hoverIndex : null;
   const shown = hover ?? last;
   const day = days[shown];
-  const monthTicks = axisTicks(days.map((d) => d.date));
+  const monthTicks = spaceTicks(axisTicks(days.map((d) => d.date)), x, (i) => tickLabel(days[i].date, days.length));
 
   const onPointer = (e: React.PointerEvent<SVGSVGElement>) => {
     const box = e.currentTarget.getBoundingClientRect();

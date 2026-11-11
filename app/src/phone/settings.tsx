@@ -4,11 +4,12 @@
 import { useEffect, useState } from "react";
 import { renderSVG } from "uqr";
 import { button, Pill, Result } from "@/components/ui";
-import { invoke, listen } from "~/platform/native";
+import { invoke, listen, os } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 import { connectHealth, syncPhoneHealth, WRITE_RIDES } from "./health";
+import { updateWidget, WIDGET_STATUS, type WidgetStatus } from "./widget";
 import { onLinkState, resetLink, syncWithComputer, type LinkState } from "./link";
-import { pair, phoneStatus, unpair, type PhoneStatus } from "./plugin";
+import { pair, phoneStatus, readable, send, unpair, type PhoneStatus } from "./plugin";
 
 interface Device {
   id: string;
@@ -78,7 +79,7 @@ export function PairPhone() {
     try {
       setOffer(await invoke<Offer>("phone_pair_start"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(readable(e).message);
     }
   }
 
@@ -119,9 +120,23 @@ export function PairPhone() {
             <ol className="list-decimal space-y-1 pl-5">
               <li>Open Lactic on your iPhone.</li>
               <li>Tap <span className="font-medium">Pair with your computer</span> (or Settings → Your computer).</li>
-              <li>Scan this code. Your iPhone needs to be on the same Wi-Fi as this computer.</li>
+              <li>Scan this code. {os() === "macos" ? "Keep your iPhone near this Mac with Wi-Fi on; it doesn't need to be on the same network." : "Your iPhone needs to be on the same Wi-Fi as this computer."}</li>
             </ol>
-            <p className="text-muted">The code works for 10 minutes and only once. Everything between the two stays on your network, encrypted.</p>
+            <p className="text-muted">The code works for 10 minutes and only once. Everything between the two goes straight from one to the other, encrypted.</p>
+            <p className="text-muted">
+              Not connecting? In Safari on your iPhone, open{" "}
+              {offer.hosts
+                .filter((h) => /^\d/.test(h))
+                .map((h, i) => (
+                  <span key={h}>
+                    {i > 0 && " or "}
+                    <span className="num select-all font-medium text-ink">
+                      http://{h}:{offer.port}/lactic/phone
+                    </span>
+                  </span>
+                ))}
+              . If it says Lactic is here, the network's fine. If it can't connect, check your Mac's firewall (System Settings → Network → Firewall) lets Lactic accept connections, and that the iPhone's address (Settings → Wi-Fi → ⓘ) starts with the same numbers as the one above. If not, they're on different networks, often from two routers or a guest Wi-Fi.
+            </p>
             <button type="button" className={button.secondary} onClick={() => void cancel()}>
               Cancel
             </button>
@@ -149,9 +164,43 @@ export async function scanPairingCode(): Promise<string | null> {
   return result?.content ?? null;
 }
 
+/** Pieces of the database, in base64 characters (a multiple of 4), small enough for one request. */
+const PIECE = 1 << 20;
+
+/** What a phone used on its own brings to a computer that has its own plan: what it rode and measured. */
+const KEEP_TABLES = ["activities", "activity_streams", "ride_feedback", "intervals_uploads", "strava_uploads", "ftp_history", "body_measurements", "health_days", "recovery_days", "custom_workouts", "workout_favorites"];
+
+/**
+ * A phone set up on its own, pairing with a computer: a computer new to Lactic starts from this
+ * phone's data, sent whole ("sent"). One that has its own takes the rides and measurements from the
+ * phone in the sync that follows, and stays the plan and settings ("keep"). A phone that's new
+ * itself just takes the computer's copy ("none").
+ */
+async function bringDataToComputer(onProgress: (fraction: number) => void): Promise<"sent" | "keep" | "none"> {
+  if (!(await getSetting("onboarding.done", false))) return "none";
+  const { fresh } = await send<{ fresh: boolean }>("status", {}, 15);
+  if (!fresh) return "keep";
+  const live = await invoke<string>("db_path");
+  const copy = live.replace(/[^/\\]+$/, "lactic-to-computer.db");
+  await invoke("db_backup", { to: copy });
+  try {
+    const data = await invoke<string>("file_read_base64", { path: copy });
+    const n = Math.max(1, Math.ceil(data.length / PIECE));
+    for (let i = 0; i < n; i++) {
+      onProgress(i / n);
+      await send("adopt", { i, n, data: data.slice(i * PIECE, (i + 1) * PIECE) }, 120);
+    }
+    onProgress(1);
+    return "sent";
+  } finally {
+    await invoke("file_write_base64", { path: copy, data: "" }).catch(() => {});
+  }
+}
+
 /** Scan (or paste) the computer's code and pair. */
 export function PairWithComputer({ onPaired }: { onPaired?: (computer: string) => void }) {
   const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pasting, setPasting] = useState(false);
   const [link, setLink] = useState("");
@@ -161,22 +210,30 @@ export function PairWithComputer({ onPaired }: { onPaired?: (computer: string) =
     setBusy(true);
     setError(null);
     try {
-      const { computer } = await pair(url.trim());
+      // The first request on the network makes iOS ask to allow local network access, and fails
+      // while it asks: try once more after a moment.
+      const { computer } = await pair(url.trim()).catch(async () => {
+        await new Promise((r) => setTimeout(r, 2500));
+        return pair(url.trim());
+      });
+      const brought = await bringDataToComputer(setSending);
       await resetLink();
+      if (brought === "keep") await invoke("sync_keep", { tables: KEEP_TABLES });
       onPaired?.(computer);
       void syncWithComputer();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(readable(e).message);
     } finally {
       setBusy(false);
+      setSending(null);
     }
   }
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={button.primary} disabled={busy} onClick={() => void scanPairingCode().then(finish, (e) => setError(e instanceof Error ? e.message : String(e)))}>
-          {busy ? "Pairing…" : "Scan the code"}
+        <button type="button" className={button.primary} disabled={busy} onClick={() => void scanPairingCode().then(finish, (e) => setError(readable(e).message))}>
+          {sending !== null ? `Sending your data… ${Math.round(sending * 100)}%` : busy ? "Pairing…" : "Scan the code"}
         </button>
         <button type="button" className={button.secondary} disabled={busy} onClick={() => setPasting((p) => !p)}>
           Paste the link
@@ -236,7 +293,10 @@ export function ComputerLink() {
         {link?.running ? <Pill>Syncing…</Pill> : link?.error ? <Pill tone="warning">Not reachable</Pill> : <Pill tone="positive">Paired</Pill>}
       </div>
       <p className="text-sm text-muted">
-        {link?.error ?? `Last synced ${ago(link?.at ?? status.paired.lastSentAt)}. Your computer keeps the main copy; this iPhone syncs with it over Wi-Fi whenever Lactic is open on both.`}
+        {link?.error ?? `Last synced ${ago(link?.at ?? status.paired.lastSentAt)}. Your computer keeps the main copy; this iPhone syncs with it directly when they're near each other, and through iCloud when they're apart, whenever Lactic is open on both.`}
+      </p>
+      <p className="text-sm text-muted">
+        Your plan, rides, settings and API keys (coach AI, intervals.icu) come across, so you only type a key once. Keys travel only on the direct encrypted link and stay in each device's keychain, never in iCloud. Theme, paired gear and the ride overlay stay per device.
       </p>
       <div className="flex flex-wrap gap-2">
         <button type="button" className={button.secondary} disabled={link?.running} onClick={() => void syncWithComputer()}>
@@ -246,6 +306,32 @@ export function ComputerLink() {
           Unpair
         </button>
       </div>
+    </div>
+  );
+}
+
+/** When the home screen, lock screen and Watch widgets last got today's numbers, or why not. */
+function WidgetLine() {
+  const [last, setLast] = useState<WidgetStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = () => void getSetting<WidgetStatus | null>(WIDGET_STATUS, null).then(setLast);
+  useEffect(load, []);
+
+  async function update() {
+    setBusy(true);
+    await updateWidget();
+    load();
+    setBusy(false);
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className={last?.error ? "text-warning" : "text-muted"}>
+        {!last ? "Widgets not updated yet." : last.error ? `Widgets not updated: ${last.error}` : `Widgets updated ${ago(Date.parse(last.at))}.`}
+      </span>
+      <button type="button" className={button.ghost} disabled={busy} onClick={() => void update()}>
+        {busy ? "Updating…" : "Update widgets"}
+      </button>
     </div>
   );
 }
@@ -315,6 +401,7 @@ export function PhoneHealth() {
           <span className="block text-muted">With heart rate, power, cadence, distance and energy. Rides Zwift or your bike computer already put there are skipped.</span>
         </span>
       </label>
+      <WidgetLine />
       {status.healthAsked && <p className="text-sm text-muted">To change what Lactic can read or write, open the Health app → your picture → Apps → Lactic.</p>}
       {result && <Result ok={result.ok}>{result.message}</Result>}
     </div>

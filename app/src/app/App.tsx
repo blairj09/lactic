@@ -23,6 +23,7 @@ import { UpdatePrompt } from "~/updates/prompt";
 import { isPhone } from "~/platform/native";
 import { startPhoneBridge } from "~/phone/computer";
 import { PhoneWelcome, SOLO } from "~/phone/welcome";
+import { ComputerRide } from "~/phone/remote";
 
 // The coach's tools for checking and fixing the app itself (gear, intervals.icu, its own setup).
 installSupportTools();
@@ -120,7 +121,7 @@ function Shell() {
         <Route path="/rides/:id/race" element={<ServerPage load={raceReport} />} />
         <Route path="/settings" element={<ServerPage load={settings} />} />
         <Route path="/analysis" element={<Navigate to="/progress" replace />} />
-        <Route path="/rides" element={<Navigate to="/progress" replace />} />
+        <Route path="/rides" element={<Navigate to="/progress?tab=rides" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}
@@ -128,6 +129,7 @@ function Shell() {
       <NewDayRefresh />
       <BluetoothPicker />
       {!isPhone() && <UpdatePrompt />}
+      {onboarded && isPhone() && <ComputerRide />}
       {onboarded && <Tour />}
       {onboarded && mcp && <ExternalSuggestions />}
       {mode === "builtin" && (

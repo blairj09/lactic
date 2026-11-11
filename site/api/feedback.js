@@ -23,13 +23,9 @@ const MAX_SCREENSHOTS = 3;
 const MAX_SCREENSHOT_BYTES = 1_000_000;
 const MAX_BODY = 4_400_000;
 
-const CORS = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-methods": "POST, OPTIONS",
-  "access-control-allow-headers": "content-type, x-lactic-client",
-};
-
-const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...CORS } });
+// No CORS headers: the app posts from its Rust core, not from a web page, so no other site's
+// script can use a visitor's browser to file feedback.
+const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 // Best effort only: each function instance remembers who sent what in the last hour.
 const recent = new Map();
@@ -158,8 +154,34 @@ async function openFeedback() {
   }
 }
 
-export function OPTIONS() {
-  return new Response(null, { status: 204, headers: CORS });
+/** The most feedback (new issues plus "another report" comments) filed in any 24 hours. */
+export const DAILY_CAP = 60;
+const ANOTHER_REPORT = "**Another report of this, from the app:**";
+
+/** How much feedback the relay has filed since `cutoff` (an ISO time), from GitHub's own lists. */
+export function filedSince(issues, comments, cutoff) {
+  const fresh = (x) => typeof x?.created_at === "string" && x.created_at >= cutoff;
+  const created = (Array.isArray(issues) ? issues : []).filter((i) => !i.pull_request && fresh(i)).length;
+  const added = (Array.isArray(comments) ? comments : []).filter((c) => fresh(c) && String(c.body || "").startsWith(ANOTHER_REPORT)).length;
+  return created + added;
+}
+
+// The per-address limit above forgets everything when Vercel starts a new instance, so the real
+// ceiling is this one, counted from GitHub itself: however the relay is called, it can't flood
+// the repository or the screenshot store.
+async function filedToday() {
+  const cutoff = new Date(Date.now() - 86_400_000).toISOString();
+  try {
+    const [issues, comments] = await Promise.all(
+      [`/issues?labels=feedback&state=all&since=${cutoff}&per_page=100&sort=created&direction=desc`, `/issues/comments?since=${cutoff}&per_page=100&sort=created&direction=desc`].map(async (path) => {
+        const res = await github(path);
+        return res.ok ? res.json() : [];
+      }),
+    );
+    return filedSince(issues, comments, cutoff);
+  } catch {
+    return 0;
+  }
 }
 
 export async function POST(request) {
@@ -178,12 +200,14 @@ export async function POST(request) {
   }
   if (typeof input === "string") return json(400, { error: input });
 
+  if ((await filedToday()) >= DAILY_CAP) return json(429, { error: "Lactic has had a lot of feedback today. Try again tomorrow, or open an issue on GitHub." });
+
   const [{ images, skipped }, open] = await Promise.all([upload(input.screenshots), openFeedback()]);
   const text = body({ ...input, images, skipped });
 
   const same = findDuplicate(open, input.kind, input.message);
   if (same) {
-    const res = await github(`/issues/${same.number}/comments`, { method: "POST", body: JSON.stringify({ body: `**Another report of this, from the app:**\n\n${text}` }) });
+    const res = await github(`/issues/${same.number}/comments`, { method: "POST", body: JSON.stringify({ body: `${ANOTHER_REPORT}\n\n${text}` }) });
     if (res.ok) {
       await github(`/issues/${same.number}/reactions`, { method: "POST", body: JSON.stringify({ content: "+1" }) }).catch(() => null);
       return json(200, { url: same.html_url, number: same.number, duplicate: true });

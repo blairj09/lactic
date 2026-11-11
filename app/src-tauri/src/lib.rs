@@ -108,6 +108,7 @@ pub fn run() {
             app_menu(app)?;
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
+            files::set_data_dir(&data_dir);
             let db = db::Db::open(data_dir.join("lactic.db")).map_err(|e| e.to_string())?;
             app.manage(db);
             app.manage(secrets::Secrets::new(data_dir.clone()));
@@ -139,9 +140,14 @@ pub fn run() {
         sync::sync_outgoing,
         sync::sync_incoming,
         sync::sync_forget,
+        sync::sync_keep,
         secrets::secret_set,
         secrets::secret_delete,
+        secrets::secret_rebind,
         secrets::secret_status,
+        secrets::secrets_offer,
+        secrets::secrets_give,
+        secrets::secrets_take,
         net::http_request,
         net::http_stream,
         net::http_cancel,
@@ -194,9 +200,14 @@ pub fn run() {
         sync::sync_outgoing,
         sync::sync_incoming,
         sync::sync_forget,
+        sync::sync_keep,
         secrets::secret_set,
         secrets::secret_delete,
+        secrets::secret_rebind,
         secrets::secret_status,
+        secrets::secrets_offer,
+        secrets::secrets_give,
+        secrets::secrets_take,
         net::http_request,
         net::http_stream,
         net::http_cancel,

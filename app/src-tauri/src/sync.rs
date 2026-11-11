@@ -19,7 +19,7 @@ use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
 
 /// app_settings keys that belong to one device (where its files are, its gear, its pairing).
-const LOCAL_SETTINGS: &[&str] = &["health.folder", "bluetooth.", "data.restored", "mcp.", "sync.", "phone.", "secrets."];
+const LOCAL_SETTINGS: &[&str] = &["health.folder", "bluetooth.", "data.restored", "mcp.", "sync.", "phone.", "secrets.", "updates."];
 /// Roughly how much row data one page carries.
 const PAGE_BYTES: usize = 1_500_000;
 const PAGE_ROWS: usize = 2_000;
@@ -154,6 +154,24 @@ pub fn prepare(conn: &Connection) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+/// Logs every row of `which` (in that order) as changed, so the next exchanges send them all: a
+/// phone that was used on its own keeps its rides when it pairs with a computer that has data.
+pub fn relog(conn: &Connection, which: &[String]) -> Result<usize, String> {
+    let known = tables(conn).map_err(|e| e.to_string())?;
+    let mut n = 0;
+    for t in which.iter().filter(|t| known.contains(t)) {
+        let s = shape(conn, t).map_err(|e| e.to_string())?;
+        if s.pk.is_empty() {
+            continue;
+        }
+        let key = format!("json_array({})", s.pk.iter().map(|c| quote(c)).collect::<Vec<_>>().join(", "));
+        n += conn
+            .execute(&format!("INSERT INTO sync_log (tbl, pk) SELECT ?1, {key} FROM {}", quote(t)), [t])
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(n)
 }
 
 /// A new identity for this database's history, so phones synced against an earlier one start
@@ -455,7 +473,7 @@ use crate::db::Db;
 use tauri::State;
 
 /// After the schema is up to date at startup: the log and its triggers.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sync_prepare(db: State<Db>) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     prepare(&conn)
@@ -469,8 +487,15 @@ pub struct Outgoing {
     more: bool,
 }
 
+/// The phone: sends these tables' rows in full on the next exchanges (see `relog`).
+#[tauri::command(async)]
+pub fn sync_keep(db: State<Db>, tables: Vec<String>) -> Result<usize, String> {
+    let conn = db.conn.lock().map_err(|e| e.to_string())?;
+    relog(&conn, &tables)
+}
+
 /// The phone: what to send in the next exchange.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sync_outgoing(db: State<Db>) -> Result<Outgoing, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let (changes, upto, more) = outgoing(&conn)?;
@@ -478,13 +503,13 @@ pub fn sync_outgoing(db: State<Db>) -> Result<Outgoing, String> {
 }
 
 /// The phone: the computer's answer to the exchange that sent changes up to `upto`.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sync_incoming(db: State<Db>, upto: i64, reply: Reply) -> Result<usize, String> {
     let mut conn = db.conn.lock().map_err(|e| e.to_string())?;
     incoming(&mut conn, upto, &reply)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sync_forget(db: State<Db>) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     forget(&conn)
@@ -501,7 +526,8 @@ mod tests {
              CREATE TABLE activities (id TEXT PRIMARY KEY, name TEXT, updated_at TEXT);
              CREATE TABLE activity_streams (activity_id TEXT PRIMARY KEY, watts TEXT, updated_at TEXT, FOREIGN KEY (activity_id) REFERENCES activities (id) ON DELETE CASCADE);
              CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT);
-             CREATE TABLE plan_days (user_id TEXT, day TEXT, kind TEXT, updated_at TEXT, PRIMARY KEY (user_id, day));",
+             CREATE TABLE plan_days (user_id TEXT, day TEXT, kind TEXT, updated_at TEXT, PRIMARY KEY (user_id, day));
+             CREATE TABLE recovery_days (user_id TEXT, day TEXT, hrv_ms REAL, resting_hr REAL, sleep_hours REAL, source TEXT, updated_at TEXT, PRIMARY KEY (user_id, day));",
         )
         .unwrap();
         prepare(&c).unwrap();
@@ -563,6 +589,30 @@ mod tests {
     }
 
     #[test]
+    fn a_phone_used_alone_keeps_its_rides_when_it_pairs() {
+        let mut mac = db();
+        let mut phone = db();
+        mac.execute("INSERT INTO plan_days VALUES ('m', '2026-11-10', 'endurance', '2026-11-01T00:00:00.000Z')", []).unwrap();
+        phone.execute_batch(
+            "INSERT INTO activities VALUES ('p', 'Phone ride', '2026-10-01T00:00:00.000Z');
+             INSERT INTO activity_streams VALUES ('p', '[1]', '2026-10-01T00:00:00.000Z');
+             INSERT INTO plan_days VALUES ('q', '2026-11-11', 'vo2', '2026-10-01T00:00:00.000Z');",
+        )
+        .unwrap();
+        // Pairing forgets the phone's history, then keeps the ride tables.
+        forget(&phone).unwrap();
+        let kept = relog(&phone, &["activities".into(), "activity_streams".into(), "nope".into()]).unwrap();
+        assert_eq!(kept, 2);
+        sync(&mut mac, &mut phone);
+        assert_eq!(names(&mac), vec!["Phone ride"]);
+        let streams: i64 = mac.query_row("SELECT COUNT(*) FROM activity_streams", [], |r| r.get(0)).unwrap();
+        assert_eq!(streams, 1);
+        // The phone's own plan stays behind; the computer's plan is the plan.
+        let days: Vec<String> = mac.prepare("SELECT user_id FROM plan_days").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+        assert_eq!(days, vec!["m"]);
+    }
+
+    #[test]
     fn the_phones_changes_reach_the_computer_and_newer_wins() {
         let mut mac = db();
         let mut phone = db();
@@ -581,6 +631,32 @@ mod tests {
         phone.execute("DELETE FROM activities WHERE id = 'b'", []).unwrap();
         sync(&mut mac, &mut phone);
         assert_eq!(names(&mac), vec!["Mac name"]);
+    }
+
+    #[test]
+    fn apple_health_read_on_the_phone_reaches_the_computer() {
+        let mut mac = db();
+        let mut phone = db();
+        // Last night half-arrived on the computer earlier (resting HR only).
+        mac.execute("INSERT INTO recovery_days VALUES ('u', '2026-11-10', NULL, 52, NULL, 'shortcut', '2026-11-10T06:00:00.000Z')", []).unwrap();
+        sync(&mut mac, &mut phone);
+        // The phone reads Health: the whole night, plus its status for the computer's settings card.
+        phone
+            .execute_batch(
+                "INSERT INTO recovery_days VALUES ('u', '2026-11-10', 48, 51, 7.2, 'shortcut', '2026-11-10T08:00:00.000Z')
+                   ON CONFLICT (user_id, day) DO UPDATE SET hrv_ms = excluded.hrv_ms, resting_hr = excluded.resting_hr, sleep_hours = excluded.sleep_hours, updated_at = excluded.updated_at;
+                 INSERT INTO recovery_days VALUES ('u', '2026-11-09', 55, 50, 7.8, 'shortcut', '2026-11-10T08:00:00.000Z');
+                 INSERT INTO app_settings VALUES ('health.iphone', '{\"at\":\"2026-11-10T08:00:00.000Z\"}', '2026-11-10T08:00:00.000Z'),
+                                                 ('phone.health.imported', 'true', '2026-11-10T08:00:00.000Z');",
+            )
+            .unwrap();
+        sync(&mut mac, &mut phone);
+        let night: (f64, f64, f64) = mac.query_row("SELECT hrv_ms, resting_hr, sleep_hours FROM recovery_days WHERE day = '2026-11-10'", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+        assert_eq!(night, (48.0, 51.0, 7.2));
+        let nights: i64 = mac.query_row("SELECT COUNT(*) FROM recovery_days", [], |r| r.get(0)).unwrap();
+        assert_eq!(nights, 2);
+        let keys: Vec<String> = mac.prepare("SELECT key FROM app_settings").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+        assert_eq!(keys, vec!["health.iphone"]);
     }
 
     #[test]

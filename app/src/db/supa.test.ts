@@ -65,6 +65,32 @@ describe("local supabase client", () => {
     expect(count).toBe(2);
   });
 
+  it("reads only the columns a query asks for", async () => {
+    const db = await openSqlJs({ persist: false });
+    await migrate(db);
+    const seen: string[] = [];
+    setSql({ ...db, select: (text, params) => (seen.push(text), db.select(text, params)) });
+    const { data: ride } = await supabase.from("activities").insert({ source: "app", external_id: "1", started_at: "2026-11-01T10:00:00Z", duration_seconds: 60 }).select("id").single();
+    const id = (ride as { id: string }).id;
+    await supabase.from("activity_streams").insert({ activity_id: id, watts: [100, 200], heart_rate: [120, 130] });
+    await supabase.from("ride_feedback").insert({ activity_id: id, difficulty: "right", rpe: 6 });
+    seen.length = 0;
+
+    const { data: have } = await supabase.from("activity_streams").select("activity_id").eq("activity_id", id);
+    expect(have).toEqual([{ activity_id: id }]);
+    expect(seen.at(-1)).toMatch(/^SELECT "activity_id" FROM "activity_streams"/);
+    // An embedded table needs the column that links to it, even when the list doesn't name it.
+    const { data: fb } = await supabase.from("ride_feedback").select("difficulty, activities(external_id)");
+    expect(fb).toEqual([{ difficulty: "right", activities: { external_id: "1" } }]);
+    expect(seen.find((q) => q.includes('FROM "ride_feedback"'))).toMatch(/^SELECT "difficulty", "activity_id" FROM/);
+    // Renamed columns and whole rows still work.
+    const { data: named } = await supabase.from("activities").select("ride:external_id").eq("id", id).single();
+    expect(named).toEqual({ ride: "1" });
+    const { data: whole } = await supabase.from("activity_streams").select("*").eq("activity_id", id).single();
+    expect((whole as { watts: number[] }).watts).toEqual([100, 200]);
+    expect(seen.at(-1)).toMatch(/^SELECT \* FROM "activity_streams"/);
+  });
+
   it("matches JSON with contains, and maybeSingle gives null when nothing matches", async () => {
     await supabase.from("coach_messages").insert({ role: "assistant", content: "hi", meta: { reviewOf: "2026-11-02", plannedWeek: true } });
     const hit = await supabase.from("coach_messages").select("content").contains("meta", { reviewOf: "2026-11-02" }).limit(1);

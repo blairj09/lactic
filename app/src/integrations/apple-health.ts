@@ -1,10 +1,13 @@
-// Apple Health, which only lives on the iPhone: a Shortcut (or the Health Auto Export app) saves
-// a JSON file into iCloud Drive/Lactic each morning, and Lactic imports whatever lands there.
-// The files use the same formats the web app's /api/health took, parsed by the same engine code.
+// Apple Health, which only lives on the iPhone. The best way in is Lactic on a paired iPhone: it
+// reads Health directly (src/phone/health.ts) and its rows reach this computer in the sync, or
+// straight away from a background wake (src/phone/computer.ts). Without it, a Shortcut (or the
+// Health Auto Export app) saves a JSON file into iCloud Drive/Lactic each morning, and Lactic
+// imports whatever lands there. Both use the same formats the web app's /api/health took, parsed
+// by the same engine code.
 
 import { autoExportSamples, columnDaySamples, columnSamples, healthDays, healthNights } from "@/lib/engine/health-import";
 import { createClient } from "~/db/supabase-client";
-import { invoke, isDesktop } from "~/platform/native";
+import { invoke, isDesktop, isPhone } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { provideRecoverySetup } from "@/lib/recovery-source";
@@ -14,16 +17,48 @@ export const SOURCE = "apple_health";
 const FOLDER_SETTING = "health.folder";
 /** The source picked in Sleep and recovery setup: "apple", or "watch" / "android" (both through intervals.icu). */
 export const SOURCE_SETTING = "health.source";
+/** Set by Lactic on the iPhone each time it reads Health (synced, so the computer sees it too). */
+export const IPHONE_SETTING = "health.iphone";
+
+export interface IphoneHealth {
+  /** When the iPhone last read Health. */
+  at: string;
+  latest: string | null;
+  nights: number;
+  days: number;
+}
+
+export interface PairedPhone {
+  id: string;
+  name: string;
+  pairedAt: number;
+  lastSeen: number | null;
+}
+
+/** The iPhone paired with this computer, if any (null on the phone itself and outside the app). */
+export async function pairedPhone(): Promise<PairedPhone | null> {
+  if (!isDesktop || isPhone()) return null;
+  const status = await invoke<{ devices: PairedPhone[] }>("phone_status").catch(() => null);
+  return [...(status?.devices ?? [])].sort((a, b) => (b.lastSeen ?? 0) - (a.lastSeen ?? 0))[0] ?? null;
+}
+
+/** Health is coming from Lactic on a paired iPhone, so the Shortcut folder isn't needed. */
+export async function phoneSuppliesHealth(): Promise<boolean> {
+  const [phone, iphone] = await Promise.all([pairedPhone(), getSetting<IphoneHealth | null>(IPHONE_SETTING, null)]);
+  return Boolean(phone && iphone);
+}
 
 // Today names the rider's recovery source from this.
 provideRecoverySetup(async () => {
-  const [picked, last] = await Promise.all([
+  const [picked, last, iphone] = await Promise.all([
     getSetting<string | null>(SOURCE_SETTING, null),
     getSetting<{ nights: number; days: number } | null>("health.lastImport", null),
+    getSetting<IphoneHealth | null>(IPHONE_SETTING, null),
   ]);
   return {
     picked: picked === "apple" ? "apple" : picked === "watch" || picked === "android" ? "intervals" : null,
-    appleReceiving: Boolean(last && (last.nights > 0 || last.days > 0)),
+    appleReceiving: Boolean(iphone || (last && (last.nights > 0 || last.days > 0))),
+    iphone: iphone ? { readAt: iphone.at, here: isPhone() } : null,
   };
 });
 
@@ -143,6 +178,9 @@ export async function setHealthFolder(path: string | null) {
 
 /** Imports every JSON file in the folder, then files it under Imported/. */
 export async function importHealthFolder(): Promise<{ ok: boolean; message: string } | void> {
+  // The paired iPhone reads Health itself: don't make an iCloud folder nobody fills. A folder the
+  // rider chose stays in use.
+  if (!(await getSetting<string | null>(FOLDER_SETTING, null)) && (await phoneSuppliesHealth())) return;
   const folder = await healthFolder();
   if (!folder) return;
   const entries = (await invoke<Entry[]>("folder_list", { path: folder })).filter((e) => !e.isDir && /\.(json|txt)$/i.test(e.name));

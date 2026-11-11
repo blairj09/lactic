@@ -31,6 +31,7 @@ import { features } from "@/lib/features";
 import { ScrollToSection } from "./scroll-to-section";
 import { isDesktop, isPhone } from "~/platform/native";
 import { ComputerLink, PairPhone, PhoneHealth } from "~/phone/settings";
+import { phoneStatus } from "~/phone/plugin";
 import { ftpSourceLine } from "@/lib/engine/provenance";
 import { localDate } from "@/lib/engine/activity";
 
@@ -47,6 +48,8 @@ export default async function SettingsPage() {
   const supabase = createClient();
   const tracking = features();
   const [athlete, icu, setup, persona, memory] = await Promise.all([loadAthlete(supabase), loadIntervals(supabase), coachSetup(), loadPersona(supabase), loadMemory(supabase)]);
+  // A paired iPhone leaves intervals.icu to the computer; one used on its own connects it itself.
+  const pairedPhone = isPhone() && Boolean((await phoneStatus().catch(() => null))?.paired);
   return (
     <>
       <Nav current="/settings" />
@@ -123,7 +126,7 @@ export default async function SettingsPage() {
           <Section title="intervals.icu" description="Brings in rides from Zwift, Garmin and Wahoo, and sends your rides and planned workouts back.">
             <div className="sm:col-span-2">
               {/* A paired iPhone leaves intervals.icu to the computer and gets its rides by syncing. */}
-              {isPhone() ? (
+              {pairedPhone ? (
                 <p className="text-sm text-muted">{icu ? "Connected on your computer. Rides it brings in come across when this iPhone syncs." : "Connect intervals.icu in Lactic on your computer."}</p>
               ) : icu ? (
                 <IntervalsPanel

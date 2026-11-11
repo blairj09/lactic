@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { spaceTicks } from "@/components/chart-ticks";
 import { useChartWidth } from "@/components/chart-utils";
 import type { Comparison } from "@/lib/engine/race/report";
 import type { Section } from "@/lib/engine/race/sections";
@@ -53,6 +54,8 @@ export default function GapChart({
   const h = H - M.top - M.bottom;
   const X = (x: number) => M.left + (x / total) * w;
   const Y = (g: number) => M.top + ((yMax - g) / (yMax - yMin)) * h;
+  const laps = Array.from({ length: lapCount }, (_, k) => k);
+  const lapLabels = new Set(spaceTicks(laps, (k) => X(k * lapMeters + lapMeters / 2), (k) => `Lap ${k + 1}`));
 
   // Broken where a lap's data is missing (more than 50 m between points).
   const pathsOf = (series: { x: number; gap: number }[]) => {
@@ -128,12 +131,14 @@ export default function GapChart({
             </text>
           </g>
         ))}
-        {Array.from({ length: lapCount }, (_, k) => (
+        {laps.map((k) => (
           <g key={k}>
             {k > 0 && <line x1={X(k * lapMeters)} x2={X(k * lapMeters)} y1={M.top} y2={H - M.bottom} stroke="var(--line)" strokeDasharray="3 3" />}
-            <text x={X(k * lapMeters + lapMeters / 2)} y={H - 6} textAnchor="middle" className="fill-muted text-[11px]">
-              Lap {k + 1}
-            </text>
+            {lapLabels.has(k) && (
+              <text x={X(k * lapMeters + lapMeters / 2)} y={H - 6} textAnchor="middle" className="fill-muted text-[11px]">
+                Lap {k + 1}
+              </text>
+            )}
           </g>
         ))}
         <defs>

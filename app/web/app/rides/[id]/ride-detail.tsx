@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ExperimentalTag } from "@/components/experimental-tag";
+import { StravaRideLink } from "~/settings/strava-post-button";
 import { experiments } from "@/lib/experiments";
 import WorkoutProfile from "@/components/workout-profile";
 import {
@@ -141,10 +142,11 @@ export default async function RideDetail({
                   rel="noreferrer"
                   className="underline decoration-rule underline-offset-2 hover:text-ink"
                 >
-                  Open in intervals.icu
+                  View on intervals.icu
                 </a>
               </>
             )}
+            {ride.source === "app" && <StravaRideLink rideId={ride.id} />}
             {ride.duplicateOf && (
               <>
                 {" "}
