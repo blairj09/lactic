@@ -152,7 +152,7 @@ function glanceFrom(data: any[], today: string, sleepNeedHours: number, daytime:
       bedMinute: r.sleep_start && timeZone ? localMinute(new Date(r.sleep_start), timeZone) : undefined,
     }));
   const i = nights.findIndex((x) => x.day === today);
-  const debt = nights.length ? sleepDebt(nights, sleepNeedHours) : null;
+  const debt = nights.length ? sleepDebt(nights, sleepNeedHours, 7, today) : null;
   const todayExertion = daytime?.days.find((d) => d.day === today)?.exertion ?? null;
   const byDay = new Map(trend.map((d) => [d.day, d.score]));
   return {

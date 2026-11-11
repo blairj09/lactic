@@ -13,6 +13,8 @@ import { ackPending, authorizeHealth, phoneStatus, readHealth, saveWorkout, take
 
 // Device-local settings ("phone." never syncs).
 const IMPORTED = "phone.health.imported";
+/** Set once 60 days were read again to put back full nights that earlier reads had cut short. */
+const REREAD = "phone.health.reread.nights";
 export const WRITE_RIDES = "phone.health.writeRides";
 const WRITE_SINCE = "phone.health.writeSince";
 const WRITTEN = "phone.health.written";
@@ -39,7 +41,7 @@ export function syncPhoneHealth(): Promise<string | null> {
     try {
       const status = await phoneStatus();
       if (!status.healthAvailable || !status.healthAsked) return null;
-      const first = !(await getSetting<boolean>(IMPORTED, false));
+      const first = !(await getSetting<boolean>(IMPORTED, false)) || !(await getSetting<boolean>(REREAD, false));
       const bodies = [await readHealth(first ? 60 : 3)];
       const pending = await takePending();
       bodies.push(...pending.map((p) => p.body));
@@ -54,6 +56,7 @@ export function syncPhoneHealth(): Promise<string | null> {
       }
       if (pending.length) await ackPending(pending.map((p) => p.id));
       await setSetting(IMPORTED, true);
+      await setSetting(REREAD, true);
       const at = new Date().toISOString();
       await setSetting("health.lastImport", { at, nights, days, latest, failed: [], from: "iphone" });
       // Synced: the computer's Sleep and recovery card shows this as the source and its status.

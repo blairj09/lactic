@@ -5,7 +5,7 @@
 // imports whatever lands there. Both use the same formats the web app's /api/health took, parsed
 // by the same engine code.
 
-import { autoExportSamples, columnDaySamples, columnSamples, healthDays, healthNights } from "@/lib/engine/health-import";
+import { autoExportSamples, columnDaySamples, columnSamples, cutShortNight, healthDays, healthNights } from "@/lib/engine/health-import";
 import { createClient } from "~/db/supabase-client";
 import { invoke, isDesktop, isPhone } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
@@ -107,21 +107,28 @@ export async function ingestHealth(body: Record<string, unknown>): Promise<Inges
         const was = prior.get(n.day) ?? {};
         const pick = <T>(v: T | null, key: string) => (v ?? (was[key] as T | undefined) ?? null);
         const hrv = num(n.hrv, 1, 400);
+        const unix = (v: unknown) => (typeof v === "string" ? Date.parse(v) / 1000 : null);
+        // Only the end of a night already stored in full (the read began partway through it): keep the stored sleep.
+        const keepSleep = cutShortNight(
+          { start: unix(was.sleep_start), end: unix(was.sleep_end), asleepHours: was.sleep_hours === undefined || was.sleep_hours === null ? null : Number(was.sleep_hours) },
+          { start: n.start, end: n.end, asleepHours: n.asleepHours },
+        );
+        const sleep = <T>(v: T | null, key: string) => (keepSleep ? ((was[key] as T | undefined) ?? null) : pick(v, key));
         return {
           day: n.day,
           hrv_ms: pick(hrv, "hrv_ms"),
           hrv_kind: hrv !== null ? kind : pick(null, "hrv_kind"),
           resting_hr: pick(num(n.restingHr, 25, 150), "resting_hr"),
-          sleep_hours: pick(num(n.asleepHours, 0, 24), "sleep_hours"),
-          sleep_deep_hours: pick(num(n.deepHours, 0, 24), "sleep_deep_hours"),
-          sleep_rem_hours: pick(num(n.remHours, 0, 24), "sleep_rem_hours"),
-          sleep_core_hours: pick(num(n.coreHours, 0, 24), "sleep_core_hours"),
-          sleep_awake_hours: pick(num(n.awakeHours, 0, 24), "sleep_awake_hours"),
-          sleep_start: pick(iso(n.start), "sleep_start"),
-          sleep_end: pick(iso(n.end), "sleep_end"),
+          sleep_hours: sleep(num(n.asleepHours, 0, 24), "sleep_hours"),
+          sleep_deep_hours: sleep(num(n.deepHours, 0, 24), "sleep_deep_hours"),
+          sleep_rem_hours: sleep(num(n.remHours, 0, 24), "sleep_rem_hours"),
+          sleep_core_hours: sleep(num(n.coreHours, 0, 24), "sleep_core_hours"),
+          sleep_awake_hours: sleep(num(n.awakeHours, 0, 24), "sleep_awake_hours"),
+          sleep_start: sleep(iso(n.start), "sleep_start"),
+          sleep_end: sleep(iso(n.end), "sleep_end"),
           wrist_temp_c: pick(n.wristTempC, "wrist_temp_c"),
           respiratory_rate: pick(n.respiratoryRate, "respiratory_rate"),
-          sleep_segments: n.segments.length ? n.segments.map((g) => [g.start, g.end, g.stage]) : pick(null, "sleep_segments"),
+          sleep_segments: !keepSleep && n.segments.length ? n.segments.map((g) => [g.start, g.end, g.stage]) : pick(null, "sleep_segments"),
           source: "shortcut",
         };
       });
