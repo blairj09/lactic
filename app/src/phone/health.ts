@@ -93,8 +93,33 @@ interface StreamRow {
   route: unknown;
 }
 
-/** Writes each recent ride that isn't in Health yet. Each ride is tried once. */
-export async function writeRides(): Promise<number> {
+let writing: Promise<number> | null = null;
+let writeAgain = false;
+
+/**
+ * Writes each recent ride that isn't in Health yet. Each ride is tried once. Runs one at a time:
+ * a Health wake and synced rides from the computer often ask together, and two runs side by side
+ * both saw the ride as new and saved it twice. A call during a run makes it go round once more.
+ */
+export function writeRides(): Promise<number> {
+  if (writing) {
+    writeAgain = true;
+    return writing;
+  }
+  writing = (async () => {
+    let saved = 0;
+    do {
+      writeAgain = false;
+      saved += await writeNewRides();
+    } while (writeAgain);
+    return saved;
+  })().finally(() => {
+    writing = null;
+  });
+  return writing;
+}
+
+async function writeNewRides(): Promise<number> {
   if (!(await getSetting<boolean>(WRITE_RIDES, true))) return 0;
   const since = await getSetting<string | null>(WRITE_SINCE, null);
   if (!since) return 0;

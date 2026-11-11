@@ -431,6 +431,23 @@ enum Health {
 
   // MARK: Rides into Health
 
+  private static let saveLock = NSLock()
+  private static var lastSave: Task<Saved, Error>?
+
+  /// Saves one workout at a time, so the "already in Health?" check always sees the one before.
+  /// Two saves of the same ride side by side both found nothing and both wrote it.
+  static func saveInTurn(_ w: WorkoutArgs) async throws -> Saved {
+    saveLock.lock()
+    let before = lastSave
+    let task = Task { () throws -> Saved in
+      _ = await before?.result
+      return try await save(w)
+    }
+    lastSave = task
+    saveLock.unlock()
+    return try await task.value
+  }
+
   static func save(_ w: WorkoutArgs) async throws -> Saved {
     let start = Date(timeIntervalSince1970: w.start)
     let end = Date(timeIntervalSince1970: w.end)
@@ -731,7 +748,7 @@ class LacticPhonePlugin: Plugin {
   @objc public func saveWorkout(_ invoke: Invoke) throws {
     let args = try invoke.parseArgs(WorkoutArgs.self)
     Task {
-      do { invoke.resolve(try await Health.save(args)) }
+      do { invoke.resolve(try await Health.saveInTurn(args)) }
       catch { invoke.reject(error.localizedDescription) }
     }
   }
