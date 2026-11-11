@@ -121,7 +121,7 @@ export default function Morning({ day, recovery, weighIn: weighed, weighInDue = 
 
   const startWeigh = useCallback(
     async (choose = false) => {
-      if (!profile) return;
+      // The Body Pod needs the profile; weighIn says so if it's missing.
       setWeigh({ phase: "running", update: null });
       try {
         const reading = await weighIn(profile, (update) => setWeigh({ phase: "running", update }), { choose });
@@ -235,12 +235,13 @@ export default function Morning({ day, recovery, weighIn: weighed, weighInDue = 
           )}
           {!weighDone && weigh.phase !== "running" && !typing && (
             <Actions>
-              {device.bluetooth && device.scale && profile && (
-                <button className={button.smallPrimary} onClick={() => startWeigh()}>
-                  Weigh in
+              {/* The scale, or connecting one (its picker, then the weigh-in), where there's Bluetooth. */}
+              {device.bluetooth && (
+                <button className={button.smallPrimary} onClick={() => startWeigh(!device.scale)}>
+                  {device.scale ? "Weigh in" : "Connect a scale"}
                 </button>
               )}
-              <button className={device.bluetooth && device.scale && profile ? button.small : button.smallPrimary} onClick={() => setTyping(true)}>
+              <button className={device.bluetooth ? button.small : button.smallPrimary} onClick={() => setTyping(true)}>
                 Type it in
               </button>
               <SkipButton onClick={skipWeighThisWeek} label="Not this week" />
