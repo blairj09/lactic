@@ -76,7 +76,7 @@ export async function saveProfile(v: ProfileValues) {
   return saveSettings(null, form);
 }
 
-export function ProfileForm({ values: v, onChange, error }: { values: ProfileValues; onChange: (v: ProfileValues) => void; error?: string | null }) {
+export function ProfileForm({ values: v, onChange, error, ftpHint }: { values: ProfileValues; onChange: (v: ProfileValues) => void; error?: string | null; ftpHint?: string }) {
   const set = <K extends keyof ProfileValues>(k: K, value: ProfileValues[K]) => onChange({ ...v, [k]: value });
   const kg = v.weight ? (v.units === "imperial" ? Number(v.weight) / LB : Number(v.weight)) : null;
   return (
@@ -102,7 +102,7 @@ export function ProfileForm({ values: v, onChange, error }: { values: ProfileVal
         />
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="FTP" hint={v.ftpUnknown ? `Lactic starts at ${kg ? `${guessFtp(kg)} W` : "about 2.5 W/kg"} and makes your first workout an FTP test to find your real number.` : "The power you can hold for about an hour."}>
+        <Field label="FTP" hint={v.ftpUnknown ? `Lactic starts at ${kg ? `${guessFtp(kg)} W` : "about 2.5 W/kg"} and makes your first workout an FTP test to find your real number.` : (ftpHint ?? "The power you can hold for about an hour.")}>
           <div className="flex items-center gap-3">
             <div className="relative w-36">
               <input className={`${input} w-full pr-8`} inputMode="numeric" value={v.ftp} disabled={v.ftpUnknown} onChange={(e) => set("ftp", e.target.value.replace(/\D/g, ""))} placeholder="250" />

@@ -1,16 +1,14 @@
 // Your rides so far: connect intervals.icu (which most apps, Zwift and Garmin included, already
-// sync to) or drop in FIT files. History gives the engine your fitness from day one.
+// sync to), Zwift's folder, a Strava archive or ride files. History gives the engine your fitness from day one.
 
 import { useEffect, useState } from "react";
-import FitImport from "@/app/settings/fit-import";
 import { button, input, Pill, Result } from "@/components/ui";
 import { connect, loadConnection } from "@/lib/intervals/client";
 import { LOCAL_USER } from "~/db/schema";
 import { createClient } from "~/db/supabase-client";
-import { isPhone, openExternal } from "~/platform/native";
+import { openExternal } from "~/platform/native";
 import { deleteSecret, placeholder, saveSecret, SECRET_INTERVALS } from "~/platform/secrets";
 import { notifyChanged } from "~/integrations/background";
-import { HealthSetup } from "./health";
 
 export { SECRET_INTERVALS };
 
@@ -22,7 +20,7 @@ export function useIntervalsConnected() {
   return [on, setOn] as const;
 }
 
-export function IntervalsConnect({ onConnected, heading = true }: { onConnected?: () => void; heading?: boolean }) {
+export function IntervalsConnect({ onConnected, heading = true, best = false }: { onConnected?: () => void; heading?: boolean; best?: boolean }) {
   const [connected, setConnected] = useIntervalsConnected();
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -55,8 +53,12 @@ export function IntervalsConnect({ onConnected, heading = true }: { onConnected?
     <div className={heading ? "space-y-3 rounded-lg border border-line p-4" : "space-y-3"}>
       <div className={heading || connected ? "flex items-center justify-between gap-3" : "hidden"}>
         <div className={heading ? undefined : "hidden"}>
-          <p className="font-medium">intervals.icu</p>
-          <p className="text-sm text-muted">Free. Zwift, Garmin, Wahoo and most apps sync to it, so one key brings in your rides.</p>
+          <p className="flex items-center gap-2 font-medium">
+            intervals.icu {best && !connected && <span className="rounded bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">Best</span>}
+          </p>
+          <p className="text-sm text-muted">
+            {best ? "Zwift, Garmin, Wahoo and most apps sync to it. One free key brings in two years of rides, and new ones keep coming." : "Free. Zwift, Garmin, Wahoo and most apps sync to it, so one key brings in your rides."}
+          </p>
         </div>
         {connected && <Pill tone="positive">Connected</Pill>}
       </div>
@@ -84,30 +86,6 @@ export function IntervalsConnect({ onConnected, heading = true }: { onConnected?
           {error && <Result ok={false}>{error}</Result>}
         </>
       )}
-    </div>
-  );
-}
-
-export function RidesSetup({ sleep = true }: { sleep?: boolean }) {
-  return (
-    <div className="space-y-4">
-      <IntervalsConnect />
-      <div className="space-y-3 rounded-lg border border-line p-4">
-        <div>
-          <p className="font-medium">FIT files</p>
-          <p className="text-sm text-muted">
-            {isPhone() ? "Or import FIT files from the Files app: exports from Garmin Connect, Wahoo or Zwift." : "Or import files from Garmin Connect, Wahoo or Zwift (Documents/Zwift/Activities)."}
-          </p>
-        </div>
-        <FitImport />
-      </div>
-      {sleep && (
-        <>
-          <HealthSetup />
-          <p className="text-sm text-muted">No time now? Skip it and connect your sleep later in Settings → Sleep and recovery.</p>
-        </>
-      )}
-      <p className="text-sm text-muted">No history? Lactic starts from your FTP and learns as you ride.</p>
     </div>
   );
 }

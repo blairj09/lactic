@@ -20,6 +20,7 @@ import TodayView, { ridesOn } from "../today";
 import { experiments } from "@/lib/experiments";
 import { loadRaceFollowUp, RACE_PROMPTS_SETTING } from "@/lib/race-glance";
 import { getSetting } from "~/settings/store";
+import { HISTORY_OFFER_DISMISSED } from "../history-offer";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -42,13 +43,14 @@ export default async function Today() {
     ] as const);
   });
   dated.catch(() => {}); // Reported by loadTrainingState, which loads the same athlete.
-  const [state, icu, body, healthToken, recoverySetup, [briefDay, earlyBrief, earlyReview]] = await Promise.all([
+  const [state, icu, body, healthToken, recoverySetup, [briefDay, earlyBrief, earlyReview], offerDismissed] = await Promise.all([
     loadTrainingState(supabase),
     optional(loadIntervals(supabase)),
     optional(loadBodyMeasurements(supabase, new Date(Date.now() - 40 * 86_400_000))),
     optional(loadIngestToken(supabase)),
     loadRecoverySetup(),
     dated,
+    getSetting<boolean>(HISTORY_OFFER_DISMISSED, false).catch(() => true),
   ]);
   const { athlete, rides, today } = state;
   const monday = weekStart(today);
@@ -75,6 +77,12 @@ export default async function Today() {
   const syncDue: "intervals"[] = due(icu) ? ["intervals"] : [];
 
   const recoverySource = recoverySourceInfo(recoverySetup, Boolean(icu));
+  // Past rides: still arriving from intervals.icu, or never brought in (only a few rides, all ridden in Lactic).
+  const ownRides = rides.filter((r) => r.source === "app" && !r.duplicateOf).length;
+  const history = {
+    importing: icu && !icu.backfillDone ? rides.filter((r) => !r.duplicateOf).length : null,
+    offer: !icu && !offerDismissed && ownRides < 10 && rides.every((r) => r.source === "app"),
+  };
 
   const ftpSince = addDays(today, -FTP_WINDOW_DAYS);
   const recentCurves = rides.filter((r) => r.powerCurve && localDate(r.startedAt, athlete.timezone) >= ftpSince).map((r) => r.powerCurve!);
@@ -92,6 +100,7 @@ export default async function Today() {
           todayStream={todayStream}
           raceFollowUp={raceFollowUp}
           intervalsConnected={Boolean(icu)}
+          history={history}
           brief={
             coachEnabled
               ? { message: brief, stale: briefStale(brief, briefInputs(state, Boolean(body && weighInOn(body, today, athlete.timezone)))) }

@@ -27,6 +27,8 @@ import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
 import WeekReviewCard from "./week-review";
 import RaceReportPrompt from "./race-report-prompt";
+import { HistoryImporting, HistoryOffer } from "./history-offer";
+import { BringRidesButton } from "~/setup/bring-rides";
 import type { RaceFollowUp } from "@/lib/engine/race/followup";
 import type { WeekReview } from "@/lib/engine/review";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
@@ -52,6 +54,7 @@ export default function TodayView({
   todayStream = null,
   intervalsConnected = false,
   raceFollowUp = null,
+  history = null,
 }: {
   state: TrainingState;
   /** Null when weigh-ins failed to load. */
@@ -73,6 +76,8 @@ export default function TodayView({
   intervalsConnected?: boolean;
   /** A recent event's race, for a race report (race reports on). */
   raceFollowUp?: (RaceFollowUp & { rideName: string | null }) | null;
+  /** Past rides: how many are in while intervals.icu's history is still arriving, and whether to offer bringing them in. */
+  history?: { importing: number | null; offer: boolean } | null;
 }) {
   const { athlete, rides, recovery, today, series } = state;
   const now = series[series.length - 1];
@@ -83,6 +88,10 @@ export default function TodayView({
   return (
     <>
       <PageHeader title="Today" line={dayLine(state)} />
+
+      {history?.importing != null && <HistoryImporting rides={history.importing} />}
+
+      {history?.offer && <HistoryOffer />}
 
       {raceFollowUp && <RaceReportPrompt followUp={raceFollowUp} />}
 
@@ -395,10 +404,7 @@ export function LastRide({ ride, timeZone, survey = null, className }: { ride: S
         value={<Dash />}
         sub={
           <>
-            No rides yet.{" "}
-            <Link href="/settings#connections" className="text-ink underline underline-offset-4">
-              Bring in your history
-            </Link>
+            No rides yet. <BringRidesButton label="Bring in your history" className="text-ink underline underline-offset-4" />
           </>
         }
       />
