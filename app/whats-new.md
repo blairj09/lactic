@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Weigh-ins from other scales in Apple Health now come into Lactic on iPhone and keep your profile weight current, and your Body Pod weigh-ins are saved to Apple Health when "Save rides and weigh-ins to Health" is on.
+- Pairing an iPhone you've been using on its own with a computer that already has a plan now also brings across the events, breaks, race reports and check-ins you added on the phone. The computer's plan for the days ahead stays as it is.
 - Three iPhone widgets to choose from: Today (recovery and your ride together, now also in a large size), Recovery (last night only) and Ride (today's workout, tomorrow's and your week). If you don't track sleep, Today shows your ride and week instead of an empty ring.
 - Today puts your workout and Start ride first, with this morning's recovery beside it on a computer and right below it on a phone. The full Last night card now lives at the top of Health, and both pages use the same words: "usual" for your own ranges, one way of writing hours, and sleep shown as a share of your need.
 - Progress works out W/kg in the power profile from your latest weigh-in, the same weight VO2 max uses, and weigh-ins from intervals.icu now keep your profile weight up to date too.

@@ -418,3 +418,45 @@ export function columnDaySamples(body: Record<string, unknown>): { heartRate: st
     vo2max: zip(body.vo2maxDate, body.vo2maxValue),
   };
 }
+
+/** A weigh-in read from Apple Health (another scale or app; Lactic's own are left out on the phone). */
+export interface HealthWeighIn {
+  /** Unix seconds. */
+  at: number;
+  weightKg: number;
+  /** 0 to 100; null when Health has no body fat reading with it. */
+  bodyFatPercent: number | null;
+}
+
+/** Body fat this close to a weight reading came from the same weigh-in. */
+const SAME_WEIGH_IN_SECONDS = 120;
+
+/**
+ * Weight and body fat from the iPhone's columns (weightDate/weightValue in kg, bodyFatDate/bodyFatValue as
+ * a fraction or a percentage), paired up by time. Readings outside a plausible range are dropped.
+ */
+export function healthWeighIns(body: Record<string, unknown>): HealthWeighIn[] {
+  if (!("weightDate" in body)) return [];
+  const list = (v: unknown): string[] =>
+    Array.isArray(v) ? v.map(String) : typeof v === "string" ? v.split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : [];
+  const pairs = (dates: unknown, values: unknown) => {
+    const a = list(dates);
+    const b = list(values);
+    if (a.length !== b.length) throw new Error("Sample lists differ in length");
+    return a.flatMap((d, i) => {
+      const at = parseHealthDate(d);
+      const v = Number.parseFloat(b[i].replace(",", "."));
+      return at && Number.isFinite(v) ? [{ at: at.unix, v }] : [];
+    });
+  };
+  const fats = pairs(body.bodyFatDate, body.bodyFatValue)
+    .map((f) => ({ at: f.at, pct: f.v <= 1 ? f.v * 100 : f.v }))
+    .filter((f) => f.pct > 2 && f.pct < 70);
+  return pairs(body.weightDate, body.weightValue)
+    .filter((w) => w.v >= 20 && w.v <= 300)
+    .map((w) => {
+      const fat = fats.find((f) => Math.abs(f.at - w.at) <= SAME_WEIGH_IN_SECONDS);
+      return { at: w.at, weightKg: Math.round(w.v * 100) / 100, bodyFatPercent: fat ? Math.round(fat.pct * 10) / 10 : null };
+    })
+    .sort((a, b) => a.at - b.at);
+}

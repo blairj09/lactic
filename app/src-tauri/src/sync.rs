@@ -158,7 +158,9 @@ pub fn prepare(conn: &Connection) -> Result<(), String> {
 
 /// Logs every row of `which` (in that order) as changed, so the next exchanges send them all: a
 /// phone that was used on its own keeps its rides when it pairs with a computer that has data.
-pub fn relog(conn: &Connection, which: &[String]) -> Result<usize, String> {
+/// With `through`, a table with a `day` column sends only the days up to it, so past check-ins come
+/// along without the days ahead, which stay the other device's plan.
+pub fn relog(conn: &Connection, which: &[String], through: Option<&str>) -> Result<usize, String> {
     let known = tables(conn).map_err(|e| e.to_string())?;
     let mut n = 0;
     for t in which.iter().filter(|t| known.contains(t)) {
@@ -167,9 +169,12 @@ pub fn relog(conn: &Connection, which: &[String]) -> Result<usize, String> {
             continue;
         }
         let key = format!("json_array({})", s.pk.iter().map(|c| quote(c)).collect::<Vec<_>>().join(", "));
-        n += conn
-            .execute(&format!("INSERT INTO sync_log (tbl, pk) SELECT ?1, {key} FROM {}", quote(t)), [t])
-            .map_err(|e| e.to_string())?;
+        let sql = format!("INSERT INTO sync_log (tbl, pk) SELECT ?1, {key} FROM {}", quote(t));
+        n += match through.filter(|_| s.columns.iter().any(|c| c == "day")) {
+            Some(day) => conn.execute(&format!("{sql} WHERE day <= ?2"), rusqlite::params![t, day]),
+            None => conn.execute(&sql, [t]),
+        }
+        .map_err(|e| e.to_string())?;
     }
     Ok(n)
 }
@@ -489,9 +494,9 @@ pub struct Outgoing {
 
 /// The phone: sends these tables' rows in full on the next exchanges (see `relog`).
 #[tauri::command(async)]
-pub fn sync_keep(db: State<Db>, tables: Vec<String>) -> Result<usize, String> {
+pub fn sync_keep(db: State<Db>, tables: Vec<String>, through: Option<String>) -> Result<usize, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    relog(&conn, &tables)
+    relog(&conn, &tables, through.as_deref())
 }
 
 /// The phone: what to send in the next exchange.
@@ -596,20 +601,21 @@ mod tests {
         phone.execute_batch(
             "INSERT INTO activities VALUES ('p', 'Phone ride', '2026-10-01T00:00:00.000Z');
              INSERT INTO activity_streams VALUES ('p', '[1]', '2026-10-01T00:00:00.000Z');
-             INSERT INTO plan_days VALUES ('q', '2026-11-11', 'vo2', '2026-10-01T00:00:00.000Z');",
+             INSERT INTO plan_days VALUES ('q', '2026-11-11', 'vo2', '2026-10-01T00:00:00.000Z');
+             INSERT INTO plan_days VALUES ('q', '2026-11-09', 'checked in', '2026-10-01T00:00:00.000Z');",
         )
         .unwrap();
         // Pairing forgets the phone's history, then keeps the ride tables.
         forget(&phone).unwrap();
-        let kept = relog(&phone, &["activities".into(), "activity_streams".into(), "nope".into()]).unwrap();
-        assert_eq!(kept, 2);
+        let kept = relog(&phone, &["activities".into(), "activity_streams".into(), "plan_days".into(), "nope".into()], Some("2026-11-10")).unwrap();
+        assert_eq!(kept, 3);
         sync(&mut mac, &mut phone);
         assert_eq!(names(&mac), vec!["Phone ride"]);
         let streams: i64 = mac.query_row("SELECT COUNT(*) FROM activity_streams", [], |r| r.get(0)).unwrap();
         assert_eq!(streams, 1);
-        // The phone's own plan stays behind; the computer's plan is the plan.
-        let days: Vec<String> = mac.prepare("SELECT user_id FROM plan_days").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
-        assert_eq!(days, vec!["m"]);
+        // The phone's past check-in comes along; its plan ahead stays behind, the computer's plan is the plan.
+        let days: Vec<String> = mac.prepare("SELECT user_id FROM plan_days ORDER BY day").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+        assert_eq!(days, vec!["q", "m"]);
     }
 
     #[test]
