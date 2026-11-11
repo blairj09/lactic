@@ -10,6 +10,9 @@ Write for riders: what they can now do or what works better, one short line each
 - Today no longer offers to lower your FTP when your recent rides didn't include a hard enough effort; it only offers a new number when rides say FTP has gone up.
 - Your plan's first week no longer counts rides from before the plan started, or shows them making up a planned session.
 - Rides named for a workout, like "Sweet spot 3 × 12", now show that type in your rides list instead of a guess from intensity, and ride sources read properly: Zwift, not "zwift".
+- Zoom Lactic in and out with Cmd + and Cmd − (Ctrl on Windows and Linux), and back to normal size with Cmd 0.
+- The tour no longer asks twice: choosing "Show me around" after setup, or "Take the tour" in Settings, goes straight to the first stop. Its list of what's not set up yet no longer suggests choosing a coach once you've picked one, No coach included.
+- On a phone, the Health page's tiles no longer leave empty grey gaps, and choices with long names (like "Garmin, Oura, WHOOP") wrap instead of running into each other.
 - Import rides from GPX and TCX files as well as FIT, on their own or inside a zip like Strava's account archive, so older Strava rides come in too.
 - Import .erg and .mrc workout files (from TrainerRoad, Golden Cheetah and others) on the Ride screen, alongside .zwo.
 - Save any workout as a file from the Ride screen: a .fit workout to copy onto a Garmin (or open in another head unit or app), or a .zwo for Zwift and most trainer apps. No intervals.icu needed.

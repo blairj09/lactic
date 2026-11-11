@@ -38,6 +38,16 @@ export async function coachSetup(): Promise<CoachSetup> {
   return { ...DEFAULT_SETUP, ...(await getSetting<Partial<CoachSetup>>(KEY, {})) };
 }
 
+/** Whether the rider has picked a coach, No coach included: setup's coach step saves its choice. */
+export async function coachChosen(): Promise<boolean> {
+  return (await getSetting<unknown>(KEY, null)) !== null;
+}
+
+/** Setup's coach step starts on No coach; finishing it keeps that as the rider's choice. */
+export async function keepCoachChoice() {
+  if (!(await coachChosen())) await saveCoachSetup(await coachSetup());
+}
+
 export async function saveCoachSetup(setup: CoachSetup) {
   await setSetting(KEY, setup);
   const { applyEnv } = await import("~/boot/env");

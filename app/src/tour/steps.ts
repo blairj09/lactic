@@ -132,6 +132,9 @@ export const TOUR_STEPS: TourStep[] = [
 ];
 
 /** The stops for this coach mode, without Health when the rider tracks neither recovery nor weight. */
+/** The first real stop, past the "A quick look around" card: for when the rider just asked for the tour. */
+export const FIRST_STOP = 1;
+
 export const stepsFor = (mode: CoachMode, tracking: Features = ALL_FEATURES) =>
   TOUR_STEPS.filter((s) => (!s.coach || s.coach.includes(mode)) && (s.id !== "health" || hasHealth(tracking))).map((s) =>
     s.id === "health" && !(tracking.recovery && tracking.weight)
