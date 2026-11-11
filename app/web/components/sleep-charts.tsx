@@ -1,5 +1,6 @@
 "use client";
 
+import { formatHours } from "@/lib/engine/hours";
 import { useState } from "react";
 import type { SleepSegment, SleepStage } from "@/lib/engine/health-import";
 import { niceCeil, useChartWidth } from "./chart-utils";
@@ -21,10 +22,7 @@ const LANES: { label: string; stages: SleepStage[] }[] = [
   { label: "Deep", stages: ["deep"] },
 ];
 
-const hoursMinutes = (hours: number) => {
-  const total = Math.round(hours * 60);
-  return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, "0")}m`;
-};
+const hoursMinutes = formatHours;
 
 function Legend({ stages }: { stages: SleepStage[] }) {
   return (

@@ -1,6 +1,7 @@
 // Recovery: HRV from R-R intervals and the daily recovery score.
 
 import type { ExertionNormal } from "./exertion";
+import { formatHours } from "./hours";
 import { addDays } from "./pmc";
 
 /**
@@ -85,7 +86,7 @@ export function recoveryScore(
       const part = clamp(z, -2, 2);
       weighted += 0.5 * part;
       totalWeight += 0.5;
-      reasons.push({ weight: 0.5 * Math.abs(part), text: `HRV ${percentChange(today.hrv, Math.exp(mean(hrvHistory)))} your normal` });
+      reasons.push({ weight: 0.5 * Math.abs(part), text: `HRV ${percentChange(today.hrv, Math.exp(mean(hrvHistory)))} your usual` });
     }
   }
 
@@ -97,7 +98,7 @@ export function recoveryScore(
       weighted += 0.3 * part;
       totalWeight += 0.3;
       const delta = Math.round(today.restingHeartRate - mean(rhrHistory));
-      const text = delta === 0 ? "Resting HR at your normal" : `Resting HR ${Math.abs(delta)} bpm ${delta > 0 ? "above" : "below"} normal`;
+      const text = delta === 0 ? "Resting HR at your usual" : `Resting HR ${Math.abs(delta)} bpm ${delta > 0 ? "above" : "below"} usual`;
       reasons.push({ weight: 0.3 * Math.abs(part), text });
     }
   }
@@ -106,10 +107,7 @@ export function recoveryScore(
     const part = clamp((today.sleepHours / sleepNeedHours - 1) * 4, -2, 1);
     weighted += 0.2 * part;
     totalWeight += 0.2;
-    const total = Math.round(today.sleepHours * 60);
-    const hours = Math.floor(total / 60);
-    const minutes = total % 60;
-    reasons.push({ weight: 0.2 * Math.abs(part), text: `Slept ${hours}h${String(minutes).padStart(2, "0")}` });
+    reasons.push({ weight: 0.2 * Math.abs(part), text: `Slept ${formatHours(today.sleepHours)}` });
   }
 
   const respHistory = baseline.flatMap((d) => (d.respiratoryRate ? [d.respiratoryRate] : []));
@@ -120,7 +118,7 @@ export function recoveryScore(
       weighted += 0.1 * part;
       totalWeight += 0.1;
       const delta = Math.round((today.respiratoryRate - mean(respHistory)) * 10) / 10;
-      const text = Math.abs(delta) < 0.3 ? "Breathing rate at your normal" : `Breathing rate ${Math.abs(delta).toFixed(1)}/min ${delta > 0 ? "above" : "below"} normal`;
+      const text = Math.abs(delta) < 0.3 ? "Breathing rate at your usual" : `Breathing rate ${Math.abs(delta).toFixed(1)}/min ${delta > 0 ? "above" : "below"} usual`;
       reasons.push({ weight: 0.1 * Math.abs(part), text });
     }
   }
@@ -134,15 +132,15 @@ export function recoveryScore(
     totalWeight += 0.1;
     const text =
       Math.abs(z) < 0.5
-        ? `A normal day yesterday (exertion ${load.exertion.toFixed(1)})`
-        : `${z > 0 ? "A big" : "An easy"} day yesterday (exertion ${load.exertion.toFixed(1)}, normal ${load.normal.mean.toFixed(1)})`;
+        ? `A usual day yesterday (exertion ${load.exertion.toFixed(1)})`
+        : `${z > 0 ? "A big" : "An easy"} day yesterday (exertion ${load.exertion.toFixed(1)}, usual ${load.normal.mean.toFixed(1)})`;
     reasons.push({ weight: 0.1 * Math.abs(part), text });
   }
 
   // Wrist temperature doesn't change the score; it's shown alongside it.
   let tempNote: string | null = null;
   const deltaC = tempDeltaC(today, baseline);
-  if (deltaC !== null && Math.abs(deltaC) >= 0.3) tempNote = `Wrist temp ${deltaC > 0 ? "+" : "−"}${Math.abs(deltaC).toFixed(1)} °C ${deltaC > 0 ? "above" : "below"} normal`;
+  if (deltaC !== null && Math.abs(deltaC) >= 0.3) tempNote = `Wrist temp ${deltaC > 0 ? "+" : "−"}${Math.abs(deltaC).toFixed(1)} °C ${deltaC > 0 ? "above" : "below"} usual`;
 
   const sorted = reasons.sort((a, b) => b.weight - a.weight).map((r) => r.text);
   return {

@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { button, input, Result } from "@/components/ui";
 import { ExportEverythingButton } from "./export-buttons";
-import { isDesktop } from "~/platform/native";
+import { isDesktop, thisDevice } from "~/platform/native";
 import { CONFIRM_WORD, deleteEverything } from "./delete";
 
 export function DeleteDataButton() {
@@ -54,7 +54,7 @@ function DeleteDialog({ onClose }: { onClose: () => void }) {
       <div ref={panel} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="delete-title" className="relative w-full max-w-lg space-y-4 rounded-xl border border-line bg-ground p-5 text-sm shadow-2xl outline-none sm:p-6">
         <h2 id="delete-title" className="text-lg font-semibold">Delete all your data?</h2>
         <div className="space-y-1.5">
-          <p className="font-medium">This removes from this computer, for good:</p>
+          <p className="font-medium">This removes from {thisDevice()}, for good:</p>
           <ul className="list-disc space-y-0.5 pl-5 text-muted">
             <li>every ride, your fitness history and FTP history</li>
             <li>your plan, goals, events and workouts</li>

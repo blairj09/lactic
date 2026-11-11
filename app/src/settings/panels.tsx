@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { button, Result } from "@/components/ui";
 import { scanning, simEnabled, SIM_SETTING } from "~/bluetooth/web-bluetooth";
-import { fileManagerName, invoke, isDesktop } from "~/platform/native";
+import { fileManagerName, invoke, isDesktop, thisDevice } from "~/platform/native";
 import { setSetting } from "~/settings/store";
 import { ExportEverythingButton } from "~/data/export-buttons";
 import { DeleteDataButton } from "~/data/delete-panel";
@@ -92,7 +92,7 @@ export function DataPanel() {
         </div>
       )}
       <div className="space-y-2 border-t border-line pt-4">
-        <p className="text-muted">Starting over, or done with Lactic? Delete every ride, plan, setting and saved key from this computer.</p>
+        <p className="text-muted">Starting over, or done with Lactic? Delete every ride, plan, setting and saved key from {thisDevice()}.</p>
         <DeleteDataButton />
       </div>
     </div>

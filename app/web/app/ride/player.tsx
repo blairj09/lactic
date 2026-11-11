@@ -303,6 +303,48 @@ export function PlayerView({ data, controls, extra }: { data: PlayerData; contro
   );
 }
 
+/**
+ * The ride on a phone held in one hand (the iPhone's remote for the computer's ride): the numbers
+ * on top, what's next in the middle (it scrolls), and the controls pinned at the bottom within
+ * reach of a thumb. Intensity moves in 5% steps, so a big change is a couple of taps. No chart:
+ * the computer's screen has it.
+ */
+export function RemoteView({ data, controls, extra, notice }: { data: PlayerData; controls: PlayerControls; extra?: React.ReactNode; notice?: React.ReactNode }) {
+  const off = powerVsTarget(data);
+  const { erg } = data;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pb-4">
+        {notice}
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="truncate text-lg font-semibold tracking-tight">{data.workout.name}</h2>
+          <span className="num flex-none text-sm text-muted">
+            {data.ended ? `Ended · ${formatTime(data.elapsed)}` : erg ? "ERG" : `${formatTime(data.position)} of ${formatTime(data.duration)}`}
+          </span>
+        </div>
+        {(data.startIn !== null || data.autoPaused) && (
+          <p className="text-sm text-warning">{data.startIn !== null ? `Starting in ${data.startIn}` : "Paused. Pedal to resume"}</p>
+        )}
+        <div aria-label="This interval" className="grid grid-cols-2 gap-x-6 gap-y-3">
+          <div className="col-span-2">
+            <Big label={intervalLabel(data)} value={intervalTime(data)} unit={!erg && data.current ? "left" : ""} lead />
+          </div>
+          <Big label="Power" value={data.power} unit="W" lead sub={off?.text ?? null} tone={off?.tone} />
+          <Big label="Target" value={targetShown(data)} unit={data.targetWatts !== null ? "W" : ""} lead />
+          <Big label="Heart rate" value={data.heartRate} unit="bpm" />
+          <Big label="Cadence" value={data.cadence} unit="rpm" />
+        </div>
+        {!erg && !data.finished && !data.ended && <UpNext data={data} />}
+      </div>
+      <div className="space-y-3 border-t border-line bg-ground px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)]">
+        {erg && !data.ended ? <ErgAdjuster watts={erg.watts} ftp={data.ftp} onErg={controls.onErg} /> : data.finished ? <ExtendOrEnd data={data} controls={controls} /> : null}
+        <PageControls data={data} controls={controls} intensityStep={5} />
+        {extra}
+      </div>
+    </div>
+  );
+}
+
 /** The current interval and the next few. */
 function UpNext({ data }: { data: PlayerData }) {
   const { current, ftp } = data;
@@ -548,7 +590,7 @@ function Stepper({ label, value, onDown, onUp, downLabel, upLabel }: { label: st
  * The page's controls, in two rows: Back, Start/Pause and Skip together, big enough for a sweaty
  * hand; then what you adjust while riding (intensity, ERG, grade).
  */
-function PageControls({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
+function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData; controls: PlayerControls; intensityStep?: number }) {
   if (data.finished || data.ended) return null;
   const side =
     "inline-flex size-14 shrink-0 items-center justify-center rounded-lg bg-raised text-ink transition-colors hover:bg-active disabled:opacity-40";
@@ -594,10 +636,10 @@ function PageControls({ data, controls }: { data: PlayerData; controls: PlayerCo
             <Stepper
               label="Intensity"
               value={`${data.intensity}%`}
-              onDown={() => controls.onIntensity(-1)}
-              onUp={() => controls.onIntensity(1)}
-              downLabel="Easier by 1%"
-              upLabel="Harder by 1%"
+              onDown={() => controls.onIntensity(-intensityStep)}
+              onUp={() => controls.onIntensity(intensityStep)}
+              downLabel={`Easier by ${intensityStep}%`}
+              upLabel={`Harder by ${intensityStep}%`}
             />
           )}
           <button

@@ -7,6 +7,8 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Post rides to Strava from the iPhone app (an experiment): connect Strava in Settings on an iPhone you use on its own, or, if it's paired with your computer, rides you record on the iPhone go to Strava from your computer once they sync, so none shows up twice.
+- Three iPhone widgets to choose from: Today (recovery and your ride together, now also in a large size), Recovery (last night only) and Ride (today's workout, tomorrow's and your week). If you don't track sleep, Today shows your ride and week instead of an empty ring.
+- Today puts your workout and Start ride first, with this morning's recovery beside it on a computer and right below it on a phone. The full Last night card now lives at the top of Health, and both pages use the same words: "usual" for your own ranges, one way of writing hours, and sleep shown as a share of your need.
 - Progress works out W/kg in the power profile from your latest weigh-in, the same weight VO2 max uses, and weigh-ins from intervals.icu now keep your profile weight up to date too.
 - Today no longer offers to lower your FTP when your recent rides didn't include a hard enough effort; it only offers a new number when rides say FTP has gone up.
 - Your plan's first week no longer counts rides from before the plan started, or shows them making up a planned session.
@@ -14,6 +16,9 @@ Write for riders: what they can now do or what works better, one short line each
 - Zoom Lactic in and out with Cmd + and Cmd − (Ctrl on Windows and Linux), and back to normal size with Cmd 0.
 - The tour no longer asks twice: choosing "Show me around" after setup, or "Take the tour" in Settings, goes straight to the first stop. Its list of what's not set up yet no longer suggests choosing a coach once you've picked one, No coach included.
 - On a phone, the Health page's tiles no longer leave empty grey gaps, and choices with long names (like "Garmin, Oura, WHOOP") wrap instead of running into each other.
+- Setting up Lactic on an iPhone without a computer now talks about your iPhone, connects Apple Health in its own step, and leaves out the options that need a computer (local AI models, AI apps, Strava).
+- The iPhone remote keeps Pause, Skip and Intensity at the bottom of the screen within reach of your thumb, and Intensity moves in 5% steps.
+- While your computer is riding, the iPhone's Ride tab opens the remote for that ride instead of trying to connect to the trainer.
 - Import rides from GPX and TCX files as well as FIT, on their own or inside a zip like Strava's account archive, so older Strava rides come in too.
 - Import .erg and .mrc workout files (from TrainerRoad, Golden Cheetah and others) on the Ride screen, alongside .zwo.
 - Save any workout as a file from the Ride screen: a .fit workout to copy onto a Garmin (or open in another head unit or app), or a .zwo for Zwift and most trainer apps. No intervals.icu needed.

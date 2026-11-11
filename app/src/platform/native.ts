@@ -51,6 +51,11 @@ export function fileManagerName(): string {
   return currentOs === "macos" ? "Finder" : currentOs === "windows" ? "File Explorer" : "your file manager";
 }
 
+/** How copy names the device Lactic runs on: "this iPhone" or "this computer". */
+export function thisDevice(): string {
+  return isPhone() ? "this iPhone" : "this computer";
+}
+
 /** ⌘ on a Mac, Ctrl elsewhere. */
 export function modKey(): string {
   return currentOs === "macos" ? "⌘" : "Ctrl+";

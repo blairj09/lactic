@@ -8,8 +8,9 @@
 // keeps it, and runs the buttons from the lock screen or a watch); paused or ended, it's dropped.
 // Open at the end, the remote opens itself on the Extend panel.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PlayerView, formatTime, type PlayerControls } from "@/app/ride/player";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useLocation } from "react-router";
+import { RemoteView, formatTime, type PlayerControls } from "@/app/ride/player";
 import { Notice, button } from "@/components/ui";
 import { isRiding } from "@/lib/live-ride";
 import { endAlert, endAlertKey } from "@/lib/ride/end-alert";
@@ -25,11 +26,61 @@ const CLOSED_EVERY = 5000;
 
 const NAMES: ControlName[] = ["onPlayPause", "onSkip", "onBack", "onIntensity", "onErg", "onErgMode", "onGrade", "onExtend", "onEnd", "onExtendMinutes", "onExtendWatts", "onExtendKind", "onExtendBlock", "onHold"];
 
+/** The ride open on the paired computer, for the phone's Ride tab: it opens the remote instead. */
+export interface AwayRide {
+  computer: string;
+  workout: string;
+  status: string;
+}
+let away: AwayRide | null = null;
+const awayListeners = new Set<() => void>();
+let openRemoteNow: (() => void) | null = null;
+function setAway(next: AwayRide | null) {
+  if (away?.computer === next?.computer && away?.workout === next?.workout && away?.status === next?.status) return;
+  away = next;
+  awayListeners.forEach((l) => l());
+}
+export function useComputerRide(): AwayRide | null {
+  return useSyncExternalStore(
+    (l) => (awayListeners.add(l), () => void awayListeners.delete(l)),
+    () => away,
+    () => null,
+  );
+}
+/** Opens the remote over whatever screen is showing. */
+export function openRemote() {
+  openRemoteNow?.();
+}
+
+/**
+ * The phone's Ride tab while the computer's Ride page is open: the computer holds the trainer, so
+ * this says where the ride is and opens its controls, instead of a second ride screen.
+ */
+export function RidingOnComputer({ ride }: { ride: AwayRide }) {
+  // Coming to the Ride tab means wanting the controls: open them straight away, once.
+  useEffect(() => openRemote(), []);
+  return (
+    <div className="mx-auto flex min-h-[60dvh] max-w-md flex-col justify-center gap-4 px-6 text-center">
+      <div className="space-y-2">
+        <p className="text-sm text-muted">Riding on {ride.computer}</p>
+        <h1 className="text-2xl font-semibold tracking-tight">{ride.workout}</h1>
+        <p className="num text-muted">{ride.status}</p>
+      </div>
+      <button type="button" className={`${button.primary} h-12 w-full text-base`} onClick={() => openRemote()}>
+        Open controls
+      </button>
+      <p className="text-sm text-muted">Your computer has the trainer. To ride with this iPhone instead, end the ride there first.</p>
+    </div>
+  );
+}
+
 export function ComputerRide() {
   const [computer, setComputer] = useState<string | null>(null);
   const [ride, setRide] = useState<OverlayPayload | null>(null);
   const [open, setOpen] = useState(false);
   const [lost, setLost] = useState(false);
+  // The Ride tab shows the ride itself (RidingOnComputer), so the bar would say it twice.
+  const onRideTab = useLocation().pathname === "/ride";
   const openRef = useRef(open);
   openRef.current = open;
   const computerRef = useRef(computer);
@@ -97,6 +148,14 @@ export function ComputerRide() {
     }
   }, [ride]);
 
+  useEffect(() => {
+    openRemoteNow = () => setOpen(true);
+    return () => {
+      openRemoteNow = null;
+      setAway(null);
+    };
+  }, []);
+
   // The computer's Ride page closed: nothing left to steer.
   useEffect(() => {
     if (!ride && !lost) setOpen(false);
@@ -117,12 +176,14 @@ export function ComputerRide() {
     [ask],
   );
 
-  if (!ride || !computer) return null;
-  const { data } = ride;
-  const status = data.ended ? "Ended" : data.running ? formatTime(data.position) : data.autoPaused ? "Paused" : data.elapsed > 0 ? "Paused" : "Ready";
+  const data = ride?.data;
+  const status = !data ? "" : data.ended ? "Ended" : data.running ? formatTime(data.position) : data.autoPaused ? "Paused" : data.elapsed > 0 ? "Paused" : "Ready";
+  useEffect(() => setAway(ride && computer && data ? { computer, workout: data.workout.name, status } : null), [ride, computer, data, status]);
+
+  if (!ride || !computer || !data) return null;
 
   if (!open)
-    return (
+    return onRideTab ? null : (
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -139,27 +200,25 @@ export function ComputerRide() {
     );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-ground pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
-      <div className="flex h-12 items-center justify-between px-4">
+    <div className="fixed inset-0 z-50 flex flex-col bg-ground pt-[env(safe-area-inset-top)]">
+      <div className="flex h-12 flex-none items-center justify-between px-4">
         <p className="truncate text-sm text-muted">Riding on {computer}</p>
         <button type="button" className={button.small} onClick={() => setOpen(false)}>
           Done
         </button>
       </div>
-      <div className="space-y-3 px-3 pb-6">
-        {lost && <Notice tone="warning">Can't reach {computer}. Check that Lactic is open there and Wi-Fi is on for both.</Notice>}
-        <PlayerView
-          data={data}
-          controls={{ ...controls, canPlay: ride.canPlay }}
-          extra={
-            data.elapsed > 0 && !data.ended && !data.finished ? (
-              <button type="button" className={button.secondary} onClick={() => controls.onEnd()}>
-                End ride
-              </button>
-            ) : undefined
-          }
-        />
-      </div>
+      <RemoteView
+        data={data}
+        controls={{ ...controls, canPlay: ride.canPlay }}
+        notice={lost && <Notice tone="warning">Can't reach {computer}. Check that Lactic is open there and Wi-Fi is on for both.</Notice>}
+        extra={
+          data.elapsed > 0 && !data.ended && !data.finished ? (
+            <button type="button" className={`${button.ghost} h-10 w-full`} onClick={() => controls.onEnd()}>
+              End ride
+            </button>
+          ) : undefined
+        }
+      />
     </div>
   );
 }

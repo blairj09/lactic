@@ -6,6 +6,7 @@ import { exertionTodayFor } from "@/lib/today-options";
 import { loadTrainingState } from "@/lib/training";
 import { widgetSnapshot } from "@/lib/widget-snapshot";
 import { createClient } from "~/db/supabase-client";
+import { loadFeatures } from "~/settings/features";
 import { setSetting } from "~/settings/store";
 import { logEvent } from "~/support/log";
 import { saveWidget } from "./plugin";
@@ -30,8 +31,8 @@ export function updateWidget(): Promise<void> {
     try {
       do {
         again = false;
-        const state = await loadTrainingState(createClient() as never);
-        await saveWidget(widgetSnapshot(state, exertionTodayFor(state)));
+        const [state, features] = await Promise.all([loadTrainingState(createClient() as never), loadFeatures()]);
+        await saveWidget(widgetSnapshot(state, exertionTodayFor(state), new Date(), features.recovery));
       } while (again);
       await setSetting(WIDGET_STATUS, { at: new Date().toISOString(), error: null });
     } catch (e) {

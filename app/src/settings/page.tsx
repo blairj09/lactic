@@ -29,7 +29,7 @@ import { FeatureSetting } from "~/setup/features";
 import { ExperimentsSetting } from "./experiments";
 import { features } from "@/lib/features";
 import { ScrollToSection } from "./scroll-to-section";
-import { isDesktop, isPhone } from "~/platform/native";
+import { isDesktop, isPhone, thisDevice } from "~/platform/native";
 import { ComputerLink, PairPhone, PhoneHealth } from "~/phone/settings";
 import { phoneStatus } from "~/phone/plugin";
 import { ftpSourceLine } from "@/lib/engine/provenance";
@@ -171,7 +171,14 @@ export default async function SettingsPage() {
               )}
             </>
           )}
-          <Section title="Import ride files" description="FIT, GPX or TCX files from Zwift (Documents/Zwift/Activities), Garmin Connect or your bike computer, or a whole .zip such as Strava's or Garmin's archive of your account. Duplicates are skipped.">
+          <Section
+            title="Import ride files"
+            description={
+              isPhone()
+                ? "FIT, GPX or TCX files from the Files app, or a whole .zip such as Strava's or Garmin's archive of your account. Duplicates are skipped."
+                : "FIT, GPX or TCX files from Zwift (Documents/Zwift/Activities), Garmin Connect or your bike computer, or a whole .zip such as Strava's or Garmin's archive of your account. Duplicates are skipped."
+            }
+          >
             <div className="sm:col-span-2">
               <FitImport />
             </div>
@@ -188,7 +195,7 @@ export default async function SettingsPage() {
           )}
         </div>
         <div id="data" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-          <Section title="Your data" description="Everything is in one file on this computer. Back it up or take it anywhere.">
+          <Section title="Your data" description={`Everything is in one file on ${thisDevice()}. Back it up or take it anywhere.`}>
             <DataPanel />
           </Section>
         </div>
