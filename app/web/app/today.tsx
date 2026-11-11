@@ -78,6 +78,7 @@ export default function TodayView({
   const now = series[series.length - 1];
   const todaysWeighIn = body ? weighInOn(body, today, athlete.timezone) : undefined;
   const ridden = ridesOn(state, today);
+  const survey = ridden ? null : unansweredRide(state);
 
   return (
     <>
@@ -113,7 +114,7 @@ export default function TodayView({
             carries form, an FTP nudge when the estimate moves, and the last ride. */}
         <section aria-label="Training" className="grid grid-cols-2 gap-px self-start overflow-hidden rounded-lg border border-line bg-line lg:grid-cols-1">
           <Stat
-            className={ridden ? "col-span-2 lg:col-span-1" : undefined}
+            className={ridden || survey ? "col-span-2 lg:col-span-1" : undefined}
             label="Form"
             value={signed(now.form)}
             sub={
@@ -126,7 +127,7 @@ export default function TodayView({
             }
           />
           {/* Once today's ride is in, the card beside this is the last ride. */}
-          {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} survey={unansweredRide(state)} />}
+          {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} survey={survey} className={survey ? "col-span-2 lg:col-span-1" : undefined} />}
           <FtpNudge ftp={athlete.ftp} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} />
         </section>
       </div>
@@ -206,7 +207,7 @@ export function TodayWorkout({
   intervalsConnected,
   exertion,
   top,
-  className = "lg:col-span-2",
+  className = "self-start lg:col-span-2",
 }: {
   state: TrainingState;
   ridden: ReturnType<typeof ridesOn>;

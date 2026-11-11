@@ -147,8 +147,10 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
   // Once last night is in, the Last night card above shows it, so the step only waits for it.
   const recoveryStep = tracking.recovery && (!recoveryDone || Boolean(lastNight));
   const stepCount = 1 + Number(recoveryStep) + Number(showWeigh);
-  const feelStep = stepCount;
-  const weighStep = 1 + Number(recoveryStep);
+  // Last night in brief is a summary, not a step to do, so it isn't numbered.
+  const offset = Number(Boolean(lastNight && recoveryDone));
+  const feelStep = stepCount - offset;
+  const weighStep = 1 + Number(recoveryStep) - offset;
 
   return (
     <Panel
