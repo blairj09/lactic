@@ -26,10 +26,37 @@ struct Snapshot: Decodable {
     var id: String { key }
   }
 
+  /// A day's ride: today's, or tomorrow's.
   struct Today: Decodable {
     let title: String
     let detail: String?
+    /// planned, done, rest or event.
     let state: String
+    /// Planned or ridden TSS, and the workout's zone as the app's 1 to 7 color step (added later, so optional).
+    var stress: Double? = nil
+    var step: Int? = nil
+  }
+
+  struct Week: Decodable {
+    struct Day: Decodable {
+      let label: String
+      /// done, partial, missed, rest or planned.
+      let state: String
+      let today: Bool
+    }
+    struct Count: Decodable {
+      let done: Int
+      let planned: Int
+    }
+    struct Time: Decodable {
+      let done: String
+      let planned: String
+      let share: Double
+    }
+    let label: String?
+    let days: [Day]
+    let rides: Count
+    let time: Time
   }
 
   struct Exertion: Decodable {
@@ -48,8 +75,14 @@ struct Snapshot: Decodable {
   let signal: String?
   let today: Today
   let exertion: Exertion?
+  // Added later: older snapshots don't have them.
+  var recoveryTracked: Bool? = nil
+  var tomorrow: Today? = nil
+  var week: Week? = nil
 
   var score: Int? { recovery?.score.map { Int($0.rounded()) } }
+  /// False only when the rider said they don't track sleep; then the widgets lead with the ride.
+  var tracksRecovery: Bool { recoveryTracked ?? true }
 
   static let sample = Snapshot(
     v: 1, at: "", day: "",
@@ -60,8 +93,17 @@ struct Snapshot: Decodable {
       Metric(key: "sleepHours", label: "Sleep", value: "7h 32m", concern: false),
     ],
     sleepScore: 82, signal: nil,
-    today: Today(title: "Threshold 4 x 8", detail: "70 min · Threshold", state: "planned"),
-    exertion: Exertion(soFar: 1.2, low: 3.4, high: 4.4, landsAt: 3.9))
+    today: Today(title: "Threshold 4 x 8", detail: "70 min · Threshold", state: "planned", stress: 82, step: 5),
+    exertion: Exertion(soFar: 1.2, low: 3.4, high: 4.4, landsAt: 3.9),
+    recoveryTracked: true,
+    tomorrow: Today(title: "Endurance 90 min", detail: "90 min · Endurance", state: "planned", stress: 58, step: 2),
+    week: Week(
+      label: "Build week",
+      days: zip(["M", "T", "W", "T", "F", "S", "S"], ["done", "done", "rest", "done", "planned", "planned", "planned"]).enumerated().map { i, d in
+        Week.Day(label: d.0, state: d.1, today: i == 4)
+      },
+      rides: Week.Count(done: 3, planned: 5),
+      time: Week.Time(done: "3h 05m", planned: "6h 10m", share: 0.5)))
 }
 
 enum Store {
@@ -156,6 +198,17 @@ enum Palette {
   #endif
 
   static func ring(_ score: Int) -> Color { score < 34 ? warning : accent }
+}
+
+/// The app's zone colors, 1 (recovery) to 7 (anaerobic), as on the Rides calendar.
+enum ZoneColor {
+  static let light: [UInt32] = [0xD5DAE6, 0xB2C0EA, 0x8AA2E6, 0x6283E2, 0x3F66DB, 0x2B55D6, 0x1B3593]
+
+  static func of(_ step: Int?) -> Color {
+    guard let step, step >= 1, step <= light.count else { return Color.secondary.opacity(0.4) }
+    let v = light[step - 1]
+    return Color(red: Double((v >> 16) & 0xFF) / 255, green: Double((v >> 8) & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
+  }
 }
 
 struct Ring: View {
