@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- The iPhone screen stays on while it's showing a ride, whether the iPhone is running the trainer or showing the ride on your computer.
+
 ## 0.2.0
 
 - Post rides to Strava from the iPhone app (an experiment): connect Strava in Settings on an iPhone you use on its own, or, if it's paired with your computer, rides you record on the iPhone go to Strava from your computer once they sync, so none shows up twice.
