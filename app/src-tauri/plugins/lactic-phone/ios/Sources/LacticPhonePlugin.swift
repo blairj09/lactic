@@ -797,6 +797,19 @@ extension LacticPhonePlugin {
     RideEnd.shared.cancel()
     invoke.resolve()
   }
+
+  /// A ride is showing: no auto-lock until it isn't (the web view turns it off again when the ride ends, the screen closes or the app goes to the background).
+  @objc public func keepAwake(_ invoke: Invoke) throws {
+    let args = try invoke.parseArgs(KeepAwakeArgs.self)
+    DispatchQueue.main.async {
+      UIApplication.shared.isIdleTimerDisabled = args.on
+      invoke.resolve()
+    }
+  }
+}
+
+struct KeepAwakeArgs: Decodable {
+  let on: Bool
 }
 
 @_cdecl("init_plugin_lactic_phone")
