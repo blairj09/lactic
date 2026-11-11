@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Today puts your workout and Start ride first, with this morning's recovery beside it on a computer and right below it on a phone. The full Last night card now lives at the top of Health, and both pages use the same words: "usual" for your own ranges, one way of writing hours, and sleep shown as a share of your need.
 - Progress works out W/kg in the power profile from your latest weigh-in, the same weight VO2 max uses, and weigh-ins from intervals.icu now keep your profile weight up to date too.
 - Today no longer offers to lower your FTP when your recent rides didn't include a hard enough effort; it only offers a new number when rides say FTP has gone up.
 - Your plan's first week no longer counts rides from before the plan started, or shows them making up a planned session.
