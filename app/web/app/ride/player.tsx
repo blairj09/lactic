@@ -303,6 +303,48 @@ export function PlayerView({ data, controls, extra }: { data: PlayerData; contro
   );
 }
 
+/**
+ * The ride on a phone held in one hand (the iPhone's remote for the computer's ride): the numbers
+ * on top, what's next in the middle (it scrolls), and the controls pinned at the bottom within
+ * reach of a thumb. Intensity moves in 5% steps, so a big change is a couple of taps. No chart:
+ * the computer's screen has it.
+ */
+export function RemoteView({ data, controls, extra, notice }: { data: PlayerData; controls: PlayerControls; extra?: React.ReactNode; notice?: React.ReactNode }) {
+  const off = powerVsTarget(data);
+  const { erg } = data;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pb-4">
+        {notice}
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="truncate text-lg font-semibold tracking-tight">{data.workout.name}</h2>
+          <span className="num flex-none text-sm text-muted">
+            {data.ended ? `Ended · ${formatTime(data.elapsed)}` : erg ? "ERG" : `${formatTime(data.position)} of ${formatTime(data.duration)}`}
+          </span>
+        </div>
+        {(data.startIn !== null || data.autoPaused) && (
+          <p className="text-sm text-warning">{data.startIn !== null ? `Starting in ${data.startIn}` : "Paused. Pedal to resume"}</p>
+        )}
+        <div aria-label="This interval" className="grid grid-cols-2 gap-x-6 gap-y-3">
+          <div className="col-span-2">
+            <Big label={intervalLabel(data)} value={intervalTime(data)} unit={!erg && data.current ? "left" : ""} lead />
+          </div>
+          <Big label="Power" value={data.power} unit="W" lead sub={off?.text ?? null} tone={off?.tone} />
+          <Big label="Target" value={targetShown(data)} unit={data.targetWatts !== null ? "W" : ""} lead />
+          <Big label="Heart rate" value={data.heartRate} unit="bpm" />
+          <Big label="Cadence" value={data.cadence} unit="rpm" />
+        </div>
+        {!erg && !data.finished && !data.ended && <UpNext data={data} />}
+      </div>
+      <div className="space-y-3 border-t border-line bg-ground px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)]">
+        {erg && !data.ended ? <ErgAdjuster watts={erg.watts} ftp={data.ftp} onErg={controls.onErg} /> : data.finished ? <ExtendOrEnd data={data} controls={controls} /> : null}
+        <PageControls data={data} controls={controls} intensityStep={5} />
+        {extra}
+      </div>
+    </div>
+  );
+}
+
 /** The current interval and the next few. */
 function UpNext({ data }: { data: PlayerData }) {
   const { current, ftp } = data;
@@ -389,13 +431,13 @@ function ExtendOrEnd({ data, controls }: { data: PlayerData; controls: PlayerCon
         <button
           className="inline-flex h-14 flex-1 items-center justify-center rounded-lg bg-primary px-4 text-lg font-medium text-on-primary transition-opacity hover:opacity-85 disabled:opacity-50"
           disabled={!controls.canPlay}
-          onClick={controls.onExtend}
+          onClick={() => controls.onExtend()}
         >
           Extend {extend.minutes} min
         </button>
         <button
           className="inline-flex h-14 flex-1 items-center justify-center rounded-lg bg-raised px-4 text-lg font-medium text-ink transition-colors hover:bg-active"
-          onClick={controls.onEnd}
+          onClick={() => controls.onEnd()}
         >
           End ride
         </button>
@@ -405,9 +447,9 @@ function ExtendOrEnd({ data, controls }: { data: PlayerData; controls: PlayerCon
 }
 
 /** Free ride, ERG hold or workout block, as a row of choices. */
-function KindPicker({ kind, onKind, className }: { kind: ExtendKind; onKind: (kind: ExtendKind) => void; className: string }) {
+function KindPicker({ kind, onKind, className, wrapClassName = "" }: { kind: ExtendKind; onKind: (kind: ExtendKind) => void; className: string; wrapClassName?: string }) {
   return (
-    <div role="radiogroup" aria-label="Extend with" className="flex gap-1 rounded-lg bg-raised p-1">
+    <div role="radiogroup" aria-label="Extend with" className={`flex gap-1 rounded-lg bg-raised p-1 ${wrapClassName}`}>
       {EXTEND_KINDS.map((k) => (
         <button
           key={k.kind}
@@ -548,7 +590,7 @@ function Stepper({ label, value, onDown, onUp, downLabel, upLabel }: { label: st
  * The page's controls, in two rows: Back, Start/Pause and Skip together, big enough for a sweaty
  * hand; then what you adjust while riding (intensity, ERG, grade).
  */
-function PageControls({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
+function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData; controls: PlayerControls; intensityStep?: number }) {
   if (data.finished || data.ended) return null;
   const side =
     "inline-flex size-14 shrink-0 items-center justify-center rounded-lg bg-raised text-ink transition-colors hover:bg-active disabled:opacity-40";
@@ -557,14 +599,14 @@ function PageControls({ data, controls }: { data: PlayerData; controls: PlayerCo
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         {!data.erg && (
-          <button className={side} disabled={data.position <= 0} onClick={controls.onBack} aria-label="Back" title="Back to the previous interval">
+          <button className={side} disabled={data.position <= 0} onClick={() => controls.onBack()} aria-label="Back" title="Back to the previous interval">
             <Icon d={ICON_BACK} />
           </button>
         )}
         <button
           className="inline-flex h-14 min-w-0 flex-1 items-center justify-center rounded-lg bg-primary text-lg font-medium text-on-primary transition-opacity hover:opacity-85 disabled:opacity-50"
           disabled={!controls.canPlay}
-          onClick={controls.onPlayPause}
+          onClick={() => controls.onPlayPause()}
           aria-label={playLabel(data)}
           title={!controls.canPlay ? "Connect the trainer first" : data.autoStart && data.elapsed === 0 ? `${playLabel(data)}, or just start pedaling` : playLabel(data)}
         >
@@ -574,7 +616,7 @@ function PageControls({ data, controls }: { data: PlayerData; controls: PlayerCo
           </span>
         </button>
         {!data.erg && (
-          <button className={side} disabled={!data.current} onClick={controls.onSkip} aria-label="Skip" title="Skip to the next interval">
+          <button className={side} disabled={!data.current} onClick={() => controls.onSkip()} aria-label="Skip" title="Skip to the next interval">
             <Icon d={ICON_SKIP} />
           </button>
         )}
@@ -594,10 +636,10 @@ function PageControls({ data, controls }: { data: PlayerData; controls: PlayerCo
             <Stepper
               label="Intensity"
               value={`${data.intensity}%`}
-              onDown={() => controls.onIntensity(-1)}
-              onUp={() => controls.onIntensity(1)}
-              downLabel="Easier by 1%"
-              upLabel="Harder by 1%"
+              onDown={() => controls.onIntensity(-intensityStep)}
+              onUp={() => controls.onIntensity(intensityStep)}
+              downLabel={`Easier by ${intensityStep}%`}
+              upLabel={`Harder by ${intensityStep}%`}
             />
           )}
           <button
@@ -729,7 +771,7 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
         <Mini label="Cadence" value={data.cadence} small />
       </section>
 
-      <div className="flex min-w-[20vw] flex-1 flex-col">
+      <div className="flex min-w-[20vw] flex-1 flex-col [container:end/size]">
         {data.finished ? (
           <MiniExtendOrEnd data={data} controls={controls} />
         ) : (
@@ -854,16 +896,16 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
       <Group label={data.erg ? "Ride" : "Workout"}>
         <div className="flex gap-1.5">
           {!data.erg && (
-            <button className={button} disabled={data.position <= 0} onClick={controls.onBack} aria-label="Back" title="Back to the previous interval">
+            <button className={button} disabled={data.position <= 0} onClick={() => controls.onBack()} aria-label="Back" title="Back to the previous interval">
               <Icon d={ICON_BACK} className={D_ICON} />
             </button>
           )}
-          <button className={primary} disabled={!controls.canPlay} onClick={controls.onPlayPause} aria-label={playLabel(data)} title={controls.canPlay ? playLabel(data) : "Connect the trainer first"}>
+          <button className={primary} disabled={!controls.canPlay} onClick={() => controls.onPlayPause()} aria-label={playLabel(data)} title={controls.canPlay ? playLabel(data) : "Connect the trainer first"}>
             <Icon d={data.running ? ICON_PAUSE : ICON_PLAY} className={D_ICON} />
             {data.startIn !== null && <span className={`num ml-[0.3em] ${D_TEXT}`}>{data.startIn}</span>}
           </button>
           {!data.erg && (
-            <button className={button} disabled={!data.current} onClick={controls.onSkip} aria-label="Skip" title="Skip to the next interval">
+            <button className={button} disabled={!data.current} onClick={() => controls.onSkip()} aria-label="Skip" title="Skip to the next interval">
               <Icon d={ICON_SKIP} className={D_ICON} />
             </button>
           )}
@@ -951,55 +993,67 @@ function ErgSwitch({ on, onChange, size = `${MINI_H} ${MINI_TEXT}` }: { on: bool
 
 /**
  * The overlay at the workout's end, in place of the chart: what to extend with (free ride, ERG
- * hold or a workout block) and for how long, then Extend or End.
+ * hold or a workout block) and for how long, then Extend or End. Three rows; when the overlay is
+ * stretched short and wide, one row with bigger buttons (the `end-wide` container variant).
  */
 function MiniExtendOrEnd({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
   const { extend } = data;
-  const base = `inline-flex ${MINI_H} items-center justify-center rounded-md transition-colors disabled:opacity-40`;
-  const step = `${base} w-[clamp(26px,11vh,48px)] shrink-0 bg-raised text-ink hover:bg-active`;
+  // Wide: as tall as the strip comfortably allows, so they're easy to hit from the saddle.
+  const h = `${MINI_H} end-wide:h-[clamp(28px,34vh,72px)]`;
+  const text = `${MINI_TEXT} end-wide:text-[clamp(13px,11vh,26px)]`;
+  const icon = `${MINI_ICON} end-wide:size-[clamp(14px,12vh,30px)]`;
+  const base = `inline-flex ${h} items-center justify-center rounded-md transition-colors disabled:opacity-40`;
+  const step = `${base} w-[clamp(26px,11vh,48px)] end-wide:w-[clamp(28px,34vh,72px)] shrink-0 bg-raised text-ink hover:bg-active`;
+  const value = `num min-w-[3.6em] shrink-0 text-center ${text}`;
   return (
-    <div className="flex h-full min-w-0 flex-col justify-center gap-[2vh]">
-      <KindPicker kind={extend.kind} onKind={controls.onExtendKind} className={`${MINI_H} px-[0.6em] ${MINI_TEXT}`} />
-      <div className="flex min-w-0 items-center gap-1.5">
-        <button className={step} onClick={() => controls.onExtendMinutes(extend.minutes - 1)} aria-label="A minute less" title="A minute less">
-          <Icon d={ICON_MINUS} className={MINI_ICON} />
-        </button>
-        <span className={`num min-w-[3.6em] shrink-0 text-center ${MINI_TEXT}`}>{extend.minutes} min</span>
-        <button className={step} onClick={() => controls.onExtendMinutes(extend.minutes + 1)} aria-label="A minute more" title="A minute more">
-          <Icon d={ICON_PLUS} className={MINI_ICON} />
-        </button>
+    <div className="flex h-full min-w-0 flex-col justify-center gap-[2vh] end-wide:flex-row end-wide:flex-wrap end-wide:content-center end-wide:items-center end-wide:gap-x-[4vh]">
+      <KindPicker kind={extend.kind} onKind={controls.onExtendKind} className={`${h} px-[0.6em] end-wide:px-[0.9em] ${text}`} wrapClassName="end-wide:shrink-0" />
+      <div className="flex min-w-0 items-center gap-1.5 end-wide:gap-x-[4vh]">
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button className={step} onClick={() => controls.onExtendMinutes(extend.minutes - 1)} aria-label="A minute less" title="A minute less">
+            <Icon d={ICON_MINUS} className={icon} />
+          </button>
+          <span className={value}>{extend.minutes} min</span>
+          <button className={step} onClick={() => controls.onExtendMinutes(extend.minutes + 1)} aria-label="A minute more" title="A minute more">
+            <Icon d={ICON_PLUS} className={icon} />
+          </button>
+        </div>
         {extend.kind === "erg" && (
-          <>
-            <button className={`${step} ml-[2vh]`} onClick={() => controls.onExtendWatts(extend.watts - ERG_STEP)} aria-label={`Down ${ERG_STEP} W`}>
-              <Icon d={ICON_MINUS} className={MINI_ICON} />
+          <div className="ml-[2vh] flex shrink-0 items-center gap-1.5 end-wide:ml-0">
+            <button className={step} onClick={() => controls.onExtendWatts(extend.watts - ERG_STEP)} aria-label={`Down ${ERG_STEP} W`}>
+              <Icon d={ICON_MINUS} className={icon} />
             </button>
-            <span className={`num min-w-[3.6em] shrink-0 text-center ${MINI_TEXT}`}>{extend.watts} W</span>
+            <span className={value}>{extend.watts} W</span>
             <button className={step} onClick={() => controls.onExtendWatts(extend.watts + ERG_STEP)} aria-label={`Up ${ERG_STEP} W`}>
-              <Icon d={ICON_PLUS} className={MINI_ICON} />
+              <Icon d={ICON_PLUS} className={icon} />
             </button>
-          </>
+          </div>
         )}
         {extend.kind === "block" && (
-          <>
-            <button className={`${step} ml-[2vh]`} onClick={() => controls.onExtendBlock(-1)} aria-label="Previous block" title="Previous block">
-              <Chevron left className={MINI_ICON} />
+          <div className="ml-[2vh] flex min-w-0 flex-1 items-center gap-1.5 end-wide:ml-0 end-wide:max-w-[20em]">
+            <button className={step} onClick={() => controls.onExtendBlock(-1)} aria-label="Previous block" title="Previous block">
+              <Chevron left className={icon} />
             </button>
-            <span className={`min-w-0 flex-1 truncate text-center ${MINI_TEXT}`}>{extend.block}</span>
+            <span className={`min-w-0 flex-1 truncate text-center ${text}`}>{extend.block}</span>
             <button className={step} onClick={() => controls.onExtendBlock(1)} aria-label="Next block" title="Next block">
-              <Chevron className={MINI_ICON} />
+              <Chevron className={icon} />
             </button>
-          </>
+          </div>
         )}
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1.5 end-wide:ml-auto end-wide:shrink-0">
         <button
-          className={`${base} flex-1 bg-primary px-[0.8em] ${MINI_TEXT} font-medium text-on-primary hover:opacity-85`}
+          className={`${base} flex-1 bg-primary px-[0.8em] end-wide:flex-none end-wide:px-[1.4em] ${text} font-medium text-on-primary hover:opacity-85`}
           disabled={!controls.canPlay}
-          onClick={controls.onExtend}
+          onClick={() => controls.onExtend()}
         >
           Extend {extend.minutes} min
         </button>
-        <button className={`${base} flex-1 bg-raised px-[0.8em] ${MINI_TEXT} font-medium text-ink hover:bg-active`} onClick={controls.onEnd} title="End the ride and save it">
+        <button
+          className={`${base} flex-1 bg-raised px-[0.8em] end-wide:flex-none end-wide:px-[1.4em] ${text} font-medium text-ink hover:bg-active`}
+          onClick={() => controls.onEnd()}
+          title="End the ride and save it"
+        >
           End
         </button>
       </div>

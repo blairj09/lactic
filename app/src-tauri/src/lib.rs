@@ -5,13 +5,20 @@
 pub mod ble;
 pub mod db;
 pub mod files;
+#[cfg(desktop)]
 pub mod mcp;
 pub mod net;
+#[cfg(desktop)]
+pub mod phone;
 pub mod secrets;
 pub mod strava;
+pub mod sync;
+#[cfg(desktop)]
 pub mod window;
 
-use std::sync::{Arc, OnceLock};
+#[cfg(desktop)]
+use std::sync::Arc;
+use std::sync::OnceLock;
 use tauri::Manager;
 
 /// The bundle identifier of the released app. Preview builds (tauri.preview.conf.json) are
@@ -39,6 +46,7 @@ fn app_info(app: tauri::AppHandle) -> serde_json::Value {
         "osVersion": os_info::get().version().to_string(),
         "dataDir": app.path().app_data_dir().ok().map(|p| p.to_string_lossy().into_owned()),
         "preview": is_preview(),
+        "mobile": cfg!(mobile),
     })
 }
 
@@ -63,22 +71,23 @@ pub fn run() {
     let _ = IDENTIFIER.set(context.config().identifier.clone());
     // `lactic --mcp` is the stdio bridge an AI app (Claude Desktop, ChatGPT...) launches to reach
     // the coach tools of the running app. Anything else opens the app.
+    #[cfg(desktop)]
     if std::env::args().any(|a| a == "--mcp") {
         mcp::run_stdio_bridge();
         return;
     }
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
                 let _ = w.set_focus();
             }
         }))
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
         // Updates: the app checks GitHub Releases' latest.json, downloads the signed build for
         // this computer, installs it and restarts (src/updates/). Signed with the release key;
-        // the public half is in tauri.conf.json.
+        // the public half is in tauri.conf.json. (The iPhone app updates through the App Store.)
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .on_menu_event(|app, event| {
@@ -86,68 +95,145 @@ pub fn run() {
                 use tauri::Emitter;
                 let _ = app.emit_to("main", "lactic:check-updates", ());
             }
-        })
+        });
+    // The iPhone app: Apple Health, the pairing key and the encrypted link to the computer
+    // (plugins/lactic-phone), and the camera for the pairing QR code.
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_barcode_scanner::init()).plugin(tauri_plugin_lactic_phone::init());
+    let builder = builder
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app_menu(app)?;
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
+            files::set_data_dir(&data_dir);
             let db = db::Db::open(data_dir.join("lactic.db")).map_err(|e| e.to_string())?;
             app.manage(db);
             app.manage(secrets::Secrets::new(data_dir.clone()));
             app.manage(net::Net::new());
             app.manage(ble::Ble::default());
-            let mcp = Arc::new(mcp::Mcp::default());
-            app.manage(mcp.clone());
-            let handle = app.handle().clone();
-            tauri::async_runtime::spawn(mcp::start(handle, mcp, data_dir));
+            #[cfg(desktop)]
+            {
+                let mcp = Arc::new(mcp::Mcp::default());
+                app.manage(mcp.clone());
+                app.manage(Arc::new(phone::Phone::new(&data_dir)));
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(mcp::start(handle, mcp, data_dir));
+                tauri::async_runtime::spawn(phone::start(app.handle().clone()));
+            }
             Ok(())
-        })
-        .invoke_handler(tauri::generate_handler![
-            app_info,
-            db::db_select,
-            db::db_execute,
-            db::db_script,
-            db::db_batch,
-            db::db_path,
-            db::db_backup,
-            db::db_restore,
-            db::db_forget_previous,
-            secrets::secret_set,
-            secrets::secret_delete,
-            secrets::secret_status,
-            net::http_request,
-            net::http_stream,
-            net::http_cancel,
-            strava::strava_connect,
-            strava::strava_refresh,
-            strava::strava_disconnect,
-            ble::ble_available,
-            ble::ble_scan,
-            ble::ble_stop_scan,
-            ble::ble_connect,
-            ble::ble_disconnect,
-            ble::ble_subscribe,
-            ble::ble_write,
-            ble::ble_read,
-            ble::ble_is_connected,
-            files::folder_list,
-            files::folder_ensure,
-            files::file_read_text,
-            files::file_read_base64,
-            files::file_write_text,
-            files::file_write_base64,
-            files::file_move_into,
-            files::icloud_drive,
-            files::home_dir,
-            window::overlay_open,
-            window::overlay_close,
-            window::overlay_support,
-            mcp::mcp_respond,
-            mcp::mcp_set_enabled,
-            mcp::mcp_setup,
-            mcp::mcp_install_claude,
-        ])
-        .run(context)
-        .expect("error while running Lactic");
+        });
+    #[cfg(desktop)]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        app_info,
+        db::db_select,
+        db::db_execute,
+        db::db_script,
+        db::db_batch,
+        db::db_path,
+        db::db_backup,
+        db::db_restore,
+        db::db_forget_previous,
+        sync::sync_prepare,
+        sync::sync_outgoing,
+        sync::sync_incoming,
+        sync::sync_forget,
+        sync::sync_keep,
+        secrets::secret_set,
+        secrets::secret_delete,
+        secrets::secret_rebind,
+        secrets::secret_status,
+        secrets::secrets_offer,
+        secrets::secrets_give,
+        secrets::secrets_take,
+        net::http_request,
+        net::http_stream,
+        net::http_cancel,
+        strava::strava_connect,
+        strava::strava_finish,
+        strava::strava_refresh,
+        strava::strava_disconnect,
+        ble::ble_available,
+        ble::ble_scan,
+        ble::ble_stop_scan,
+        ble::ble_connect,
+        ble::ble_disconnect,
+        ble::ble_subscribe,
+        ble::ble_write,
+        ble::ble_read,
+        ble::ble_is_connected,
+        files::folder_list,
+        files::folder_ensure,
+        files::file_read_text,
+        files::file_read_base64,
+        files::file_write_text,
+        files::file_write_base64,
+        files::file_move_into,
+        files::icloud_drive,
+        files::home_dir,
+        window::overlay_open,
+        window::overlay_close,
+        window::overlay_support,
+        mcp::mcp_respond,
+        mcp::mcp_set_enabled,
+        mcp::mcp_setup,
+        mcp::mcp_install_claude,
+        phone::phone_status,
+        phone::phone_pair_start,
+        phone::phone_pair_cancel,
+        phone::phone_forget,
+        phone::phone_respond,
+    ]);
+    #[cfg(mobile)]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        app_info,
+        db::db_select,
+        db::db_execute,
+        db::db_script,
+        db::db_batch,
+        db::db_path,
+        db::db_backup,
+        db::db_restore,
+        db::db_forget_previous,
+        sync::sync_prepare,
+        sync::sync_outgoing,
+        sync::sync_incoming,
+        sync::sync_forget,
+        sync::sync_keep,
+        secrets::secret_set,
+        secrets::secret_delete,
+        secrets::secret_rebind,
+        secrets::secret_status,
+        secrets::secrets_offer,
+        secrets::secrets_give,
+        secrets::secrets_take,
+        net::http_request,
+        net::http_stream,
+        net::http_cancel,
+        strava::strava_connect,
+        strava::strava_finish,
+        strava::strava_refresh,
+        strava::strava_disconnect,
+        ble::ble_available,
+        ble::ble_scan,
+        ble::ble_stop_scan,
+        ble::ble_connect,
+        ble::ble_disconnect,
+        ble::ble_subscribe,
+        ble::ble_write,
+        ble::ble_read,
+        ble::ble_is_connected,
+        files::folder_list,
+        files::folder_ensure,
+        files::file_read_text,
+        files::file_read_base64,
+        files::file_write_text,
+        files::file_write_base64,
+        files::file_move_into,
+        files::icloud_drive,
+        files::home_dir,
+    ]);
+    builder.run(context).expect("error while running Lactic");
 }

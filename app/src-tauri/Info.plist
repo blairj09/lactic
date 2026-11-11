@@ -6,5 +6,15 @@
   <string>Lactic connects to your smart trainer, heart rate strap, power meter and scale over Bluetooth.</string>
   <key>NSBluetoothPeripheralUsageDescription</key>
   <string>Lactic connects to your smart trainer, heart rate strap, power meter and scale over Bluetooth.</string>
+  <!-- The iPhone's direct link: Lactic on the Mac advertises itself over Bonjour (phone.rs `direct`). -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Lactic lets your iPhone find and sync with it nearby.</string>
+  <!-- The iCloud fallback reads Lactic's own iCloud folder (phone.rs `mailbox`). -->
+  <key>NSFileProviderDomainUsageDescription</key>
+  <string>Lactic syncs with your iPhone through its own iCloud folder when the two are apart.</string>
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_lactic._tcp</string>
+  </array>
 </dict>
 </plist>

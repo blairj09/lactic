@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { niceCeil, SeriesKey, shortDuration, useChartWidth } from "@/components/chart-utils";
+import { spaceTicks } from "@/components/chart-ticks";
 import { useBrush } from "@/components/use-brush";
 import type { ChartStream } from "@/lib/engine/ride-detail";
 
@@ -58,7 +59,7 @@ export default function RideChart({
   const x = (i: number) => MARGIN.left + ((i - first) / Math.max(1, last - first)) * plotWidth;
   const at = hover ?? null;
   const read = (values: (number | null)[] | null) => (values && at !== null ? values[at] : null);
-  const ticks = timeTicks(first * stream.step, last * stream.step);
+  const ticks = spaceTicks(timeTicks(first * stream.step, last * stream.step), (t) => x(t / stream.step), shortDuration);
   const view = <T,>(values: T[]) => values.map((v, i) => (i >= first && i <= last ? v : null));
 
   const onPointer = (e: React.PointerEvent<SVGSVGElement>) => {

@@ -29,6 +29,9 @@ import { FeatureSetting } from "~/setup/features";
 import { ExperimentsSetting } from "./experiments";
 import { features } from "@/lib/features";
 import { ScrollToSection } from "./scroll-to-section";
+import { isDesktop, isPhone, thisDevice } from "~/platform/native";
+import { ComputerLink, PairPhone, PhoneHealth } from "~/phone/settings";
+import { phoneStatus } from "~/phone/plugin";
 import { ftpSourceLine } from "@/lib/engine/provenance";
 import { localDate } from "@/lib/engine/activity";
 
@@ -45,6 +48,8 @@ export default async function SettingsPage() {
   const supabase = createClient();
   const tracking = features();
   const [athlete, icu, setup, persona, memory] = await Promise.all([loadAthlete(supabase), loadIntervals(supabase), coachSetup(), loadPersona(supabase), loadMemory(supabase)]);
+  // A paired iPhone leaves intervals.icu to the computer; one used on its own connects it itself.
+  const pairedPhone = isPhone() && Boolean((await phoneStatus().catch(() => null))?.paired);
   return (
     <>
       <Nav current="/settings" />
@@ -120,7 +125,10 @@ export default async function SettingsPage() {
         <div id="connections" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
           <Section title="intervals.icu" description="Brings in rides from Zwift, Garmin and Wahoo, and sends your rides and planned workouts back.">
             <div className="sm:col-span-2">
-              {icu ? (
+              {/* A paired iPhone leaves intervals.icu to the computer and gets its rides by syncing. */}
+              {pairedPhone ? (
+                <p className="text-sm text-muted">{icu ? "Connected on your computer. Rides it brings in come across when this iPhone syncs." : "Connect intervals.icu in Lactic on your computer."}</p>
+              ) : icu ? (
                 <IntervalsPanel
                   status={{
                     connected: true,
@@ -136,15 +144,41 @@ export default async function SettingsPage() {
               )}
             </div>
           </Section>
-          <StravaSection />
-          {tracking.recovery && (
-            <Section id="health" title="Sleep and recovery" description="Sleep, HRV and resting heart rate from Apple Health, or your watch or ring through intervals.icu.">
-              <div className="sm:col-span-2">
-                <HealthSetup heading={false} />
-              </div>
-            </Section>
+          {isPhone() ? (
+            <>
+              <Section id="iphone" title="Your computer" description="Lactic on your computer keeps the main copy of everything. This iPhone syncs with it.">
+                <ComputerLink />
+              </Section>
+              <Section id="health" title="Apple Health" description="Sleep and recovery in, rides out.">
+                <PhoneHealth />
+              </Section>
+              <StravaSection />
+            </>
+          ) : (
+            <>
+              <StravaSection />
+              {isDesktop && (
+                <Section id="iphone" title="iPhone" description="Lactic on your iPhone reads Apple Health for you and runs rides, and stays in sync with this computer over Wi-Fi.">
+                  <PairPhone />
+                </Section>
+              )}
+              {tracking.recovery && (
+                <Section id="health" title="Sleep and recovery" description="Sleep, HRV and resting heart rate from Apple Health, or your watch or ring through intervals.icu.">
+                  <div className="sm:col-span-2">
+                    <HealthSetup heading={false} />
+                  </div>
+                </Section>
+              )}
+            </>
           )}
-          <Section title="Import FIT files" description="From Zwift (Documents/Zwift/Activities), Garmin Connect or your bike computer, or a whole .zip such as Strava's or Garmin's archive of your account. Duplicates are skipped.">
+          <Section
+            title="Import ride files"
+            description={
+              isPhone()
+                ? "FIT, GPX or TCX files from the Files app, or a whole .zip such as Strava's or Garmin's archive of your account. Duplicates are skipped."
+                : "FIT, GPX or TCX files from Zwift (Documents/Zwift/Activities), Garmin Connect or your bike computer, or a whole .zip such as Strava's or Garmin's archive of your account. Duplicates are skipped."
+            }
+          >
             <div className="sm:col-span-2">
               <FitImport />
             </div>
@@ -161,7 +195,7 @@ export default async function SettingsPage() {
           )}
         </div>
         <div id="data" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-          <Section title="Your data" description="Everything is in one file on this computer. Back it up or take it anywhere.">
+          <Section title="Your data" description={`Everything is in one file on ${thisDevice()}. Back it up or take it anywhere.`}>
             <DataPanel />
           </Section>
         </div>

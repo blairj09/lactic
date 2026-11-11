@@ -61,7 +61,8 @@ export function SectionTitle({ children, meta }: Children & { meta?: React.React
 /** Peer figures in one container split by 1px lines. `cols` is the item count at desktop, `phone` the columns on a phone. */
 export function StatStrip({ children, cols = 4, phone = 1 }: Children & { cols?: 2 | 3 | 4 | 5 | 6; phone?: 1 | 2 | 3 }) {
   const grid = { 2: "sm:grid-cols-2", 3: "sm:grid-cols-3", 4: "sm:grid-cols-2 lg:grid-cols-4", 5: "sm:grid-cols-3 lg:grid-cols-5", 6: "sm:grid-cols-3 lg:grid-cols-6" }[cols];
-  const base = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3" }[phone];
+  // In two phone columns an odd last tile takes the whole row, so no empty cell shows beside it.
+  const base = { 1: "grid-cols-1", 2: "grid-cols-2 max-sm:[&>:last-child:nth-child(odd)]:col-span-2", 3: "grid-cols-3" }[phone];
   return <div className={cx("grid gap-px overflow-hidden rounded-lg border border-line bg-line", base, grid)}>{children}</div>;
 }
 
@@ -183,7 +184,7 @@ export function Result({ ok, children }: Children & { ok: boolean }) {
   );
 }
 
-/** A segmented choice, as wide as its options (or as its container, with `fill`). `wrap` puts them in two columns on a phone. */
+/** A segmented choice, as wide as its options (or as its container, with `fill`). `wrap` puts them in two columns on a phone; long labels wrap rather than run into each other. */
 export function Segmented<T extends string | number>({
   options,
   value,
@@ -199,13 +200,14 @@ export function Segmented<T extends string | number>({
   label: string;
   disabled?: boolean;
   fill?: boolean;
-  wrap?: boolean;
+  /** Two columns on a phone; "always" keeps two columns at every width (a narrow column). */
+  wrap?: boolean | "always";
 }) {
   return (
     <div role="radiogroup" aria-label={label} className={cx(
         "grid w-full auto-cols-fr gap-0.5 rounded-md bg-raised p-0.5",
-        wrap ? "grid-cols-2 sm:grid-flow-col sm:grid-cols-none" : "grid-flow-col",
-        !fill && "sm:inline-grid sm:w-auto",
+        wrap === "always" ? "grid-cols-2" : wrap ? "grid-cols-2 sm:grid-flow-col sm:grid-cols-none" : "grid-flow-col",
+        !fill && wrap !== "always" && "sm:inline-grid sm:w-auto",
       )}>
       {options.map((o) => (
         <button
@@ -216,7 +218,7 @@ export function Segmented<T extends string | number>({
           disabled={disabled}
           onClick={() => onChange(o.value)}
           className={cx(
-            "h-8 rounded text-sm whitespace-nowrap text-muted transition-colors hover:text-ink disabled:opacity-50 aria-checked:bg-surface aria-checked:font-medium aria-checked:text-ink aria-checked:shadow-[0_0_0_1px_var(--line)]",
+            "min-h-8 rounded py-1 text-sm leading-tight text-muted transition-colors hover:text-ink disabled:opacity-50 aria-checked:bg-surface aria-checked:font-medium aria-checked:text-ink aria-checked:shadow-[0_0_0_1px_var(--line)]",
             fill ? "px-1" : "px-2 sm:px-3",
           )}
         >

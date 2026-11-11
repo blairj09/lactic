@@ -6,8 +6,11 @@ on:
     # A version tag (v0.2.0) also publishes the three apps as a GitHub release.
     tags: ["v*"]
     paths: ["app/**", ".github/workflows/app.yml"]
+  # Every pull request runs this workflow, so `check` always reports and is safe to require on
+  # main. When nothing under app/ changed, `changes` says so and the rest is skipped (a skipped
+  # job counts as passing).
   pull_request:
-    paths: ["app/**", ".github/workflows/app.yml"]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       release:
@@ -15,9 +18,42 @@ on:
         type: boolean
         default: false
 
+# Each job asks for more only where it needs it (the two that publish a release).
+permissions:
+  contents: read
+
+# One run at a time per pull request: a new push cancels the run it replaces. On main, a running
+# build finishes, and pushes that land meanwhile wait as one queued run (each newer push replaces
+# the waiting one), so a burst of merges builds Preview once instead of once per merge.
+concurrency:
+  group: app-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  check:
+  changes:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      app: ${{ steps.files.outputs.app }}
+    steps:
+      - name: Did this pull request change the app?
+        id: files
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then echo "app=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          files=$(gh api "repos/$GH_REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+          if printf '%s\n' "$files" | grep -qE '^(app/|\.github/workflows/app\.yml$)'; then app=true; else app=false; fi
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          echo "App changed: $app"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+
+  check:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-24.04 # pinned: the 26.04 image fails to fetch the Tauri Linux packages
     outputs:
       # "release": this run ships v<version> (a version tag, a manual run with "release" ticked,
       # or main with a version that has no release yet). "preview": everything else (pull
@@ -63,11 +99,15 @@ jobs:
         working-directory: app
       - name: Linux packages for Tauri
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev pkg-config
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
         with:
           workspaces: app/src-tauri
       - run: cargo check --locked
+        working-directory: app/src-tauri
+      - run: cargo test --locked --lib
         working-directory: app/src-tauri
 
   package:
@@ -79,7 +119,12 @@ jobs:
     # signed with Lactic's Developer ID and notarized by Apple, so it opens with no Terminal step.
     # Without them (forks) it falls back to the ad-hoc signature.
     # Preview runs build Lactic Preview instead (artifacts named Lactic-macOS-Preview and so on).
+    # Draft pull requests stop at `check`; marking one ready for review builds the apps.
+    # Pull request Mac builds are Apple silicon only and signed but not notarized: they're for
+    # trying a change (app/scripts/try-preview.sh clears the download flag), and that halves the
+    # Mac build. main and releases stay universal and notarized.
     needs: check
+    if: ${{ !github.event.pull_request.draft }}
     strategy:
       fail-fast: false
       matrix:
@@ -87,13 +132,13 @@ jobs:
           - os: macos-latest
             name: Lactic-macOS
             bundles: app,dmg
-            # One app for both kinds of Mac.
-            target: universal-apple-darwin
-            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+            # One app for both kinds of Mac (Apple silicon only on pull requests, see above).
+            target: ${{ github.event_name == 'pull_request' && 'aarch64-apple-darwin' || 'universal-apple-darwin' }}
+            rust-targets: ${{ github.event_name == 'pull_request' && 'aarch64-apple-darwin' || 'aarch64-apple-darwin,x86_64-apple-darwin' }}
             files: |
-              app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
-              app/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
-              app/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
+              app/src-tauri/target/*-apple-darwin/release/bundle/dmg/*.dmg
+              app/src-tauri/target/*-apple-darwin/release/bundle/macos/*.app.tar.gz
+              app/src-tauri/target/*-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
           - os: windows-latest
             name: Lactic-Windows
             bundles: nsis
@@ -110,11 +155,11 @@ jobs:
               app/src-tauri/target/release/bundle/deb/*.deb.sig
     runs-on: ${{ matrix.os }}
     env:
-      # Absent on pull requests from forks: those builds skip the update files.
-      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-      # "true" when the Developer ID certificate secret is set (the secret itself stays in the
-      # signing step).
+      # The signing secrets themselves are only handed to the steps that sign (after everything is
+      # compiled), so installing packages and building, which run code from every dependency,
+      # never see them. These just say whether each is set ("false" on pull requests from forks,
+      # whose builds skip the update files and fall back to the ad-hoc signature).
+      UPDATE_SIGNING: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
       MAC_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
       CHANNEL: ${{ needs.check.outputs.channel }}
       VERSION: ${{ needs.check.outputs.version }}
@@ -132,12 +177,30 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev pkg-config patchelf
       - run: npm ci
         working-directory: app
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           targets: ${{ matrix.rust-targets || '' }}
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
         with:
           workspaces: app/src-tauri
+      - name: Compile
+        # No signing secrets here: this step runs build scripts from every dependency.
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          if [ -n "${{ matrix.target }}" ]; then args+=(--target ${{ matrix.target }}); fi
+          if [ "$UPDATE_SIGNING" = true ]; then args+=(--config src-tauri/tauri.updater.conf.json); fi
+          if [ "$CHANNEL" = preview ]; then
+            # Lactic Preview: its own name, bundle id, icon and update feed, at this run's version.
+            printf '{"version":"%s"}' "$VERSION" > src-tauri/tauri.version.conf.json
+            args+=(--config src-tauri/tauri.preview.conf.json --config src-tauri/tauri.version.conf.json)
+          fi
+          # The same settings go to the bundle step below.
+          printf '%s\n' ${args[@]+"${args[@]}"} > "$RUNNER_TEMP/tauri-args"
+          npx tauri build --no-bundle ${args[@]+"${args[@]}"}
+        working-directory: app
       - name: Developer ID certificate and notarization key (Mac)
         # Puts the certificate in a throwaway keychain and hands Tauri its identity
         # (APPLE_SIGNING_IDENTITY overrides the ad-hoc "-" in tauri.conf.json). With the App Store
@@ -172,7 +235,9 @@ jobs:
           fi
           echo "Signing as $identity"
           echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
-          if [ -n "$APPLE_API_KEY_P8" ] && [ -n "$APPLE_API_KEY" ] && [ -n "$APPLE_API_ISSUER" ]; then
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            echo "Pull request build: signed, not notarized."
+          elif [ -n "$APPLE_API_KEY_P8" ] && [ -n "$APPLE_API_KEY" ] && [ -n "$APPLE_API_ISSUER" ]; then
             printf '%s\n' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey_$APPLE_API_KEY.p8"
             {
               echo "APPLE_API_KEY=$APPLE_API_KEY"
@@ -182,19 +247,21 @@ jobs:
           else
             echo "::warning::Signed but not notarized: set APPLE_API_KEY, APPLE_API_ISSUER and APPLE_API_KEY_P8 too, or the Mac still blocks the app on first open."
           fi
-      - name: Build
+      - name: Bundle and sign
+        # The compiled app becomes installers here, signed for updates (and, on a Mac, with the
+        # Developer ID from the step above, then notarized).
         shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          args=(--bundles ${{ matrix.bundles }})
-          if [ -n "${{ matrix.target }}" ]; then args+=(--target ${{ matrix.target }}); fi
-          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then args+=(--config src-tauri/tauri.updater.conf.json); fi
-          if [ "$CHANNEL" = preview ]; then
-            # Lactic Preview: its own name, bundle id, icon and update feed, at this run's version.
-            printf '{"version":"%s"}' "$VERSION" > src-tauri/tauri.version.conf.json
-            args+=(--config src-tauri/tauri.preview.conf.json --config src-tauri/tauri.version.conf.json)
-          fi
-          npx tauri build "${args[@]}"
+          args=()
+          while IFS= read -r line; do [ -n "$line" ] && args+=("$line"); done < "$RUNNER_TEMP/tauri-args"
+          # The Rust cache can bring back an earlier run's installers (a Lactic Preview .app, an
+          # older .dmg); clear them so only this build is checked and uploaded.
+          rm -rf src-tauri/target/release/bundle src-tauri/target/*/release/bundle
+          npx tauri bundle --bundles ${{ matrix.bundles }} ${args[@]+"${args[@]}"}
         working-directory: app
       - name: Notarize the .dmg too (Mac)
         # Tauri notarizes the app inside; notarizing and stapling the disk image as well means
@@ -224,6 +291,9 @@ jobs:
     if: needs.check.outputs.channel == 'release'
     needs: [check, package]
     runs-on: ubuntu-latest
+    # Publishing goes through the "release" environment. With James as its required reviewer
+    # (repo Settings → Environments → release), nothing ships to riders until he approves the run.
+    environment: release
     permissions:
       contents: write
     steps:
@@ -269,7 +339,7 @@ jobs:
           } > release-body.md
         env:
           VERSION: ${{ steps.version.outputs.version }}
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         if: steps.version.outputs.skip != 'true'
         with:
           tag_name: ${{ steps.version.outputs.tag }}
@@ -287,6 +357,15 @@ jobs:
           fail_on_unmatched_files: true
           generate_release_notes: true
           body_path: release-body.md
+      - name: Put this release on lactic.fit (the homepage demo is built from the latest release)
+        if: steps.version.outputs.skip != 'true'
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          # A Vercel deploy hook for the lactic-site project (main). Without it the site still
+          # catches up on the next push to main (site/scripts/should-build.mjs).
+          if [ -z "$HOOK" ]; then echo "::notice::No VERCEL_DEPLOY_HOOK_URL secret: lactic.fit shows this release after the next push to main."; exit 0; fi
+          curl -fsS -X POST "$HOOK" >/dev/null && echo "Asked Vercel to redeploy lactic.fit."
 
   preview:
     # Lactic Preview from main: each push to main that isn't a release replaces the rolling

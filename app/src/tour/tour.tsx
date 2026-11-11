@@ -6,8 +6,9 @@ import { useNavigate } from "react-router";
 import { button } from "@/components/ui";
 import { remembered } from "@/lib/ble/devices";
 import { useCoachMode } from "~/app/coach-mode";
+import { coachChosen } from "~/ai/settings";
 import { createClient } from "~/db/supabase-client";
-import { stepsFor } from "./steps";
+import { FIRST_STOP, stepsFor } from "./steps";
 import { features } from "@/lib/features";
 import { getSetting } from "~/settings/store";
 import { endTour, goToStep, startTour, TOUR_DONE, useTourStep } from "./store";
@@ -26,12 +27,13 @@ function useSetupGaps(active: boolean, mode: string): Gap[] | null {
     void Promise.all([
       supabase.from("athlete_settings").select("ftp_watts").maybeSingle(),
       supabase.from("intervals_connections").select("user_id").maybeSingle(),
-    ]).then(([athlete, icu]) => {
+      coachChosen(),
+    ]).then(([athlete, icu, chose]) => {
       const out: Gap[] = [];
       if (!athlete.data?.ftp_watts) out.push({ label: "Your FTP, for training zones", section: "profile" });
       if (!remembered("trainer")) out.push({ label: "Pair your smart trainer", section: "gear" });
       if (!icu.data) out.push({ label: "Bring in your rides from intervals.icu", section: "connections" });
-      if (mode === "none") out.push({ label: "Choose a coach, if you'd like one", section: "coach-settings" });
+      if (mode === "none" && !chose) out.push({ label: "Choose a coach, if you'd like one", section: "coach-settings" });
       setGaps(out);
     });
   }, [active, mode]);
@@ -121,7 +123,7 @@ export function Tour() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") void endTour();
       if (e.key === "ArrowRight" && at < steps.length - 1) goToStep(at + 1);
-      if (e.key === "ArrowLeft" && at > 0) goToStep(at - 1);
+      if (e.key === "ArrowLeft" && at > FIRST_STOP) goToStep(at - 1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -197,7 +199,8 @@ export function Tour() {
             </button>
           )}
           <div className="flex items-center gap-2">
-            {!first && (
+            {/* Not back to the intro card: the rider already chose to see the tour. */}
+            {index > FIRST_STOP && (
               <button type="button" className={button.small} onClick={() => goToStep(index - 1)}>
                 Back
               </button>

@@ -4,6 +4,7 @@
 
 import { strToU8, zipSync } from "fflate";
 import { encodeRideFit } from "@/lib/fit/encode";
+import { lapStarts, type RideInterval } from "@/lib/engine/ride-detail";
 import { TABLES } from "~/db/schema";
 import { sql, type Row } from "~/db/sql";
 import { decode } from "~/db/supa";
@@ -23,6 +24,7 @@ interface StreamRow {
   heart_rate: string | null;
   cadence: string | null;
   route: string | null;
+  intervals?: string | null;
 }
 
 const parse = <T>(text: string | null | undefined): T | null => {
@@ -64,6 +66,7 @@ function fitFor(ride: RideRow, stream: StreamRow | undefined): Uint8Array | null
     cadence: cadence.map((v) => v ?? 0),
     indoor: !route?.length,
     route,
+    laps: lapStarts(parse<RideInterval[]>(stream.intervals)),
   });
 }
 
@@ -71,7 +74,7 @@ function fitFor(ride: RideRow, stream: StreamRow | undefined): Uint8Array | null
 export async function rideFit(activityId: string): Promise<{ name: string; bytes: Uint8Array } | null> {
   const [ride] = (await sql().select("select id, name, started_at, duration_seconds, source from activities where id = ?", [activityId])) as unknown as RideRow[];
   if (!ride) return null;
-  const [stream] = (await sql().select("select step_seconds, watts, heart_rate, cadence, route from activity_streams where activity_id = ?", [activityId])) as unknown as StreamRow[];
+  const [stream] = (await sql().select("select step_seconds, watts, heart_rate, cadence, route, intervals from activity_streams where activity_id = ?", [activityId])) as unknown as StreamRow[];
   const bytes = fitFor(ride, stream);
   return bytes && { name: rideFileName(ride), bytes };
 }

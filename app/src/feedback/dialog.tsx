@@ -213,7 +213,7 @@ function FeedbackDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div {...{ [FEEDBACK_UI]: "" }} className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-3 py-10" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div {...{ [FEEDBACK_UI]: "" }} className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-3 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(2.5rem+env(safe-area-inset-bottom))]" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div
         role="dialog"
         aria-modal="true"

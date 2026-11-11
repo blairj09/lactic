@@ -7,7 +7,7 @@ import { DIFFICULTY_LABELS, RPE_LABELS } from "@/lib/engine/feedback";
 import { ZONE_LABELS } from "@/lib/engine/library";
 import { completion, plannedTargets, smooth } from "@/lib/engine/ride-detail";
 import { EXECUTION_GRADE_LABELS, executionGrade, rideExecution } from "@/lib/engine/execution";
-import { formatDuration, SOURCE_LABEL } from "@/lib/format";
+import { formatDuration, sourceLabel } from "@/lib/format";
 import type { plannedOn, StoredFeedback } from "@/lib/training";
 import { formatDistance, readUnits } from "@/lib/units";
 
@@ -55,7 +55,7 @@ export default function CompletedRide({
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-muted">
         {mark && <Pill tone={MARK_TONE[mark]}>{DAY_MARK_LABELS[mark]}</Pill>}
         <span>
-          Ridden at {clockTime(ride.startedAt, timeZone)} · {SOURCE_LABEL[ride.source] ?? ride.source}
+          Ridden at {clockTime(ride.startedAt, timeZone)} · {sourceLabel(ride.source)}
           {share !== null && ` · ${Math.round(share * 100)}% of the plan${planned!.stress > 0 && ride.trainingStress !== null ? "'s stress" : "'s time"}`}
         </span>
         {execution && (

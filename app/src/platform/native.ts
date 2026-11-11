@@ -20,6 +20,8 @@ export interface AppInfo {
   /** e.g. "15.1.0" on macOS; missing from builds before 0.1.2. */
   osVersion?: string;
   dataDir: string | null;
+  /** The iPhone app (missing from builds before the phone app). */
+  mobile?: boolean;
 }
 
 export async function appInfo(): Promise<AppInfo> {
@@ -34,7 +36,12 @@ export function setOs(os: string) {
   if (os && os !== "browser") currentOs = os;
 }
 
-/** "macos", "windows" or "linux". */
+/** The iPhone app: same screens, but it syncs with the rider's computer instead of running the integrations. */
+export function isPhone(): boolean {
+  return currentOs === "ios" || currentOs === "android";
+}
+
+/** "macos", "windows", "linux" or "ios". */
 export function os(): string {
   return currentOs;
 }
@@ -42,6 +49,11 @@ export function os(): string {
 /** What the system calls its file browser. */
 export function fileManagerName(): string {
   return currentOs === "macos" ? "Finder" : currentOs === "windows" ? "File Explorer" : "your file manager";
+}
+
+/** How copy names the device Lactic runs on: "this iPhone" or "this computer". */
+export function thisDevice(): string {
+  return isPhone() ? "this iPhone" : "this computer";
 }
 
 /** ⌘ on a Mac, Ctrl elsewhere. */

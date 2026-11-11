@@ -11,7 +11,8 @@ import { BEST_LAP_ID } from "@/lib/engine/race/report";
 import { parseResults } from "@/lib/engine/race/results";
 import { soloAdvice } from "@/lib/engine/race/solo-advice";
 import { soloForCoach } from "@/lib/engine/race/solo-brief";
-import { loadAthlete, loadRide } from "@/lib/activities";
+import { loadAthlete, loadRide, loadStream } from "@/lib/activities";
+import { trackFromStored } from "@/lib/engine/race/glance";
 import { addRival, bestCurveBefore, fetchOwnTrack, loadRaceData, removeRival, saveDebrief, saveNotes, saveOwnName, saveOwnTrack, savePlaces, saveResults, trackFromFile } from "@/lib/race";
 import { buildRace } from "@/lib/race-build";
 import { soloFormatters } from "@/lib/race-format";
@@ -163,4 +164,19 @@ export async function writeRaceDebrief(activityId: string, compareId: string): P
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
+}
+
+/** One of your own earlier rides of the course, from your history, as a past edition. */
+export async function addPastRide(activityId: string, pastId: string, name: string): Promise<ActionResult> {
+  return attempt(async () => {
+    check(activityId);
+    check(pastId);
+    const supabase = await createClient();
+    const [ride, stream] = await Promise.all([loadRide(supabase, pastId), loadStream(supabase, pastId)]);
+    if (!ride || !stream?.route) throw new Error("That ride has no GPS track");
+    const track = trackFromStored(stream.route, ride.startedAt.getTime(), stream, name);
+    if (!track) throw new Error("That ride's track has no times. Add its original file instead.");
+    await addRival(supabase, activityId, name.slice(0, 80), track, true);
+    return `Added ${name}`;
+  });
 }

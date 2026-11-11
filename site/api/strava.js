@@ -16,13 +16,9 @@
 //   STRAVA_CLIENT_ID      the Lactic API app's Client ID (strava.com/settings/api)
 //   STRAVA_CLIENT_SECRET  its Client Secret
 
-const CORS = {
-  "access-control-allow-origin": "*",
-  "access-control-allow-methods": "GET, POST, OPTIONS",
-  "access-control-allow-headers": "content-type, x-lactic-client",
-};
-
-const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...CORS } });
+// No CORS headers: the app asks from its Rust core, not from a web page, so no other site's
+// script can use a visitor's browser to reach the relay.
+const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 
 // Best effort only: each function instance remembers who asked in the last hour.
 const recent = new Map();
@@ -61,10 +57,6 @@ export function slim(reply) {
     expires_at: reply.expires_at,
     ...(a && typeof a === "object" ? { athlete: { id: a.id, firstname: a.firstname ?? null, lastname: a.lastname ?? null } } : {}),
   };
-}
-
-export function OPTIONS() {
-  return new Response(null, { status: 204, headers: CORS });
 }
 
 export function GET() {

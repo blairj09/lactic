@@ -7,7 +7,6 @@ import { weighInOn, type BodyMeasurement } from "@/lib/body-data";
 import { localDate } from "@/lib/engine/activity";
 import { ageOn } from "@/lib/engine/body";
 import type { FtpEstimate } from "@/lib/engine/ftp";
-import { ZONE_LABELS } from "@/lib/engine/library";
 import { addDays, formBand } from "@/lib/engine/pmc";
 import { MINIMUM_BASELINE_DAYS, recoveryWord } from "@/lib/engine/recovery";
 import { formatDay, formatDuration, signed } from "@/lib/format";
@@ -16,22 +15,25 @@ import { complianceDays, plannedOn, ridesFor, type TrainingState } from "@/lib/t
 import { markDays } from "@/lib/engine/compliance";
 import { dayRides } from "@/lib/engine/ride-detail";
 import CompletedRide from "./completed-ride";
-import { todayOptions } from "@/lib/today-options";
-import UseEstimateButton from "./use-estimate-button";
+import { exertionTodayFor, todayOptions } from "@/lib/today-options";
 import FtpBanner from "./ftp-banner";
-import ProvenanceTag from "@/components/provenance";
-import { fromRides } from "@/lib/engine/provenance";
 import { checkFtp } from "@/lib/engine/ftp-check";
 import { ChosenSession, SessionLine } from "./checkin";
 import RideSurvey from "./ride-survey";
 import Morning, { type MorningProps } from "./morning";
 import RaceDayPlan from "./race-day";
-import { GOAL_KIND_LABELS, goalMinutes, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES } from "@/lib/engine/plan";
+import { GOAL_KIND_LABELS, goalMinutes, PHASE_LABELS, SAFETY_RULE_LABELS, weekStart } from "@/lib/engine/plan";
 import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
 import WeekReviewCard from "./week-review";
+import RaceReportPrompt from "./race-report-prompt";
+import type { RaceFollowUp } from "@/lib/engine/race/followup";
 import type { WeekReview } from "@/lib/engine/review";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
+import { ExertionBar, RecoverySummary } from "./last-night";
+import type { ExertionToday } from "@/lib/engine/recovery-glance";
+import { formatHours } from "@/lib/engine/hours";
+import type { SafetyRule } from "@/lib/engine/plan";
 
 /**
  * Today answers "what do I ride, and am I up for it?": Morning (recovery, weight, the brief), then the session, with
@@ -49,6 +51,7 @@ export default function TodayView({
   recoverySource = null,
   todayStream = null,
   intervalsConnected = false,
+  raceFollowUp = null,
 }: {
   state: TrainingState;
   /** Null when weigh-ins failed to load. */
@@ -68,28 +71,20 @@ export default function TodayView({
   todayStream?: StoredStream | null;
   /** intervals.icu is connected, so a workout can go to the bike computer. */
   intervalsConnected?: boolean;
+  /** A recent event's race, for a race report (race reports on). */
+  raceFollowUp?: (RaceFollowUp & { rideName: string | null }) | null;
 }) {
   const { athlete, rides, recovery, today, series } = state;
   const now = series[series.length - 1];
   const todaysWeighIn = body ? weighInOn(body, today, athlete.timezone) : undefined;
   const ridden = ridesOn(state, today);
+  const survey = ridden ? null : unansweredRide(state);
 
   return (
     <>
-      <PageHeader title="Today" line={finding(today, recovery, now.form)} />
+      <PageHeader title="Today" line={dayLine(state)} />
 
-      <Morning
-        day={today}
-        recovery={{ in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource }}
-        weighIn={todaysWeighIn ? { weightKg: todaysWeighIn.weightKg, bodyFatPercent: todaysWeighIn.bodyFatPercent } : null}
-        profile={
-          athlete.heightCm !== null && athlete.sex !== null && athlete.birthDate !== null
-            ? { male: athlete.sex === "male", heightCm: athlete.heightCm, age: ageOn(athlete.birthDate, today) }
-            : null
-        }
-        brief={brief}
-        today={todayChoice(state, coachEnabled)}
-      />
+      {raceFollowUp && <RaceReportPrompt followUp={raceFollowUp} />}
 
       {review && <WeekReviewCard {...review} />}
 
@@ -97,14 +92,32 @@ export default function TodayView({
 
       <RaceSoon state={state} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} />
+      {/* Two columns on a computer: what to ride on the left, with form and the last ride under it, and whether you're
+          up for it on the right. On a phone: the workout, then This morning, then form and the last ride. The second
+          row takes any extra height, so the strip stays right under the workout. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:grid-rows-[auto_1fr]">
+        <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} exertion={exertionTodayFor(state)} />
+        <div className="self-start lg:col-start-3 lg:row-span-2 lg:row-start-1">
+        <Morning
+          title="This morning"
+          stacked
+          lastNight={recovery?.today ? <RecoverySummary recovery={recovery} variant="column" /> : undefined}
+          day={today}
+          recovery={{ in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource }}
+          weighIn={todaysWeighIn ? { weightKg: todaysWeighIn.weightKg, bodyFatPercent: todaysWeighIn.bodyFatPercent } : null}
+          profile={
+            athlete.heightCm !== null && athlete.sex !== null && athlete.birthDate !== null
+              ? { male: athlete.sex === "male", heightCm: athlete.heightCm, age: ageOn(athlete.birthDate, today) }
+              : null
+          }
+          brief={brief}
+          today={todayChoice(state, coachEnabled)}
+        />
+        </div>
 
-        {/* Recovery and weight are in Morning; fitness history is on Progress and FTP lives in Settings, so this column only
-            carries form, an FTP nudge when the estimate moves, and the last ride. */}
-        <section aria-label="Training" className="grid grid-cols-2 gap-px self-start overflow-hidden rounded-lg border border-line bg-line lg:grid-cols-1">
+        <section aria-label="Training" className="grid grid-cols-2 gap-px self-start overflow-hidden rounded-lg border border-line bg-line lg:col-span-2">
           <Stat
-            className={ridden ? "col-span-2 lg:col-span-1" : undefined}
+            className={survey ? "col-span-2 sm:col-span-1" : undefined}
             label="Form"
             value={signed(now.form)}
             sub={
@@ -116,9 +129,8 @@ export default function TodayView({
               </>
             }
           />
-          {/* Once today's ride is in, the card beside this is the last ride. */}
-          {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} />}
-          <FtpNudge ftp={athlete.ftp} estimate={estimate} windowDays={ftpWindowDays} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} today={today} />
+          {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} survey={survey} className={survey ? "col-span-2 sm:col-span-1" : undefined} />}
+          <FtpNudge ftp={athlete.ftp} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} />
         </section>
       </div>
     </>
@@ -145,12 +157,16 @@ function RaceSoon({ state }: { state: TrainingState }) {
   );
 }
 
-/** The line under the title: the day, and the one fact that decides how to ride it. */
-function finding(today: string, recovery: RecoveryToday | null, form: number) {
+/**
+ * The line under the title: the day and where it sits in the plan. Recovery and form each have their
+ * own place on the page, so the line doesn't repeat them.
+ */
+export function dayLine(state: TrainingState) {
+  const { today } = state;
   const day = new Date(`${today}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
-  const score = recovery?.score?.score;
-  const ready = score === undefined ? null : score >= 67 ? "Recovered" : score >= 34 ? "Normal recovery" : "Under-recovered";
-  return `${day}. ${ready ? `${ready} (${score}). ` : ""}Form ${signed(form)}, ${formBand(form).word}.`;
+  const week = state.plan.weeks.find((w) => w.start === weekStart(today));
+  const phase = week ? (week.recoveryWeek ? "Recovery week" : `${PHASE_LABELS[week.phase]} week`) : null;
+  return `${day}${phase ? `. ${phase}` : ""}.`;
 }
 
 /** How you feel and today's options, for the morning routine; or why there's nothing to choose. */
@@ -186,19 +202,32 @@ export function ridesOn(state: TrainingState, day: string) {
 }
 
 /** Today's session: the plan's or the one you chose, and how the last ride felt; once ridden, the ride. */
-function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: TrainingState; ridden: ReturnType<typeof ridesOn>; stream: StoredStream | null; intervalsConnected: boolean }) {
+export function TodayWorkout({
+  state,
+  ridden,
+  stream,
+  intervalsConnected,
+  exertion,
+  top,
+  className = "self-start lg:col-span-2",
+}: {
+  state: TrainingState;
+  ridden: ReturnType<typeof ridesOn>;
+  stream: StoredStream | null;
+  intervalsConnected: boolean;
+  /** Today's exertion and where the ride lands it: one line above Start ride. */
+  exertion: ExertionToday | null;
+  /** A line at the top of the card (option B's "Ready to ride?"). */
+  top?: React.ReactNode;
+  className?: string;
+}) {
   const { todayPlan, todayStored, today, rides, athlete } = state;
   const chosen = todayStored?.chosen ?? null;
   const planned = todayPlan?.session ?? null;
   const outside = state.outdoor.find((o) => o.date === today) ?? null;
   const rodeToday = rides.some((r) => localDate(r.startedAt, athlete.timezone) === today);
-  // The latest ride in the last three days with no post-ride answer yet (rides are newest first).
-  const answered = new Set(state.feedback.map((f) => f.rideId));
-  const feltDays = new Set(state.recentDays.filter((d) => d.feelAfter !== null).map((d) => d.day));
-  const unanswered = rides.find((r) => {
-    const day = localDate(r.startedAt, athlete.timezone);
-    return day >= addDays(today, -3) && r.durationSeconds >= 600 && !answered.has(r.id) && !feltDays.has(day);
-  });
+  const eased = Boolean(todayPlan?.rule && EASED.has(todayPlan.rule));
+  const exertionBar = exertion && (exertion.soFar !== null || exertion.target) ? <ExertionBar exertion={exertion} eased={eased} compact /> : null;
 
   const title = outside?.workout
     ? outside.workout.name
@@ -209,7 +238,7 @@ function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: Tr
     : todayPlan?.role === "event" && todayPlan.goal
       ? todayPlan.goal.name
       : planned
-        ? ZONE_LABELS[planned.zone]
+        ? planned.workout.name
         : "Rest day";
 
   let body: React.ReactNode;
@@ -254,7 +283,7 @@ function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: Tr
   } else if (chosen) {
     body = (
       <div className="space-y-4">
-        <ChosenSession session={chosen.session} day={today} ftp={athlete.ftp} action={<RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} href={`/ride?day=${today}`} />} />
+        <ChosenSession session={chosen.session} day={today} ftp={athlete.ftp} named={false} extra={exertionBar} action={<RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} href={`/ride?day=${today}`} />} />
       </div>
     );
   } else if (!athlete.ftp) {
@@ -269,20 +298,16 @@ function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: Tr
   } else {
     body = planned ? (
       <div className="space-y-3">
-        <SessionLine session={planned} />
+        <SessionLine session={planned} named={false} note={todayPlan?.rule && todayPlan.rule !== "recoveryWeek" ? `Eased: ${SAFETY_RULE_LABELS[todayPlan.rule].toLowerCase()}` : undefined} />
         {todayPlan?.movedFrom && (
           <p className="text-sm text-muted">
             Moved from {weekdayName(todayPlan.movedFrom.date)}, which you missed{todayPlan.movedFrom.shortened ? ", and shortened to fit today" : ""}.
           </p>
         )}
-        {todayPlan?.rule && (
-          <p className="text-sm text-muted">
-            Eased: {SAFETY_RULE_LABELS[todayPlan.rule].toLowerCase()}. {SAFETY_RULE_NOTES[todayPlan.rule]}
-          </p>
-        )}
         {todayPlan?.why && <p className="text-sm text-muted">Coach: {todayPlan.why}</p>}
         {todayPlan?.course && !todayPlan.why && <p className="text-sm text-muted">{todayPlan.course}</p>}
-        <WorkoutProfile workout={planned.workout} height={88} details ftp={athlete.ftp} />
+        <WorkoutProfile workout={planned.workout} height={88} details ftp={athlete.ftp} fit />
+        {exertionBar}
         <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />
       </div>
     ) : (
@@ -298,15 +323,27 @@ function TodayWorkout({ state, ridden, stream, intervalsConnected }: { state: Tr
           This week&apos;s plan
         </Link>
       }
-      className="lg:col-span-2"
+      className={className}
     >
+      {top}
       {body}
-      {unanswered && (
-        <div className="mt-6 border-t border-rule pt-5">
-          <RideSurvey key={unanswered.id} ride={{ id: unanswered.id }} name={unanswered.name ?? "your ride"} />
-        </div>
-      )}
     </Panel>
+  );
+}
+
+/** Plan rules that make today easy on purpose: the exertion line defers to them rather than saying "under target". */
+const EASED = new Set<SafetyRule>(["recoveryWeek", "breakWeek", "reentryWeek", "eventTaper", "beforeEvent", "afterEvent"]);
+
+/** The latest ride in the last three days with no post-ride answer yet (rides are newest first). */
+export function unansweredRide(state: TrainingState) {
+  const { rides, athlete, today } = state;
+  const answered = new Set(state.feedback.map((f) => f.rideId));
+  const feltDays = new Set(state.recentDays.filter((d) => d.feelAfter !== null).map((d) => d.day));
+  return (
+    rides.find((r) => {
+      const day = localDate(r.startedAt, athlete.timezone);
+      return day >= addDays(today, -3) && r.durationSeconds >= 600 && !answered.has(r.id) && !feltDays.has(day);
+    }) ?? null
   );
 }
 
@@ -325,49 +362,32 @@ function nightValues(today: NonNullable<RecoveryToday["today"]>) {
   ].filter(Boolean);
 }
 
-/** FTP lives in Settings; Today only speaks up when there's none, or a recent estimate differs from it. */
-function FtpNudge({ ftp, estimate, windowDays, hasPowerRides, today }: { ftp: number | null; estimate: FtpEstimate | null; windowDays: number; hasPowerRides: boolean; today: string }) {
-  if (!ftp) {
-    return (
-      <Stat
-        className="col-span-2 lg:col-span-1"
-        label="FTP"
-        value={<Dash />}
-        sub={
-          <>
-            {hasPowerRides ? "Rides need an FTP to count toward fitness. " : ""}
-            <Link href="/settings#profile" className="text-ink underline underline-offset-4">
-              Set your FTP
-            </Link>
-          </>
-        }
-      />
-    );
-  }
-  // A higher estimate is the banner above (ftp-banner.tsx); a lower one is only a note here.
-  if (!estimate || Math.round(estimate.watts) >= ftp) return null;
+/**
+ * FTP lives in Settings; this tile only speaks up when there's none. A higher estimate is the banner above
+ * (ftp-banner.tsx). A lower one isn't offered: everyday rides rarely hold a full 20-minute effort, so a
+ * lower estimate usually means no hard effort lately, not lost fitness. The overdue-test banner covers that.
+ */
+function FtpNudge({ ftp, hasPowerRides }: { ftp: number | null; hasPowerRides: boolean }) {
+  if (ftp) return null;
   return (
     <Stat
       className="col-span-2 lg:col-span-1"
-      label="New FTP estimate"
-      value={Math.round(estimate.watts)}
-      unit="W"
-      source={<ProvenanceTag source={fromRides(today)} today={today} />}
+      label="FTP"
+      value={<Dash />}
       sub={
-        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span>
-            {estimate.method === "twentyMinute" ? "95% of your best 20 min" : "Critical power"}, last {windowDays} days. Now{" "}
-            <span className="num whitespace-nowrap text-ink">{ftp} W</span>.
-          </span>
-          <UseEstimateButton estimate={estimate} />
-        </span>
+        <>
+          {hasPowerRides ? "Rides need an FTP to count toward fitness. " : ""}
+          <Link href="/settings#profile" className="text-ink underline underline-offset-4">
+            Set your FTP
+          </Link>
+        </>
       }
     />
   );
 }
 
-/** The latest ride in one line; the rest are on Progress. */
-function LastRide({ ride, timeZone }: { ride: StoredRide | undefined; timeZone: string }) {
+/** The latest ride in one line; the rest are on Progress → Rides. */
+export function LastRide({ ride, timeZone, survey = null, className }: { ride: StoredRide | undefined; timeZone: string; survey?: StoredRide | null; className?: string }) {
   if (!ride) {
     return (
       <Stat
@@ -384,17 +404,24 @@ function LastRide({ ride, timeZone }: { ride: StoredRide | undefined; timeZone: 
       />
     );
   }
+  // Yesterday's "How was it?" lives with the ride it asks about, not in today's workout card.
   return (
     <Stat
+      className={className}
       label="Last ride"
       value={ride.trainingStress !== null ? Math.round(ride.trainingStress) : <Dash />}
       unit="TSS"
       sub={
         <>
-          {ride.name ?? "Ride"} · {formatDay(ride.startedAt, timeZone)} · {formatDuration(ride.durationSeconds)}.{" "}
-          <Link href="/progress" className="text-ink underline underline-offset-4">
+          {ride.name ?? "Ride"} · {formatDay(ride.startedAt, timeZone)} · {formatHours(ride.durationSeconds / 3600)}.{" "}
+          <Link href="/progress?tab=rides" className="text-ink underline underline-offset-4">
             All rides
           </Link>
+          {survey && (
+            <div className="mt-4 border-t border-rule pt-4 text-ink">
+              <RideSurvey key={survey.id} ride={{ id: survey.id }} name={survey.name ?? "your ride"} question={survey.id === ride.id ? "How was it?" : undefined} narrow />
+            </div>
+          )}
         </>
       }
     />

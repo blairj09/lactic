@@ -18,7 +18,7 @@ export default async function RidePage({ params }: { params: Promise<{ id: strin
           actions={
             <>
               <ExportRideButton id={id} />
-              <Link href="/progress" className="text-sm text-muted hover:text-ink">
+              <Link href="/progress?tab=rides" className="text-sm text-muted hover:text-ink">
                 All rides
               </Link>
             </>

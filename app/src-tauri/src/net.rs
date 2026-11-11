@@ -54,27 +54,32 @@ pub struct Response {
 
 pub struct Net {
     pub(crate) client: reqwest::Client,
+    no_redirects: reqwest::Client,
     cancels: Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>,
 }
 
 impl Net {
     pub fn new() -> Self {
-        let client = reqwest::Client::builder()
-            .user_agent(concat!("Lactic/", env!("CARGO_PKG_VERSION"), " (+https://lactic.fit)"))
-            .connect_timeout(Duration::from_secs(15))
-            .build()
-            .expect("http client");
-        Net { client, cancels: Mutex::new(HashMap::new()) }
+        let builder = || reqwest::Client::builder().user_agent(concat!("Lactic/", env!("CARGO_PKG_VERSION"), " (+https://lactic.fit)")).connect_timeout(Duration::from_secs(15));
+        let client = builder().build().expect("http client");
+        let no_redirects = builder().redirect(reqwest::redirect::Policy::none()).build().expect("http client");
+        Net { client, no_redirects, cancels: Mutex::new(HashMap::new()) }
     }
 }
 
 fn build(net: &Net, secrets: &Secrets, req: &Request) -> Result<reqwest::RequestBuilder, String> {
     let method = reqwest::Method::from_bytes(req.method.to_uppercase().as_bytes()).map_err(|e| e.to_string())?;
-    let mut b = net.client.request(method, &req.url);
+    // A key in a header of its own would follow a redirect to another site (reqwest only drops
+    // Authorization), so those requests don't follow redirects at all.
+    let keyed_header = req.auth.as_ref().is_some_and(|a| a.scheme == "header");
+    let client = if keyed_header { &net.no_redirects } else { &net.client };
+    let mut b = client.request(method, &req.url);
     for (k, v) in &req.headers {
         b = b.header(k, v);
     }
     if let Some(auth) = &req.auth {
+        // Each key only goes to its own service (secrets.rs `authorize`).
+        secrets.authorize(&auth.secret, &req.url)?;
         let key = secrets.get(&auth.secret).ok_or_else(|| format!("No key saved for {}", auth.secret))?;
         b = match auth.scheme.as_str() {
             "basic" => b.basic_auth(auth.user.clone().unwrap_or_default(), Some(key)),

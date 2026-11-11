@@ -441,6 +441,20 @@ export async function syncWellness(supabase: Supabase, connection: IntervalsConn
       const { error: insertError } = await supabase.from("body_measurements").insert(fresh);
       if (insertError) throw insertError;
       weighIns = fresh.length;
+      // Weigh-ins keep the profile weight up to date (as Settings says), when one of these is now the latest.
+      const { data: newest, error: newestError } = await supabase
+        .from("body_measurements")
+        .select("measured_at, weight_kg, source")
+        .order("measured_at", { ascending: false })
+        .limit(1);
+      if (newestError) throw newestError;
+      const latest = (newest as { measured_at: string; weight_kg: number | string; source: string | null }[] | null)?.[0];
+      if (latest?.source === WELLNESS_SOURCE && fresh.some((f) => new Date(f.measured_at).getTime() === new Date(latest.measured_at).getTime())) {
+        const { error: settingsError } = await supabase
+          .from("athlete_settings")
+          .upsert({ user_id: connection.userId, weight_kg: Math.round(Number(latest.weight_kg) * 100) / 100, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+        if (settingsError) throw settingsError;
+      }
     }
   }
   return { mornings: rows.length, weighIns };

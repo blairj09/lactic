@@ -418,3 +418,19 @@ export function columnDaySamples(body: Record<string, unknown>): { heartRate: st
     vo2max: zip(body.vo2maxDate, body.vo2maxValue),
   };
 }
+
+/**
+ * Whether a newly read night is only the tail (or a slice) of one already stored: it lies inside the
+ * stored night's span and has less sleep. Reads cover the last few days from the moment they run,
+ * so a morning read starts partway through the oldest night and sees only its end; keeping that would
+ * overwrite a full night with an hour or two. A read taken mid-night, then the full night, still
+ * replaces it (the full night starts at the same time but ends later, with more sleep).
+ */
+export function cutShortNight(
+  stored: { start: number | null; end: number | null; asleepHours: number | null },
+  read: { start: number | null; end: number | null; asleepHours: number | null },
+): boolean {
+  if (stored.start === null || stored.end === null || stored.asleepHours === null) return false;
+  if (read.start === null || read.end === null || read.asleepHours === null) return false;
+  return read.start >= stored.start && read.end <= stored.end && read.asleepHours < stored.asleepHours && !(read.start === stored.start && read.end === stored.end);
+}

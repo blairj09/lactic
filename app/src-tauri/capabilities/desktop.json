@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "Desktop only: updating the app, and zooming with Cmd/Ctrl + and -",
+  "platforms": [
+    "macOS",
+    "windows",
+    "linux"
+  ],
+  "windows": [
+    "main",
+    "overlay"
+  ],
+  "permissions": [
+    "updater:default",
+    "process:allow-restart",
+    "core:webview:allow-set-webview-zoom"
+  ]
+}

@@ -20,11 +20,23 @@ impl Db {
         }
         let conn = Connection::open(&path)?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;")?;
+        confine(&conn);
         Ok(Db { conn: Mutex::new(conn), path })
     }
 }
 
-fn to_sql(v: &Value) -> SqlValue {
+/// The web layer sends SQL, and SQL can open other files (ATTACH, VACUUM INTO). Nothing in the
+/// app does, so the database refuses: its SQL only ever touches lactic.db. (A plain VACUUM
+/// attaches a nameless temporary database, which stays allowed.)
+fn confine(conn: &Connection) {
+    use rusqlite::hooks::{AuthAction, Authorization};
+    conn.authorizer(Some(|ctx: rusqlite::hooks::AuthContext<'_>| match ctx.action {
+        AuthAction::Attach { filename } if !filename.is_empty() => Authorization::Deny,
+        _ => Authorization::Allow,
+    }));
+}
+
+pub(crate) fn to_sql(v: &Value) -> SqlValue {
     match v {
         Value::Null => SqlValue::Null,
         Value::Bool(b) => SqlValue::Integer(*b as i64),
@@ -40,7 +52,7 @@ fn to_sql(v: &Value) -> SqlValue {
     }
 }
 
-fn from_sql(v: rusqlite::types::ValueRef) -> Value {
+pub(crate) fn from_sql(v: rusqlite::types::ValueRef) -> Value {
     use rusqlite::types::ValueRef::*;
     match v {
         Null => Value::Null,
@@ -76,20 +88,20 @@ fn run_execute(conn: &Connection, sql: &str, params: &[Value]) -> Result<usize, 
     stmt.execute(rusqlite::params_from_iter(values)).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn db_select(db: State<Db>, sql: String, params: Vec<Value>) -> Result<Vec<Map<String, Value>>, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     run_select(&conn, &sql, &params)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn db_execute(db: State<Db>, sql: String, params: Vec<Value>) -> Result<usize, String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     run_execute(&conn, &sql, &params)
 }
 
 /// Runs SQL with no parameters, possibly several statements (migrations).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn db_script(db: State<Db>, sql: String) -> Result<(), String> {
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     conn.execute_batch(&sql).map_err(|e| e.to_string())
@@ -103,7 +115,7 @@ pub struct Statement {
 }
 
 /// Several writes in one transaction: all of them land, or none.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn db_batch(db: State<Db>, statements: Vec<Statement>) -> Result<usize, String> {
     let mut conn = db.conn.lock().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
@@ -115,14 +127,15 @@ pub fn db_batch(db: State<Db>, statements: Vec<Statement>) -> Result<usize, Stri
     Ok(total)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn db_path(db: State<Db>) -> String {
     db.path.to_string_lossy().into_owned()
 }
 
 /// Copies the live database to a file, safely while it's in use.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn db_backup(db: State<Db>, to: String) -> Result<(), String> {
+    let to = crate::files::guard(&to)?;
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
     let mut dest = Connection::open(&to).map_err(|e| e.to_string())?;
     let backup = rusqlite::backup::Backup::new(&conn, &mut dest).map_err(|e| e.to_string())?;
@@ -196,14 +209,17 @@ pub fn restore_into(conn: &mut Connection, live: &std::path::Path, from: &std::p
 }
 
 /// Settings → Your data → Restore: swaps in a backup from another computer (or an earlier day).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn db_restore(db: State<Db>, from: String) -> Result<(), String> {
+    let from = crate::files::guard(&from)?;
     let mut conn = db.conn.lock().map_err(|e| e.to_string())?;
-    restore_into(&mut conn, &db.path, std::path::Path::new(&from))
+    restore_into(&mut conn, &db.path, &from)?;
+    // A paired phone's place in the old history means nothing now: it starts over with a snapshot.
+    crate::sync::prepare(&conn).and_then(|_| crate::sync::new_epoch(&conn))
 }
 
 /// Removes the copy restoring kept (delete-all-data leaves nothing behind).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn db_forget_previous(db: State<Db>) -> Result<(), String> {
     match std::fs::remove_file(previous_path(&db.path)) {
         Ok(()) => Ok(()),
@@ -258,6 +274,21 @@ mod tests {
         let previous = Connection::open(previous_path(&live_path)).unwrap();
         assert_eq!(ride(&previous), "Here");
         assert!(!d.join("lactic-restoring.db").exists());
+    }
+
+    #[test]
+    fn sql_cant_open_other_files() {
+        let d = dir("confine");
+        let db = Db::open(d.join("lactic.db")).unwrap();
+        let conn = db.conn.lock().unwrap();
+        conn.execute_batch("CREATE TABLE t (x); INSERT INTO t VALUES (1);").unwrap();
+        let other = d.join("other.db");
+        assert!(conn.execute_batch(&format!("ATTACH DATABASE '{}' AS o", other.display())).is_err());
+        assert!(conn.execute_batch(&format!("VACUUM INTO '{}'", d.join("copy.db").display())).is_err());
+        assert!(!other.exists() && !d.join("copy.db").exists());
+        conn.execute_batch("VACUUM").unwrap();
+        let n: i64 = conn.query_row("SELECT count(*) FROM t", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 1);
     }
 
     #[test]

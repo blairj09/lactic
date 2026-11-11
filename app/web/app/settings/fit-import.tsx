@@ -3,8 +3,7 @@
 import { fileInput } from "@/components/ui";
 import { useState } from "react";
 import { gunzipSync, unzipSync } from "fflate";
-import { decodeFit, FIT_SPORT_CYCLING } from "@/lib/fit/decode";
-import { rideFromFit, type ImportedRide } from "@/lib/fit/ride";
+import { RIDE_FILE, rideFromFile, type ImportedRide } from "@/lib/fit/ride";
 import { importRides } from "../actions";
 
 const BATCH = 25;
@@ -32,15 +31,12 @@ export default function FitImport() {
         continue;
       }
       const archive = /\.zip$/i.test(file.name);
-      if (archive && !entries.length) note(`${file.name}: no .fit files inside.`);
+      if (archive && !entries.length) note(`${file.name}: no ride files inside.`);
       for (const entry of entries) {
         try {
-          const fit = decodeFit(entry.gzipped ? gunzipSync(entry.bytes) : entry.bytes);
-          if (fit.sport !== undefined && fit.sport !== FIT_SPORT_CYCLING) {
-            skipped++;
-            continue;
-          }
-          rides.push(rideFromFit(fit, entry.name.replace(/\.gz$/i, "")));
+          const ride = rideFromFile(entry.gzipped ? gunzipSync(entry.bytes) : entry.bytes, entry.name);
+          if (ride) rides.push(ride);
+          else skipped++;
         } catch (e) {
           // One bad file in a big archive is noted as a count, not a line each.
           if (archive) failed++;
@@ -64,7 +60,7 @@ export default function FitImport() {
       <input
         type="file"
         multiple
-        accept=".fit,.gz,.zip"
+        accept=".fit,.gpx,.tcx,.gz,.zip"
         disabled={busy}
         className={fileInput}
         onChange={(e) => {
@@ -85,7 +81,7 @@ export default function FitImport() {
   );
 }
 
-/** One FIT file to read; ones from inside a zip are unpacked as they're read. */
+/** One ride file to read; ones from inside a zip are unpacked as they're read. */
 interface FitEntry {
   name: string;
   bytes: Uint8Array;
@@ -93,8 +89,8 @@ interface FitEntry {
 }
 
 /**
- * The FIT files in what was picked: the file itself, or every .fit and .fit.gz inside a .zip (Strava's
- * archive keeps rides as activities/123.fit.gz; Garmin's nests zips of .fit files).
+ * The ride files in what was picked: the file itself, or every .fit, .gpx and .tcx (gzipped or not)
+ * inside a .zip (Strava's archive keeps rides as activities/123.fit.gz or .gpx; Garmin's nests zips).
  */
 async function readFitFiles(file: File): Promise<FitEntry[]> {
   if (!/\.zip$/i.test(file.name)) return [{ name: file.name, bytes: await readBytes(file) }];
@@ -102,7 +98,7 @@ async function readFitFiles(file: File): Promise<FitEntry[]> {
 }
 
 function fitsInZip(zip: Uint8Array, depth = 0): FitEntry[] {
-  const wanted = (name: string) => /\.(fit|fit\.gz)$/i.test(name) || (depth < 2 && /\.zip$/i.test(name));
+  const wanted = (name: string) => RIDE_FILE.test(name) || (depth < 2 && /\.zip$/i.test(name));
   const files = unzipSync(zip, { filter: (f) => wanted(f.name) });
   return Object.entries(files).flatMap(([path, bytes]) => {
     const name = path.split("/").pop() ?? path;

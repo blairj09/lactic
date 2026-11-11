@@ -1,3 +1,4 @@
 {
-  "outputDirectory": "."
+  "outputDirectory": ".",
+  "ignoreCommand": "node scripts/should-build.mjs"
 }

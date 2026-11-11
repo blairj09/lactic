@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Merged into the iPhone app's Info.plist (Info.plist beside it covers Bluetooth for both). -->
+<plist version="1.0">
+<dict>
+  <key>NSHealthShareUsageDescription</key>
+  <string>Lactic reads your sleep, HRV, resting heart rate, breathing, wrist temperature, heart rate, steps and VO2 max to work out how recovered you are each morning.</string>
+  <key>NSHealthUpdateUsageDescription</key>
+  <string>Lactic saves your rides to Health as cycling workouts, with heart rate, power, cadence, distance and energy.</string>
+  <key>NSCameraUsageDescription</key>
+  <string>Lactic uses the camera to scan the pairing code your computer shows.</string>
+  <!-- The link to the computer is plain HTTP on the local network, every request sealed with AES-GCM. -->
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+  </dict>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Lactic finds Lactic on your computer nearby and syncs with it over Wi-Fi.</string>
+  <!-- The direct link (Direct.swift): Lactic on a Mac nearby, over the network or peer-to-peer Wi-Fi. -->
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_lactic._tcp</string>
+  </array>
+  <!-- Lactic's iCloud container (the sync fallback, Mailbox.swift). Shown in iCloud Drive as
+       "Lactic" so the Mac keeps it in step too; it only holds encrypted sync files. -->
+  <key>NSUbiquitousContainers</key>
+  <dict>
+    <key>iCloud.fit.lactic.app</key>
+    <dict>
+      <key>NSUbiquitousContainerIsDocumentScopePublic</key>
+      <true/>
+      <key>NSUbiquitousContainerName</key>
+      <string>Lactic</string>
+      <key>NSUbiquitousContainerSupportedFolderLevels</key>
+      <string>Any</string>
+    </dict>
+  </dict>
+  <key>UIBackgroundModes</key>
+  <array>
+    <!-- Keeps the trainer and sensors connected when the screen locks mid-ride. -->
+    <string>bluetooth-central</string>
+  </array>
+  <key>UIRequiredDeviceCapabilities</key>
+  <array>
+    <string>bluetooth-le</string>
+  </array>
+  <key>UISupportedInterfaceOrientations</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+  <!-- AES-GCM from Apple's CryptoKit, only to protect the rider's own data between their devices: exempt. -->
+  <key>ITSAppUsesNonExemptEncryption</key>
+  <false/>
+</dict>
+</plist>

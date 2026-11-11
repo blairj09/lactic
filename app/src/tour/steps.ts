@@ -41,7 +41,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/progress",
     target: "progress",
     title: "Progress",
-    body: "Fitness, power curve and profile over any range, and every ride. Open a ride for its charts and map.",
+    body: "Trends shows fitness, power curve and profile over any range. Rides has every ride on a calendar or as a list; open one for its charts and map.",
   },
   {
     id: "health",
@@ -99,7 +99,7 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/ride",
     target: "ride-pick",
     title: "What to ride",
-    body: "Today's workout comes first. Or pick another, import a .zwo, or free ride at one ERG target.",
+    body: "Today's workout comes first. Or pick another, import a workout file, or free ride at one ERG target.",
   },
   {
     id: "ride-player",
@@ -132,6 +132,9 @@ export const TOUR_STEPS: TourStep[] = [
 ];
 
 /** The stops for this coach mode, without Health when the rider tracks neither recovery nor weight. */
+/** The first real stop, past the "A quick look around" card: for when the rider just asked for the tour. */
+export const FIRST_STOP = 1;
+
 export const stepsFor = (mode: CoachMode, tracking: Features = ALL_FEATURES) =>
   TOUR_STEPS.filter((s) => (!s.coach || s.coach.includes(mode)) && (s.id !== "health" || hasHealth(tracking))).map((s) =>
     s.id === "health" && !(tracking.recovery && tracking.weight)

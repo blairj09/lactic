@@ -30,10 +30,32 @@ export function zoneFromIntensity(intensityFactor: number | null): Zone | null {
   return "vo2max";
 }
 
-/** The ride's type: the workout it was planned or logged as, else a guess from its intensity. */
-export function rideType(plannedZone: Zone | null, intensityFactor: number | null): { zone: Zone; estimated: boolean } | null {
+/** Words in a workout's name that say its zone ("Sweet spot 3 × 12", "SST", "2x20 threshold"), hardest-sounding first. */
+const NAME_ZONES: [RegExp, Zone][] = [
+  [/\b(sweet ?spot|sst)\b/i, "sweetSpot"],
+  [/\b(vo2 ?max|vo2)\b/i, "vo2max"],
+  [/\banaerobic\b/i, "anaerobic"],
+  [/\bthreshold\b/i, "threshold"],
+  [/\btempo\b/i, "tempo"],
+  [/\bendurance\b/i, "endurance"],
+  [/\brecovery\b/i, "recovery"],
+];
+
+/** The zone a ride's name names, if it names exactly one kind of workout. */
+export function zoneFromName(name: string | null): Zone | null {
+  if (!name) return null;
+  const found = new Set(NAME_ZONES.filter(([re]) => re.test(name)).map(([, zone]) => zone));
+  return found.size === 1 ? [...found][0] : null;
+}
+
+/**
+ * The ride's type: the workout it was planned or logged as, else a guess from the workout its name names, else
+ * from its intensity. The name comes before intensity because a ride of hard intervals with easy recoveries
+ * between them reads a zone lower than its intervals, and the ride's FTP may have moved since it was set.
+ */
+export function rideType(plannedZone: Zone | null, intensityFactor: number | null, name: string | null = null): { zone: Zone; estimated: boolean } | null {
   if (plannedZone && ZONES.includes(plannedZone)) return { zone: plannedZone, estimated: false };
-  const zone = zoneFromIntensity(intensityFactor);
+  const zone = zoneFromName(name) ?? zoneFromIntensity(intensityFactor);
   return zone ? { zone, estimated: true } : null;
 }
 

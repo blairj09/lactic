@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Lactic",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "identifier": "fit.lactic.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -20,11 +20,27 @@
         "minHeight": 600,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "zoomHotkeysEnabled": true
       }
     ],
     "security": {
-      "csp": null
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self' 'wasm-unsafe-eval'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: blob: asset: http://asset.localhost https://tile.openstreetmap.org",
+        "font-src": "'self' data:",
+        "media-src": "'self' data: blob:",
+        "worker-src": "'self' blob:",
+        "connect-src": "'self' ipc: http://ipc.localhost data: blob:",
+        "object-src": "'none'",
+        "frame-src": "'none'",
+        "base-uri": "'self'",
+        "form-action": "'none'"
+      },
+      "devCsp": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: ipc: asset: http: https: ws:",
+      "dangerousDisableAssetCspModification": ["style-src"]
     }
   },
   "bundle": {
@@ -36,6 +52,11 @@
     "shortDescription": "Open-source cycling coach",
     "longDescription": "Plans, workouts with your smart trainer, recovery and an AI coach you bring yourself. Your data stays on your computer.",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "iOS": {
+      "minimumSystemVersion": "16.0",
+      "developmentTeam": "PXC4RTM468",
+      "frameworks": ["CoreBluetooth", "HealthKit", "AVFoundation", "UserNotifications", "WidgetKit", "WatchConnectivity"]
+    },
     "macOS": {
       "minimumSystemVersion": "11.0",
       "signingIdentity": "-",

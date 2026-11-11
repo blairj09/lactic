@@ -160,25 +160,24 @@ export function TodayOptions({ result, pick, reasons }: { result: CheckinResult;
   );
 }
 
-export function SessionLine({ session }: { session: Session | null }) {
+/** The session in one line. `named={false}` where the workout's name is already the heading above it. */
+export function SessionLine({ session, named = true, note }: { session: Session | null; named?: boolean; note?: string }) {
   if (!session) return <p className="text-sm text-muted">Rest</p>;
-  const level = session.zone === "endurance" || session.zone === "recovery" ? "" : ` · ${ZONE_LABELS[session.zone]} level ${session.level}`;
-  return (
-    <p className="num text-sm text-muted">
-      {session.workout.name}
-      {!session.workout.name.includes(`${Math.round(session.duration / 60)} min`) && ` · ${Math.round(session.duration / 60)} min`} · {Math.round(session.stress)} TSS{level}
-    </p>
-  );
+  const level = session.zone === "endurance" || session.zone === "recovery" ? "" : `${ZONE_LABELS[session.zone]} level ${session.level}`;
+  const minutes = `${Math.round(session.duration / 60)} min`;
+  const parts = [named && session.workout.name, !session.workout.name.includes(minutes) && minutes, `${Math.round(session.stress)} TSS`, level, note].filter(Boolean);
+  return <p className="num text-sm text-muted">{parts.join(" · ")}</p>;
 }
 
 /** Today's chosen session, ready to ride. */
-export function ChosenSession({ session, day, ftp, action }: { session: Session | null; day: string; ftp?: number | null; action?: React.ReactNode }) {
+export function ChosenSession({ session, day, ftp, action, named = true, extra }: { session: Session | null; day: string; ftp?: number | null; action?: React.ReactNode; named?: boolean; extra?: React.ReactNode }) {
   return (
     <div className="space-y-4">
-      <SessionLine session={session} />
+      <SessionLine session={session} named={named} />
       {session && (
         <>
-          <WorkoutProfile workout={session.workout} height={88} details ftp={ftp} />
+          <WorkoutProfile workout={session.workout} height={88} details ftp={ftp} fit />
+          {extra}
           {action ?? (
             <Link href={`/ride?day=${day}`} className={button.primary}>
               Start ride

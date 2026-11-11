@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
-import { setLiveRide } from "@/lib/live-ride";
+import { isRiding, setLiveRide } from "@/lib/live-ride";
 import { POWER_SOURCE_PREF, SensorHub, isWebBluetoothAvailable, type PowerSource } from "@/lib/ble/sensor-hub";
 import { rampTestFtp, twentyMinuteTestFtp } from "@/lib/engine/ftp";
 import { isRampTest, type Levels, type Session } from "@/lib/engine/library";
 import { intervalAt, intervals, scaleWorkout, targetWattsAt, workoutDuration, type Workout } from "@/lib/engine/workout";
-import { parseZwo } from "@/lib/engine/zwo";
+import { workoutFromFile } from "@/lib/engine/erg";
 import { AutoPause, easeIn } from "@/lib/ride/auto-pause";
 import { AutoStart } from "@/lib/ride/auto-start";
 import { BLOCKS, DEFAULT_BLOCK, EXTEND_KINDS, clampMinutes, defaultExtendWatts, extendWorkout, extensionMinutes, type ExtendKind, type Extension } from "@/lib/ride/extend";
@@ -32,6 +32,9 @@ import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type Ride
 import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
+import { RemoteHost } from "~/ride/remote";
+import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
+import { isDesktop, isPhone } from "~/platform/native";
 import { isDemo } from "~/demo/flag";
 import type { TracePoint } from "./workout-chart";
 import WorkoutEditor from "./workout-editor";
@@ -73,7 +76,30 @@ function writePref(key: string, value: string) {
   } catch {}
 }
 
-export default function RideScreen({
+type RideScreenProps = Parameters<typeof RideOnThisDevice>[0];
+
+/**
+ * The Ride tab. On an iPhone paired with a computer whose Ride page is open, the computer holds the
+ * trainer: the tab opens the remote for that ride instead of a second ride screen reaching for it.
+ */
+export default function RideScreen(props: RideScreenProps) {
+  const away = useComputerRide();
+  if (away && isPhone() && !isRiding()) return <RidingOnComputerPage ride={away} />;
+  return <RideOnThisDevice {...props} />;
+}
+
+function RidingOnComputerPage({ ride }: { ride: AwayRide }) {
+  return (
+    <>
+      <Nav current="/ride" />
+      <Page>
+        <RidingOnComputer ride={ride} />
+      </Page>
+    </>
+  );
+}
+
+function RideOnThisDevice({
   initialFtp,
   canSave,
   planned = null,
@@ -576,11 +602,11 @@ export default function RideScreen({
     } else setError(result.message);
   };
 
-  /** Imports a .zwo file into My workouts (signed in) and loads it. */
+  /** Imports a .zwo, .erg or .mrc file into My workouts (signed in) and loads it. */
   const importZwo = async (picked: File) => {
     let workout: Workout;
     try {
-      workout = parseZwo(await picked.text());
+      workout = workoutFromFile(await picked.text(), picked.name, ftp);
     } catch (e) {
       setError(`Couldn't read that workout: ${String(e)}`);
       return;
@@ -983,7 +1009,9 @@ export default function RideScreen({
                       </>
                     ) : (
                       <p className="text-sm text-muted">
-                        {isDemo
+                        {isPhone()
+                          ? "On iPhone the ride screen is the overlay: iOS doesn't let apps float a window over other apps. Ride Zwift on your computer and keep this screen in view."
+                          : isDemo
                           ? "In the app, a small window with the interval, targets and what's next stays on top of whatever else you have open: Zwift, a video, a browser."
                           : "The overlay needs Chrome 116 or later on a desktop."}
                       </p>
@@ -1043,6 +1071,7 @@ export default function RideScreen({
           </Panel>
         </div>
         {pip.pip && <OverlayPortal pip={pip.pip} data={data} controls={controls} onResize={resizeOverlay} />}
+        {isDesktop && !isPhone() && <RemoteHost data={data} controls={controls} />}
       </Page>
     </div>
   );

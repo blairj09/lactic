@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ExperimentalTag } from "@/components/experimental-tag";
+import { StravaRideLink } from "~/settings/strava-post-button";
 import { experiments } from "@/lib/experiments";
 import WorkoutProfile from "@/components/workout-profile";
 import {
@@ -25,6 +26,7 @@ import { DIFFICULTY_LABELS, RPE_LABELS } from "@/lib/engine/feedback";
 import { BLOCK_CHECK_LABELS, EXECUTION_GRADE_LABELS, executionGrade, rideExecution, type BlockCheck, type Execution } from "@/lib/engine/execution";
 import { ZONE_LABELS } from "@/lib/engine/library";
 import { addDays } from "@/lib/engine/pmc";
+import { eventOnDay } from "@/lib/engine/race/followup";
 import { mergeCurves } from "@/lib/engine/power";
 import {
   completion,
@@ -34,7 +36,7 @@ import {
   type RideInterval,
 } from "@/lib/engine/ride-detail";
 import type { Workout } from "@/lib/engine/workout";
-import { formatDay, formatDuration, intervalsUrl, SOURCE_LABEL } from "@/lib/format";
+import { formatDay, formatDuration, intervalsUrl, sourceLabel } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import {
   complianceDays,
@@ -94,6 +96,8 @@ export default async function RideDetail({
     counted && !state.rideLinks.has(counted.id) && mark?.mark === "unplanned"
       ? suggestDay(around, day, state.today)
       : null;
+  // A ride on an event's day was the race: its report is the main thing to open.
+  const raced = counted && !ride.duplicateOf ? eventOnDay(state.goals, countsOn) : null;
   const answer =
     state.feedback.find((f) => f.rideId === (counted?.id ?? ride.id)) ?? null;
 
@@ -128,7 +132,7 @@ export default async function RideDetail({
         line={
           <>
             {formatDay(ride.startedAt, tz)} at {time(ride.startedAt, tz)} ·{" "}
-            {SOURCE_LABEL[ride.source] ?? ride.source}
+            {sourceLabel(ride.source)}
             {intervalsId && (
               <>
                 {" · "}
@@ -138,10 +142,11 @@ export default async function RideDetail({
                   rel="noreferrer"
                   className="underline decoration-rule underline-offset-2 hover:text-ink"
                 >
-                  Open in intervals.icu
+                  View on intervals.icu
                 </a>
               </>
             )}
+            {ride.source === "app" && <StravaRideLink rideId={ride.id} />}
             {ride.duplicateOf && (
               <>
                 {" "}
@@ -161,7 +166,7 @@ export default async function RideDetail({
         actions={
           <>
             {stream?.route && experiments().race_report && (
-              <Link href={`/rides/${ride.id}/race`} className={`${button.secondary} gap-2`}>
+              <Link href={`/rides/${ride.id}/race`} className={`${raced ? button.primary : button.secondary} gap-2`} title={raced ? `See how ${raced.name} went` : undefined}>
                 Race report
                 <ExperimentalTag />
               </Link>

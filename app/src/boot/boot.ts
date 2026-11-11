@@ -6,7 +6,7 @@ import { createElement } from "react";
 import { readTheme, setTheme } from "@shared/theme";
 import { setSql } from "~/db/sql";
 import { migrate } from "~/db/migrate";
-import { isDesktop, appInfo, setOs } from "~/platform/native";
+import { isDesktop, appInfo, invoke, setOs } from "~/platform/native";
 import { tauriSql } from "~/platform/tauri-sql";
 import { installFetch } from "~/platform/fetch";
 import { installWebBluetooth } from "~/bluetooth/web-bluetooth";
@@ -14,12 +14,14 @@ import { registerRoutes } from "./routes";
 import { applyEnv } from "./env";
 import { isDemo } from "~/demo/flag";
 import { hideLoader } from "./loader";
+import { applySharedPrefs, installSharedPrefs } from "~/settings/shared-prefs";
 
 export async function boot() {
   setTheme(readTheme());
   const info = await appInfo().catch(() => null);
   if (info) setOs(info.os);
   if (info?.os === "macos") document.documentElement.dataset.desktop = "macos";
+  if (info?.mobile) document.documentElement.dataset.phone = "ios";
   const root = createRoot(document.getElementById("root")!);
   try {
     await start(root);
@@ -38,7 +40,12 @@ async function start(root: ReturnType<typeof createRoot>) {
       db = await openSqlJs({ wasmUrl: wasm, persist: !isDemo });
     }
     await migrate(db);
+    // Notes each change for a paired iPhone (src-tauri/src/sync.rs).
+    if (isDesktop) await invoke("sync_prepare").catch((e) => console.error("sync_prepare", e));
     setSql(db);
+    // Units and a few ride habits follow the rider to a paired iPhone (settings/shared-prefs.ts).
+    installSharedPrefs();
+    await applySharedPrefs().catch((e) => console.error("shared prefs", e));
     installFetch();
     await installWebBluetooth();
     registerRoutes();

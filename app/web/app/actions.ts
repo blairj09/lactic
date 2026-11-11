@@ -10,7 +10,7 @@ import { pushPlan } from "@/lib/intervals/push";
 import { encodeRideFit } from "@/lib/fit/encode";
 import { addDays } from "@/lib/engine/pmc";
 import { readWorkout } from "@/lib/engine/workout-edit";
-import { chartStream, MAX_ROUTE_POINTS, rideIntervals, type RoutePoint } from "@/lib/engine/ride-detail";
+import { chartStream, MAX_ROUTE_POINTS, lapStarts, rideIntervals, type RoutePoint } from "@/lib/engine/ride-detail";
 import { createIngestToken } from "@/lib/recovery-data";
 import { loadTrainingState, ridesFor, sessionFor } from "@/lib/training";
 import { firstTestDay, ftpIsGuess, retestDay } from "@/lib/engine/ftp-check";
@@ -112,6 +112,9 @@ export async function saveAppRide(input: {
     const interval = sameLength(input.interval)?.map((v) => (Number.isInteger(v) && v >= 0 ? v : -1)) ?? null;
     const workout = input.workout ? readWorkout(input.workout) : null;
     const summary = summarizeRide({ ...stream, hasPower: stream.watts.some((w) => w > 0), hasHeartRate: stream.heartRate.some((h) => h > 0) });
+    const blocks = workout && target && interval ? rideIntervals(workout, { interval, target, ...stream, cadence }) : null;
+    // Each workout block is a lap in the file sent to intervals.icu and Strava.
+    const fit = () => encodeRideFit({ startedAt: new Date(input.startedAt), ...stream, cadence, laps: lapStarts(blocks) });
     const supabase = await createClient();
     const { ids } = await storeRides(supabase, [
       {
@@ -124,7 +127,7 @@ export async function saveAppRide(input: {
         stream: {
           ...chartStream({ ...stream, cadence, target: target ?? undefined }),
           workout,
-          intervals: workout && target && interval ? rideIntervals(workout, { interval, target, ...stream, cadence }) : null,
+          intervals: blocks,
         },
       },
     ]);
@@ -132,14 +135,14 @@ export async function saveAppRide(input: {
     // Sent on a later sync, unless Zwift sends the same ride first. The ride is saved either way.
     try {
       const icu = await intervals.loadConnection(supabase);
-      if (icu?.uploadRides && ids[0]) await intervals.queueRide(supabase, ids[0], encodeRideFit({ startedAt: new Date(input.startedAt), ...stream, cadence }));
+      if (icu?.uploadRides && ids[0]) await intervals.queueRide(supabase, ids[0], fit());
     } catch (e) {
       console.error("Couldn't queue the ride for intervals.icu:", e);
     }
     // Posted to Strava as a Lactic activity, when Strava is connected (an experiment for now).
     try {
       const strava = await import("~/integrations/strava");
-      if (ids[0]) await strava.queueStravaRide(ids[0], encodeRideFit({ startedAt: new Date(input.startedAt), ...stream, cadence }));
+      if (ids[0]) await strava.queueStravaRide(ids[0], fit());
     } catch (e) {
       console.error("Couldn't queue the ride for Strava:", e);
     }

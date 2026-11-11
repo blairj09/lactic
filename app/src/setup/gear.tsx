@@ -9,6 +9,7 @@ import { identifyScale, SCALE_FAMILIES, SCALE_FAMILY_ORDER } from "@/lib/scale/m
 import { fullUuid } from "~/bluetooth/backend";
 import { useNearby } from "~/bluetooth/picker";
 import { ble, grant, scanning, simEnabled, type Seen } from "~/bluetooth/web-bluetooth";
+import { isPhone } from "~/platform/native";
 
 const SLOTS: { key: DeviceKey; label: string; service: number; wake: string; note?: string }[] = [
   { key: "trainer", label: "Smart trainer", service: 0x1826, wake: "Spin the pedals to wake it." },
@@ -75,7 +76,7 @@ export function GearSetup({ scale = true }: { scale?: boolean }) {
 
   return (
     <div className="space-y-5">
-      {status && !status.available && !sim && <Notice>Lactic can&apos;t reach Bluetooth ({(status.reason ?? "it's off").replace(/\.$/, "")}). Turn Bluetooth on in your computer's settings, then come back.</Notice>}
+      {status && !status.available && !sim && <Notice>Lactic can&apos;t reach Bluetooth ({(status.reason ?? "it's off").replace(/\.$/, "")}). Turn Bluetooth on in your {isPhone() ? "iPhone" : "computer"}'s settings, then come back.</Notice>}
       <ul className="divide-y divide-line rounded-lg border border-line">
         {SLOTS.filter((slot) => scale || slot.key !== "scale").map((slot) => {
           const chosen = mine[slot.key];

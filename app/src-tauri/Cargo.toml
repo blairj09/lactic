@@ -1,6 +1,6 @@
 [package]
 name = "lactic"
-version = "0.1.5"
+version = "0.2.0"
 description = "Lactic: an open-source cycling coach for your computer"
 authors = ["James Blair"]
 license = "MIT"
@@ -18,10 +18,9 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
-tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rusqlite = { version = "0.32", features = ["bundled", "backup"] }
+rusqlite = { version = "0.32", features = ["bundled", "backup", "hooks"] }
 btleplug = { version = "0.11", features = ["serde"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "io-std"] }
 futures = "0.3"
@@ -33,11 +32,29 @@ axum = "0.8"
 rand = "0.8"
 dirs = "5"
 os_info = { version = "3", default-features = false }
+aes-gcm = "0.10"
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+hkdf = "0.12"
+sha2 = "0.10"
+if-addrs = "0.13"
+
+# Desktop only: one window per computer, self-updates (the iPhone app updates through the App Store).
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 
+# The iPhone app: the pairing QR code, and Apple Health plus the link to the computer.
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-barcode-scanner = "2"
+tauri-plugin-lactic-phone = { path = "plugins/lactic-phone" }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder"] }
+# The iPhone's direct Wi-Fi link (AirDrop-style, phone.rs `direct`): a socket that also takes
+# peer-to-peer Wi-Fi, advertised over Bonjour.
+libc = "0.2"
+socket2 = "0.6"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"

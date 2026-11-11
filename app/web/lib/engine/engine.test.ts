@@ -182,9 +182,9 @@ describe("recovery", () => {
   it("scores low HRV, high RHR and short sleep as poor, and explains why", () => {
     const result = recoveryScore({ hrv: 45, restingHeartRate: 56, sleepHours: 5.5 }, baseline)!;
     expect(result.score).toBeLessThan(15);
-    expect(result.reasons[0]).toMatch(/^HRV \d+% below your normal$/);
-    expect(result.reasons).toContain("Resting HR 6 bpm above normal");
-    expect(result.reasons).toContain("Slept 5h30");
+    expect(result.reasons[0]).toMatch(/^HRV \d+% below your usual$/);
+    expect(result.reasons).toContain("Resting HR 6 bpm above usual");
+    expect(result.reasons).toContain("Slept 5h 30m");
   });
 
   it("needs a week of nights before comparing wrist temperature", () => {
@@ -198,7 +198,7 @@ describe("recovery", () => {
     expect(tempDeltaC({ wristTempC: 36.1 }, wrist)).toBeCloseTo(0.6);
     expect(tempDeltaC({ wristTempC: 36.1 }, baseline)).toBeNull();
     const result = recoveryScore({ hrv: 60, restingHeartRate: 50, sleepHours: 8, wristTempC: 36.1 }, wrist)!;
-    expect(result.reasons.at(-1)).toBe("Wrist temp +0.6 °C above normal");
+    expect(result.reasons.at(-1)).toBe("Wrist temp +0.6 °C above usual");
   });
 
   it("lowers the score a little when breathing runs fast", () => {
@@ -207,7 +207,7 @@ describe("recovery", () => {
     const fast = recoveryScore({ hrv: 60, restingHeartRate: 50, sleepHours: 8, respiratoryRate: 16 }, breathing)!;
     expect(fast.score).toBeLessThan(normal.score);
     expect(normal.score - fast.score).toBeLessThanOrEqual(10);
-    expect(fast.reasons).toContain("Breathing rate 2.0/min above normal");
+    expect(fast.reasons).toContain("Breathing rate 2.0/min above usual");
   });
 
   it("needs a baseline before scoring HRV or RHR", () => {

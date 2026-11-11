@@ -1,5 +1,7 @@
 // Sleep score, sleep debt and regularity from the nights Apple Health sends.
 
+import { addDays } from "./pmc";
+
 export interface SleepNight {
   day: string;
   asleepHours: number | null;
@@ -69,11 +71,13 @@ export function sleepScore(night: SleepNight, previous: SleepNight[], sleepNeedH
 
 /**
  * Hours of sleep owed: over the last `days` nights, each night's shortfall against your need, less
- * any extra sleep (which pays debt back at half rate). Never below zero.
+ * any extra sleep (which pays debt back at half rate). Never below zero. With `today`, the window is
+ * the `days` dates ending today, so missing nights don't pull older ones in.
  */
-export function sleepDebt(nights: SleepNight[], sleepNeedHours: number, days = 7): number {
+export function sleepDebt(nights: SleepNight[], sleepNeedHours: number, days = 7, today?: string): number {
+  const window = today ? nights.filter((n) => n.day <= today && n.day > addDays(today, -days)) : nights.slice(-days);
   let debt = 0;
-  for (const n of nights.slice(-days)) {
+  for (const n of window) {
     if (n.asleepHours === null) continue;
     const gap = sleepNeedHours - n.asleepHours;
     debt = Math.max(0, debt + (gap > 0 ? gap : gap / 2));
