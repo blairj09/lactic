@@ -10,7 +10,7 @@ export function vo2maxFromPower(fiveMinuteWatts: number, weightKg: number): numb
   return Math.round((10.8 * (fiveMinuteWatts / weightKg) + 7) * 10) / 10;
 }
 
-// Mean measured VO2 peak by age band in the HUNT fitness study (Loe et al., 2013, MSSE 45:1141),
+// Mean measured VO2 peak by age band in the HUNT fitness study (Loe et al., 2013, PLoS One 8:e64319),
 // at each band's midpoint.
 const NORMS: Record<"male" | "female", [number, number][]> = {
   male: [[25, 54.4], [35, 49.0], [45, 47.7], [55, 42.6], [65, 39.0], [75, 35.0]],
