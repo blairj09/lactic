@@ -127,6 +127,14 @@ lactic.register({
     Promise.resolve().then(function () { for (;;) {} });
     return result(0);
   },
+  // One native step QuickJS can't interrupt that still finishes, hoping a late answer counts.
+  slowNative: function () {
+    return result(String(7n ** 100000n).length > 0 ? 0 : 0);
+  },
+  // Catastrophic regex backtracking.
+  redos: function () {
+    return result(/(a+)+$/.test(new Array(40).join("a") + "b") ? 1 : 0);
+  },
   // Lie about a timeout.
   fakeTimeout: function () {
     throw new Error("interrupted");

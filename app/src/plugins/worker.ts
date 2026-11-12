@@ -9,6 +9,7 @@ import releaseSync from "@jitl/quickjs-wasmfile-release-sync";
 import wasmUrl from "@jitl/quickjs-wasmfile-release-sync/wasm?url";
 import type { HostToWorker, WorkerToHost } from "./protocol";
 import { handleMessage, type WorkerState } from "./worker-core";
+import { lockDown } from "./lockdown";
 
 // The app's tsconfig uses the DOM lib, so describe just the worker scope this file touches.
 declare const self: typeof globalThis & {
@@ -16,25 +17,15 @@ declare const self: typeof globalThis & {
   onmessage: ((ev: MessageEvent<HostToWorker>) => void) | null;
 };
 
-const LOCKED = ["fetch", "XMLHttpRequest", "WebSocket", "WebTransport", "EventSource", "importScripts", "indexedDB", "caches", "BroadcastChannel", "Worker", "SharedWorker"];
-
-function lockDown() {
-  for (const key of LOCKED) {
-    try {
-      Object.defineProperty(self, key, { value: undefined, writable: false, configurable: false });
-    } catch {
-      /* not present in this browser */
-    }
-  }
-}
-
+// The worker runs from a blob: wrapper (spawn.ts), so a bare "/assets/…" path has no base: resolve it
+// against this script's own address.
 let modulePromise: Promise<QuickJSWASMModule> | null = null;
 const state: WorkerState = { runtime: null };
 
 self.onmessage = async (ev: MessageEvent<HostToWorker>) => {
   if (!modulePromise) {
-    modulePromise = newQuickJSWASMModuleFromVariant(newVariant(releaseSync, { wasmLocation: wasmUrl })).then((m) => {
-      lockDown();
+    modulePromise = newQuickJSWASMModuleFromVariant(newVariant(releaseSync, { wasmLocation: new URL(wasmUrl, import.meta.url).href })).then((m) => {
+      lockDown(self);
       return m;
     });
   }
