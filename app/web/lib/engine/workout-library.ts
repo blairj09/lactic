@@ -4,7 +4,7 @@
 // engine's generated workouts in library.ts), length and planned stress. Targets are fractions of FTP.
 
 import { openers, rampTest, ZONE_LABELS, MAX_LEVEL, MIN_LEVEL, type Session, type Zone } from "./library";
-import { plannedStress, ramp, sprint, steady, workoutDuration, type Segment, type Workout } from "./workout";
+import { alignRamps, plannedStress, ramp, sprint, steady, workoutDuration, type Segment, type Workout } from "./workout";
 
 /** How the library is browsed: the zones, with sprints and tests apart from the anaerobic and VO2 work they count as. */
 export const LIBRARY_CATEGORIES = ["recovery", "endurance", "tempo", "sweetSpot", "threshold", "vo2max", "anaerobic", "sprints", "tests"] as const;
@@ -316,7 +316,7 @@ export const isTwentyMinuteTest = (workout: Workout) => workout.name === TWENTY_
 function toLibrary(entry: Entry): LibraryWorkout {
   // The engine's own sessions where they exist, so the ramp test still sets FTP and openers match the plan's.
   const built = entry.id === "test-ramp" ? rampTest() : entry.id === "openers-45" ? openers(2700) : null;
-  const workout: Workout = built ? built.workout : { name: entry.name, segments: entry.segments };
+  const workout: Workout = built ? built.workout : { name: entry.name, segments: alignRamps(entry.segments) };
   const zone: Zone = built ? built.zone : (entry.zone ?? (entry.category as Zone));
   const level = built ? built.level : (entry.level ?? levelFor(zone, workout) ?? 1);
   return {
