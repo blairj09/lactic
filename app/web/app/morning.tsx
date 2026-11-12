@@ -30,6 +30,8 @@ export interface MorningProps {
   /** One step under another, for a narrow column. */
   stacked?: boolean;
   title?: string;
+  /** False when "How you feel" is asked elsewhere (Today asks it in the workout card, as "Ready for it?"). */
+  askFeel?: boolean;
 }
 
 export interface TodayChoice {
@@ -51,7 +53,7 @@ type Skips = { recovery?: boolean };
  * skipped, so it's written once from the full picture; how you feel rewrites it when it lands.
  * Riding never waits on any of it.
  */
-export default function Morning({ day, recovery, weighedToday = false, brief, today, lastNight, stacked = false, title = "Morning" }: MorningProps) {
+export default function Morning({ day, recovery, weighedToday = false, brief, today, lastNight, stacked = false, title = "Morning", askFeel = true }: MorningProps) {
   const router = useRouter();
   // Recovery is a step only for riders who track it.
   const tracking = useFeatures();
@@ -88,7 +90,7 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
 
   // Once last night is in, the Recovery card shows it, so the step only waits for it.
   const recoveryStep = tracking.recovery && (!recoveryDone || Boolean(lastNight));
-  const stepCount = 1 + Number(recoveryStep);
+  const stepCount = Number(askFeel) + Number(recoveryStep);
   // Last night in brief is a summary, not a step to do, so it isn't numbered.
   const offset = Number(Boolean(lastNight && recoveryDone));
   const feelStep = stepCount - offset;
@@ -104,6 +106,7 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
         ) : undefined
       }
     >
+      {stepCount > 0 && (
       <ol className={`grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line ${stacked ? "" : lastNight && recoveryDone ? LAST_NIGHT_COLUMNS[stepCount] : STEP_COLUMNS[stepCount]}`}>
         {recoveryStep && (
         <Step n={1} title="Recovery" state={recoveryDone ? (lastNight ? "settled" : "done") : recoveryReady ? (skips.recovery ? "skipped" : "settled") : "active"} plain={Boolean(lastNight && recoveryDone)}>
@@ -135,6 +138,7 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
         </Step>
         )}
 
+        {askFeel && (
         <Step n={feelStep} title="How you feel" state={"settled" in today ? "settled" : today.answers ? "done" : "active"}>
           {"settled" in today ? (
             <p>{today.settled}</p>
@@ -142,7 +146,9 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
             <FeelStep key={today.answers?.at ?? "new"} answers={today.answers} plannedMinutes={today.plannedMinutes} coachEnabled={today.coachEnabled} />
           )}
         </Step>
+        )}
       </ol>
+      )}
 
       {brief ? (
         <Brief

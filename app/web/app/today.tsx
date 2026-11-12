@@ -19,7 +19,7 @@ import CompletedRide from "./completed-ride";
 import { exertionTodayFor, todayOptions } from "@/lib/today-options";
 import FtpBanner from "./ftp-banner";
 import { checkFtp } from "@/lib/engine/ftp-check";
-import { ChosenSession, SessionLine } from "./checkin";
+import { ChosenSession, FeelStep, SessionLine } from "./checkin";
 import RideSurvey from "./ride-survey";
 import Morning, { type MorningProps } from "./morning";
 import WeeklyWeighIn from "./weekly-weigh-in";
@@ -84,6 +84,7 @@ export default function TodayView({
   const todaysWeighIn = body ? weighInOn(body, today, athlete.timezone) : undefined;
   const ridden = ridesOn(state, today);
   const survey = ridden ? null : unansweredRide(state);
+  const choice = todayChoice(state, coachEnabled);
   const weekAgo = series.length > 7 ? series[series.length - 8] : undefined;
 
   return (
@@ -101,12 +102,13 @@ export default function TodayView({
       <div className="space-y-4">
         <Morning
           title=""
+          askFeel={false}
           lastNight={recovery?.today ? <RecoverySummary recovery={recovery} variant="wide" /> : undefined}
           day={today}
           recovery={{ in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource }}
           weighedToday={Boolean(todaysWeighIn)}
           brief={brief}
-          today={todayChoice(state, coachEnabled)}
+          today={choice}
         />
 
         {/* Weight isn't part of recovery: a slim card asks once a week, before the week's first ride, when there's no recent weigh-in. */}
@@ -122,7 +124,15 @@ export default function TodayView({
           />
         )}
 
-        <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} exertion={exertionTodayFor(state)} className="" />
+        <TodayWorkout
+          state={state}
+          ridden={ridden}
+          stream={todayStream}
+          intervalsConnected={intervalsConnected}
+          exertion={exertionTodayFor(state)}
+          className=""
+          ready={"settled" in choice ? null : <ReadyCheck today={choice} />}
+        />
 
         <ThisWeek state={state} rideShapes={rideShapes} />
 
@@ -229,6 +239,7 @@ export function TodayWorkout({
   intervalsConnected,
   exertion,
   top,
+  ready = null,
   className = "self-start lg:col-span-2",
 }: {
   state: TrainingState;
@@ -239,6 +250,8 @@ export function TodayWorkout({
   exertion: ExertionToday | null;
   /** A line at the top of the card (option B's "Ready to ride?"). */
   top?: React.ReactNode;
+  /** "Ready for it?": how you feel, asked right above Start ride (its answer changes today's options). */
+  ready?: React.ReactNode;
   className?: string;
 }) {
   const { todayPlan, todayStored, today, rides, athlete } = state;
@@ -305,7 +318,7 @@ export function TodayWorkout({
   } else if (chosen) {
     body = (
       <div className="space-y-4">
-        <ChosenSession session={chosen.session} day={today} ftp={athlete.ftp} named={false} extra={exertionBar} action={<RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} href={`/ride?day=${today}`} />} />
+        <ChosenSession session={chosen.session} day={today} ftp={athlete.ftp} named={false} extra={<>{exertionBar}{ready}</>} action={<RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} href={`/ride?day=${today}`} />} />
       </div>
     );
   } else if (!athlete.ftp) {
@@ -330,6 +343,7 @@ export function TodayWorkout({
         {todayPlan?.course && !todayPlan.why && <p className="text-sm text-muted">{todayPlan.course}</p>}
         <WorkoutProfile workout={planned.workout} height={88} details ftp={athlete.ftp} fit />
         {exertionBar}
+        {ready}
         <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />
       </div>
     ) : (
@@ -382,6 +396,16 @@ function nightValues(today: NonNullable<RecoveryToday["today"]>) {
     today.restingHeartRate !== undefined && `RHR ${Math.round(today.restingHeartRate)}`,
     today.sleepHours !== undefined && `slept ${Math.floor(today.sleepHours)}h${String(Math.round((today.sleepHours % 1) * 60)).padStart(2, "0")}`,
   ].filter(Boolean);
+}
+
+/** How you feel, asked with the workout: the answer reshapes today's options. */
+function ReadyCheck({ today }: { today: Exclude<MorningProps["today"], { settled: string }> }) {
+  return (
+    <div className="grid gap-x-5 gap-y-2 rounded-md border border-line p-4 text-sm text-muted sm:grid-cols-[auto_1fr] sm:items-baseline">
+      <p className="font-medium text-ink sm:pt-2">Ready for it?</p>
+      <FeelStep key={today.answers?.at ?? "new"} answers={today.answers} plannedMinutes={today.plannedMinutes} coachEnabled={today.coachEnabled} />
+    </div>
+  );
 }
 
 const fitnessChange = (change: number) => (change === 0 ? "Steady this week. " : `${signed(change)} this week. `);

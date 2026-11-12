@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Sleep: the coach no longer quotes a weekly sleep debt total. Like Today, it tells you how much to aim for tonight. iPhone: Health reads no longer start partway through a night, so a night can't be cut down to its last few minutes, and older nights are read again once to fix any that were.
+- Today asks "Ready for it?" right in the workout card, above Start ride, since how you feel is what can change the ride.
 - Today is about today: your workout first, then how this week and your plan are tracking, your form and your recovery. Rest days get a proper rest-day card. Last week's review moved to the top of Progress.
 - Weighing in is now weekly: Today only asks before your first ride of the week, and only when there's no weigh-in from the last 7 days (scale, typed in, or Apple Health). You can type your weight in right there, or put it off until next week.
 - The Last night card on Today and Health is now called Recovery.
