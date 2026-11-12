@@ -3,8 +3,8 @@
 // plan can schedule: its zone, a level worked out from its time in zone (the same scale as the
 // engine's generated workouts in library.ts), length and planned stress. Targets are fractions of FTP.
 
-import { openers, rampTest, ZONE_LABELS, MAX_LEVEL, MIN_LEVEL, type Session, type Zone } from "./library";
-import { alignRamps, plannedStress, ramp, sprint, steady, workoutDuration, type Segment, type Workout } from "./workout";
+import { openers, openerStyle, rampTest, ZONE_LABELS, MAX_LEVEL, MIN_LEVEL, type Session, type Zone } from "./library";
+import { alignRamps, plannedStress, ramp, sprint, steady, withOpeners, workoutDuration, type Segment, type Workout } from "./workout";
 
 /** How the library is browsed: the zones, with sprints and tests apart from the anaerobic and VO2 work they count as. */
 export const LIBRARY_CATEGORIES = ["recovery", "endurance", "tempo", "sweetSpot", "threshold", "vo2max", "anaerobic", "sprints", "tests"] as const;
@@ -68,7 +68,8 @@ const WORK_MINUTES: Partial<Record<Zone, (level: number) => number>> = {
 /** Seconds of a workout at or above a target; ramps count at their average. */
 function secondsFrom(workout: Workout, floor: number): number {
   return workout.segments.reduce((total, s) => {
-    const target = s.kind === "steady" ? s.target : s.kind === "ramp" ? (s.from + s.to) / 2 : 0;
+    // Openers are warm-up, not work.
+    const target = s.kind === "steady" ? (s.opener ? 0 : s.target) : s.kind === "ramp" ? (s.from + s.to) / 2 : 0;
     return target >= floor - 1e-9 ? total + s.duration : total;
   }, 0);
 }
@@ -316,8 +317,10 @@ export const isTwentyMinuteTest = (workout: Workout) => workout.name === TWENTY_
 function toLibrary(entry: Entry): LibraryWorkout {
   // The engine's own sessions where they exist, so the ramp test still sets FTP and openers match the plan's.
   const built = entry.id === "test-ramp" ? rampTest() : entry.id === "openers-45" ? openers(2700) : null;
-  const workout: Workout = built ? built.workout : { name: entry.name, segments: alignRamps(entry.segments) };
   const zone: Zone = built ? built.zone : (entry.zone ?? (entry.category as Zone));
+  // Tests keep their own warm-up; every other workout above endurance opens the legs in it.
+  const style = entry.category === "tests" ? null : openerStyle(zone);
+  const workout: Workout = built ? built.workout : { name: entry.name, segments: alignRamps(withOpeners(entry.segments, style)) };
   const level = built ? built.level : (entry.level ?? levelFor(zone, workout) ?? 1);
   return {
     id: entry.id,

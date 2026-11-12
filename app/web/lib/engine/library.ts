@@ -2,7 +2,7 @@
 // TrainerRoad's progression levels) and a structure per workout (templates.ts). Targets are
 // fractions of FTP, as in workout.ts.
 
-import { alignRamps, plannedStress, ramp, steady, workoutDuration, type Segment, type Workout } from "./workout";
+import { alignRamps, plannedStress, ramp, steady, withOpeners, workoutDuration, type OpenerStyle, type Segment, type Workout } from "./workout";
 import { classicTemplate, clampTweaks, templateById, type Params, type Template } from "./templates";
 
 export const ZONES = ["recovery", "endurance", "tempo", "sweetSpot", "threshold", "vo2max", "anaerobic"] as const;
@@ -98,7 +98,14 @@ export function buildSession(zone: Zone, level: number, durationSeconds: number,
   return buildSession("endurance", 5, duration);
 }
 
-/** Warm-up, the structure's main set, endurance for any time it leaves, and a cool-down. */
+/** The openers a zone's warm-up gets: none before easy riding. */
+export function openerStyle(zone: Zone): OpenerStyle | null {
+  if (zone === "tempo" || zone === "sweetSpot") return "steady";
+  if (zone === "threshold" || zone === "vo2max" || zone === "anaerobic") return "hard";
+  return null;
+}
+
+/** Warm-up (with openers before work in any zone above endurance), the structure's main set, endurance for any time it leaves, and a cool-down. */
 function fromTemplate(template: Template, level: number, duration: number, tweaks: Params): Session | null {
   const warm = 600;
   const cool = 300;
@@ -106,7 +113,7 @@ function fromTemplate(template: Template, level: number, duration: number, tweak
   const params = { ...template.defaults(level), ...tweaks };
   const set = template.main(params, level, main);
   if (!set) return null;
-  const segments: Segment[] = [ramp(warm, 0.45, 0.7), ...set.segments];
+  const segments: Segment[] = withOpeners([ramp(warm, 0.45, 0.7), ...set.segments], openerStyle(template.zone));
   const used = set.segments.reduce((s, x) => s + x.duration, 0);
   if (main - used > 0) segments.push(steady(main - used, template.pad?.(params) ?? 0.6));
   segments.push(ramp(cool, 0.65, 0.4));
