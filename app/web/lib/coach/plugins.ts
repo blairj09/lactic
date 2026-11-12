@@ -19,6 +19,7 @@
 // tools say no plugins are shared. Plain data, no browser APIs.
 
 import type { MetricGroup, MetricScope, MetricUnit } from "../sdk/metrics";
+import { stripHiddenText } from "../sdk/text";
 
 /** An installed plugin as the runtime knows it. Text fields are the manifest's, approved at install. */
 export interface InstalledPlugin {
@@ -81,9 +82,9 @@ export const UNTRUSTED_NOTE =
 /** A plugin's words, made safe to show: no control or formatting characters, no markup, one line, cut short. */
 export function label(text: unknown, max: number): string {
   if (typeof text !== "string") return "";
-  const clean = text
-    // Control, zero-width and bidirectional characters (used to hide text from the rider).
-    .replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁯﻿]/g, " ")
+  // Control, zero-width, bidirectional and Unicode tag characters (invisible to the rider, but an AI
+  // model reads tags as plain ASCII), plus selectors, fillers and separators.
+  const clean = stripHiddenText(text)
     .replace(/[<>`{}[\]]/g, "")
     .replace(/\s+/g, " ")
     .trim();
