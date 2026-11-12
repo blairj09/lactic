@@ -56,6 +56,8 @@ export default defineConfig(({ command, mode }) => ({
         }
       : {},
   envPrefix: ["VITE_", "TAURI_ENV_*"],
+  // Plugin workers (src/plugins/worker.ts) are module workers: the QuickJS engine loads in chunks.
+  worker: { format: "es" },
   build: {
     target: "safari16",
     minify: process.env.TAURI_ENV_DEBUG ? false : "esbuild",
