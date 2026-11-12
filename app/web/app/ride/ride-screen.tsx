@@ -1039,12 +1039,17 @@ function RideOnThisDevice({
           <PlayerView
             data={data}
             controls={controls}
+            dock={
+              <button className={`${button.secondary} w-full`} onClick={end}>
+                End ride
+              </button>
+            }
             extra={
               <>
                 {/* Ride actions, quieter than the controls: End once a ride is under way, Save again if saving failed, Reset once one started. */}
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                   {elapsed > 0 && !ended && !data.finished && (
-                    <button className={button.secondary} onClick={end}>
+                    <button className={`${button.secondary} max-md:hidden`} onClick={end}>
                       End ride
                     </button>
                   )}

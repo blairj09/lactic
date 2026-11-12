@@ -449,7 +449,11 @@ export function buildPlan(input: PlanInput): Plan {
       recoveryWeek = true;
       if (breakNote === "break") lastBreakRecovery = w;
     } else if (recoveryWeek && w - lastBreakRecovery <= 2) recoveryWeek = false;
-    const weekAvail = week.availability;
+    // The week the plan starts in fits its sessions into the days from the start on, so a plan set up
+    // on a Thursday rides that week's Thursday to Sunday instead of losing the days before it.
+    const opening = schedule.firstDay > start && schedule.firstDay <= addDays(start, 6);
+    const weekAvail = opening ? (week.availability.map((m, i) => (addDays(start, i) < schedule.firstDay ? 0 : m)) as Availability) : week.availability;
+    const openShare = opening ? sum(weekAvail) / Math.max(1, sum(week.availability)) : 1;
     const weekGoals = upcoming.filter((g) => g.date >= start && g.date <= addDays(start, 6) && g.date <= schedule.end);
     const late = phase === "specialty" || phase === "taper";
     const zones = late && target ? (shape?.zones ?? specialtyZones(target)) : phase === "base" && chasing ? TARGET_BASE_ZONES : KEY_ZONES[phase === "base" ? "base" : "build"];
@@ -460,7 +464,8 @@ export function buildPlan(input: PlanInput): Plan {
 
     const steadyWeek = 7 * fitness;
     const weekTarget =
-      phase === "taper" || phase === "test" ? 0.55 * steadyWeek : recoveryWeek ? 0.6 * steadyWeek : phase === "specialty" ? 7 * (fitness + 3 * rampRate) : 7 * (fitness + 6 * rampRate);
+      openShare *
+      (phase === "taper" || phase === "test" ? 0.55 * steadyWeek : recoveryWeek ? 0.6 * steadyWeek : phase === "specialty" ? 7 * (fitness + 3 * rampRate) : 7 * (fitness + 6 * rampRate));
 
     const days =
       phase === "taper" && target
@@ -508,6 +513,8 @@ export function buildPlan(input: PlanInput): Plan {
   const forecast = fitnessSeries(forecastStress, today, end, { startingFitness: input.fitness, startingFatigue: input.fatigue });
   return { target, frame, weeks, forecast };
 }
+
+const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
 
 /** Where a plan runs and what phase each week is in. */
 interface Schedule {
