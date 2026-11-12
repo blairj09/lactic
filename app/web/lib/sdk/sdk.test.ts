@@ -17,6 +17,7 @@ import {
   pluginMetricId,
   removeCard,
   ridePages,
+  rowColumns,
   sameLayout,
   setTabHidden,
   shownCards,
@@ -242,5 +243,13 @@ describe("layout edits", () => {
     expect(layoutChanges(base, base)).toEqual([]);
     expect(sameLayout(base, defaultLayout())).toBe(true);
     expect(layoutSummary(l).tabs.at(-1)).toBe("health (hidden)");
+  });
+
+  it("spreads a short row of Medium or Small cards across the width", () => {
+    expect(rowColumns({ size: "medium", widgets: ["a"] })).toBe(1);
+    expect(rowColumns({ size: "medium", widgets: ["a", "b"] })).toBe(2);
+    expect(rowColumns({ size: "small", widgets: ["a", "b"] })).toBe(2);
+    expect(rowColumns({ size: "small", widgets: ["a", "b", "c"] })).toBe(3);
+    expect(rowColumns({ size: "large", widgets: ["a"] })).toBe(1);
   });
 });

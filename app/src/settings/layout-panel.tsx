@@ -6,7 +6,8 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, 
 import Link from "next/link";
 import { button } from "@/components/ui";
 import { FIXED_TABS, type Layout, type TabId } from "@/lib/sdk/layout";
-import { moveTab, setTabHidden, shownCards, hiddenCards, TAB_LABELS } from "@/lib/sdk/layout-edit";
+import { hiddenCards, moveTab, setTabHidden, shownCards } from "@/lib/sdk/layout-editor";
+import { TAB_NAMES } from "@/lib/sdk/layout-edit";
 import type { SavedLayout } from "@/lib/layout-data";
 import { deleteSavedLayoutAction, resetLayoutAction, restoreLayoutAction, saveLayoutAction } from "@/app/layout-actions";
 
@@ -38,7 +39,7 @@ export function LayoutSetting({ layout: saved, copies, custom }: { layout: Layou
   };
   const nudge = (id: TabId, by: -1 | 1) => {
     const at = layout.tabs.findIndex((t) => t.id === id);
-    void save(moveTab(layout, id, at + by), `${TAB_LABELS[id]} moved to ${at + by + 1} of ${layout.tabs.length}`);
+    void save(moveTab(layout, id, at + by), `${TAB_NAMES[id]} moved to ${at + by + 1} of ${layout.tabs.length}`);
     setFocus(id);
   };
   useEffect(() => {
@@ -70,7 +71,7 @@ export function LayoutSetting({ layout: saved, copies, custom }: { layout: Layou
     const up = () => {
       const d = dragRef.current;
       setDrag(null);
-      if (d) void saveRef.current(moveTab(layoutRef.current, d.id, d.index), `${TAB_LABELS[d.id]} moved to ${d.index + 1}`);
+      if (d) void saveRef.current(moveTab(layoutRef.current, d.id, d.index), `${TAB_NAMES[d.id]} moved to ${d.index + 1}`);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -128,7 +129,7 @@ export function LayoutSetting({ layout: saved, copies, custom }: { layout: Layou
                 <button
                   type="button"
                   data-grip
-                  aria-label={`Move ${TAB_LABELS[t.id]}. Option and the arrow keys move it up or down.`}
+                  aria-label={`Move ${TAB_NAMES[t.id]}. Option and the arrow keys move it up or down.`}
                   onPointerDown={onDown(t.id)}
                   onKeyDown={onKey(t.id)}
                   className="flex h-8 w-6 cursor-grab touch-none items-center justify-center text-faint hover:text-ink active:cursor-grabbing"
@@ -137,26 +138,26 @@ export function LayoutSetting({ layout: saved, copies, custom }: { layout: Layou
                     {[2, 8, 14].flatMap((y) => [<circle key={`a${y}`} cx="2.5" cy={y} r="1.4" />, <circle key={`b${y}`} cx="7.5" cy={y} r="1.4" />])}
                   </svg>
                 </button>
-                <span className={cx("flex-1 text-sm", t.hidden && "text-faint")}>{TAB_LABELS[t.id]}</span>
+                <span className={cx("flex-1 text-sm", t.hidden && "text-faint")}>{TAB_NAMES[t.id]}</span>
                 <span className="hidden gap-1 sm:flex">
-                  <button type="button" className="h-7 rounded px-2 text-xs text-muted hover:bg-raised hover:text-ink disabled:opacity-30" disabled={i === 0 || busy} onClick={() => nudge(t.id, -1)} aria-label={`Move ${TAB_LABELS[t.id]} up`}>
+                  <button type="button" className="h-7 rounded px-2 text-xs text-muted hover:bg-raised hover:text-ink disabled:opacity-30" disabled={i === 0 || busy} onClick={() => nudge(t.id, -1)} aria-label={`Move ${TAB_NAMES[t.id]} up`}>
                     ↑
                   </button>
-                  <button type="button" className="h-7 rounded px-2 text-xs text-muted hover:bg-raised hover:text-ink disabled:opacity-30" disabled={i === tabs.length - 1 || busy} onClick={() => nudge(t.id, 1)} aria-label={`Move ${TAB_LABELS[t.id]} down`}>
+                  <button type="button" className="h-7 rounded px-2 text-xs text-muted hover:bg-raised hover:text-ink disabled:opacity-30" disabled={i === tabs.length - 1 || busy} onClick={() => nudge(t.id, 1)} aria-label={`Move ${TAB_NAMES[t.id]} down`}>
                     ↓
                   </button>
                 </span>
                 {fixed ? (
                   <span className="w-[132px] text-right text-xs text-faint">Always shown</span>
                 ) : (
-                  <div role="radiogroup" aria-label={`${TAB_LABELS[t.id]} tab`} className="inline-flex w-[132px] rounded-md bg-raised p-0.5">
+                  <div role="radiogroup" aria-label={`${TAB_NAMES[t.id]} tab`} className="inline-flex w-[132px] rounded-md bg-raised p-0.5">
                     {[false, true].map((h) => (
                       <button
                         key={String(h)}
                         type="button"
                         role="radio"
                         aria-checked={t.hidden === h}
-                        onClick={() => save(setTabHidden(layout, t.id, h), `${TAB_LABELS[t.id]} ${h ? "hidden" : "shown"}`)}
+                        onClick={() => save(setTabHidden(layout, t.id, h), `${TAB_NAMES[t.id]} ${h ? "hidden" : "shown"}`)}
                         className="h-7 flex-1 rounded text-xs text-muted hover:text-ink aria-checked:bg-surface aria-checked:font-medium aria-checked:text-ink aria-checked:shadow-[0_0_0_1px_var(--line)]"
                       >
                         {h ? "Hidden" : "Shown"}

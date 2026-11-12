@@ -9,8 +9,8 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboa
 import { useRouter } from "next/navigation";
 import { button } from "@/components/ui";
 import { cardRows, type Layout } from "@/lib/sdk/layout";
-import { addCard, hiddenCards, moveCard, nudgeCard, removeCard, sameLayout, shownCards, sizeCard } from "@/lib/sdk/layout-edit";
-import { SIZE_LABELS, todayCard } from "@/lib/sdk/today-cards";
+import { addCard, hiddenCards, moveCard, nudgeCard, removeCard, rowColumns, sameLayout, shownCards, sizeCard } from "@/lib/sdk/layout-editor";
+import { SIZE_LABELS, todayCard } from "@/lib/sdk/builtin-widgets";
 import type { CardSize } from "@/lib/sdk/widgets";
 import { resetLayoutAction, saveLayoutAction } from "./layout-actions";
 
@@ -206,7 +206,7 @@ export default function CustomizeToday({ layout: initial }: { layout: Layout }) 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
         <div className="space-y-3" aria-label="Today's cards" role="list">
           {rows.map((row) => (
-            <div key={row.widgets.join(" ")} className={cx("grid grid-cols-1 gap-3", row.size === "medium" && "sm:grid-cols-2", row.size === "small" && "sm:grid-cols-2 lg:grid-cols-3")}>
+            <div key={row.widgets.join(" ")} className={cx("grid grid-cols-1 gap-3", rowColumns(row) === 2 && "sm:grid-cols-2", rowColumns(row) === 3 && "sm:grid-cols-2 lg:grid-cols-3")}>
               {row.widgets.map((w) => {
                 const card = todayCard(w);
                 const entry = shown.find((c) => c.widget === w)!;
@@ -243,7 +243,9 @@ export default function CustomizeToday({ layout: initial }: { layout: Layout }) 
                         </button>
                         <div className="min-w-0 flex-1">
                           <div className="truncate font-medium">{card.name}</div>
-                          <div className={cx("truncate text-sm text-muted", entry.size === "small" && "hidden xl:block")}>{card.description}</div>
+                          <div className={cx("truncate text-sm text-muted", entry.size === "small" && row.widgets.length > 1 && "hidden xl:block")}>
+                            {entry.size !== "large" && row.widgets.length === 1 ? `Full width until another ${SIZE_LABELS[entry.size]} card sits next to it` : card.description}
+                          </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                           <div role="radiogroup" aria-label={`${card.name} size`} className="inline-flex rounded-md bg-raised p-0.5">
@@ -411,7 +413,7 @@ function CardMenu({ name, size, sizes, first, last, removable, onPick }: { name:
       aria-label={name}
       onKeyDown={onKey}
       onClick={(e) => e.stopPropagation()}
-      className="absolute top-full right-2 z-40 mt-1 w-52 rounded-lg border border-line bg-surface p-1 shadow-xl"
+      className="absolute top-full right-2 z-50 mt-1 w-52 rounded-lg border border-line bg-surface p-1 shadow-xl"
     >
       {items.map((it, i) =>
         it === null ? (

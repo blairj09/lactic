@@ -3,7 +3,7 @@
 // active; the others are copies kept by Reset or Restore, listed in Settings → Layout.
 
 import { defaultLayout, parseLayout, withNewCards, type Layout } from "./sdk/layout";
-import { layoutChanges, sameLayout } from "./sdk/layout-edit";
+import { layoutChanges, sameLayout } from "./sdk/layout-editor";
 import type { createClient } from "./supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -29,16 +29,6 @@ async function activeRow(supabase: Supabase, device: LayoutDevice): Promise<{ id
 export async function loadLayout(supabase: Supabase, device: LayoutDevice = "desktop"): Promise<Layout> {
   const row = await activeRow(supabase, device).catch(() => null);
   return row ? withNewCards(parseLayout(row.layout)) : defaultLayout();
-}
-
-/** Saves the layout as the device's active one. */
-export async function saveLayout(supabase: Supabase, layout: Layout, device: LayoutDevice = "desktop"): Promise<void> {
-  const value = parseLayout(layout);
-  const row = await activeRow(supabase, device);
-  const { error } = row
-    ? await supabase.from("layouts").update({ layout: value, updated_at: new Date().toISOString() }).eq("id", row.id)
-    : await supabase.from("layouts").insert({ device, name: "My layout", layout: value, active: true });
-  if (error) throw error;
 }
 
 /** "My layout, Nov 12": what a copy is called when Reset or Restore sets it aside. */
@@ -85,4 +75,19 @@ export async function restoreLayout(supabase: Supabase, id: string, device: Layo
 export async function deleteSavedLayout(supabase: Supabase, id: string): Promise<void> {
   const { error } = await supabase.from("layouts").delete().eq("id", id).eq("active", false);
   if (error) throw error;
+}
+
+/**
+ * Saves a device's active layout: updates the active row, or makes the first one ("My layout") the
+ * first time a rider customizes. The layout is checked by parseLayout() before it's written.
+ */
+export async function saveLayout(supabase: Supabase, layout: Layout, device: LayoutDevice = "desktop"): Promise<void> {
+  const checked = parseLayout(layout);
+  const now = new Date().toISOString();
+  const { data, error } = await supabase.from("layouts").select("id").eq("device", device).eq("active", true).order("updated_at", { ascending: false }).limit(1);
+  if (error) throw error;
+  const { error: writeError } = data?.length
+    ? await supabase.from("layouts").update({ layout: checked, updated_at: now }).eq("id", data[0].id)
+    : await supabase.from("layouts").insert({ device, name: "My layout", layout: checked, active: true, updated_at: now });
+  if (writeError) throw writeError;
 }

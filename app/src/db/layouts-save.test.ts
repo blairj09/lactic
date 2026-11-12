@@ -7,7 +7,7 @@ import { migrate } from "./migrate";
 import { localClient } from "./supabase-client";
 import { deleteSavedLayout, listSavedLayouts, loadLayout, resetLayout, restoreLayout, saveLayout } from "@/lib/layout-data";
 import { defaultLayout } from "@/lib/sdk/layout";
-import { moveCard, removeCard, setTabHidden } from "@/lib/sdk/layout-edit";
+import { moveCard, removeCard, setTabHidden } from "@/lib/sdk/layout-editor";
 
 beforeAll(async () => {
   const db = await openSqlJs({ persist: false });

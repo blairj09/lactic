@@ -3,6 +3,14 @@ import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
 import { cardRows, defaultLayout, type Layout } from "@/lib/sdk/layout";
 import CustomizeToday from "./customize-today";
+import { rowColumns } from "@/lib/sdk/layout-editor";
+
+// Rows of Medium or Small cards by how many columns they take (rowColumns): a lone Medium card
+// takes the full width instead of leaving half the row empty. Phones stack Mediums and pair Smalls.
+const ROW_GRID = {
+  medium: { 1: "grid grid-cols-1 items-start gap-4", 2: "grid grid-cols-1 items-start gap-4 lg:grid-cols-2", 3: "" },
+  small: { 1: "grid grid-cols-1 items-start gap-4", 2: "grid grid-cols-2 items-start gap-4", 3: "grid grid-cols-2 items-start gap-4 lg:grid-cols-3" },
+} as const;
 import WorkoutProfile from "@/components/workout-profile";
 import { Dash, Panel, PageHeader, Stat, button } from "@/components/ui";
 import type { StoredRide, StoredStream } from "@/lib/activities";
@@ -227,7 +235,7 @@ export default function TodayView({
           row.size === "large" ? (
             <Fragment key={row.widgets[0]}>{cards[row.widgets[0]]}</Fragment>
           ) : (
-            <div key={row.widgets.join(" ")} className={row.size === "medium" ? "grid grid-cols-1 items-start gap-4 lg:grid-cols-2" : "grid grid-cols-2 items-start gap-4 lg:grid-cols-3"}>
+            <div key={row.widgets.join(" ")} className={ROW_GRID[row.size === "small" ? "small" : "medium"][rowColumns(row)]}>
               {row.widgets.map((w) => (
                 <Fragment key={w}>{cards[w]}</Fragment>
               ))}

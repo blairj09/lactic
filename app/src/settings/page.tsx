@@ -36,7 +36,7 @@ import { ftpSourceLine } from "@/lib/engine/provenance";
 import { localDate } from "@/lib/engine/activity";
 import { listSavedLayouts, loadLayout } from "@/lib/layout-data";
 import { defaultLayout } from "@/lib/sdk/layout";
-import { sameLayout } from "@/lib/sdk/layout-edit";
+import { sameLayout } from "@/lib/sdk/layout-editor";
 import { LayoutSetting } from "./layout-panel";
 
 const SECTIONS = [

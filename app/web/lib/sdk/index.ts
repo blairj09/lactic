@@ -5,4 +5,5 @@ export * from "./kit";
 export * from "./widgets";
 export * from "./layout";
 export * from "./layout-edit";
-export * from "./today-cards";
+export * from "./layout-editor";
+export * from "./builtin-widgets";
