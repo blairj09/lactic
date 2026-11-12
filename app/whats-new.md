@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Today's coach brief and the suggested option under it now always agree: if the coach says ride it as planned, that's what's marked, and when a later recovery score changes the advice, the brief is rewritten. The coach also no longer offers to change a workout mid-ride; it points you to an easier option before you start, or the intensity and skip buttons while you ride.
 - Warm-ups now finish at the power of your first interval and cool-downs start at the power of your last, so there's no jump or drop where they meet. Hard first efforts still start with a step up. Edit the first interval and the warm-up follows it.
 - Sleep: the coach no longer quotes a weekly sleep debt total. Like Today, it tells you how much to aim for tonight. iPhone: Health reads no longer start partway through a night, so a night can't be cut down to its last few minutes, and older nights are read again once to fix any that were.
 - Today asks "Ready for it?" right in the workout card, above Start ride, since how you feel is what can change the ride.
