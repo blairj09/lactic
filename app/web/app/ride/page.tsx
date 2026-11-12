@@ -11,10 +11,10 @@ export const dynamic = "force-dynamic";
 
 const DAY = /^\d{4}-\d\d-\d\d$/;
 
-export default async function RidePage({ searchParams }: { searchParams: Promise<{ day?: string }> }) {
+export default async function RidePage({ searchParams }: { searchParams: Promise<{ day?: string; source?: string }> }) {
   if (!authEnabled) return <RideScreen initialFtp={null} canSave={false} levels={STARTING_LEVELS} />;
   const supabase = await createClient();
-  const { day: asked } = await searchParams;
+  const { day: asked, source } = await searchParams;
   // Ride now offers a plan day's session first: the one asked for (from Today's check-in), else today's.
   const state = await loadTrainingState(supabase);
   const day = asked && DAY.test(asked) ? asked : state.today;
@@ -36,6 +36,7 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
       favorites={state.favorites}
       today={state.today}
       thresholdHr={state.athlete.thresholdHr}
+      initialSource={source === "library" || source === "custom" || source === "erg" ? source : undefined}
     />
   );
 }

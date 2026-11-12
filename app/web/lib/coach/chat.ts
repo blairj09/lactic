@@ -231,6 +231,8 @@ export interface BriefInputs {
   today?: OptionId | null;
   /** The engine's pick among today's options, so a brief that advised one is rewritten when a later recovery score moves it. */
   recommended?: OptionId | null;
+  /** Today's recovery score, so a brief that quoted one is rewritten when a later read of last night moves it a lot. */
+  score?: number | null;
 }
 
 /** What the brief was written from, so Today and the brief can't drift apart. */
@@ -242,11 +244,13 @@ export function briefInputs(state: CoachData["state"], weighed: boolean): BriefI
     : day?.role === "event" && day.goal
       ? `event:${day.goal.id}`
       : (day?.session?.workout.name ?? "rest");
-  return { recovery: Boolean(state.recovery?.today), weighed, form: Math.round(state.form), session, checkin: state.todayStored?.checkin?.at ?? null, signals: (state.recovery?.glance.signals ?? []).map((s) => s.id).sort(), recommended: todayOptions(state)?.recommended ?? null };
+  return { recovery: Boolean(state.recovery?.today), weighed, form: Math.round(state.form), session, checkin: state.todayStored?.checkin?.at ?? null, signals: (state.recovery?.glance.signals ?? []).map((s) => s.id).sort(), recommended: todayOptions(state)?.recommended ?? null, score: state.recovery?.score?.score ?? null };
 }
 
 /** Form moves a little with every ride; only a real change is worth a new brief. */
 const FORM_CHANGE = 3;
+/** The recovery score moves a little as more of last night syncs; a change this big makes the brief's number wrong. */
+const SCORE_CHANGE = 10;
 
 /**
  * True when there's no brief for today yet, or something it was written from has changed since:
@@ -271,7 +275,9 @@ export function briefStale(existing: StoredMessage | null, inputs: BriefInputs) 
     (meta.signals ?? []).join() !== inputs.signals.join() ||
     !Array.isArray(meta.signals) ||
     // Only while there's still a choice to make, and briefs from before this was kept aren't rewritten for it.
-    (meta.recommended != null && inputs.recommended != null && meta.recommended !== inputs.recommended)
+    (meta.recommended != null && inputs.recommended != null && meta.recommended !== inputs.recommended) ||
+    // A brief that said "recovery is 61" next to a ring that now shows 40. Older briefs aren't rewritten for it.
+    (meta.score != null && inputs.score != null && Math.abs(meta.score - inputs.score) >= SCORE_CHANGE)
   );
 }
 

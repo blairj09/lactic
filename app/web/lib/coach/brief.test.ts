@@ -66,4 +66,10 @@ describe("briefStale", () => {
     expect(briefStale(brief({ recovery: true, ...day, recommended: "easier", today: null }), now)).toBe(false);
     expect(briefStale(brief({ recovery: true, ...day, recommended: "easier", today: "asPlanned" }), now)).toBe(false);
   });
+
+  it("rewrites when the recovery score it quoted has moved a lot since", () => {
+    expect(briefStale(brief({ recovery: true, ...day, score: 61 }), inputs({ recovery: true, score: 40 }))).toBe(true);
+    expect(briefStale(brief({ recovery: true, ...day, score: 61 }), inputs({ recovery: true, score: 57 }))).toBe(false);
+    expect(briefStale(brief({ recovery: true, ...day }), inputs({ recovery: true, score: 40 }))).toBe(false);
+  });
 });

@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Today puts the key things first. Recovery is four quick tiles (HRV, resting HR, breathing, sleep), each with a bar showing your usual range and a dot for last night. Then "Ready to train?" and Indoors or Outside, then today's plan next to the suggested ride, each with its own Start ride. "Something else…" offers today's other options, the library, your own workouts or a free ride. The coach's brief comes after, and it's rewritten if your recovery score changes a lot after it was written.
 - A new plan no longer starts with a recovery week when you set it up partway through a week, so your first week has real riding in it. Riders without a coach or sleep tracking no longer see lines about them after a ride or on Progress.
 - The coach's message box no longer shrinks to a sliver after you delete old conversations and start a new one.
 - Warm-ups now open the legs: before tempo, sweet spot and harder workouts, the 10-minute warm-up is a 6-minute build and three short efforts, each a little harder than the last (20 s at 110, 120 and 130% before hard days; 30 s at 90, 100 and 110% before tempo and sweet spot). Workouts stay the same length; endurance and recovery rides keep the plain build. This week's plan picks them up too.
@@ -14,7 +15,6 @@ Write for riders: what they can now do or what works better, one short line each
 - Today's coach brief and the suggested option under it now always agree: if the coach says ride it as planned, that's what's marked, and when a later recovery score changes the advice, the brief is rewritten. The coach also no longer offers to change a workout mid-ride; it points you to an easier option before you start, or the intensity and skip buttons while you ride.
 - Warm-ups now finish at the power of your first interval and cool-downs start at the power of your last, so there's no jump or drop where they meet. Hard first efforts still start with a step up. Edit the first interval and the warm-up follows it.
 - Sleep: the coach no longer quotes a weekly sleep debt total. Like Today, it tells you how much to aim for tonight. iPhone: Health reads no longer start partway through a night, so a night can't be cut down to its last few minutes, and older nights are read again once to fix any that were.
-- Today asks "Ready for it?" right in the workout card, above Start ride, since how you feel is what can change the ride.
 - Today is about today: your workout first, then how this week and your plan are tracking, your form and your recovery. Rest days get a proper rest-day card. Last week's review moved to the top of Progress.
 - Weighing in is now weekly: Today only asks before your first ride of the week, and only when there's no weigh-in from the last 7 days (scale, typed in, or Apple Health). You can type your weight in right there, or put it off until next week.
 - The Last night card on Today and Health is now called Recovery.

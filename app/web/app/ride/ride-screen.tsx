@@ -114,7 +114,10 @@ function RideOnThisDevice({
   today,
   ftpGuess = false,
   thresholdHr = null,
+  initialSource,
 }: {
+  /** Where the picker opens (Today's "Something else…" opens the library, My workouts or free ride); else the plan's session first. */
+  initialSource?: RideSource;
   /** Threshold heart rate from Settings, for adaptive workouts to judge an easy rep. */
   thresholdHr?: number | null;
   initialFtp: number | null;
@@ -141,7 +144,7 @@ function RideOnThisDevice({
   const [supported, setSupported] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ftp, setFtp] = useState(initialFtp ?? 250);
-  const [source, setSource] = useState<RideSource>(planned ? "planned" : "library");
+  const [source, setSource] = useState<RideSource>(initialSource ?? (planned ? "planned" : "library"));
   const [library, setLibrary] = useState<LibraryChoice>(DEFAULT_LIBRARY);
   /** A .zwo file is being saved into My workouts. */
   const [importing, setImporting] = useState(false);
