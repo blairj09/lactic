@@ -32,6 +32,7 @@ use tokio::sync::{oneshot, Mutex};
 
 pub const DEFAULT_PORT: u16 = 47620;
 const PREVIEW_PORT: u16 = 47650;
+const MODULAR_PORT: u16 = 47680;
 const PATH: &str = "/lactic/phone";
 /// How long a QR code stays good.
 const OFFER_MINUTES: u64 = 10;
@@ -39,7 +40,7 @@ const OFFER_MINUTES: u64 = 10;
 const MAX_SKEW_MS: i64 = 10 * 60_000;
 
 fn default_port() -> u16 {
-    if crate::is_preview() { PREVIEW_PORT } else { DEFAULT_PORT }
+    if crate::is_modular() { MODULAR_PORT } else if crate::is_preview() { PREVIEW_PORT } else { DEFAULT_PORT }
 }
 
 fn now_ms() -> i64 {

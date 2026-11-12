@@ -25,6 +25,7 @@ npm ci
 npm run dev       # in a browser at http://localhost:1420 (SQLite in the browser, simulated sensors)
 npx tauri dev     # the desktop app (needs Rust: https://rustup.rs)
 npm run tauri:preview  # the desktop app as Lactic Preview, with its own data (Mac and Linux)
+npm run tauri:modular  # the desktop app as Lactic Modular (modular-ui branch work), with its own data again
 npx tauri build   # a release build in src-tauri/target/release/bundle
 ```
 
@@ -55,6 +56,8 @@ Releases are on the [Releases page](https://github.com/blairj09/lactic/releases)
 - **Latest `main`:** each push to `main` replaces the rolling [`preview`](https://github.com/blairj09/lactic/releases/tag/preview) pre-release (version `<version>-preview.<run>`, notes from **Next** in `whats-new.md`). An installed Preview updates itself from it like the real app does from releases. It's a pre-release, never "latest", so the site and the release updater don't see it.
 - **A pull request before it's merged:** its run's artifacts are **Lactic-macOS-Preview**, **Lactic-Windows-Preview** and **Lactic-Linux-Preview**.
 - **On a Mac, one command** installs or refreshes `/Applications/Lactic Preview.app` and opens it: `app/scripts/try-preview.sh` for the latest `main`, `app/scripts/try-preview.sh 72` for pull request #72, or a branch name. Pull request builds need the GitHub CLI (`brew install gh && gh auth login`). Without a clone: `curl -fsSL https://raw.githubusercontent.com/blairj09/lactic/main/app/scripts/try-preview.sh | bash -s -- 72`.
+
+**Testing the modular UI: Lactic Modular.** The customizable layouts, ride data fields and plugins work lives on the long-lived `modular-ui` branch, not `main`; its pull requests target `modular-ui`. Pushes to `modular-ui` and pull requests into it build **Lactic Modular** (`src-tauri/tauri.modular.conf.json`): a third app with its own name, bundle id (`fit.lactic.modular`), purple icon, data folder, keychain item, MCP port (47675), phone link port (47680) and Claude Desktop entry (`lactic-modular`), with Modular beside the name. Each push to `modular-ui` replaces the rolling [`modular`](https://github.com/blairj09/lactic/releases/tag/modular) pre-release, which installed copies update from; pull request artifacts are **Lactic-macOS-Modular** and so on. On a Mac: `curl -fsSL https://raw.githubusercontent.com/blairj09/lactic/modular-ui/app/scripts/try-preview.sh | bash -s -- --modular` (add a pull request number after `--modular` for that pull request). Merge `main` into `modular-ui` regularly so it doesn't drift.
 
 Preview builds come from this repository's workflows, so they're signed for updates (and, with the Apple secrets, signed and notarized) just like releases.
 

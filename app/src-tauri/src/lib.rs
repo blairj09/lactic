@@ -32,9 +32,18 @@ pub fn identifier() -> &'static str {
     IDENTIFIER.get().map(String::as_str).unwrap_or(RELEASE_IDENTIFIER)
 }
 
-/// A Lactic Preview build (a testing build from a pull request or main), not a release.
+/// The bundle identifier of Lactic Modular (tauri.modular.conf.json): the testing build of the
+/// modular-ui branch, kept apart from both Lactic and Lactic Preview.
+pub const MODULAR_IDENTIFIER: &str = "fit.lactic.modular";
+
+/// A testing build (Lactic Preview or Lactic Modular), not a release.
 pub fn is_preview() -> bool {
     identifier() != RELEASE_IDENTIFIER
+}
+
+/// Lactic Modular: needs its own ports and Claude Desktop entry so it can run beside Lactic Preview.
+pub fn is_modular() -> bool {
+    identifier() == MODULAR_IDENTIFIER
 }
 
 #[tauri::command]
@@ -46,6 +55,7 @@ fn app_info(app: tauri::AppHandle) -> serde_json::Value {
         "osVersion": os_info::get().version().to_string(),
         "dataDir": app.path().app_data_dir().ok().map(|p| p.to_string_lossy().into_owned()),
         "preview": is_preview(),
+        "modular": is_modular(),
         "mobile": cfg!(mobile),
     })
 }

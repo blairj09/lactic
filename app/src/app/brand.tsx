@@ -1,4 +1,4 @@
-import { isBeta, isPreview } from "./beta";
+import { isBeta, isModular, isPreview } from "./beta";
 
 // Lactic's mark: an L drawn as a stepped ramp test, then the endurance tail (logo concept C).
 
@@ -28,7 +28,7 @@ export function Wordmark({ size = 15 }: { size?: number }) {
     <span className="flex items-center gap-2 font-semibold tracking-tight text-ink" style={{ fontSize: size }}>
       <Mark size={Math.round(size * 1.2)} />
       Lactic
-      {isPreview ? <PreviewTag /> : isBeta && <BetaTag />}
+      {isModular ? <ModularTag /> : isPreview ? <PreviewTag /> : isBeta && <BetaTag />}
     </span>
   );
 }
@@ -47,6 +47,15 @@ export function PreviewTag() {
   return (
     <span className="rounded bg-[#e8761a]/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#c2610f]" title="A testing build of Lactic, with its own data, separate from the released app">
       Preview
+    </span>
+  );
+}
+
+/** Shown beside the name in a Lactic Modular build (the modular-ui branch, with its own data). */
+export function ModularTag() {
+  return (
+    <span className="rounded bg-[#7a3fd1]/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#7a3fd1]" title="A testing build of the customizable Lactic, with its own data, separate from Lactic and Lactic Preview">
+      Modular
     </span>
   );
 }

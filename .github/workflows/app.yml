@@ -2,7 +2,9 @@ name: App
 
 on:
   push:
-    branches: [main]
+    # modular-ui is the long-lived branch for the customizable layouts and plugins work; it builds
+    # Lactic Modular (below), never Preview or a release.
+    branches: [main, modular-ui]
     # A version tag (v0.2.0) also publishes the three apps as a GitHub release.
     tags: ["v*"]
     paths: ["app/**", ".github/workflows/app.yml"]
@@ -58,7 +60,10 @@ jobs:
       # "release": this run ships v<version> (a version tag, a manual run with "release" ticked,
       # or main with a version that has no release yet). "preview": everything else (pull
       # requests, the rest of main) builds Lactic Preview, a separate testing app with its own
-      # data, keychain item and updates (src-tauri/tauri.preview.conf.json).
+      # data, keychain item and updates (src-tauri/tauri.preview.conf.json). "modular": the
+      # modular-ui branch and pull requests into it build Lactic Modular, a third app with its own
+      # data and updates again (src-tauri/tauri.modular.conf.json), so that work never reaches
+      # Preview or riders.
       channel: ${{ steps.channel.outputs.channel }}
       version: ${{ steps.channel.outputs.version }}
     steps:
@@ -68,13 +73,15 @@ jobs:
         run: |
           version=$(node -p "require('./app/src-tauri/tauri.conf.json').version")
           channel=preview
-          if [ "$GITHUB_REF_TYPE" = tag ] || [ "$RELEASE_INPUT" = true ]; then
+          if [ "$GITHUB_REF" = refs/heads/modular-ui ] || [ "$GITHUB_BASE_REF" = modular-ui ]; then
+            channel=modular
+          elif [ "$GITHUB_REF_TYPE" = tag ] || [ "$RELEASE_INPUT" = true ]; then
             channel=release
           elif [ "$GITHUB_REF" = refs/heads/main ] && ! gh release view "v$version" >/dev/null 2>&1; then
             channel=release
           fi
           # Previews count up with the run, so an installed Preview sees each newer one as an update.
-          if [ "$channel" = preview ]; then version="$version-preview.$GITHUB_RUN_NUMBER"; fi
+          if [ "$channel" != release ]; then version="$version-$channel.$GITHUB_RUN_NUMBER"; fi
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Building $channel $version"
@@ -196,6 +203,10 @@ jobs:
             # Lactic Preview: its own name, bundle id, icon and update feed, at this run's version.
             printf '{"version":"%s"}' "$VERSION" > src-tauri/tauri.version.conf.json
             args+=(--config src-tauri/tauri.preview.conf.json --config src-tauri/tauri.version.conf.json)
+          elif [ "$CHANNEL" = modular ]; then
+            # Lactic Modular: likewise, under its own name, bundle id, purple icon and update feed.
+            printf '{"version":"%s"}' "$VERSION" > src-tauri/tauri.version.conf.json
+            args+=(--config src-tauri/tauri.modular.conf.json --config src-tauri/tauri.version.conf.json)
           fi
           # The same settings go to the bundle step below.
           printf '%s\n' ${args[@]+"${args[@]}"} > "$RUNNER_TEMP/tauri-args"
@@ -280,7 +291,7 @@ jobs:
         run: security delete-keychain "$RUNNER_TEMP/lactic-signing.keychain-db" || true
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}${{ needs.check.outputs.channel == 'preview' && '-Preview' || '' }}
+          name: ${{ matrix.name }}${{ needs.check.outputs.channel == 'preview' && '-Preview' || needs.check.outputs.channel == 'modular' && '-Modular' || '' }}
           path: ${{ matrix.files }}
           if-no-files-found: error
 
@@ -416,3 +427,49 @@ jobs:
           gh release delete preview --yes --cleanup-tag || true
           gh release create preview --prerelease --latest=false --target "$GITHUB_SHA" \
             --title "Lactic Preview $VERSION (testing build)" --notes-file preview-body.md "${files[@]}"
+
+  modular:
+    # Lactic Modular from the modular-ui branch: each push replaces the rolling `modular`
+    # pre-release, which installed Lactic Modular apps update from (tauri.modular.conf.json).
+    # Never "latest", so riders, the site and Lactic Preview never see it.
+    if: needs.check.outputs.channel == 'modular' && github.ref == 'refs/heads/modular-ui'
+    needs: [check, package]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: modular-release
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: "*-Modular"
+          merge-multiple: true
+      - name: Name the files and write latest.json
+        run: |
+          set -euo pipefail
+          find dist -type f -name '* *' -print0 | while IFS= read -r -d '' f; do mv "$f" "$(dirname "$f")/$(basename "$f" | tr ' ' '-')"; done
+          mac=$(find dist -name Lactic-Modular.app.tar.gz | head -1)
+          if [ -z "$mac" ]; then echo "No Lactic-Modular.app.tar.gz: is TAURI_SIGNING_PRIVATE_KEY set?"; exit 1; fi
+          mv "$mac" "$(dirname "$mac")/Lactic-Modular_${VERSION}_universal.app.tar.gz"
+          mv "$mac.sig" "$(dirname "$mac")/Lactic-Modular_${VERSION}_universal.app.tar.gz.sig"
+          node app/scripts/update-manifest.mjs dist "$VERSION" "$GITHUB_REPOSITORY" app/whats-new.md modular > latest.json
+          mv latest.json dist/latest.json
+          cat dist/latest.json
+          {
+            printf 'Built from %s (%s).\n\n' "${GITHUB_SHA::7}" "$(git log -1 --format=%s)"
+            cat .github/modular-body.md
+          } > modular-body.md
+      - name: Replace the modular release
+        run: |
+          set -euo pipefail
+          mapfile -d '' files < <(find dist -type f -print0)
+          gh release delete modular --yes --cleanup-tag || true
+          gh release create modular --prerelease --latest=false --target "$GITHUB_SHA" \
+            --title "Lactic Modular $VERSION (testing build)" --notes-file modular-body.md "${files[@]}"
