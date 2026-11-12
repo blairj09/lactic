@@ -30,7 +30,7 @@ const INTRO =
   "This is the demo, so my replies are scripted. With your own AI connected, I read your plan, rides and recovery and answer anything about your training. Try asking me to move Saturday's ride to Sunday.";
 
 const BRIEF =
-  "Your morning is in: recovery, sleep and weigh-in. Pick today's session below, ride it on the trainer or take it outside, and keep each interval steady on target. Ask me anything about it.";
+  "Your morning is in: recovery and sleep. Pick today's session below, ride it on the trainer or take it outside, and keep each interval steady on target. Ask me anything about it.";
 
 const PLAN =
   "This week keeps building toward a higher FTP: one sustained threshold-style session, one shorter, harder day, and an easy long ride at the weekend. The rest days are there so the hard days land well.";

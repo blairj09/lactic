@@ -4,6 +4,7 @@ import WorkoutProfile from "@/components/workout-profile";
 import { Dash, Panel, PageHeader, Stat } from "@/components/ui";
 import type { StoredRide, StoredStream } from "@/lib/activities";
 import { weighInOn, type BodyMeasurement } from "@/lib/body-data";
+import { weighInDue } from "@/lib/engine/weigh-in-due";
 import { localDate } from "@/lib/engine/activity";
 import { ageOn } from "@/lib/engine/body";
 import type { FtpEstimate } from "@/lib/engine/ftp";
@@ -21,6 +22,7 @@ import { checkFtp } from "@/lib/engine/ftp-check";
 import { ChosenSession, SessionLine } from "./checkin";
 import RideSurvey from "./ride-survey";
 import Morning, { type MorningProps } from "./morning";
+import WeeklyWeighIn from "./weekly-weigh-in";
 import RaceDayPlan from "./race-day";
 import { GOAL_KIND_LABELS, goalMinutes, PHASE_LABELS, SAFETY_RULE_LABELS, weekStart } from "@/lib/engine/plan";
 import type { StoredMessage } from "@/lib/coach/store";
@@ -36,7 +38,7 @@ import { formatHours } from "@/lib/engine/hours";
 import type { SafetyRule } from "@/lib/engine/plan";
 
 /**
- * Today answers "what do I ride, and am I up for it?": Morning (recovery, weight, the brief), then the session, with
+ * Today answers "what do I ride, and am I up for it?": Morning (recovery, how you feel, the brief), a weekly weigh-in when one is due, then the session, with
  * form, any FTP nudge and the last ride beside it. The longer view lives on Progress. Every value comes from the engine via `state`.
  */
 export default function TodayView({
@@ -92,6 +94,19 @@ export default function TodayView({
 
       <RaceSoon state={state} />
 
+      {/* Weight isn't part of the morning: a slim card asks once a week, before the week's first ride, when there's no recent weigh-in. */}
+      {body && (
+        <WeeklyWeighIn
+          day={today}
+          due={weighInDue({ today, timeZone: athlete.timezone, weighIns: body.map((m) => m.measuredAt), rides: rides.map((r) => r.startedAt) })}
+          profile={
+            athlete.heightCm !== null && athlete.sex !== null && athlete.birthDate !== null
+              ? { male: athlete.sex === "male", heightCm: athlete.heightCm, age: ageOn(athlete.birthDate, today) }
+              : null
+          }
+        />
+      )}
+
       {/* Two columns on a computer: what to ride on the left, with form and the last ride under it, and whether you're
           up for it on the right. On a phone: the workout, then This morning, then form and the last ride. The second
           row takes any extra height, so the strip stays right under the workout. */}
@@ -104,12 +119,7 @@ export default function TodayView({
           lastNight={recovery?.today ? <RecoverySummary recovery={recovery} variant="column" /> : undefined}
           day={today}
           recovery={{ in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource }}
-          weighIn={todaysWeighIn ? { weightKg: todaysWeighIn.weightKg, bodyFatPercent: todaysWeighIn.bodyFatPercent } : null}
-          profile={
-            athlete.heightCm !== null && athlete.sex !== null && athlete.birthDate !== null
-              ? { male: athlete.sex === "male", heightCm: athlete.heightCm, age: ageOn(athlete.birthDate, today) }
-              : null
-          }
+          weighedToday={Boolean(todaysWeighIn)}
           brief={brief}
           today={todayChoice(state, coachEnabled)}
         />
