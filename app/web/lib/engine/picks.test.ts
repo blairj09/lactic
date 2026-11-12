@@ -45,7 +45,7 @@ describe("coach picks and favorites", () => {
   const fit = libraryFits(day.session!.zone, day.session!.level, day.session!.duration)[0];
   const withFavorite = (p: Plan): Plan => ({
     ...p,
-    weeks: p.weeks.map((w) => ({ ...w, days: w.days.map((d) => (d.date === day.date ? { ...d, session: librarySession(fit) } : d)) })),
+    weeks: p.weeks.map((w) => ({ ...w, days: w.days.map((d) => (d.date === day.date ? { ...d, session: { ...librarySession(fit), favorite: true } } : d)) })),
   });
 
   it("picks a fixed workout that fits the day, and refuses one that doesn't", () => {
@@ -56,6 +56,12 @@ describe("coach picks and favorites", () => {
     const picked = out.weeks.flatMap((w) => w.days).find((d) => d.date === day.date)!;
     expect(picked.session!.library).toBe(fit.id);
     expect(picked.why).toBe("A favorite.");
+  });
+
+  it("may pick over a library workout the plan chose that isn't a favorite", () => {
+    const lib = plan.weeks.flatMap((w) => w.days).find((d) => d.role === "key" && d.session?.library);
+    if (lib) expect(holdsFavorite(lib)).toBe(false);
+    expect(holdsFavorite({ ...day, session: librarySession(fit) })).toBe(false);
   });
 
   it("never picks over a favorite the plan chose, nor asks the coach to", () => {

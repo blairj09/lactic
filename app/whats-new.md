@@ -13,6 +13,7 @@ Write for riders: what they can now do or what works better, one short line each
 - The iPhone screen stays on while it's showing a ride, whether the iPhone is running the trainer or showing the ride on your computer.
 - iPhone: rides no longer show up twice in Apple Health and Fitness, and rides that were saved twice before are cleaned up (Lactic keeps one copy).
 - Favorites now count everywhere: workouts you've saved yourself can go into your plan too, the AI coach can suggest and pick workouts from the library and your own (favorites first), and the coach's weekly picks no longer replace a favorite the plan already chose.
+- Plan: the day popup's "Use a workout…" menu now lists your favorites and your own workouts above the library. Your plan also mixes in workouts from the library that fit, alongside its own, with your favorites first.
 
 ## 0.2.0
 

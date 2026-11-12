@@ -28,7 +28,7 @@ import { planAhead, recordCheckin, recordChoice } from "@/lib/coach/conversation
 import { changeableDay } from "@/lib/coach/changes";
 import { localDate } from "@/lib/engine/activity";
 import { editedSession } from "@/lib/engine/overrides";
-import { libraryWorkout, librarySession } from "@/lib/engine/workout-library";
+import { librarySession, workoutByKey } from "@/lib/engine/workout-library";
 import { readWorkout } from "@/lib/engine/workout-edit";
 import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
 import { loadTrainingState, saveKeptWeek, type CheckinRecord, type TrainingState } from "@/lib/training";
@@ -396,16 +396,22 @@ export async function saveDayWorkout(date: string, raw: unknown): Promise<Action
   });
 }
 
-/** Puts a starter library workout on a day as its session (keeping its zone and level), then sends the plan to intervals.icu. */
-export async function saveDayLibrary(date: string, id: string): Promise<ActionResult> {
+/**
+ * Puts a workout on a day as itself, then sends the plan to intervals.icu: a starter library workout
+ * (`library:<id>`) or one of My workouts (`custom:<id>`), with the zone and level the engine gives it.
+ * One of yours the engine can't place in a zone is saved as an edited workout instead.
+ */
+export async function saveDayFixed(date: string, key: string): Promise<ActionResult> {
   return attempt(async () => {
-    const entry = libraryWorkout(id);
-    if (!entry) throw new Error("That workout isn't in the library");
     const supabase = await createClient();
     const state = await loadTrainingState(supabase);
-    editableDay(state, date);
-    await writeDays(supabase, state, [{ date, session: librarySession(entry) }]);
-    return `Saved “${entry.workout.name}”.${await pushChangedPlan(supabase)}`;
+    const day = editableDay(state, date);
+    const entry = workoutByKey(key, state.customWorkouts);
+    const mine = key.startsWith("custom:") ? state.customWorkouts.find((c) => c.id === key.slice(7)) : null;
+    if (!entry && !mine) throw new Error(key.startsWith("custom:") ? "That workout isn't in My workouts any more" : "That workout isn't in the library");
+    const session = entry ? librarySession(entry) : editedSession(mine!.workout, day.session, state.levels);
+    await writeDays(supabase, state, [{ date, session }]);
+    return `Saved “${session.workout.name}”.${await pushChangedPlan(supabase)}`;
   });
 }
 

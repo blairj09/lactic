@@ -46,6 +46,8 @@ export interface Session {
   library?: string;
   /** The My workouts id it is, when it is one of yours. */
   custom?: string;
+  /** Set when the plan chose it because you favorited it. */
+  favorite?: boolean;
 }
 
 const clampLevel = (level: number) => Math.min(Math.max(level, MIN_LEVEL), MAX_LEVEL);
