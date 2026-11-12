@@ -550,6 +550,25 @@ export const TABLES: Record<string, Table> = {
     primaryKey: ["activity_id"],
     foreignKeys: { activity_id: activity("cascade") },
   },
+  /**
+   * The rider's layouts (web/lib/sdk/layout.ts): tabs, Today's cards and ride field pages, one
+   * active per device ("desktop" or "phone"). `layout` is checked by parseLayout() on every load.
+   * No row means the default layout, so a rider who never customizes has none.
+   */
+  layouts: {
+    columns: {
+      id,
+      user_id: user,
+      device: { type: "text", notNull: true, default: "desktop" },
+      name: { type: "text", notNull: true, default: "My layout" },
+      layout: { type: "json", notNull: true },
+      active: { type: "bool", notNull: true, default: true },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    indexes: [["device", "active"]],
+  },
 };
 
 const SQL_TYPE: Record<ColumnType, string> = {
