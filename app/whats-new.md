@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- The coach's message box no longer shrinks to a sliver after you delete old conversations and start a new one.
 - Warm-ups now open the legs: before tempo, sweet spot and harder workouts, the 10-minute warm-up is a 6-minute build and three short efforts, each a little harder than the last (20 s at 110, 120 and 130% before hard days; 30 s at 90, 100 and 110% before tempo and sweet spot). Workouts stay the same length; endurance and recovery rides keep the plain build. This week's plan picks them up too.
 - A coach brief written before the brief-and-suggestion fix is written once more, so today's brief and the option marked under it agree. With Adaptive workouts on, the brief may mention that Lactic eases later reps for you during the ride.
 - New experiment, adaptive workouts (turn it on in Settings → Experimental features): if a workout is clearly too hard, say your cadence fades at the end of a rep or your heart rate won't come down between reps, Lactic eases the reps still to come by a few percent and offers Undo. If it looks too easy, it asks before making them harder, and no answer keeps the plan. It never changes the rep you're in, tests or race openers. The ride's page shows what changed and why.
