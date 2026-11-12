@@ -10,10 +10,13 @@ import type { CardSize } from "./widgets";
 
 export const LAYOUT_VERSION = 1;
 
-/** Lactic's tabs. Ride and Settings can't be hidden (Settings isn't in the tab bar on a computer). */
+/**
+ * Lactic's tabs. Today (home, where the logo goes) and Ride (how a ride starts) can be moved but
+ * not hidden; Settings isn't a tab on a computer and always stays.
+ */
 export const TAB_IDS = ["today", "plan", "ride", "progress", "health"] as const;
 export type TabId = (typeof TAB_IDS)[number];
-const FIXED_TABS: readonly TabId[] = ["ride"];
+export const FIXED_TABS: readonly TabId[] = ["today", "ride"];
 
 export interface TabEntry {
   id: TabId;

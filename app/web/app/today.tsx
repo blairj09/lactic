@@ -2,6 +2,7 @@ import { formatDistance, formatElevation, readUnits } from "@/lib/units";
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
 import { cardRows, defaultLayout, type Layout } from "@/lib/sdk/layout";
+import CustomizeToday from "./customize-today";
 import WorkoutProfile from "@/components/workout-profile";
 import { Dash, Panel, PageHeader, Stat, button } from "@/components/ui";
 import type { StoredRide, StoredStream } from "@/lib/activities";
@@ -64,6 +65,7 @@ export default function TodayView({
   intervalsConnected = false,
   raceFollowUp = null,
   layout = DEFAULT_LAYOUT,
+  customize = false,
 }: {
   state: TrainingState;
   /** Null when weigh-ins failed to load. */
@@ -89,7 +91,17 @@ export default function TodayView({
   raceFollowUp?: (RaceFollowUp & { rideName: string | null }) | null;
   /** The rider's layout (web/lib/sdk/layout.ts); the default draws Today as it always was. */
   layout?: Layout;
+  /** Customize Today: the cards as tiles to move, size and remove (customize-today.tsx). */
+  customize?: boolean;
 }) {
+  if (customize) {
+    return (
+      <>
+        <PageHeader title="Today" line={dayLine(state)} />
+        <CustomizeToday layout={layout} />
+      </>
+    );
+  }
   const { athlete, rides, recovery, today, series } = state;
   const now = series[series.length - 1];
   const todaysWeighIn = body ? weighInOn(body, today, athlete.timezone) : undefined;
@@ -166,7 +178,12 @@ export default function TodayView({
     "lactic.brief": <Morning {...morning} part="brief" />,
     "lactic.this-week": <ThisWeek state={state} rideShapes={rideShapes} />,
     // Today's form, with the fitness and fatigue it comes from. On a phone, form takes the top row.
-    "lactic.form": (
+    // Small shows just the form number; Fitness and Fatigue come with Medium and Large.
+    "lactic.form": layout.today.find((c) => c.widget === "lactic.form")?.size === "small" ? (
+      <section aria-label="Form" className="overflow-hidden rounded-lg border border-line bg-line">
+        <Stat label="Form" value={signed(Math.round(now.form))} sub={formBand(now.form).meaning} />
+      </section>
+    ) : (
       <section aria-label="Form" className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3">
         <Stat className="col-span-2 sm:col-span-1" label="Form" value={signed(Math.round(now.form))} sub={formBand(now.form).meaning} />
         <Stat
@@ -217,6 +234,13 @@ export default function TodayView({
             </div>
           ),
         )}
+      </div>
+
+      {/* A quiet way into Customize Today (review U5), after the last card; also in Settings → Layout. */}
+      <div className="mt-8 text-center">
+        <Link href="/?customize=1" className="text-sm text-muted underline decoration-control underline-offset-4 hover:text-ink">
+          Customize Today
+        </Link>
       </div>
     </>
   );

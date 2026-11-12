@@ -34,6 +34,10 @@ import { ComputerLink, PairPhone, PhoneHealth } from "~/phone/settings";
 import { phoneStatus } from "~/phone/plugin";
 import { ftpSourceLine } from "@/lib/engine/provenance";
 import { localDate } from "@/lib/engine/activity";
+import { listSavedLayouts, loadLayout } from "@/lib/layout-data";
+import { defaultLayout } from "@/lib/sdk/layout";
+import { sameLayout } from "@/lib/sdk/layout-edit";
+import { LayoutSetting } from "./layout-panel";
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
@@ -47,7 +51,15 @@ const SECTIONS = [
 export default async function SettingsPage() {
   const supabase = createClient();
   const tracking = features();
-  const [athlete, icu, setup, persona, memory] = await Promise.all([loadAthlete(supabase), loadIntervals(supabase), coachSetup(), loadPersona(supabase), loadMemory(supabase)]);
+  const [athlete, icu, setup, persona, memory, layout, copies] = await Promise.all([
+    loadAthlete(supabase),
+    loadIntervals(supabase),
+    coachSetup(),
+    loadPersona(supabase),
+    loadMemory(supabase),
+    loadLayout(supabase),
+    listSavedLayouts(supabase).catch(() => []),
+  ]);
   // A paired iPhone leaves intervals.icu to the computer; one used on its own connects it itself.
   const pairedPhone = isPhone() && Boolean((await phoneStatus().catch(() => null))?.paired);
   return (
@@ -89,6 +101,9 @@ export default async function SettingsPage() {
           <Section id="appearance" title="Appearance" description="Light or dark, and metric or imperial units.">
             <ThemeSetting />
             <UnitsSetting />
+          </Section>
+          <Section id="layout" title="Layout" description="The order of your tabs and the cards on Today.">
+            <LayoutSetting layout={layout} copies={copies} custom={!sameLayout(layout, defaultLayout())} />
           </Section>
           <Section id="tracking" title="What you track" description="Besides rides and your plan. Each one you turn off leaves Today, Health, setup and the coach.">
             <FeatureSetting />

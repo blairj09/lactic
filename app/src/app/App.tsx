@@ -10,6 +10,9 @@ import { setNavigator } from "~/shims/next-navigation";
 import { refreshCoachMode, useCoachMode, useMcpOn } from "./coach-mode";
 import { getSetting } from "~/settings/store";
 import { loadFeatures } from "~/settings/features";
+import { loadLayout } from "@/lib/layout-data";
+import { setCurrentTabs } from "@/lib/layout-tabs";
+import { createClient as createDb } from "~/db/supabase-client";
 import { loadExperiments } from "~/settings/experiments";
 import { startBackground } from "~/integrations/background";
 import "~/integrations/apple-health";
@@ -65,8 +68,8 @@ function Shell() {
   useEffect(() => {
     if (isPhone()) void getSetting<boolean>(SOLO, false).then(setSolo);
     void refreshCoachMode();
-    // What the rider tracks is read before the first screen, so nothing they turned off flashes up.
-    void Promise.all([loadFeatures(), loadExperiments()])
+    // What the rider tracks and their tab order are read before the first screen, so nothing they turned off flashes up.
+    void Promise.all([loadFeatures(), loadExperiments(), loadLayout(createDb() as never).then((l) => setCurrentTabs(l.tabs))])
       .catch(() => {})
       .then(() => getSetting("onboarding.done", false))
       .then(setOnboarded);

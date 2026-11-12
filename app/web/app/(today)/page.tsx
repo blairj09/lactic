@@ -29,7 +29,8 @@ export const maxDuration = 60;
 const coachEnabled = Boolean(process.env.OPENROUTER_API_KEY);
 const FTP_WINDOW_DAYS = 90;
 
-export default async function Today() {
+export default async function Today({ searchParams }: { searchParams?: Promise<Record<string, string | undefined>> }) {
+  const customize = (await searchParams)?.customize === "1";
 
   const supabase = await createClient();
   // The brief and last week's review only need today's date, so they load alongside the training state rather than
@@ -99,6 +100,7 @@ export default async function Today() {
           raceFollowUp={raceFollowUp}
           intervalsConnected={Boolean(icu)}
           layout={layout}
+          customize={customize}
           brief={
             coachEnabled
               ? { message: brief, stale: briefStale(brief, briefInputs(state, Boolean(body && weighInOn(body, today, athlete.timezone)))) }
