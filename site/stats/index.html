@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#2b55d6">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<title>Downloads · Lactic</title>
+<style>
+  .stats { max-width: 900px; margin: 0 auto; padding: 32px 0 96px; }
+  .stats h1 { font-size: clamp(40px, 6vw, 64px); line-height: 1; letter-spacing: -0.04em; font-weight: 800; font-stretch: 112%; margin: 12px 0 12px; }
+  .stats .lede { font-size: 18px; color: var(--body); }
+  .stats h2 { font-size: 24px; letter-spacing: -0.02em; font-weight: 750; margin: 48px 0 14px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 28px; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .tile .n { font-size: 34px; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .tile .l { font-size: 14px; color: var(--muted); }
+  .tile.big { grid-column: 1 / -1; }
+  .tile.big .n { font-size: 56px; color: var(--accent); }
+  .table-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; color: var(--body); }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  td.v { color: var(--ink); font-weight: 650; }
+  .notes { margin-top: 20px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .notes li + li { margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M2 21V15H4.5V10.5H7V6.5H9.5V3H12V15H22V21Z" fill="currentColor"/></svg></span>
+      Lactic<span class="beta-tag">Beta</span>
+    </a>
+  </div>
+</header>
+
+<main class="wrap">
+  <article class="stats">
+    <p class="eyebrow">Downloads</p>
+    <h1>Lactic downloads</h1>
+    <p class="lede" id="status">Counting…</p>
+
+    <div class="tiles" id="tiles"></div>
+
+    <h2>By release</h2>
+    <div class="table-scroll"><table id="table"></table></div>
+
+    <ul class="notes">
+      <li>Counts come from GitHub, which tallies every fetch of each release file. They include repeat downloads, our own testing and the odd bot, so read them as a trend, not a head count.</li>
+      <li><strong>Downloads</strong> adds up the Mac .dmg, Windows installer and both Linux files. The Mac .dmg and Linux .deb are only fetched by people installing. The Windows installer and AppImage are also fetched by the in-app updater.</li>
+      <li><strong>Mac updates</strong> are in-app updates. <strong>Update checks</strong> count installed copies asking for news of a release. Preview builds are left out.</li>
+      <li>The iPhone app's installs are in App Store Connect under TestFlight.</li>
+    </ul>
+  </article>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var fmt = function (n) { return Number(n || 0).toLocaleString(); };
+  var el = function (tag, text, cls) { var e = document.createElement(tag); e.textContent = text; if (cls) e.className = cls; return e; };
+  fetch("/api/stats").then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (data) {
+    var t = data.totals;
+    var latest = data.releases[0];
+    $("status").textContent = (latest ? "Latest release " + latest.version + " · " : "") + "Updated " + new Date(data.at).toLocaleString();
+    var tiles = [
+      ["Downloads, all releases", t.downloads, "big"],
+      ["Mac", t.mac], ["Windows", t.windows], ["Linux AppImage", t.appimage], ["Linux .deb", t.deb],
+      ["Mac updates", t.macUpdate], ["Update checks", t.checks],
+    ];
+    tiles.forEach(function (x) {
+      var d = el("div", "", "tile" + (x[2] ? " " + x[2] : ""));
+      d.appendChild(el("div", fmt(x[1]), "n"));
+      d.appendChild(el("div", x[0], "l"));
+      $("tiles").appendChild(d);
+    });
+    var cols = [["Release", null], ["Date", null], ["Downloads", "downloads"], ["Mac", "mac"], ["Windows", "windows"], ["AppImage", "appimage"], [".deb", "deb"], ["Mac updates", "macUpdate"], ["Checks", "checks"]];
+    var head = document.createElement("tr");
+    cols.forEach(function (c) { head.appendChild(el("th", c[0])); });
+    $("table").appendChild(head);
+    data.releases.forEach(function (r) {
+      var row = document.createElement("tr");
+      row.appendChild(el("td", r.version, "v"));
+      row.appendChild(el("td", r.published ? new Date(r.published).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : ""));
+      cols.slice(2).forEach(function (c) { row.appendChild(el("td", fmt(c[1] === "downloads" ? r.downloads : r.counts[c[1]]), c[1] === "downloads" ? "v" : "")); });
+      $("table").appendChild(row);
+    });
+  }).catch(function () { $("status").textContent = "Couldn't reach GitHub just now. Try again in a minute."; });
+})();
+</script>
+</body>
+</html>
