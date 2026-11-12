@@ -36,7 +36,8 @@ import {
   type RideInterval,
 } from "@/lib/engine/ride-detail";
 import type { Workout } from "@/lib/engine/workout";
-import { formatDay, formatDuration, intervalsUrl, sourceLabel } from "@/lib/format";
+import { formatDay, formatDuration, formatTime, intervalsUrl, sourceLabel } from "@/lib/format";
+import { describeAdaptation, type Adaptation } from "@/lib/ride/adapt";
 import { createClient } from "@/lib/supabase/server";
 import {
   complianceDays,
@@ -273,7 +274,9 @@ export default async function RideDetail({
         best={best}
         bestLabel={`your best of the ${BEST_DAYS} days before`}
         between={
-          stream?.intervals &&
+          <>
+          {stream?.adaptations && stream.adaptations.length > 0 && <AdaptedPanel adaptations={stream.adaptations} />}
+          {stream?.intervals &&
           stream.intervals.some((i) => i.ridden > 0) && (
             <Panel
               title="Intervals"
@@ -282,7 +285,8 @@ export default async function RideDetail({
             >
               <IntervalTable intervals={stream.intervals} execution={execution?.method === "blocks" ? execution : null} />
             </Panel>
-          )
+          )}
+          </>
         }
         aside={
           <Panel title="After the ride">
@@ -424,6 +428,37 @@ function PlannedPanel({
         </div>
       </div>
       {children}
+    </Panel>
+  );
+}
+
+const ADAPT_OUTCOME: Record<Adaptation["outcome"], string> = {
+  applied: "Kept",
+  undone: "You undid it",
+  accepted: "You said yes",
+  declined: "You kept the plan",
+};
+
+/** What adaptive workouts changed mid-ride and why. Scores are against the workout as changed. */
+function AdaptedPanel({ adaptations }: { adaptations: Adaptation[] }) {
+  return (
+    <Panel title={<span className="flex items-center gap-2">Adapted mid-ride <ExperimentalTag /></span>} meta="Execution is scored against the workout as changed">
+      <ul className="space-y-3">
+        {adaptations.map((a, i) => {
+          return (
+            <li key={i} className="rounded-lg bg-raised px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+                <span className="font-medium">
+                  {describeAdaptation(a)}
+                  <span className="num font-normal text-muted"> at {formatTime(a.at)}</span>
+                </span>
+                <span className="text-muted">{ADAPT_OUTCOME[a.outcome]}</span>
+              </div>
+              {a.reasons.length > 0 && <p className="mt-1 text-muted">{a.reasons.join(" ")}</p>}
+            </li>
+          );
+        })}
+      </ul>
     </Panel>
   );
 }

@@ -44,7 +44,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  setCurrentExperiments({ race_report: false, strava_upload: true, course_prep: false });
+  setCurrentExperiments({ race_report: false, strava_upload: true, course_prep: false, adaptive_workouts: false });
   refreshFails = false;
   device = "computer";
   synced.length = 0;
@@ -109,9 +109,9 @@ describe("posting rides to Strava", () => {
   });
 
   it("queues nothing with the experiment off or posting turned off", async () => {
-    setCurrentExperiments({ race_report: false, strava_upload: false, course_prep: false });
+    setCurrentExperiments({ race_report: false, strava_upload: false, course_prep: false, adaptive_workouts: false });
     await queueStravaRide(RIDE, new Uint8Array([1]));
-    setCurrentExperiments({ race_report: false, strava_upload: true, course_prep: false });
+    setCurrentExperiments({ race_report: false, strava_upload: true, course_prep: false, adaptive_workouts: false });
     await localClient.from("strava_connections").update({ upload_rides: false }).neq("athlete_id", "");
     await queueStravaRide(RIDE, new Uint8Array([1]));
     expect(await recentStravaUploads()).toEqual([]);
