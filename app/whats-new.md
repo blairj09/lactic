@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic Modular: ask the coach where something is and it answers from your own layout. Ask it to move a Today card, hide a tab or add a ride field and it offers the change with an Apply button; it adds rather than swaps unless you ask. Plugins you share with the coach show it numbers only, and it never installs or recommends plugins.
 - Your plan starts the day you set Lactic up: the first week's rides fit into the days left in it. If there's nothing planned that day, Today offers an easy 30-minute first ride to try your trainer.
 - iPhone: during a ride, pause, skip, intensity and End ride stay docked above the tabs, so you never scroll to reach them.
 - Today puts the key things first. Recovery is four quick tiles (HRV, resting HR, breathing, sleep), each with a bar showing your usual range and a dot for last night. Then "Ready to train?" and Indoors or Outside, then today's plan next to the suggested ride, each with its own Start ride. "Something else…" offers today's other options, the library, your own workouts or a free ride. The coach's brief comes after, and it's rewritten if your recovery score changes a lot after it was written.

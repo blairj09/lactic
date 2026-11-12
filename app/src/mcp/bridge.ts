@@ -41,7 +41,7 @@ export async function callTool(name: string, args: Record<string, unknown>) {
   const isApp = Boolean(app?.tools.some((t) => t.function.name === name));
   const data = isApp ? null : await loadCoachData(supabase);
   if (name === "get_overview") return text(JSON.stringify({ ...status(data!), memory: data!.memory }));
-  const result = isApp ? await app!.run(name, args ?? {}) : runTool(data!, name, args ?? {});
+  const result = isApp ? await app!.run(name, args ?? {}, { via: "mcp" }) : runTool(data!, name, args ?? {});
   if (result.proposal) {
     const { error } = await supabase.from("coach_proposals").insert({ source: "mcp", proposal: result.proposal });
     if (error) return text(`Couldn't save the proposal: ${error.message}`, true);
