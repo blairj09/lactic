@@ -1,0 +1,147 @@
+import { describe, expect, it } from "vitest";
+import { defaultLayout, formatMetric, isMetricId, LACTIC_METRICS, MetricRegistry, parseLayout, pluginMetricId, ridePages, validateKit, withNewCards } from "./index";
+
+describe("metric registry", () => {
+  it("has well-formed, unique ids", () => {
+    const ids = LACTIC_METRICS.map((m) => m.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of ids) expect(isMetricId(id)).toBe(true);
+  });
+
+  it("keeps plugin metrics in their own namespace and refuses duplicates", () => {
+    const r = new MetricRegistry();
+    const id = pluginMetricId("wprime-tools", "balance");
+    r.add({ id, label: "W′ balance", unit: "kJ", scope: "live", group: "live", description: "W′ left." });
+    expect(r.get(id)?.label).toBe("W′ balance");
+    expect(() => r.add({ ...r.get(id)! })).toThrow();
+    expect(() => r.add({ ...r.get(id)!, id: "Bad Id" })).toThrow();
+  });
+
+  it("splits metrics by where they can be shown", () => {
+    const r = new MetricRegistry();
+    expect(r.forScope("live").every((m) => m.scope === "live")).toBe(true);
+    expect(r.forScope("live").map((m) => m.id)).toContain("power.3s");
+  });
+
+  it("formats values for fields", () => {
+    expect(formatMetric({ unit: "W" }, 251.4)).toBe("251");
+    expect(formatMetric({ unit: "s" }, 462)).toBe("7:42");
+    expect(formatMetric({ unit: "s" }, 3930)).toBe("1:05:30");
+    expect(formatMetric({ unit: "W/kg", decimals: 2 }, 4.123)).toBe("4.12");
+    expect(formatMetric({ unit: "W" }, null)).toBe("–");
+  });
+});
+
+describe("kit validation", () => {
+  it("passes a good tree through and drops unknown properties", () => {
+    const r = validateKit({ type: "stack", children: [{ type: "field", label: "W′ bal", value: "14.2", unit: "kJ", onClick: "steal()", html: "<img>" }] });
+    expect(r).toEqual({ ok: true, node: { type: "stack", children: [{ type: "field", label: "W′ bal", value: "14.2", unit: "kJ" }] } });
+  });
+
+  it("refuses unknown node types, markup and bad numbers", () => {
+    expect(validateKit({ type: "html", html: "<script>" }).ok).toBe(false);
+    expect(validateKit({ type: "sparkline", values: [1, "2"] }).ok).toBe(false);
+    expect(validateKit({ type: "sparkline", values: [1, Number.NaN] }).ok).toBe(false);
+    expect(validateKit({ type: "text", text: "x".repeat(281) }).ok).toBe(false);
+    expect(validateKit(null).ok).toBe(false);
+  });
+
+  it("caps tree size and depth", () => {
+    const wide = { type: "stack", children: Array.from({ length: 250 }, () => ({ type: "text", text: "a" })) };
+    expect(validateKit(wide).ok).toBe(false);
+    let deep: unknown = { type: "text", text: "a" };
+    for (let i = 0; i < 10; i++) deep = { type: "stack", children: [deep] };
+    expect(validateKit(deep).ok).toBe(false);
+  });
+
+  it("lets plugin buttons open only their own detail view", () => {
+    expect(validateKit({ type: "button", label: "Start ride", action: { kind: "lactic", to: "ride" } }).ok).toBe(false);
+    expect(validateKit({ type: "button", label: "Details", action: { kind: "open-detail" } }).ok).toBe(true);
+    expect(validateKit({ type: "button", label: "Start ride", action: { kind: "lactic", to: "ride" } }, { fromPlugin: false }).ok).toBe(true);
+  });
+
+  it("clamps meters to 0 to 1", () => {
+    expect(validateKit({ type: "meter", value: 3 })).toEqual({ ok: true, node: { type: "meter", value: 1 } });
+  });
+});
+
+describe("layouts", () => {
+  it("defaults to the app as it was: five tabs, Today's cards, the player's five fields", () => {
+    const l = defaultLayout();
+    expect(l.tabs.map((t) => t.id)).toEqual(["today", "plan", "ride", "progress", "health"]);
+    expect(l.today.map((c) => c.widget)).toEqual(["lactic.recovery", "lactic.weigh-in", "lactic.workout", "lactic.brief", "lactic.this-week", "lactic.form", "lactic.last-ride"]);
+    expect(ridePages(l, "overlay")).toEqual(l.ride.workout.pages);
+    expect(l.ride.workout.pages[0].fields).toHaveLength(5);
+  });
+
+  it("round-trips through JSON", () => {
+    const l = defaultLayout();
+    l.today[0].size = "medium";
+    l.tabs = [l.tabs[2], l.tabs[0], l.tabs[1], l.tabs[3], { ...l.tabs[4], hidden: true }];
+    expect(parseLayout(JSON.stringify(l))).toEqual(l);
+  });
+
+  it("falls back to the default for anything it can't read", () => {
+    expect(parseLayout("not json")).toEqual(defaultLayout());
+    expect(parseLayout({ v: 99 })).toEqual(defaultLayout());
+    expect(parseLayout({ v: 1, today: "x", ride: { workout: { pages: [] } } })).toEqual(defaultLayout());
+  });
+
+  it("drops unknown and duplicate entries and never hides Ride", () => {
+    const l = parseLayout({
+      v: 1,
+      tabs: [{ id: "ride", hidden: true }, { id: "coach" }, { id: "today", hidden: true }, { id: "today" }],
+      today: [{ widget: "lactic.form", size: "huge" }, { widget: "lactic.form" }, { widget: "<script>" }, { widget: "plugin.climb-lab.readiness", size: "small", extra: 1 }],
+    });
+    expect(l.tabs.slice(0, 2)).toEqual([{ id: "ride", hidden: false }, { id: "today", hidden: true }]);
+    expect(l.tabs).toHaveLength(5);
+    expect(l.today).toEqual([
+      { widget: "lactic.form", size: "large", hidden: false },
+      { widget: "plugin.climb-lab.readiness", size: "small", hidden: false },
+    ]);
+  });
+
+  it("checks ride pages and custom fields, trimming fields to the template", () => {
+    const l = parseLayout({
+      v: 1,
+      ride: {
+        workout: {
+          pages: [
+            {
+              name: "Climb",
+              template: "four",
+              fields: [
+                { metric: "power.3s" },
+                { custom: { metric: "power", window: 10, agg: "avg", label: "Pwr 10s" } },
+                { custom: { metric: "power", window: 0, agg: "avg", asPercentOf: "ftp", label: "%FTP" } },
+                { custom: { metric: "power", window: -1, agg: "avg", label: "bad" } },
+                { metric: "heart_rate" },
+                { metric: "cadence" },
+              ],
+            },
+            { name: "Bad", template: "twelve", fields: [] },
+          ],
+        },
+        overlay: { pages: [{ name: "Mini", template: "four", fields: [{ metric: "power" }] }] },
+      },
+    });
+    expect(l.ride.workout.pages).toHaveLength(1);
+    expect(l.ride.workout.pages[0].fields).toEqual([
+      { metric: "power.3s" },
+      { custom: { metric: "power", window: 10, agg: "avg", label: "Pwr 10s" } },
+      { custom: { metric: "power", window: 0, agg: "avg", asPercentOf: "ftp", label: "%FTP" } },
+      { metric: "heart_rate" },
+    ]);
+    expect(l.ride.free).toBe("follow");
+    expect(ridePages(l, "overlay")[0].name).toBe("Mini");
+  });
+
+  it("adds built-in cards that are new since the layout was saved, keeping hidden ones hidden", () => {
+    const l = defaultLayout();
+    l.today = l.today.filter((c) => c.widget !== "lactic.brief");
+    l.today[0].hidden = true;
+    const next = withNewCards(l);
+    expect(next.today.at(-1)?.widget).toBe("lactic.brief");
+    expect(next.today[0].hidden).toBe(true);
+  });
+});

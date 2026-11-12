@@ -4,7 +4,7 @@ Open-source desktop app for structured cycling training (Tauri 2 + React, SQLite
 
 - Before pushing app changes, in `app/`: `npm run typecheck && npm run lint && npm test && npx vite build`, and `cargo check` in `app/src-tauri` when Rust changed.
 - The engine (`app/web/lib/engine`) owns every number. The AI coach only reads engine outputs through tools and proposes changes; it never computes metrics.
-- Keep `app/web/lib/engine`, `app/web/lib/fit`, `app/web/lib/scale/bodypod.ts`, `app/web/lib/ble/protocol.ts`, `app/web/lib/ble/power-match.ts` and `app/web/lib/ride/` free of browser and Node APIs so they run anywhere and test in Vitest.
+- Keep `app/web/lib/engine`, `app/web/lib/fit`, `app/web/lib/scale/bodypod.ts`, `app/web/lib/ble/protocol.ts`, `app/web/lib/ble/power-match.ts`, `app/web/lib/sdk` and `app/web/lib/ride/` free of browser and Node APIs so they run anywhere and test in Vitest.
 - Bluetooth goes through `navigator.bluetooth` (polyfilled in `app/src/bluetooth/` on the Rust core); GATT writes go through `SensorHub`'s queue, one operation at a time.
 - Support riding with Zwift open: Lactic holds trainer control; Zwift only reads power, cadence and HR.
 - The database schema (`app/src/db/schema.ts`) migrates additively on start: add tables and columns, never drop or rename. Every table has a UUID `id` and `updated_at` so sync can come later.
