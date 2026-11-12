@@ -8,8 +8,8 @@ import { blankWorkout } from "@/lib/engine/workout-edit";
 import type { Workout } from "@/lib/engine/workout";
 import type { ActionResult } from "../actions";
 import WorkoutEditor from "../ride/workout-editor";
-import { moveDay, resetPlanDay, saveDayLibrary, saveDayWorkout } from "./actions";
-import { LIBRARY_CATEGORY_LABELS, WORKOUT_LIBRARY, libraryWorkout } from "@/lib/engine/workout-library";
+import { moveDay, resetPlanDay, saveDayFixed, saveDayWorkout } from "./actions";
+import { LIBRARY_CATEGORY_LABELS, WORKOUT_LIBRARY, libraryKey } from "@/lib/engine/workout-library";
 import { formatTime } from "../ride/player";
 import Select from "@/components/select";
 import OutdoorToggle from "@/components/outdoor-toggle";
@@ -31,6 +31,26 @@ export interface EditableDayInfo {
   outside?: boolean | null;
 }
 
+/** A workout you can put on a day as it is: a favorite or one of My workouts (`key` is `library:<id>` or `custom:<id>`). */
+export interface WorkoutChoice {
+  key: string;
+  /** What the menu shows: "My 2 × 20 (Threshold, 1:00:00)". */
+  label: string;
+  workout: Workout;
+}
+
+/** The "Use a workout" menu's own groups, above the starter library. */
+export interface WorkoutChoices {
+  favorites: WorkoutChoice[];
+  mine: WorkoutChoice[];
+}
+
+const LIBRARY_CHOICES: WorkoutChoice[] = WORKOUT_LIBRARY.map((w) => ({
+  key: libraryKey(w.id),
+  label: `${LIBRARY_CATEGORY_LABELS[w.category]}: ${w.workout.name} (${formatTime(w.duration)})`,
+  workout: w.workout,
+}));
+
 /**
  * A future plan day you can open (click) to edit its workout, or drag onto another day to swap the two.
  * Links and buttons inside the cell keep working as before.
@@ -38,12 +58,14 @@ export interface EditableDayInfo {
 export default function EditableDay({
   day,
   ftp,
+  choices,
   moveTargets,
   className,
   children,
 }: {
   day: EditableDayInfo;
   ftp: number;
+  choices: WorkoutChoices;
   /** Every day a session can move to, for the dialog's Move to list. */
   moveTargets: { date: string; label: string }[];
   className?: string;
@@ -114,19 +136,20 @@ export default function EditableDay({
           <div className="px-3 pb-2 text-xs">{pending ? <span className="text-muted">Moving…</span> : result && <Result ok={result.ok}>{result.message}</Result>}</div>
         )}
       </div>
-      {open && <DayDialog day={day} ftp={ftp} moveTargets={moveTargets.filter((t) => t.date !== day.date)} onClose={() => setOpen(false)} />}
+      {open && <DayDialog day={day} ftp={ftp} choices={choices} moveTargets={moveTargets.filter((t) => t.date !== day.date)} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function DayDialog({ day, ftp, moveTargets, onClose }: { day: EditableDayInfo; ftp: number; moveTargets: { date: string; label: string }[]; onClose: () => void }) {
+function DayDialog({ day, ftp, choices, moveTargets, onClose }: { day: EditableDayInfo; ftp: number; choices: WorkoutChoices; moveTargets: { date: string; label: string }[]; onClose: () => void }) {
   const router = useRouter();
   const panel = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Workout | null>(day.workout);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [moveTo, setMoveTo] = useState("");
-  /** A starter library workout picked for the day; saved as itself while the draft is unedited. */
+  /** A workout picked from the menu (its key); saved as itself while the draft is unedited. */
   const [picked, setPicked] = useState("");
+  const pickedChoice = [...choices.favorites, ...choices.mine, ...LIBRARY_CHOICES].find((c) => c.key === picked) ?? null;
   // The editor starts folded so the popup leads with the workout and the coach's reason.
   const [editorOpen, setEditorOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -225,7 +248,7 @@ function DayDialog({ day, ftp, moveTargets, onClose }: { day: EditableDayInfo; f
             type="button"
             className={button.primary}
             disabled={pending || !edited}
-            onClick={() => run(() => (picked && draft === libraryWorkout(picked)?.workout ? saveDayLibrary(day.date, picked) : saveDayWorkout(day.date, draft)))}
+            onClick={() => run(() => (pickedChoice && draft === pickedChoice.workout ? saveDayFixed(day.date, pickedChoice.key) : saveDayWorkout(day.date, draft)))}
           >
             {pending ? "Saving…" : draft ? "Save to this day" : "Make it a rest day"}
           </button>
@@ -235,21 +258,41 @@ function DayDialog({ day, ftp, moveTargets, onClose }: { day: EditableDayInfo; f
             </button>
           )}
           <Select
-            aria-label="Use a library workout"
+            aria-label="Use a workout"
             value={picked}
-            onChange={(id) => {
-              const entry = libraryWorkout(id);
-              setPicked(id);
-              if (entry) setDraft(entry.workout);
+            onChange={(key) => {
+              const choice = [...choices.favorites, ...choices.mine, ...LIBRARY_CHOICES].find((c) => c.key === key);
+              setPicked(key);
+              if (choice) setDraft(choice.workout);
             }}
             className={`${input} h-8 px-2`}
           >
-            <option value="">Use a library workout…</option>
-            {WORKOUT_LIBRARY.map((w) => (
-              <option key={w.id} value={w.id}>
-                {`${LIBRARY_CATEGORY_LABELS[w.category]}: ${w.workout.name} (${formatTime(w.duration)})`}
-              </option>
-            ))}
+            <option value="">Use a workout…</option>
+            {choices.favorites.length > 0 && (
+              <optgroup label="♥ Favorites">
+                {choices.favorites.map((c) => (
+                  <option key={`fav-${c.key}`} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {choices.mine.length > 0 && (
+              <optgroup label="My workouts">
+                {choices.mine.map((c) => (
+                  <option key={`mine-${c.key}`} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            <optgroup label="Library">
+              {LIBRARY_CHOICES.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
+              ))}
+            </optgroup>
           </Select>
           {day.changed && (
             <button type="button" className={button.ghost} disabled={pending} onClick={() => run(() => resetPlanDay(day.date))}>

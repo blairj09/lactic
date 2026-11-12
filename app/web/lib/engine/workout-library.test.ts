@@ -96,8 +96,13 @@ describe("plan with favorites", () => {
     buildPlan({ today: "2026-10-29", goals: [race], availability, fitness: 55, fatigue: 60, levels: STARTING_LEVELS, favorites });
   const keys = (p: ReturnType<typeof plan>) => p.weeks.flatMap((w) => w.days).filter((d) => d.role === "key" && d.session);
 
-  it("leaves the plan as it was without favorites", () => {
-    expect(keys(plan()).every((d) => !d.session!.library)).toBe(true);
+  it("without favorites, mixes starter library workouts that fit with the engine's structures", () => {
+    const days = keys(plan());
+    expect(days.every((d) => !d.session!.favorite)).toBe(true);
+    const library = days.filter((d) => d.session!.library);
+    expect(library.length).toBeGreaterThan(0);
+    expect(days.some((d) => d.session!.template && !d.session!.library)).toBe(true);
+    for (const d of library) expect(libraryWorkout(d.session!.library)!.zone).toBe(d.session!.zone);
     expect(JSON.stringify(plan([]))).toBe(JSON.stringify(plan()));
   });
 
@@ -107,10 +112,10 @@ describe("plan with favorites", () => {
     const favorites = WORKOUT_LIBRARY.filter((w) => without.some((d) => libraryFits(d.session!.zone, d.session!.level, 3600).includes(w))).map((w) => w.id);
     expect(favorites.length).toBeGreaterThan(0);
     const days = keys(plan(favorites));
-    const used = days.filter((d) => d.session!.library);
+    const used = days.filter((d) => d.session!.favorite);
     expect(used.length).toBeGreaterThan(0);
     for (const d of used) expect(favorites).toContain(d.session!.library);
-    expect(days.some((d) => !d.session!.library)).toBe(true);
+    expect(days.some((d) => !d.session!.favorite)).toBe(true);
   });
 });
 

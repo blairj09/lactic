@@ -182,14 +182,19 @@ function climbSession(zone: Zone, level: number, seconds: number, climbSeconds: 
 }
 
 /**
- * A key session in `zone`: one of your favorite library workouts when one fits the slot and level,
- * else a structure that rotates week to week (`slot` spreads a week's key days). Favorites rotate the same way.
+ * A key session in `zone`: one of your favorites (starter or yours) when one fits the slot and level;
+ * else, in interval zones, every other week a starter library workout that fits, and otherwise a
+ * structure that rotates week to week (`slot` spreads a week's key days). Each kind rotates the same way.
  */
 function keySession(zone: Zone, level: number, seconds: number, prefer: Picking, week: string, slot: number): Session {
   const seed = Math.floor(daysBetween("2024-01-01", week) / 7) + slot;
   const favorites = prefer.favorites.length ? libraryFits(zone, level, seconds, prefer.favorites) : [];
-  if (favorites.length) return librarySession(favorites[seed % favorites.length]);
+  if (favorites.length) return { ...librarySession(favorites[seed % favorites.length]), favorite: true };
   if (zone === "endurance" || zone === "recovery") return buildSession(zone, level, seconds);
+  if (seed % 2 === 1) {
+    const library = libraryFits(zone, level, seconds);
+    if (library.length) return librarySession(library[Math.floor(seed / 2) % library.length]);
+  }
   return buildSession(zone, level, seconds, { template: pickTemplate(zone, prefer.focus, seed).id });
 }
 

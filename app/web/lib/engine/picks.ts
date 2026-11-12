@@ -25,8 +25,8 @@ export type Customs = readonly { id: string; workout: Workout }[];
 /** A fixed workout's key rather than a structure id. */
 export const isWorkoutKey = (id: string) => id.startsWith("library:") || id.startsWith("custom:");
 
-/** Whether the plan put one of the rider's favorites (a fixed workout) on this day; the coach's picks leave it be. */
-export const holdsFavorite = (day: PlanDay) => Boolean(day.session && !day.session.edited && (day.session.library || day.session.custom));
+/** Whether the plan put one of the rider's favorites on this day (one of theirs only gets there as a favorite); the coach's picks leave it be. */
+export const holdsFavorite = (day: PlanDay) => Boolean(day.session && !day.session.edited && (day.session.favorite || day.session.custom));
 
 /** Whether a pick can go on this day: a key session in the structure's zone, or a fixed workout that fits its slot. */
 export function pickFits(day: PlanDay | undefined, template: string, customs: Customs = []): boolean {
