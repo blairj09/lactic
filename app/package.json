@@ -14,7 +14,8 @@
     "lint": "eslint src evals",
     "eval:coach": "vite-node evals/cli.ts --",
     "tauri": "tauri",
-    "tauri:preview": "VITE_LACTIC_CHANNEL=preview tauri dev --config src-tauri/tauri.preview.conf.json"
+    "tauri:preview": "VITE_LACTIC_CHANNEL=preview tauri dev --config src-tauri/tauri.preview.conf.json",
+    "tauri:modular": "VITE_LACTIC_CHANNEL=modular tauri dev --config src-tauri/tauri.modular.conf.json"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",

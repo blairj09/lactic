@@ -1,0 +1,12 @@
+{
+  "productName": "Lactic Modular",
+  "identifier": "fit.lactic.modular",
+  "bundle": {
+    "icon": ["icons-modular/32x32.png", "icons-modular/128x128.png", "icons-modular/128x128@2x.png", "icons-modular/icon.icns", "icons-modular/icon.ico"]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/blairj09/lactic/releases/download/modular/latest.json"]
+    }
+  }
+}

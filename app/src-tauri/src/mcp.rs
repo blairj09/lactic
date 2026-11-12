@@ -21,9 +21,11 @@ use tokio::sync::{oneshot, Mutex};
 pub const DEFAULT_PORT: u16 = 47615;
 /// Lactic Preview starts further up, so it can run beside Lactic without taking its port.
 const PREVIEW_PORT: u16 = 47645;
+/// Lactic Modular, further up again, so all three can run at once.
+const MODULAR_PORT: u16 = 47675;
 
 fn default_port() -> u16 {
-    if crate::is_preview() { PREVIEW_PORT } else { DEFAULT_PORT }
+    if crate::is_modular() { MODULAR_PORT } else if crate::is_preview() { PREVIEW_PORT } else { DEFAULT_PORT }
 }
 const PROTOCOL: &str = "2025-06-18";
 
@@ -281,7 +283,7 @@ fn data_dir() -> Option<PathBuf> {
 /// The name Lactic goes by in Claude Desktop's MCP servers: "lactic", or "lactic-preview" for a
 /// preview build, so installing a preview's bridge never replaces the real app's.
 fn server_name() -> &'static str {
-    if crate::is_preview() { "lactic-preview" } else { "lactic" }
+    if crate::is_modular() { "lactic-modular" } else if crate::is_preview() { "lactic-preview" } else { "lactic" }
 }
 
 /// `lactic --mcp`: JSON-RPC over stdin and stdout, forwarded to the running app.
