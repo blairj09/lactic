@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
+    "@jitl/quickjs-wasmfile-release-sync": "^0.32.0",
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-barcode-scanner": "^2.5.3",
     "@tauri-apps/plugin-dialog": "^2.8.4",
@@ -29,6 +30,7 @@
     "fflate": "^0.8.3",
     "leaflet": "^1.9.4",
     "modern-screenshot": "^4.7.0",
+    "quickjs-emscripten-core": "^0.32.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^7.18.5",
