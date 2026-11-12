@@ -47,6 +47,7 @@ export default function TodayView({
   coachEnabled,
   brief,
   review = false,
+  rideShapes = {},
   healthLinked = false,
   recoverySource = null,
   todayStream = null,
@@ -63,6 +64,8 @@ export default function TodayView({
   brief: { message: StoredMessage | null; stale: boolean } | null;
   /** The coach has written last week's review (on Progress), in the first days of a week. */
   review?: boolean;
+  /** This week's ridden days: each main ride's power, in even slices (rideShape). */
+  rideShapes?: Record<string, number[]>;
   /** The Apple Health shortcut has sent data before, so recovery is expected from it. */
   healthLinked?: boolean;
   /** Where the rider's sleep and recovery come from, once known, and whether it's set up to send nights. */
@@ -112,7 +115,7 @@ export default function TodayView({
 
         <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} exertion={exertionTodayFor(state)} className="" />
 
-        <ThisWeek state={state} />
+        <ThisWeek state={state} rideShapes={rideShapes} />
 
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
           {/* Today's form, with the fitness and fatigue it comes from. On a phone, form takes the top row. */}

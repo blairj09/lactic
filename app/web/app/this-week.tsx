@@ -25,7 +25,7 @@ const TRACKING_TONE: Record<Tracking, string> = {
  * How the week and the plan are coming, at a glance: each day's plan and how it went, stress so far against the
  * plan to date, and the week of the saved plan. Numbers come from the engine (week-glance.ts).
  */
-export default function ThisWeek({ state, className }: { state: TrainingState; className?: string }) {
+export default function ThisWeek({ state, rideShapes = {}, className }: { state: TrainingState; rideShapes?: Record<string, number[]>; className?: string }) {
   const { today } = state;
   const monday = weekStart(today);
   const glance = weekGlance(complianceDays(state, addDays(monday, -1), addDays(monday, 7)), monday, today);
@@ -61,7 +61,7 @@ export default function ThisWeek({ state, className }: { state: TrainingState; c
         </div>
         <ol className="grid grid-cols-7 gap-1.5" aria-label="Days this week">
           {glance.days.map((d) => (
-            <DayCell key={d.date} day={d} today={today} workout={plannedOn(state, d.date)?.session?.workout ?? null} event={state.plan.weeks.flatMap((w) => w.days).find((p) => p.date === d.date)?.goal?.name ?? null} />
+            <DayCell key={d.date} day={d} today={today} shape={rideShapes[d.date] ?? null} ftp={state.athlete.ftp} workout={plannedOn(state, d.date)?.session?.workout ?? null} event={state.plan.weeks.flatMap((w) => w.days).find((p) => p.date === d.date)?.goal?.name ?? null} />
           ))}
         </ol>
       </div>
@@ -70,7 +70,7 @@ export default function ThisWeek({ state, className }: { state: TrainingState; c
 }
 
 /** One day: its workout's shape and stress inside the tile, ticked once ridden. */
-function DayCell({ day, today, workout, event }: { day: GlanceDay; today: string; workout: Workout | null; event: string | null }) {
+function DayCell({ day, today, workout, event, shape, ftp }: { day: GlanceDay; today: string; workout: Workout | null; event: string | null; shape: number[] | null; ftp: number | null }) {
   const isToday = day.date === today;
   const letter = new Date(`${day.date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
   const rest = day.planned === 0 && day.done === 0 && !event;
@@ -111,7 +111,11 @@ function DayCell({ day, today, workout, event }: { day: GlanceDay; today: string
                 </span>
               )}
             </div>
-            {event ? (
+            {ridden && shape?.length ? (
+              <div className="mt-auto px-1 pb-1">
+                <RideShape watts={shape} ftp={ftp} />
+              </div>
+            ) : event ? (
               <span className="mt-auto truncate px-1 pb-1.5 text-[11px] text-ink">{event}</span>
             ) : workout ? (
               <div className={`mt-auto px-1 pb-1 ${day.mark === "missed" || day.mark === "moved" ? "opacity-40" : ""}`}>
@@ -124,5 +128,19 @@ function DayCell({ day, today, workout, event }: { day: GlanceDay; today: string
         )}
       </div>
     </li>
+  );
+}
+
+/** What was ridden, as a filled power trace on the same scale as a workout's blocks (1.3 × FTP at the top). */
+function RideShape({ watts, ftp }: { watts: number[]; ftp: number | null }) {
+  const top = (ftp ?? Math.max(...watts)) * 1.3 || 1;
+  const h = 44;
+  const w = watts.length;
+  const y = (v: number) => h - Math.min(1, v / top) * h;
+  const path = `M0 ${h} ` + watts.map((v, i) => `L${i} ${y(v).toFixed(1)} L${i + 1} ${y(v).toFixed(1)}`).join(" ") + ` L${w} ${h} Z`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="block h-11 w-full text-accent" aria-hidden="true">
+      <path d={path} fill="currentColor" fillOpacity={0.55} />
+    </svg>
   );
 }

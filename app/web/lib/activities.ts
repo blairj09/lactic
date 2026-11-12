@@ -196,6 +196,14 @@ export interface StoredStream extends RideStream {
   activityId: string;
 }
 
+/** Just the power of a few rides (5 s means), for small ride shapes. Empty for rides with no stored stream. */
+export async function loadWatts(supabase: Supabase, activityIds: string[]): Promise<Map<string, (number | null)[]>> {
+  if (!activityIds.length) return new Map();
+  const { data, error } = await supabase.from("activity_streams").select("activity_id, watts").in("activity_id", activityIds);
+  if (error) return (console.error(error), new Map());
+  return new Map((data as { activity_id: string; watts: (number | null)[] | null }[]).filter((r) => r.watts?.length).map((r) => [r.activity_id, r.watts!]));
+}
+
 export async function loadStream(supabase: Supabase, activityId: string): Promise<StoredStream | null> {
   const { data, error } = await supabase.from("activity_streams").select("*").eq("activity_id", activityId).maybeSingle();
   if (error) return (console.error(error), null);

@@ -21,7 +21,7 @@ export type Tracking = "ahead" | "onTrack" | "behind" | "early";
 export interface WeekGlance {
   /** Monday to Sunday. */
   days: GlanceDay[];
-  /** Planned for the whole week, planned through today, and ridden so far (from the plan's start). */
+  /** Planned for the whole week, planned through today, and everything ridden this week. */
   planned: number;
   plannedToDate: number;
   done: number;
@@ -55,9 +55,11 @@ export function weekGlance(days: ComplianceDay[], monday: string, today: string)
   const ridden = (d: GlanceDay) => d.date < today || (d.date === today && d.done > 0);
   const planned = out.reduce((t, d) => t + d.planned, 0);
   const plannedToDate = out.filter(ridden).reduce((t, d) => t + d.planned, 0);
-  const done = out.filter((d) => !d.beforePlan).reduce((t, d) => t + d.done, 0);
+  const done = out.reduce((t, d) => t + d.done, 0);
+  // Tracking compares like with like: rides from the plan's start against what it planned.
+  const tracked = out.filter((d) => !d.beforePlan).reduce((t, d) => t + d.done, 0);
   const tracking: Tracking =
-    plannedToDate === 0 ? (done > 0 ? "ahead" : "early") : done > plannedToDate * (1 + TRACKING_BAND) ? "ahead" : done < plannedToDate * (1 - TRACKING_BAND) ? "behind" : "onTrack";
+    plannedToDate === 0 ? (tracked > 0 ? "ahead" : "early") : tracked > plannedToDate * (1 + TRACKING_BAND) ? "ahead" : tracked < plannedToDate * (1 - TRACKING_BAND) ? "behind" : "onTrack";
   return {
     days: out,
     planned,
@@ -77,4 +79,14 @@ export function planWeek(planStart: string, planEnd: string, monday: string): { 
   const of = weeks(first, mondayOf(planEnd)) + 1;
   const n = weeks(first, monday) + 1;
   return n >= 1 && n <= of ? { n, of } : null;
+}
+
+/** A ride's power in `points` even slices (mean watts each, gaps as 0), for a small shape of the ride. */
+export function rideShape(watts: (number | null)[], points = 48): number[] {
+  if (!watts.length) return [];
+  const n = Math.min(points, watts.length);
+  return Array.from({ length: n }, (_, i) => {
+    const slice = watts.slice(Math.floor((i * watts.length) / n), Math.floor(((i + 1) * watts.length) / n));
+    return Math.round(slice.reduce<number>((t, w) => t + (w ?? 0), 0) / Math.max(1, slice.length));
+  });
 }

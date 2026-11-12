@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planWeek, weekGlance } from "./week-glance";
+import { planWeek, rideShape, weekGlance } from "./week-glance";
 import type { ComplianceDay } from "./compliance";
 
 const day = (date: string, planned: number, ridden: number[] = []): ComplianceDay => ({
@@ -68,7 +68,16 @@ describe("weekGlance before a plan starts", () => {
       "2026-11-11",
     );
     expect(g.days[0]).toMatchObject({ done: 80, beforePlan: true });
-    expect(g.done).toBe(40);
+    // Every ride this week counts toward the total; only the plan's days count toward tracking.
+    expect(g.done).toBe(120);
     expect(g.tracking).toBe("onTrack");
+  });
+});
+
+describe("rideShape", () => {
+  it("averages power into even slices", () => {
+    expect(rideShape([100, 100, 200, 200, null, 0], 3)).toEqual([100, 200, 0]);
+    expect(rideShape([150], 48)).toEqual([150]);
+    expect(rideShape([])).toEqual([]);
   });
 });
