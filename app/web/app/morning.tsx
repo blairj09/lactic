@@ -104,6 +104,9 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
   const offset = Number(Boolean(lastNight && recoveryDone));
   const feelStep = stepCount - offset;
 
+  // Nothing to show at the top (recovery isn't tracked and How you feel is asked elsewhere): no empty card.
+  if (part === "recovery" && stepCount === 0) return null;
+
   // Last night is in: the top of Today is just the recovery summary, no steps around it.
   if (part === "recovery" && recoveryDone && lastNight) return <Panel title="Recovery">{lastNight}</Panel>;
 
