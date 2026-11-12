@@ -34,6 +34,7 @@ import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
 import { RemoteHost } from "~/ride/remote";
 import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
+import { useKeepAwake } from "~/platform/keep-awake";
 import { isDesktop, isPhone } from "~/platform/native";
 import { isDemo } from "~/demo/flag";
 import type { TracePoint } from "./workout-chart";
@@ -327,13 +328,8 @@ function RideOnThisDevice({
   useEffect(() => setLiveRide({ hub, riding: midRide }), [hub, midRide]);
   useEffect(() => () => setLiveRide(null), []);
 
-  // Keep the screen awake while riding.
-  useEffect(() => {
-    if (!running || !("wakeLock" in navigator)) return;
-    let lock: WakeLockSentinel | undefined;
-    navigator.wakeLock.request("screen").then((l) => (lock = l), () => undefined);
-    return () => void lock?.release();
-  }, [running]);
+  // Keep the screen awake mid-ride, and while the trainer's connected (a ride waiting for the first pedal stroke).
+  useKeepAwake(midRide || !!state.connected.trainer);
 
   const openOverlay = () => {
     const { width, height } = OVERLAY_SIZES[overlaySize];
@@ -524,6 +520,7 @@ function RideOnThisDevice({
     if (edited) return source === "custom" && customId ? customKey(customId) : null;
     if (source === "starter" && starterId) return libraryKey(starterId);
     if (source === "planned" && planned?.library && !planned.edited) return libraryKey(planned.library);
+    if (source === "planned" && planned?.custom && !planned.edited) return customKey(planned.custom);
     if (source === "custom" && customId) return customKey(customId);
     return null;
   };

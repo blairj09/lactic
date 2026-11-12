@@ -157,7 +157,7 @@ export default function Morning({ day, recovery, weighIn: weighed, weighInDue = 
 
 
   const weighedKg = weighed?.weightKg ?? (weigh.phase === "saved" ? weigh.kg : null);
-  // Once last night is in, the Last night card above shows it, so the step only waits for it.
+  // Once last night is in, the Recovery card shows it, so the step only waits for it.
   const recoveryStep = tracking.recovery && (!recoveryDone || Boolean(lastNight));
   const stepCount = 1 + Number(recoveryStep) + Number(showWeigh);
   // Last night in brief is a summary, not a step to do, so it isn't numbered.
@@ -178,7 +178,7 @@ export default function Morning({ day, recovery, weighIn: weighed, weighInDue = 
     >
       <ol className={`grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line ${stacked ? "" : lastNight && recoveryDone ? LAST_NIGHT_COLUMNS[stepCount] : STEP_COLUMNS[stepCount]}`}>
         {recoveryStep && (
-        <Step n={1} title={lastNight && recoveryDone ? "Last night" : "Recovery"} state={recoveryDone ? (lastNight ? "settled" : "done") : recoveryReady ? (skips.recovery ? "skipped" : "settled") : "active"} plain={Boolean(lastNight && recoveryDone)}>
+        <Step n={1} title="Recovery" state={recoveryDone ? (lastNight ? "settled" : "done") : recoveryReady ? (skips.recovery ? "skipped" : "settled") : "active"} plain={Boolean(lastNight && recoveryDone)}>
           {recoveryDone ? (
             (lastNight ?? <p>{recovery.line ?? "Last night is in."}</p>)
           ) : skips.recovery ? (

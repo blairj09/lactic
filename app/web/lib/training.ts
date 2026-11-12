@@ -1,14 +1,17 @@
 // Everything the plan, the check-in and the coach read, loaded once per request: rides, fitness,
 // recovery, goals, levels and the plan computed from them.
 
-import { loadCourseSummaries } from "./course";
+import { loadCourseSummaries, loadCourseTrack } from "./course";
+import { courseProfile } from "./engine/course/profile";
+import { targetPlan } from "./engine/course/target";
 import { courseDemands } from "./engine/course/shape";
 import { experiments } from "./experiments";
 import { loadAthlete, loadRides, type Athlete, type StoredRide } from "./activities";
 import { dailyStress, localDate } from "./engine/activity";
 import { DIFFICULTIES, type Difficulty } from "./engine/feedback";
 import { loadFavorites } from "./favorites";
-import { favoriteLibraryIds } from "./engine/workout-library";
+import { favoriteWorkouts as resolveFavorites, type LibraryWorkout } from "./engine/workout-library";
+import { loadCustomWorkouts, type CustomWorkout } from "./custom-workouts";
 import { applyOutcomes, outcomeFromRides, seedLevels, type Outcome } from "./engine/levels";
 import { ZONE_LABELS, ZONES, type Levels, type Session } from "./engine/library";
 import { addDays, fitnessSeries, type FitnessDay } from "./engine/pmc";
@@ -94,6 +97,10 @@ export interface TrainingState {
   levels: Levels;
   /** Favorite workout keys (`library:<id>`, `custom:<id>`). */
   favorites: string[];
+  /** My workouts, so the plan and coach can use them. */
+  customWorkouts: CustomWorkout[];
+  /** The favorites as workouts the plan and coach can schedule (starter ones and My workouts), newest favorite first. */
+  favoriteWorkouts: LibraryWorkout[];
   /** What levels start from and the outcomes that moved them, so levels on an earlier day can be worked out (levelsOn). */
   levelSeed: Levels;
   levelOutcomes: Outcome[];
@@ -227,7 +234,7 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
   const tz = athlete.timezone;
   const today = localDate(new Date(), tz);
   const daytime = loadDaytime(supabase, athlete, today).catch((e) => (console.error(e), null));
-  const [[rides, eventGoals, plans, breaks, feedbackRows, courses], recovery, daytimeData, allDays, picks, outdoor, keptRow, favorites] = await Promise.all([
+  const [[rides, eventGoals, plans, breaks, feedbackRows, courses], recovery, daytimeData, allDays, picks, outdoor, keptRow, favorites, customWorkouts] = await Promise.all([
     early,
     // Riders who don't track recovery get none, even if some sleep data arrived (intervals.icu wellness), so neither
     // Today's options nor the coach go by a score they never see.
@@ -239,12 +246,29 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     loadKeptWeek(supabase, weekStart(today)),
     // Favorites are optional: the plan builds the same without them.
     loadFavorites(supabase).catch((e) => (console.error(e), [] as string[])),
+    loadCustomWorkouts(supabase).catch((e) => (console.error(e), [] as CustomWorkout[])),
   ]);
+  const favoriteWorkouts = resolveFavorites(favorites, customWorkouts);
   // Events with a course file carry what the course asks of you, so the plan can train for it (course/shape.ts).
-  const goals = eventGoals.map((g) => {
-    const course = courses?.get(g.id);
-    return course ? { ...g, course: courseDemands(course, g.kind, g, { ftp: athlete.ftp, weightKg: athlete.weightKg }) } : g;
-  });
+  // A target finish time carries the FTP it takes on the course, so the plan can build toward it (course/target.ts).
+  const rider = { ftp: athlete.ftp, weightKg: athlete.weightKg };
+  const goals = await Promise.all(
+    eventGoals.map(async (g) => {
+      const course = courses?.get(g.id);
+      if (!course) return g;
+      const withCourse = { ...g, pack: course.pack, course: courseDemands(course.summary, g.kind, { ...g, pack: course.pack }, rider) };
+      if (!course.targetSeconds || g.date < today) return withCourse;
+      const track = await loadCourseTrack(supabase, g.id).catch(() => null);
+      if (!track) return withCourse;
+      try {
+        const t = targetPlan(courseProfile(track), withCourse, rider, course.targetSeconds, today);
+        return { ...withCourse, timeTarget: { seconds: t.seconds, neededFtp: t.neededFtp, ftp: t.ftp } };
+      } catch (e) {
+        console.error(e);
+        return withCourse;
+      }
+    }),
+  );
   const feedback = feedbackFor(feedbackRows, rides, addDays(today, -LEVEL_WINDOW_DAYS), tz);
   const ahead = allDays.filter((d) => d.day >= today);
   const storedDays = allDays.filter((d) => d.day <= today);
@@ -297,7 +321,7 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     fatigue: yesterday.fatigue,
     levels,
     rampRate: athlete.rampRate,
-    favorites: favoriteLibraryIds(favorites),
+    favorites: favoriteWorkouts,
   });
   // This week's skeleton stays as it was when the week began; a rebuild that's moved past the drift limit is offered
   // as a re-plan instead (stability.ts). Changing what the plan is built from re-plans the week at once.
@@ -311,7 +335,7 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
   const drift = kept && rebuiltWeek ? weekDrift(kept.days, rebuiltWeek, today) : null;
   const stablePlan = keepWeek(enginePlan, kept, today, yesterday);
   // The coach's weekly picks choose the structure of key days; the engine keeps everything else.
-  const picked = applyPicks(stablePlan, picks, today, yesterday);
+  const picked = applyPicks(stablePlan, picks, today, yesterday, customWorkouts);
   // Key sessions missed earlier this week move to a later day: moves made on earlier loads are stored with the day
   // they went to, so they stay put; new ones are made now and stored.
   const storedMoves: Move[] = allDays.filter((d) => d.movedFrom).map((d) => ({ from: d.movedFrom!, to: d.day, session: d.planned }));
@@ -370,6 +394,8 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     feedback,
     rideLinks,
     favorites,
+    customWorkouts,
+    favoriteWorkouts,
   };
 }
 
