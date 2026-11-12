@@ -30,8 +30,13 @@ export interface MorningProps {
   /** One step under another, for a narrow column. */
   stacked?: boolean;
   title?: string;
-  /** False when "How you feel" is asked elsewhere (Today asks it in the workout card, as "Ready for it?"). */
+  /** False when "How you feel" is asked elsewhere (Today asks it above the workouts, as "Ready to train?"). */
   askFeel?: boolean;
+  /**
+   * Today splits the morning in two: `recovery` is the top card (no brief), `brief` is the coach's brief
+   * further down (no steps, no options: the workout cards show them). `all` is both, in one card.
+   */
+  part?: "all" | "recovery" | "brief";
 }
 
 export interface TodayChoice {
@@ -53,7 +58,7 @@ type Skips = { recovery?: boolean };
  * skipped, so it's written once from the full picture; how you feel rewrites it when it lands.
  * Riding never waits on any of it.
  */
-export default function Morning({ day, recovery, weighedToday = false, brief, today, lastNight, stacked = false, title = "Morning", askFeel = true }: MorningProps) {
+export default function Morning({ day, recovery, weighedToday = false, brief, today, lastNight, stacked = false, title = "Morning", askFeel = true, part = "all" }: MorningProps) {
   const router = useRouter();
   // Recovery is a step only for riders who track it.
   const tracking = useFeatures();
@@ -64,6 +69,10 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
   useEffect(() => {
     setSkips(readSkips(day));
     setMounted(true);
+    // The recovery card and the brief card share skips: a skip in one reaches the other.
+    const changed = () => setSkips(readSkips(day));
+    window.addEventListener(SKIPS_CHANGED, changed);
+    return () => window.removeEventListener(SKIPS_CHANGED, changed);
   }, [day]);
 
   const skip = (...steps: (keyof Skips)[]) => {
@@ -94,6 +103,35 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
   // Last night in brief is a summary, not a step to do, so it isn't numbered.
   const offset = Number(Boolean(lastNight && recoveryDone));
   const feelStep = stepCount - offset;
+
+  // Last night is in: the top of Today is just the recovery summary, no steps around it.
+  if (part === "recovery" && recoveryDone && lastNight) return <Panel title="Recovery">{lastNight}</Panel>;
+
+  if (part === "brief") {
+    if (!brief) return null;
+    return (
+      <Panel
+        title="Coach's brief"
+        meta={
+          <button type="button" onClick={() => openCoach()} className="hover:text-ink">
+            Ask the coach
+          </button>
+        }
+      >
+        <div className="-mt-3">
+          <Brief
+            initial={brief.message}
+            stale={brief.stale}
+            ready={mounted && waitingOn.length === 0}
+            inputs={`${recovery.in}-${weighedToday}-${"settled" in today ? "" : (today.answers?.at ?? "")}`}
+            pending={mounted ? pending : ""}
+            onSkipPending={() => skip(...waitingOn)}
+            today={null}
+          />
+        </div>
+      </Panel>
+    );
+  }
 
   return (
     <Panel
@@ -150,7 +188,7 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
       </ol>
       )}
 
-      {brief ? (
+      {part === "recovery" ? null : brief ? (
         <Brief
           initial={brief.message}
           stale={brief.stale}
@@ -352,6 +390,7 @@ function TodayOptionsFor({ today, pick, className }: { today: TodayChoice; pick:
 
 // Skipped steps are remembered in this browser for the day.
 const SKIPS = "morning.skips";
+const SKIPS_CHANGED = "morning-skips";
 
 function readSkips(day: string): Skips {
   try {
@@ -366,4 +405,5 @@ function writeSkips(day: string, skips: Skips) {
   try {
     localStorage.setItem(SKIPS, JSON.stringify({ day, skips }));
   } catch {}
+  window.dispatchEvent(new Event(SKIPS_CHANGED));
 }
