@@ -97,7 +97,7 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
     <Panel
       title={title}
       meta={
-        brief !== null ? (
+        brief !== null && title ? (
           <button type="button" onClick={() => openCoach()} className="hover:text-ink">
             Ask the coach
           </button>

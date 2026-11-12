@@ -27,10 +27,10 @@ import RaceDayPlan from "./race-day";
 import { GOAL_KIND_LABELS, goalMinutes, PHASE_LABELS, SAFETY_RULE_LABELS, weekStart } from "@/lib/engine/plan";
 import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
-import WeekReviewCard from "./week-review";
 import RaceReportPrompt from "./race-report-prompt";
+import RestDay from "./rest-day";
+import ThisWeek from "./this-week";
 import type { RaceFollowUp } from "@/lib/engine/race/followup";
-import type { WeekReview } from "@/lib/engine/review";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
 import { ExertionBar, RecoverySummary } from "./last-night";
 import type { ExertionToday } from "@/lib/engine/recovery-glance";
@@ -48,7 +48,8 @@ export default function TodayView({
   ftpWindowDays,
   coachEnabled,
   brief,
-  review,
+  review = false,
+  rideShapes = {},
   healthLinked = false,
   recoverySource = null,
   todayStream = null,
@@ -63,8 +64,10 @@ export default function TodayView({
   coachEnabled: boolean;
   /** Today's morning brief, and whether it needs writing (again). Null when the coach is off. */
   brief: { message: StoredMessage | null; stale: boolean } | null;
-  /** The coach's review of last week, in the first days of a week once it's written. */
-  review?: { review: WeekReview; message: string; thisWeek: string | null } | null;
+  /** The coach has written last week's review (on Progress), in the first days of a week. */
+  review?: boolean;
+  /** This week's ridden days: each main ride's power, in even slices (rideShape). */
+  rideShapes?: Record<string, number[]>;
   /** The Apple Health shortcut has sent data before, so recovery is expected from it. */
   healthLinked?: boolean;
   /** Where the rider's sleep and recovery come from, once known, and whether it's set up to send nights. */
@@ -81,6 +84,7 @@ export default function TodayView({
   const todaysWeighIn = body ? weighInOn(body, today, athlete.timezone) : undefined;
   const ridden = ridesOn(state, today);
   const survey = ridden ? null : unansweredRide(state);
+  const weekAgo = series.length > 7 ? series[series.length - 8] : undefined;
 
   return (
     <>
@@ -88,60 +92,66 @@ export default function TodayView({
 
       {raceFollowUp && <RaceReportPrompt followUp={raceFollowUp} />}
 
-      {review && <WeekReviewCard {...review} />}
-
       {athlete.ftp && <FtpBanner ftp={athlete.ftp} check={checkFtp({ today, ftp: athlete.ftp, history: athlete.ftpHistory, estimate, plan: state.plan })} windowDays={ftpWindowDays} />}
 
       <RaceSoon state={state} />
 
-      {/* Weight isn't part of the morning: a slim card asks once a week, before the week's first ride, when there's no recent weigh-in. */}
-      {body && (
-        <WeeklyWeighIn
-          day={today}
-          due={weighInDue({ today, timeZone: athlete.timezone, weighIns: body.map((m) => m.measuredAt), rides: rides.map((r) => r.startedAt) })}
-          profile={
-            athlete.heightCm !== null && athlete.sex !== null && athlete.birthDate !== null
-              ? { male: athlete.sex === "male", heightCm: athlete.heightCm, age: ageOn(athlete.birthDate, today) }
-              : null
-          }
-        />
-      )}
-
-      {/* Two columns on a computer: what to ride on the left, with form and the last ride under it, and whether you're
-          up for it on the right. On a phone: the workout, then This morning, then form and the last ride. The second
-          row takes any extra height, so the strip stays right under the workout. */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:grid-rows-[auto_1fr]">
-        <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} exertion={exertionTodayFor(state)} />
-        <div className="self-start lg:col-start-3 lg:row-span-2 lg:row-start-1">
+      {/* Top to bottom: how you are today (recovery and how you feel), today's workout, how the week and the plan are
+          tracking, then form and the last ride side by side on a computer. */}
+      <div className="space-y-4">
         <Morning
-          title="This morning"
-          stacked
-          lastNight={recovery?.today ? <RecoverySummary recovery={recovery} variant="column" /> : undefined}
+          title=""
+          lastNight={recovery?.today ? <RecoverySummary recovery={recovery} variant="wide" /> : undefined}
           day={today}
           recovery={{ in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource }}
           weighedToday={Boolean(todaysWeighIn)}
           brief={brief}
           today={todayChoice(state, coachEnabled)}
         />
-        </div>
 
-        <section aria-label="Training" className="grid grid-cols-2 gap-px self-start overflow-hidden rounded-lg border border-line bg-line lg:col-span-2">
-          <Stat
-            className={survey ? "col-span-2 sm:col-span-1" : undefined}
-            label="Form"
-            value={signed(now.form)}
-            sub={
-              <>
-                {formBand(now.form).meaning}{" "}
-                <Link href="/progress" className="text-ink underline underline-offset-4">
-                  Fitness trend
-                </Link>
-              </>
+        {/* Weight isn't part of recovery: a slim card asks once a week, before the week's first ride, when there's no recent weigh-in. */}
+        {body && (
+          <WeeklyWeighIn
+            day={today}
+            due={weighInDue({ today, timeZone: athlete.timezone, weighIns: body.map((m) => m.measuredAt), rides: rides.map((r) => r.startedAt) })}
+            profile={
+              athlete.heightCm !== null && athlete.sex !== null && athlete.birthDate !== null
+                ? { male: athlete.sex === "male", heightCm: athlete.heightCm, age: ageOn(athlete.birthDate, today) }
+                : null
             }
           />
-          {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} survey={survey} className={survey ? "col-span-2 sm:col-span-1" : undefined} />}
-          <FtpNudge ftp={athlete.ftp} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} />
-        </section>
+        )}
+
+        <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} exertion={exertionTodayFor(state)} className="" />
+
+        <ThisWeek state={state} rideShapes={rideShapes} />
+
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+          {/* Today's form, with the fitness and fatigue it comes from. On a phone, form takes the top row. */}
+          <section aria-label="Form" className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3">
+            <Stat className="col-span-2 sm:col-span-1" label="Form" value={signed(Math.round(now.form))} sub={formBand(now.form).meaning} />
+            <Stat
+              label="Fitness"
+              value={Math.round(now.fitness)}
+              sub={
+                <>
+                  {weekAgo ? fitnessChange(Math.round(now.fitness - weekAgo.fitness)) : ""}
+                  <Link href="/progress" className="text-ink underline underline-offset-4">
+                    {review ? "Last week's review" : "Fitness trend"}
+                  </Link>
+                </>
+              }
+            />
+            <Stat label="Fatigue" value={Math.round(now.fatigue)} sub="Your last week or so of riding" />
+          </section>
+
+          {(!ridden || !athlete.ftp) && (
+            <section aria-label="Training" className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line">
+              {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} survey={survey} />}
+              <FtpNudge ftp={athlete.ftp} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} />
+            </section>
+          )}
+        </div>
       </div>
     </>
   );
@@ -290,6 +300,8 @@ export function TodayWorkout({
         <RideChoice day={today} outside connected={intervalsConnected} outsideNote="in place of the plan's workout" />
       </div>
     );
+  } else if (chosen && !chosen.session) {
+    body = <RestDay state={state} />;
   } else if (chosen) {
     body = (
       <div className="space-y-4">
@@ -321,7 +333,7 @@ export function TodayWorkout({
         <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />
       </div>
     ) : (
-      <p className="text-[15px] text-muted">Nothing planned. Say how you feel above if you want to ride anyway.</p>
+      <RestDay state={state} />
     );
   }
 
@@ -371,6 +383,8 @@ function nightValues(today: NonNullable<RecoveryToday["today"]>) {
     today.sleepHours !== undefined && `slept ${Math.floor(today.sleepHours)}h${String(Math.round((today.sleepHours % 1) * 60)).padStart(2, "0")}`,
   ].filter(Boolean);
 }
+
+const fitnessChange = (change: number) => (change === 0 ? "Steady this week. " : `${signed(change)} this week. `);
 
 /**
  * FTP lives in Settings; this tile only speaks up when there's none. A higher estimate is the banner above

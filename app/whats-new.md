@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Today is about today: your workout first, then how this week and your plan are tracking, your form and your recovery. Rest days get a proper rest-day card. Last week's review moved to the top of Progress.
 - Weighing in is now weekly: Today only asks before your first ride of the week, and only when there's no weigh-in from the last 7 days (scale, typed in, or Apple Health). You can type your weight in right there, or put it off until next week.
 - The Last night card on Today and Health is now called Recovery.
 - Race courses: set a target finish time and Lactic works out the FTP it takes, whether that's realistic by race day, and the power to hold on each climb to make it. If you need more FTP, the plan builds toward it. Pick how you'll ride the event (solo, a small group or a bunch) and times allow for the draft, with what getting dropped on the main climb would cost you.
