@@ -12,6 +12,12 @@ import type { Proposal } from "@shared/coach/changes";
 import type { ToolResult } from "@shared/coach/tools";
 import { SUPPORT_TOOLS } from "~/support/definitions";
 import { GUIDE } from "~/support/guide";
+import { BUILTIN_TODAY_WIDGETS } from "@shared/sdk/builtin-widgets";
+import { parseLayout } from "@shared/sdk/layout";
+import { applyLayoutChange, checkLayoutChange, describeLayoutChange, type LayoutContext } from "@shared/sdk/layout-edit";
+import { MetricRegistry } from "@shared/sdk/metrics";
+import { layoutReport } from "@shared/coach/layout-guide";
+import { pluginList, readPluginMetric, type InstalledPlugin, type PluginPoint } from "@shared/coach/plugins";
 
 export interface AppState {
   riding?: boolean;
@@ -28,6 +34,13 @@ export interface AppState {
   powerSource?: "trainer" | "powerMeter";
   /** The theme before set_appearance. */
   theme?: "light" | "dark" | "system";
+  /** The rider's saved layout (parseLayout input); the default when missing. */
+  layout?: unknown;
+  /** Installed plugins, and what each metric has published. */
+  plugins?: InstalledPlugin[];
+  pluginValues?: Record<string, PluginPoint[]>;
+  /** The channel the coach is on: an outside AI app over MCP sees fewer plugins. */
+  via?: "chat" | "mcp";
 }
 
 const HEALTHY = {
@@ -49,12 +62,18 @@ const HEALTHY = {
 };
 
 const AREAS = ["bluetooth", "intervals", "health", "coach"] as const;
-const TRY = new Set(["test_connection", "sync_now", "reconnect_device", "scan_for_devices", "propose_app_change"]);
+const TRY = new Set(["test_connection", "sync_now", "reconnect_device", "scan_for_devices", "propose_app_change", "propose_layout_change"]);
 const STATUS = Object.fromEntries(SUPPORT_TOOLS.map((t) => [t.function.name, t.function.name]));
 
 const current = new AsyncLocalStorage<AppState>();
 
-function run(state: AppState, name: string, args: Record<string, unknown>): ToolResult {
+function layoutContext(state: AppState): LayoutContext {
+  const plugins = (state.plugins ?? []).filter((p) => p.enabled);
+  const widgets: LayoutContext["widgets"] = plugins.flatMap((p) => p.widgets.map((w) => ({ id: w.id, name: w.name, sizes: ["medium", "large", "small"], source: { kind: "plugin", pluginId: p.id, pluginName: p.name } })));
+  return { widgets: [...BUILTIN_TODAY_WIDGETS, ...widgets], metrics: new MetricRegistry() };
+}
+
+async function run(state: AppState, name: string, args: Record<string, unknown>): Promise<ToolResult> {
   const out = (v: unknown): ToolResult => ({ content: JSON.stringify(v) });
   try {
     if (TRY.has(name) && state.riding) throw new Error("A ride is under way, so the coach can only look (check_app) until it's saved or reset.");
@@ -75,6 +94,23 @@ function run(state: AppState, name: string, args: Record<string, unknown>): Tool
         const summary = `${describeAppSetting(setting)} (now ${now})`;
         const proposal: Proposal = { change: { kind: "app", setting }, summary, reason: typeof args.reason === "string" ? args.reason : "", status: "pending" };
         return { content: JSON.stringify({ proposed: summary, note: "Shown to the athlete with an Apply button. Nothing changes until they press it." }), proposal };
+      }
+      case "get_layout":
+        return out(layoutReport(parseLayout(state.layout ?? null), layoutContext(state)));
+      case "propose_layout_change": {
+        const change = checkLayoutChange(args);
+        const layout = parseLayout(state.layout ?? null);
+        const ctx = layoutContext(state);
+        applyLayoutChange(layout, change, ctx);
+        const summary = describeLayoutChange(layout, change, ctx);
+        const proposal: Proposal = { change: { kind: "app", setting: { setting: "layout", change, summary } }, summary, reason: typeof args.reason === "string" ? args.reason : "", status: "pending" };
+        return { content: JSON.stringify({ proposed: summary, note: "Shown to the athlete with an Apply button. Nothing changes until they press it." }), proposal };
+      }
+      case "list_plugins":
+        return out(pluginList(state.plugins ?? [], state.via ?? "chat"));
+      case "read_plugin_metric": {
+        const source = { list: async () => state.plugins ?? [], read: async (metric: string) => state.pluginValues?.[metric] ?? [] };
+        return out(await readPluginMetric(source, args, state.via ?? "chat", "2026-10-29"));
       }
       case "set_appearance": {
         const theme = args.theme;

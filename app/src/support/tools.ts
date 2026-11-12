@@ -39,8 +39,9 @@ import { GUIDE } from "./guide";
 import { APP_GUIDE } from "@/lib/coach/app-guide";
 import { AREAS, SUPPORT_TOOLS, type Area } from "./definitions";
 import { logEvent, recentEvents, type LogArea } from "./log";
+import { applyLayout, getLayout, listPlugins, pluginMetric, proposeLayoutChange } from "./layout-tools";
 
-const TRY_TOOLS = new Set(["test_connection", "sync_now", "reconnect_device", "scan_for_devices", "propose_app_change"]);
+const TRY_TOOLS = new Set(["test_connection", "sync_now", "reconnect_device", "scan_for_devices", "propose_app_change", "propose_layout_change"]);
 
 const STATUS: Record<string, string> = {
   check_app: "Checking the app",
@@ -50,6 +51,10 @@ const STATUS: Record<string, string> = {
   scan_for_devices: "Listening for gear nearby",
   propose_app_change: "Drafting a settings change",
   set_appearance: "Changing the theme",
+  get_layout: "Looking at your layout",
+  propose_layout_change: "Drafting a layout change",
+  list_plugins: "Looking at your plugins",
+  read_plugin_metric: "Reading a plugin",
 };
 
 const out = (value: unknown): ToolResult => ({ content: JSON.stringify(value) });
@@ -280,6 +285,8 @@ async function currentValue(s: AppSetting): Promise<string | null> {
     }
     case "units":
       return readUnits();
+    case "layout":
+      return null;
     case "tracking":
       return features()[s.feature] ? "tracked" : "not tracked";
     default: {
@@ -363,6 +370,9 @@ async function apply(setting: AppSetting): Promise<string> {
     case "ai_limit":
       await saveCoachSetup({ ...(await coachSetup()), monthlyCapUsd: setting.value });
       break;
+    case "layout":
+      await applyLayout(setting);
+      break;
   }
   const done = describeAppSetting(setting);
   logEvent("coach", "info", `Applied: ${done}`);
@@ -383,7 +393,7 @@ export function setAppearance(raw: unknown) {
 }
 
 /** Runs one support tool. Never throws: errors come back as text starting "Error:". */
-export async function runSupportTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+export async function runSupportTool(name: string, args: Record<string, unknown>, ctx: { via: "chat" | "mcp" } = { via: "chat" }): Promise<ToolResult> {
   try {
     if (TRY_TOOLS.has(name) && isRiding()) throw new Error("A ride is under way, so the coach can only look (check_app) until it's saved or reset.");
     switch (name) {
@@ -416,6 +426,14 @@ export async function runSupportTool(name: string, args: Record<string, unknown>
         return await propose(args);
       case "set_appearance":
         return out(setAppearance(args.theme));
+      case "get_layout":
+        return out(await getLayout());
+      case "propose_layout_change":
+        return await proposeLayoutChange(args);
+      case "list_plugins":
+        return out(await listPlugins(ctx.via));
+      case "read_plugin_metric":
+        return out(await pluginMetric(args, ctx.via));
       default:
         return { content: `Unknown tool ${name}` };
     }

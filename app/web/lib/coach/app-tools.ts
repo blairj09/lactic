@@ -14,6 +14,7 @@ import type { ToolResult } from "./tools";
 import { DETAIL_LABELS, TONE_LABELS, type Persona } from "./persona";
 import { heightToCm, weightToKg, type UnitSystem } from "../units";
 import { FEATURE_LABELS, type Feature } from "../features";
+import type { LayoutChange } from "../sdk/layout-edit";
 
 export type GearKey = "trainer" | "powerMeter" | "heartRate" | "scale";
 
@@ -31,7 +32,9 @@ export type AppSetting =
   | { setting: "coach_voice"; voice: Partial<Persona> }
   | { setting: "coach_mode"; value: CoachMode }
   | { setting: "coach_model"; value: string }
-  | { setting: "ai_limit"; value: number | null };
+  | { setting: "ai_limit"; value: number | null }
+  /** A layout edit (propose_layout_change). `summary` is how it read when proposed; applying works it out again. */
+  | { setting: "layout"; change: LayoutChange; summary: string };
 
 export const APP_SETTINGS = ["power_source", "upload_rides", "units", "tracking", "forget_device", "rename_device", "profile", "coach_voice", "coach_mode", "coach_model", "ai_limit"] as const;
 
@@ -222,6 +225,8 @@ export function describeAppSetting(s: AppSetting): string {
       return `Coach model: ${s.value}`;
     case "ai_limit":
       return s.value === null ? "Monthly AI limit: none" : `Monthly AI limit: $${s.value}`;
+    case "layout":
+      return s.summary;
   }
 }
 
@@ -233,7 +238,8 @@ export interface FnTool {
 export interface AppTools {
   tools: FnTool[];
   /** Runs one tool. Errors come back as text starting "Error:". */
-  run(name: string, args: Record<string, unknown>): Promise<ToolResult>;
+  /** `via` is "mcp" for an outside AI app, which sees less (plugins.ts). Default "chat". */
+  run(name: string, args: Record<string, unknown>, ctx?: { via: "chat" | "mcp" }): Promise<ToolResult>;
   /** Applies a proposed setting once the rider presses Apply. Returns what was done. */
   apply(setting: AppSetting): Promise<string>;
   /** Short status lines for the chat while each tool runs. */
