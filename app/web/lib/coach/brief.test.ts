@@ -14,7 +14,7 @@ const brief = (meta: Record<string, unknown>, proposals: StoredMessage["proposal
   createdAt: "2026-10-30T14:00:00Z",
 });
 
-const day = { form: 3, session: "event:art-dye" };
+const day = { form: 3, session: "event:art-dye", signals: [] as string[] };
 const inputs = (i: Partial<BriefInputs>): BriefInputs => ({ recovery: false, weighed: false, checkin: null, ...day, ...i });
 
 describe("briefStale", () => {
@@ -31,6 +31,13 @@ describe("briefStale", () => {
     expect(briefStale(brief({ ...day, form: -19 }), inputs({}))).toBe(true);
     expect(briefStale(brief({ ...day, form: 2 }), inputs({}))).toBe(false);
     expect(briefStale(brief({ ...day, session: "rest" }), inputs({}))).toBe(true);
+  });
+
+  it("rewrites when the recovery signs change, so a since-corrected sleep debt doesn't linger", () => {
+    expect(briefStale(brief({ recovery: true, ...day, signals: ["sleepDebt"] }), inputs({ recovery: true }))).toBe(true);
+    expect(briefStale(brief({ recovery: true, ...day }), inputs({ recovery: true, signals: ["hrvLow"] }))).toBe(true);
+    const { signals: _, ...older } = day;
+    expect(briefStale(brief({ recovery: true, ...older }), inputs({ recovery: true }))).toBe(true);
   });
 
   it("keeps a brief whose proposals you've acted on", () => {

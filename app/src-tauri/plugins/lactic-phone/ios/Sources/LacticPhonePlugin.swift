@@ -401,8 +401,11 @@ enum Health {
   }
 
   /// The last `days` days, as the Shortcut's columns. Heart rate (a lot of samples) is capped at 14 days.
+  /// Starts at noon the day before, never partway through a night: a read that began at, say, 7am
+  /// three days back saw only the last minutes of that night, and that slice read as a short night.
   static func read(days: Int) async throws -> JSONValue {
-    let since = Date().addingTimeInterval(-Double(days) * 86_400)
+    let cal = Calendar.current
+    let since = cal.date(byAdding: .hour, value: -12, to: cal.startOfDay(for: Date().addingTimeInterval(-Double(days) * 86_400)))!
     let hrSince = Date().addingTimeInterval(-Double(min(days, 14)) * 86_400)
     var body: [String: JSONValue] = ["hrvKind": .string("sdnn"), "source": .string("healthkit")]
     func put(_ key: String, _ values: [String]) { body[key] = .array(values.map { .string($0) }) }
