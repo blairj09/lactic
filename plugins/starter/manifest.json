@@ -1,0 +1,18 @@
+{
+  "apiVersion": 1,
+  "id": "sweet-spot",
+  "name": "Sweet Spot",
+  "version": "0.1.0",
+  "description": "Shows when you're in the sweet spot (88 to 94% of FTP) and counts the time you spend there.",
+  "author": "your-name",
+  "main": "main.js",
+  "permissions": { "read": ["live", "profile"] },
+  "publishes": [
+    { "id": "seconds", "label": "Time in sweet spot", "unit": "s", "kind": "number" },
+    { "id": "zone", "label": "Where you are", "kind": "choice", "choices": ["below", "sweet-spot", "above"] }
+  ],
+  "contributes": {
+    "fields": [{ "id": "sweet-spot", "title": "Sweet spot", "entry": "field" }],
+    "widgets": [{ "id": "today", "title": "Sweet spot", "entry": "card" }]
+  }
+}
