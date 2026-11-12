@@ -11,7 +11,7 @@ import { label, UNTRUSTED_NOTE } from "./plugins";
 function field(ctx: LayoutContext, f: FieldRef) {
   if ("metric" in f) return { metric: f.metric, name: fieldName(ctx, f) };
   const c = f.custom;
-  return { custom: { metric: c.metric, windowSeconds: c.window, agg: c.agg, ...(c.asPercentOf ? { asPercentOf: c.asPercentOf } : {}) }, name: c.label };
+  return { custom: { metric: c.metric, windowSeconds: c.window, agg: c.agg, ...(c.asPercentOf ? { asPercentOf: c.asPercentOf } : {}), ...(c.as ? { as: c.as } : {}) }, name: c.label };
 }
 
 function pages(ctx: LayoutContext, list: RidePage[]) {

@@ -66,12 +66,13 @@ describe("kit validation", () => {
 });
 
 describe("layouts", () => {
-  it("defaults to the app as it was: five tabs, Today's cards, the player's five fields", () => {
+  it("defaults to the app as it was: five tabs, Today's cards, the player's ten fields", () => {
     const l = defaultLayout();
     expect(l.tabs.map((t) => t.id)).toEqual(["today", "plan", "ride", "progress", "health"]);
     expect(l.today.map((c) => c.widget)).toEqual(["lactic.recovery", "lactic.weigh-in", "lactic.workout", "lactic.brief", "lactic.this-week", "lactic.form", "lactic.last-ride"]);
     expect(ridePages(l, "overlay")).toEqual(l.ride.workout.pages);
-    expect(l.ride.workout.pages[0].fields).toHaveLength(5);
+    expect(l.ride.workout.pages[0]).toMatchObject({ template: "standard" });
+    expect(l.ride.workout.pages[0].fields).toHaveLength(10);
   });
 
   it("round-trips through JSON", () => {

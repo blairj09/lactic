@@ -20,7 +20,7 @@ const cardId = { type: "string", description: "A card's widget id from get_layou
 const fieldSet = { type: "string", enum: [...FIELD_SETS], description: "Which ride fields: workout (default; free ride and the overlay follow it until changed), free or overlay" };
 const field = {
   description:
-    'A live metric id from get_layout\'s liveMetrics, like "power.3s", or a custom field: { metric, window (seconds, 0 = now), agg (avg, max, lap-avg or ride-avg), label (up to 24 characters), asPercentOf (ftp or max-hr, optional) }',
+    'A live metric id from get_layout\'s liveMetrics, like "power.3s", or a custom field: { metric, window (seconds, 0 = now), agg (avg, max, lap-avg = this interval, last-lap-avg = the interval before, or ride-avg), label (up to 24 characters), asPercentOf (ftp or max-hr, optional), as (wkg or zone, power only, optional) }',
 };
 
 /** The rider's layout and plugins. Plugin tools return only plugins the rider shared with the coach. */
@@ -43,7 +43,7 @@ export const LAYOUT_TOOLS: FnTool[] = [
       slot: { type: "integer", minimum: 1 },
       field,
       name: { type: "string", description: "For add_page" },
-      template: { type: "string", enum: Object.keys(PAGE_TEMPLATES), description: "For add_page: how many fields the page holds (one 1, four 4, six 6, six-chart 6 with the workout chart, eight 8, ten 10)" },
+      template: { type: "string", enum: Object.keys(PAGE_TEMPLATES), description: "For add_page: how many fields the page holds (standard 10: the usual ride screen with five big fields, the workout chart and five ride-so-far fields; one 1, four 4, six 6, six-chart 6 with the workout chart, eight 8, ten 10)" },
       fields: { type: "array", items: field, description: "For add_page" },
       reason: { type: "string", description: "One sentence to the athlete on why" },
     },

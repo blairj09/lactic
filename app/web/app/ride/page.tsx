@@ -5,6 +5,7 @@ import { authEnabled } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { loadPlanDays, loadTrainingState, sessionFor } from "@/lib/training";
 import { firstRideSession } from "@/lib/first-ride";
+import { loadLayout } from "@/lib/layout-data";
 import RideScreen from "./ride-screen";
 
 export const metadata = { title: "Ride · My Coach" };
@@ -17,7 +18,7 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
   const supabase = await createClient();
   const { day: asked, source, first } = await searchParams;
   // Ride now offers a plan day's session first: the one asked for (from Today's check-in), else today's.
-  const state = await loadTrainingState(supabase);
+  const [state, layout] = await Promise.all([loadTrainingState(supabase), loadLayout(supabase)]);
   const day = asked && DAY.test(asked) ? asked : state.today;
   const stored = day === state.today ? state.todayStored : ((await loadPlanDays(supabase, day, day))[0] ?? null);
   const session = sessionFor(state, day, stored);
@@ -37,6 +38,8 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
         favorites={state.favorites}
         today={state.today}
         thresholdHr={state.athlete.thresholdHr}
+        weightKg={state.athlete.weightKg}
+        rideFields={layout.ride}
       />
     );
   }
@@ -56,6 +59,8 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
       favorites={state.favorites}
       today={state.today}
       thresholdHr={state.athlete.thresholdHr}
+      weightKg={state.athlete.weightKg}
+      rideFields={layout.ride}
       initialSource={source === "library" || source === "custom" || source === "erg" ? source : undefined}
     />
   );

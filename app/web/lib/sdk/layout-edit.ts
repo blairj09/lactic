@@ -61,7 +61,7 @@ function whole(v: unknown, what: string, min = 1): number {
 /** A metric id, or a custom field object ({ metric, window, agg, label, asPercentOf? }). */
 function fieldArg(v: unknown): FieldRef {
   const f = typeof v === "string" ? parseField({ metric: v }) : parseField(obj(v).custom ? v : { custom: v });
-  if (!f) throw new Error('field is a metric id like "power.3s", or a custom field { metric, window (seconds), agg (avg, max, lap-avg or ride-avg), label, asPercentOf? (ftp or max-hr) }');
+  if (!f) throw new Error('field is a metric id like "power.3s", or a custom field { metric, window (seconds), agg (avg, max, lap-avg, last-lap-avg or ride-avg), label, asPercentOf? (ftp or max-hr), as? (wkg or zone) }');
   return f;
 }
 

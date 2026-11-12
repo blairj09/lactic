@@ -5,6 +5,10 @@ import { describeTarget, formatTime } from "@/lib/format";
 import { ERG_MAX, ERG_MIN, ERG_STEP } from "@/lib/ride/erg";
 import { EXTEND_KINDS, type ExtendKind } from "@/lib/ride/extend";
 import type { RideTotals } from "@/lib/ride/totals";
+import type { FieldShown } from "@/lib/ride/fields";
+import { fieldKey } from "@/lib/ride/fields";
+import { DEFAULT_RIDE_PAGE, PAGE_TEMPLATES, type FieldRef, type RidePage } from "@/lib/sdk/layout";
+import { Big, FieldGrid, PageDots, TONE, hasChart, swipeHandlers, type Shown, type Tone } from "./field-grid";
 import WorkoutChart, { type TracePoint } from "./workout-chart";
 
 /** Everything the in-ride views show, worked out once per second in RideScreen. */
@@ -60,6 +64,20 @@ export interface PlayerData {
   adaptive: { on: boolean } | null;
   /** A change adaptive workouts just made (an ease, with Undo) or suggests (a bump). */
   adapt: AdaptNotice | null;
+  /** The ride's data field pages and what each field shows now. */
+  fields: RideFields;
+}
+
+/**
+ * The rider's field pages for this ride (workout or free ride) and the overlay's, the page on
+ * screen (the overlay shows the same page number, wrapped to its own count), and each field's
+ * value keyed by fieldKey(). Values are worked out in RideScreen so the overlay and phone only draw.
+ */
+export interface RideFields {
+  pages: RidePage[];
+  overlay: RidePage[];
+  page: number;
+  values: Record<string, FieldShown>;
 }
 
 /** An adaptive change on screen: an ease already made (Undo for `undoIn` seconds) or a bump to say yes or no to. */
@@ -101,6 +119,8 @@ export interface PlayerControls {
   onAdaptYes: () => void;
   onAdaptNo: () => void;
   onAdaptive: (on: boolean) => void;
+  /** Next or previous ride page. */
+  onPage: (step: 1 | -1) => void;
   canPlay: boolean;
 }
 
@@ -173,8 +193,6 @@ function zoneOf(interval: Interval | null) {
   return range ? powerZone((range.low + range.high) / 2) : null;
 }
 
-type Tone = "positive" | "warning" | "negative";
-const TONE: Record<Tone, string> = { positive: "text-positive", warning: "text-warning", negative: "text-negative" };
 
 /**
  * Power against target, on a 3 second average so it doesn't flicker with each stroke: within 5%
@@ -288,20 +306,38 @@ const intervalLabel = (data: PlayerData, short = false) =>
       : data.position > 0
         ? "Done"
         : "Interval";
-/** What's left of the workout. */
-const toGo = (data: PlayerData) => formatTime(Math.max(0, data.duration - data.position));
-
-/** The ride so far, as label, value and unit, for the right-hand column. */
-function totalsRows(data: PlayerData): [label: string, value: number | string | null, unit: string][] {
-  const { totals } = data;
-  return [
-    ["Avg power", totals.power, "W"],
-    ["Avg HR", totals.heartRate, "bpm"],
-    ["Avg cadence", totals.cadence, "rpm"],
-    ["TSS", totals.tss, ""],
-    data.erg ? ["Ride time", formatTime(data.elapsed), ""] : ["To go", toGo(data), ""],
-  ];
+/**
+ * What a field shows now. The interval clock, power and target read the ride directly (they carry
+ * the interval's name, the over/under word and colour, "All out" and "Free"); every other field's
+ * value was worked out in RideScreen (lib/ride/fields.ts).
+ */
+export function shownField(ref: FieldRef, data: PlayerData, short = false): Shown {
+  if ("metric" in ref) {
+    if (ref.metric === "interval.left") return { label: intervalLabel(data, short), value: intervalTime(data), unit: !data.erg && data.current ? "left" : "" };
+    if (ref.metric === "power") {
+      const off = powerVsTarget(data);
+      return { label: "Power", value: data.power, unit: "W", sub: off?.text ?? null, tone: off?.tone };
+    }
+    if (ref.metric === "power.target") return { label: "Target", value: targetShown(data), unit: data.targetWatts !== null ? "W" : "" };
+  }
+  const f = data.fields.values[fieldKey(ref)];
+  if (!f) return { label: "metric" in ref ? ref.metric : ref.custom.label, value: undefined, unit: "" };
+  return { label: f.label, value: f.value ?? undefined, unit: f.unit, reason: f.reason };
 }
+
+/**
+ * The ride's fields, or the standard page when the computer sending them is an older version
+ * without layouts (its interval, power and target still show; the rest show "–").
+ */
+export const fieldsOf = (data: PlayerData): RideFields =>
+  data.fields?.pages?.length ? data.fields : { pages: [DEFAULT_RIDE_PAGE], overlay: [DEFAULT_RIDE_PAGE], page: 0, values: {} };
+
+/** A page's fields, one per slot (undefined for an empty slot). */
+export const pageShown = (page: RidePage, data: PlayerData, short = false): (Shown | undefined)[] =>
+  Array.from({ length: PAGE_TEMPLATES[page.template] }, (_, i) => (page.fields[i] ? shownField(page.fields[i], data, short) : undefined));
+
+/** The page on screen, wrapped to the set's page count (the overlay's set may have fewer pages). */
+export const pageOf = (pages: RidePage[], page: number): RidePage => pages[((page % pages.length) + pages.length) % pages.length];
 
 /**
  * The large view on the Ride page, read from the saddle a metre or more away. Like the overlay:
@@ -310,7 +346,8 @@ function totalsRows(data: PlayerData): [label: string, value: number | string | 
 export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; controls: PlayerControls; extra?: React.ReactNode; dock?: React.ReactNode }) {
   // On a phone, once a ride is under way its controls dock above the tab bar, so they're never a scroll away.
   const docked = data.elapsed > 0 && !data.ended && !data.finished;
-  const off = powerVsTarget(data);
+  const fields = fieldsOf(data);
+  const page = pageOf(fields.pages, fields.page);
   const { erg } = data;
   return (
     <section aria-label="Workout" className="space-y-6 rounded-lg bg-surface p-5 sm:p-6">
@@ -336,37 +373,23 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
 
       <AdaptBanner data={data} controls={controls} />
 
-      <div className="grid gap-x-8 gap-y-6 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-start">
-        <div aria-label="This interval" className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 lg:grid-cols-2">
-          <div className="col-span-2">
-            <Big label={intervalLabel(data)} value={intervalTime(data)} unit={!erg && data.current ? "left" : ""} lead />
-          </div>
-          <Big label="Power" value={data.power} unit="W" lead sub={off?.text ?? null} tone={off?.tone} />
-          <Big label="Target" value={targetShown(data)} unit={data.targetWatts !== null ? "W" : ""} lead />
-          <Big label="Heart rate" value={data.heartRate} unit="bpm" />
-          <Big label="Cadence" value={data.cadence} unit="rpm" />
-        </div>
-
-        <div className="min-w-0 space-y-2">
-          <HoverChart data={data} />
-          <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
-            <Key color="var(--trace)">Power</Key>
-            <Key color="var(--trace-hr)">Heart rate</Key>
-            <Key color="var(--trace-cadence)">Cadence</Key>
-          </p>
-        </div>
-
-        <dl aria-label="Ride so far" className="grid grid-cols-3 gap-x-6 gap-y-3 sm:grid-cols-5 lg:min-w-44 lg:grid-cols-1">
-          {totalsRows(data).map(([label, value, unit]) => (
-            <div key={label} className="min-w-0 lg:flex lg:items-baseline lg:justify-between lg:gap-4 lg:border-t lg:border-rule lg:pt-2 lg:first:border-0 lg:first:pt-0">
-              <dt className="truncate text-sm text-muted">{label}</dt>
-              <dd className="num text-2xl font-medium tracking-tight">
-                {value ?? <span className="text-faint">–</span>}
-                {unit && value !== null && <span className="ml-1 text-sm font-normal tracking-normal text-muted">{unit}</span>}
-              </dd>
+      <div className="space-y-5" {...swipeHandlers(fields.pages.length > 1 ? controls.onPage : undefined)}>
+        <FieldGrid
+          template={page.template}
+          shown={pageShown(page, { ...data, fields })}
+          slots={PAGE_TEMPLATES[page.template]}
+          chart={
+            <div className="min-w-0 space-y-2">
+              <HoverChart data={data} />
+              <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
+                <Key color="var(--trace)">Power</Key>
+                <Key color="var(--trace-hr)">Heart rate</Key>
+                <Key color="var(--trace-cadence)">Cadence</Key>
+              </p>
             </div>
-          ))}
-        </dl>
+          }
+        />
+        <PageDots names={fields.pages.map((p) => p.name)} page={fields.pages.indexOf(page)} onPage={controls.onPage} />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -413,8 +436,13 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
  * the computer's screen has it.
  */
 export function RemoteView({ data, controls, extra, notice }: { data: PlayerData; controls: PlayerControls; extra?: React.ReactNode; notice?: React.ReactNode }) {
-  const off = powerVsTarget(data);
   const { erg } = data;
+  const fields = fieldsOf(data);
+  const page = pageOf(fields.pages, fields.page);
+  // The phone shows a page's big fields two across; the standard page's ride-so-far column stays on the computer.
+  const shown = pageShown(page, { ...data, fields }).slice(0, page.template === "standard" ? 5 : undefined);
+  /** A field showing "–" that was tapped, to say why. */
+  const [why, setWhy] = useState<Shown | null>(null);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pb-4">
@@ -429,14 +457,39 @@ export function RemoteView({ data, controls, extra, notice }: { data: PlayerData
         {(data.startIn !== null || data.autoPaused) && (
           <p className="text-sm text-warning">{data.startIn !== null ? `Starting in ${data.startIn}` : "Paused. Pedal to resume"}</p>
         )}
-        <div aria-label="This interval" className="grid grid-cols-2 gap-x-6 gap-y-3">
-          <div className="col-span-2">
-            <Big label={intervalLabel(data)} value={intervalTime(data)} unit={!erg && data.current ? "left" : ""} lead />
+        <div className="space-y-3" {...swipeHandlers(fields.pages.length > 1 ? controls.onPage : undefined)}>
+          <div aria-label="Ride fields" className="grid grid-cols-2 gap-x-6 gap-y-3">
+            {shown.map((f, i) =>
+              f ? (
+                <button
+                  type="button"
+                  key={i}
+                  className={`min-w-0 text-left ${i === 0 && shown.length % 2 === 1 ? "col-span-2" : ""}`}
+                  onClick={() => setWhy(f.value === undefined && f.reason ? f : null)}
+                  aria-label={f.value === undefined && f.reason ? `${f.label}: ${f.reason}` : undefined}
+                >
+                  <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} lead={i < 3} />
+                </button>
+              ) : null,
+            )}
           </div>
-          <Big label="Power" value={data.power} unit="W" lead sub={off?.text ?? null} tone={off?.tone} />
-          <Big label="Target" value={targetShown(data)} unit={data.targetWatts !== null ? "W" : ""} lead />
-          <Big label="Heart rate" value={data.heartRate} unit="bpm" />
-          <Big label="Cadence" value={data.cadence} unit="rpm" />
+          {why && (
+            <div role="status" className="flex items-start justify-between gap-3 rounded-lg bg-raised px-3 py-2 text-sm">
+              <span>
+                <span className="font-medium">{why.label}:</span> {why.reason}
+              </span>
+              <button type="button" className="text-muted underline underline-offset-2" onClick={() => setWhy(null)}>
+                OK
+              </button>
+            </div>
+          )}
+          {fields.pages.length > 1 && (
+            <div className="flex justify-center gap-1.5" aria-label={`Page ${fields.pages.indexOf(page) + 1} of ${fields.pages.length}: ${page.name}`}>
+              {fields.pages.map((p, i) => (
+                <span key={i} className={`size-2 rounded-full ${p === page ? "bg-ink" : "bg-control"}`} />
+              ))}
+            </div>
+          )}
         </div>
         {!erg && !data.finished && !data.ended && <UpNext data={data} />}
       </div>
@@ -781,33 +834,6 @@ function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData;
   );
 }
 
-function Big({
-  label,
-  value,
-  unit,
-  sub,
-  lead,
-  tone,
-}: {
-  label: string;
-  value: number | string | undefined;
-  unit: string;
-  sub?: string | null;
-  lead?: boolean;
-  tone?: Tone;
-}) {
-  return (
-    <div className="min-w-0">
-      <div className="truncate text-sm text-muted">{label}</div>
-      <div className={`num font-medium tracking-tight ${lead ? "text-5xl leading-[1.1] sm:text-6xl" : "text-4xl leading-[1.15]"} ${tone ? TONE[tone] : ""}`}>
-        {value ?? <span className="text-2xl text-faint">–</span>}
-        {unit && value !== undefined && <span className="ml-1.5 text-base font-normal tracking-normal text-muted">{unit}</span>}
-      </div>
-      {sub !== undefined && <div className={`h-5 text-sm ${tone ? TONE[tone] : "text-muted"}`}>{sub}</div>}
-    </div>
-  );
-}
-
 /** Upcoming minutes shown in the overlay's chart. */
 const MINI_AHEAD = 10 * 60;
 const MINI_BEHIND = 90;
@@ -841,7 +867,42 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
   const { ftp } = data;
   const next = data.upcoming[0];
   const from = Math.max(0, data.position - MINI_BEHIND);
-  const off = powerVsTarget(data);
+  const fields = fieldsOf(data);
+  const page = pageOf(fields.overlay, fields.page);
+  const shown = pageShown(page, { ...data, fields }, true);
+  const slots = shown.map((_, i) => i);
+  // The standard page: this interval on the left, the chart, the ride so far on the right. A page
+  // with a chart splits its fields either side of it; one without lines them up across the strip.
+  const chart = hasChart(page.template);
+  const middle = chart || data.finished || !!data.adapt;
+  const split = page.template === "standard" ? 5 : chart ? Math.ceil(shown.length / 2) : shown.length;
+  const left = slots.slice(0, split).filter((i) => shown[i]);
+  const right = slots.slice(split).filter((i) => shown[i]);
+  // More than six big numbers don't fit in one row of the strip.
+  const twoRows = page.template !== "standard" && Math.max(left.length, right.length) > 6;
+  const mini = (i: number) => {
+    const f = shown[i]!;
+    const ref = page.fields[i];
+    const isInterval = "metric" in ref && ref.metric === "interval.left";
+    const label = "metric" in ref && ref.metric === "heart_rate" ? "HR" : isInterval ? (data.erg ? "Ride time" : data.current ? f.label : data.position > 0 ? "Done" : "Ready") : f.label;
+    const sub = isInterval
+      ? data.autoPaused
+        ? "Paused · pedal on"
+        : data.startIn !== null
+          ? `Starting in ${data.startIn}`
+          : data.autoStart
+            ? "Pedal to start"
+            : data.erg
+              ? "Free ERG"
+              : data.current
+                ? `of ${formatTime(data.current.end - data.current.start)}`
+                : null
+      : f.sub;
+    const tone = isInterval ? (data.autoPaused || data.startIn !== null ? "warning" : undefined) : f.tone;
+    // On the standard page heart rate and cadence are smaller, as they were before layouts.
+    const small = twoRows || (page.template === "standard" ? i >= 3 : shown.length > 4 && i >= 3);
+    return <Mini key={i} label={label} value={f.value} tone={tone} sub={sub} small={small} />;
+  };
   const [drawer, setDrawer] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   /** Bumped on each touch inside the drawer, restarting its idle timer. */
@@ -857,31 +918,11 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
 
   return (
     <div ref={root} className="relative flex h-screen select-none items-stretch gap-[6vh] overflow-hidden py-[3vh] pl-[5vh] pr-[calc(clamp(26px,10vh,48px)+3vh)]">
-      <section aria-label="This interval" className="flex shrink-0 gap-[6vh]">
-        <Mini
-          label={data.erg ? "Ride time" : data.current ? intervalLabel(data, true) : data.position > 0 ? "Done" : "Ready"}
-          value={intervalTime(data)}
-          sub={
-            data.autoPaused
-              ? "Paused · pedal on"
-              : data.startIn !== null
-                ? `Starting in ${data.startIn}`
-                : data.autoStart
-                  ? "Pedal to start"
-                  : data.erg
-                    ? "Free ERG"
-                    : data.current
-                      ? `of ${formatTime(data.current.end - data.current.start)}`
-                      : null
-          }
-          tone={data.autoPaused || data.startIn !== null ? "warning" : undefined}
-        />
-        <Mini label="Power" value={data.power} tone={off?.tone} sub={off?.text} />
-        <Mini label="Target" value={targetShown(data)} />
-        <Mini label="HR" value={data.heartRate} small />
-        <Mini label="Cadence" value={data.cadence} small />
+      <section aria-label="Ride fields" className={`flex gap-[6vh] ${middle ? "shrink-0" : "min-w-0 flex-1 justify-around"} ${twoRows ? "flex-wrap content-center" : ""}`}>
+        {left.map((i) => mini(i))}
       </section>
 
+      {middle ? (
       <div className="flex min-w-[20vw] flex-1 flex-col [container:end/size]">
         {data.finished ? (
           <MiniExtendOrEnd data={data} controls={controls} />
@@ -908,14 +949,31 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
         )}
       </div>
 
-      <dl aria-label="Ride so far" className="flex shrink-0 flex-col justify-center">
-        {totalsRows(data).map(([label, value]) => (
-          <div key={label} className="flex items-baseline justify-between gap-[3vh]">
-            <dt className={`whitespace-nowrap text-muted ${MINI_LABEL}`}>{label}</dt>
-            <dd className="num text-[clamp(13px,13vh,56px)] font-medium leading-[1.12] tracking-tight">{value ?? <span className="text-faint">–</span>}</dd>
-          </div>
-        ))}
-      </dl>
+      ) : null}
+
+      {page.template === "standard" ? (
+        <dl aria-label="Ride so far" className="flex shrink-0 flex-col justify-center">
+          {right.map((i) => {
+            const f = shown[i];
+            return f ? (
+              <div key={i} className="flex items-baseline justify-between gap-[3vh]">
+                <dt className={`whitespace-nowrap text-muted ${MINI_LABEL}`}>{f.label}</dt>
+                <dd className="num text-[clamp(13px,13vh,56px)] font-medium leading-[1.12] tracking-tight">{f.value ?? <span className="text-faint">–</span>}</dd>
+              </div>
+            ) : null;
+          })}
+        </dl>
+      ) : (
+        right.length > 0 && <section className={`flex shrink-0 gap-[6vh] ${twoRows ? "flex-wrap content-center" : ""}`}>{right.map((i) => mini(i))}</section>
+      )}
+
+      {fields.overlay.length > 1 && (
+        <div className="pointer-events-none absolute bottom-[1.5vh] left-1/2 flex -translate-x-1/2 gap-[1vh]" aria-label={`Page ${fields.overlay.indexOf(page) + 1} of ${fields.overlay.length}: ${page.name}`}>
+          {fields.overlay.map((p, i) => (
+            <span key={i} className={`size-[clamp(4px,2.5vh,9px)] rounded-full ${p === page ? "bg-ink" : "bg-control"}`} />
+          ))}
+        </div>
+      )}
 
       {/* Controls: a full-height grey rail at the right edge (same width and grey as the panel's close column) opens a panel over the strip; the rest dims behind it. */}
       {!drawer && (
@@ -1067,6 +1125,19 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
             onChange={controls.onAdaptive}
             className={`inline-flex ${D_H} ${D_TEXT} items-center gap-[0.6em] rounded-md bg-raised px-[0.7em] font-medium text-ink transition-colors hover:bg-active`}
           />
+        </Group>
+      )}
+
+      {fieldsOf(data).overlay.length > 1 && (
+        <Group label="Page">
+          <div className="flex gap-1.5">
+            <button className={`${button} ${D_TEXT}`} onClick={() => controls.onPage(-1)} title="Previous page of fields" aria-label="Previous page">
+              ‹
+            </button>
+            <button className={`${button} ${D_TEXT}`} onClick={() => controls.onPage(1)} title="Next page of fields" aria-label="Next page">
+              ›
+            </button>
+          </div>
         </Group>
       )}
 
