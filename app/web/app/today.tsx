@@ -25,10 +25,10 @@ import RaceDayPlan from "./race-day";
 import { GOAL_KIND_LABELS, goalMinutes, PHASE_LABELS, SAFETY_RULE_LABELS, weekStart } from "@/lib/engine/plan";
 import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
-import WeekReviewCard from "./week-review";
 import RaceReportPrompt from "./race-report-prompt";
+import RestDay from "./rest-day";
+import ThisWeek from "./this-week";
 import type { RaceFollowUp } from "@/lib/engine/race/followup";
-import type { WeekReview } from "@/lib/engine/review";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
 import { ExertionBar, RecoverySummary } from "./last-night";
 import type { ExertionToday } from "@/lib/engine/recovery-glance";
@@ -46,7 +46,7 @@ export default function TodayView({
   ftpWindowDays,
   coachEnabled,
   brief,
-  review,
+  review = false,
   healthLinked = false,
   recoverySource = null,
   todayStream = null,
@@ -61,8 +61,8 @@ export default function TodayView({
   coachEnabled: boolean;
   /** Today's morning brief, and whether it needs writing (again). Null when the coach is off. */
   brief: { message: StoredMessage | null; stale: boolean } | null;
-  /** The coach's review of last week, in the first days of a week once it's written. */
-  review?: { review: WeekReview; message: string; thisWeek: string | null } | null;
+  /** The coach has written last week's review (on Progress), in the first days of a week. */
+  review?: boolean;
   /** The Apple Health shortcut has sent data before, so recovery is expected from it. */
   healthLinked?: boolean;
   /** Where the rider's sleep and recovery come from, once known, and whether it's set up to send nights. */
@@ -79,14 +79,13 @@ export default function TodayView({
   const todaysWeighIn = body ? weighInOn(body, today, athlete.timezone) : undefined;
   const ridden = ridesOn(state, today);
   const survey = ridden ? null : unansweredRide(state);
+  const weekAgo = series.length > 7 ? series[series.length - 8] : undefined;
 
   return (
     <>
       <PageHeader title="Today" line={dayLine(state)} />
 
       {raceFollowUp && <RaceReportPrompt followUp={raceFollowUp} />}
-
-      {review && <WeekReviewCard {...review} />}
 
       {athlete.ftp && <FtpBanner ftp={athlete.ftp} check={checkFtp({ today, ftp: athlete.ftp, history: athlete.ftpHistory, estimate, plan: state.plan })} windowDays={ftpWindowDays} />}
 
@@ -115,23 +114,39 @@ export default function TodayView({
         />
         </div>
 
-        <section aria-label="Training" className="grid grid-cols-2 gap-px self-start overflow-hidden rounded-lg border border-line bg-line lg:col-span-2">
-          <Stat
-            className={survey ? "col-span-2 sm:col-span-1" : undefined}
-            label="Form"
-            value={signed(now.form)}
-            sub={
-              <>
-                {formBand(now.form).meaning}{" "}
-                <Link href="/progress" className="text-ink underline underline-offset-4">
-                  Fitness trend
-                </Link>
-              </>
-            }
-          />
-          {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} survey={survey} className={survey ? "col-span-2 sm:col-span-1" : undefined} />}
-          <FtpNudge ftp={athlete.ftp} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} />
-        </section>
+        <div className="space-y-4 self-start lg:col-span-2">
+          <ThisWeek state={state} />
+
+          {/* Today's form, with the fitness and fatigue it comes from. On a phone, form takes the top row. */}
+          <section aria-label="Form" className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3">
+            <Stat
+              className="col-span-2 sm:col-span-1"
+              label="Form"
+              value={signed(Math.round(now.form))}
+              sub={formBand(now.form).meaning}
+            />
+            <Stat
+              label="Fitness"
+              value={Math.round(now.fitness)}
+              sub={
+                <>
+                  {weekAgo ? fitnessChange(Math.round(now.fitness - weekAgo.fitness)) : ""}
+                  <Link href="/progress" className="text-ink underline underline-offset-4">
+                    {review ? "Last week's review" : "Fitness trend"}
+                  </Link>
+                </>
+              }
+            />
+            <Stat label="Fatigue" value={Math.round(now.fatigue)} sub="Your last week or so of riding" />
+          </section>
+
+          {(!ridden || !athlete.ftp) && (
+            <section aria-label="Training" className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line">
+              {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} survey={survey} />}
+              <FtpNudge ftp={athlete.ftp} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} />
+            </section>
+          )}
+        </div>
       </div>
     </>
   );
@@ -280,6 +295,8 @@ export function TodayWorkout({
         <RideChoice day={today} outside connected={intervalsConnected} outsideNote="in place of the plan's workout" />
       </div>
     );
+  } else if (chosen && !chosen.session) {
+    body = <RestDay state={state} />;
   } else if (chosen) {
     body = (
       <div className="space-y-4">
@@ -311,7 +328,7 @@ export function TodayWorkout({
         <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />
       </div>
     ) : (
-      <p className="text-[15px] text-muted">Nothing planned. Say how you feel above if you want to ride anyway.</p>
+      <RestDay state={state} />
     );
   }
 
@@ -361,6 +378,8 @@ function nightValues(today: NonNullable<RecoveryToday["today"]>) {
     today.sleepHours !== undefined && `slept ${Math.floor(today.sleepHours)}h${String(Math.round((today.sleepHours % 1) * 60)).padStart(2, "0")}`,
   ].filter(Boolean);
 }
+
+const fitnessChange = (change: number) => (change === 0 ? "Steady this week. " : `${signed(change)} this week. `);
 
 /**
  * FTP lives in Settings; this tile only speaks up when there's none. A higher estimate is the banner above

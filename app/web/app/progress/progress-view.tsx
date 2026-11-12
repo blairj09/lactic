@@ -23,6 +23,7 @@ export default function ProgressView({
   initial,
   fitness,
   levels,
+  review,
   tabs,
 }: {
   data: AnalysisData;
@@ -31,6 +32,8 @@ export default function ProgressView({
   fitness?: React.ReactNode;
   /** Progression levels, which are where you are now rather than over the range; shown beside the power profile. */
   levels?: React.ReactNode;
+  /** The coach's review of last week, once written; a fixed week, so above the range picker. */
+  review?: React.ReactNode;
   /** The Trends / Rides switch, under the header. */
   tabs?: React.ReactNode;
 }) {
@@ -81,6 +84,8 @@ export default function ProgressView({
       />
 
       {tabs}
+
+      {review}
 
       <div className="sticky top-12 z-10 -mx-4 space-y-2 border-b border-line bg-ground px-4 py-3 sm:-mx-6 sm:px-6">
         <RangePicker range={range} onChange={setRange} today={today} earliest={earliest} compare={compare} onCompareChange={setCompare} />

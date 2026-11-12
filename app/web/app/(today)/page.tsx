@@ -10,8 +10,8 @@ import { loadAthlete, loadStream } from "@/lib/activities";
 import { loadTrainingState } from "@/lib/training";
 import { briefInputs, briefStale } from "@/lib/coach/chat";
 import { loadBrief, loadReview } from "@/lib/coach/store";
-import { reviewTime, type WeekReview } from "@/lib/engine/review";
-import { PHASE_LABELS, weekStart } from "@/lib/engine/plan";
+import { reviewTime } from "@/lib/engine/review";
+import { weekStart } from "@/lib/engine/plan";
 import { loadConnection as loadIntervals } from "@/lib/intervals/client";
 import { createClient } from "@/lib/supabase/server";
 import { loadIngestToken } from "@/lib/recovery-data";
@@ -63,14 +63,7 @@ export default async function Today() {
       ? optional(getSetting<{ dismissed?: string[] }>(RACE_PROMPTS_SETTING, {}).then((s) => loadRaceFollowUp(supabase, state, s.dismissed ?? [])))
       : null,
   ]);
-  const thisWeek = state.plan.weeks.find((w) => w.start === monday);
-  const review = reviewMessage?.meta.review
-    ? {
-        review: reviewMessage.meta.review as WeekReview,
-        message: reviewMessage.content,
-        thisWeek: thisWeek ? `This week: ${PHASE_LABELS[thisWeek.phase].toLowerCase()}${thisWeek.recoveryWeek ? " (recovery week)" : ""}, ${thisWeek.stress} TSS planned.` : null,
-      }
-    : null;
+  const review = Boolean(reviewMessage?.meta.review);
   const due = (c: { lastSyncedAt: Date | null } | null) => Boolean(c && (!c.lastSyncedAt || Date.now() - c.lastSyncedAt.getTime() > 30 * 60_000));
   const syncDue: "intervals"[] = due(icu) ? ["intervals"] : [];
 
