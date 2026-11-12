@@ -20,7 +20,11 @@ describe("segmentRoles", () => {
     const count = session.params!.count;
     const sets = Number(/(\d+) sets/.exec(session.workout.name)![1]);
     expect(roles[0]).toBe("Warm-up");
-    expect(roles[1]).toBe(`Effort 1 of ${count} · set 1 of ${sets}`);
+    // The warm-up's openers are part of it, not efforts.
+    const first = roles.findIndex((r) => r.startsWith("Effort"));
+    expect(roles.slice(0, first).filter((r) => r.startsWith("Warm-up · opener"))).toEqual(["Warm-up · opener 1 of 3", "Warm-up · opener 2 of 3", "Warm-up · opener 3 of 3"]);
+    expect(roles.slice(0, first).every((r) => r.startsWith("Warm-up"))).toBe(true);
+    expect(roles[first]).toBe(`Effort 1 of ${count} · set 1 of ${sets}`);
     expect(roles).toContain(`Effort ${count} of ${count} · set ${sets} of ${sets}`);
     expect(roles).toContain("Rest between sets");
     expect(roles.at(-1)).toBe("Cool-down");

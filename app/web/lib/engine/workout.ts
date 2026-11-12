@@ -12,6 +12,8 @@ export type Segment =
       allOut?: boolean;
       /** An ERG hold added at the end: the player's − and + move its watts, not the intensity. */
       hold?: boolean;
+      /** A short effort in the warm-up to open the legs: part of the warm-up, not the workout's work. */
+      opener?: boolean;
     }
   | { kind: "ramp"; duration: number; from: number; to: number }
   | { kind: "freeRide"; duration: number };
@@ -27,6 +29,50 @@ export const steady = (duration: number, target: number): SteadySegment => ({ ki
 /** A sprint: ridden all out, with `target` as the planned effort for charts and stress. */
 export const sprint = (duration: number, target: number): SteadySegment => ({ kind: "steady", duration, target, allOut: true });
 export const ramp = (duration: number, from: number, to: number): Segment => ({ kind: "ramp", duration, from, to });
+
+/** A warm-up opener: `seconds` at `target`, part of the warm-up. */
+export const opener = (duration: number, target: number): SteadySegment => ({ kind: "steady", duration, target, opener: true });
+
+/** Which openers a warm-up gets: short, sharp ones before hard days, longer, gentler ones before tempo and sweet spot. */
+export type OpenerStyle = "hard" | "steady";
+
+/** The warm-up's length, with or without openers. */
+export const WARMUP_SECONDS = 600;
+
+const OPENERS: Record<OpenerStyle, { seconds: number; targets: number[] }> = {
+  hard: { seconds: 20, targets: [1.1, 1.2, 1.3] },
+  steady: { seconds: 30, targets: [0.9, 1.0, 1.1] },
+};
+const OPENER_EASY = 0.55;
+const OPENER_RAMP = 360;
+
+/**
+ * A 10-minute warm-up: 6 minutes building from 45 to 70% FTP, then three openers, each a little
+ * harder than the last, with easy riding between them and before the first interval.
+ */
+export function warmupWithOpeners(style: OpenerStyle): Segment[] {
+  const { seconds, targets } = OPENERS[style];
+  const out: Segment[] = [ramp(OPENER_RAMP, 0.45, 0.7)];
+  targets.forEach((target, i) => {
+    out.push(opener(seconds, target));
+    if (i < targets.length - 1) out.push(steady(60 - seconds, OPENER_EASY));
+  });
+  const used = out.reduce((t, s) => t + s.duration, 0);
+  out.push(steady(WARMUP_SECONDS - used, OPENER_EASY));
+  return out;
+}
+
+/**
+ * `segments` with their plain 10-minute warm-up ramp swapped for one with openers. Left alone
+ * without a style, when the workout already has openers, or when it doesn't start with that ramp
+ * (imported, edited and test workouts keep theirs).
+ */
+export function withOpeners(segments: Segment[], style: OpenerStyle | null): Segment[] {
+  const first = segments[0];
+  if (!style || !first || segments.some((s) => s.kind === "steady" && s.opener)) return segments;
+  if (first.kind !== "ramp" || first.duration !== WARMUP_SECONDS || first.from > 0.5 || first.to <= first.from || first.to > RAMP_MEET_MAX) return segments;
+  return [...warmupWithOpeners(style), ...segments.slice(1)];
+}
 
 /** Easy riding tops out here: a warm-up climbs to meet an interval this easy, and steps up into anything harder. */
 export const RAMP_MEET_MAX = 0.8;
