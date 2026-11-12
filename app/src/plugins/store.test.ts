@@ -113,6 +113,17 @@ describe("approval per device", () => {
     expect((await listPlugins())[0].state).toBe("changed");
   });
 
+  it("doesn't trust the stored hash: new code under the old hash is a change", async () => {
+    await installPlugin(await pkg());
+    await sql().execute(`UPDATE plugins SET source = ?`, [CODE + "/* swapped */"]);
+    expect((await listPlugins())[0].state).toBe("changed");
+    await sql().execute(`UPDATE plugins SET source = ?`, [CODE]);
+    expect((await listPlugins())[0].state).toBe("on");
+    const m = { ...(await pkg()).manifest, description: "Edited in the database" };
+    await sql().execute(`UPDATE plugins SET manifest = ?`, [JSON.stringify(m)]);
+    expect((await listPlugins())[0].state).toBe("changed");
+  });
+
   it("drops a row whose manifest was edited to something invalid", async () => {
     await installPlugin(await pkg());
     await sql().execute(`UPDATE plugins SET manifest = ?`, [JSON.stringify({ ...manifest(), network: ["evil.example"] })]);
@@ -129,6 +140,13 @@ describe("updating", () => {
     expect(p.grant?.read).toEqual(["live", "profile", "recovery"]);
     expect(p.grant?.coachVisible).toBe(false);
     expect(p.state).toBe("on");
+  });
+
+  it("keeps a plugin the rider switched off, off", async () => {
+    await installPlugin(await pkg());
+    await setPluginEnabled("wprime-tools", false);
+    await updatePlugin(await pkg({ version: "0.5.0" }));
+    expect((await listPlugins())[0].state).toBe("off");
   });
 });
 

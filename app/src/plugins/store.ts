@@ -5,7 +5,7 @@ import { sql, type Row } from "~/db/sql";
 import type { MetricGroup } from "@shared/sdk";
 import { validateManifest, type PluginManifest } from "./manifest";
 import { deviceId } from "./device";
-import { parsePackage, type PluginPackage } from "./package";
+import { parsePackage, sha256Hex, type PluginPackage } from "./package";
 import { grantedGroups, pluginState, updateChanges, updatedGrant, type Grant, type InstallChoices, type PluginState, type UpdateChanges } from "./permissions";
 
 /** Values kept per plugin; the oldest go first (review S10). */
@@ -46,18 +46,33 @@ function toGrant(r: Row | undefined): Grant | null {
   return { sha256: String(r.sha256), read, enabled: Boolean(Number(r.enabled)), coachVisible: Boolean(Number(r.coach_visible)), switchedOff: r.switched_off ? String(r.switched_off) : null };
 }
 
+// The hash of what will actually run, computed here rather than trusted from the row: a synced or
+// restored row with new code under the old hash must not run on the old approval (review S6, S7).
+const hashes = new Map<string, string>();
+async function packageHash(manifest: PluginManifest, source: string): Promise<string> {
+  const text = JSON.stringify(manifest) + "\n" + source;
+  let h = hashes.get(text);
+  if (!h) {
+    h = await sha256Hex(text);
+    if (hashes.size > 50) hashes.clear();
+    hashes.set(text, h);
+  }
+  return h;
+}
+
 /** Every installed plugin with this device's approval. Rows whose manifest no longer checks out are left out. */
 export async function listPlugins(): Promise<PluginRecord[]> {
   const device = deviceId();
-  const rows = await sql().select(`SELECT plugin_id, manifest, source, sha256, installed_at FROM plugins ORDER BY installed_at`);
+  const rows = await sql().select(`SELECT plugin_id, manifest, source, installed_at FROM plugins ORDER BY installed_at`);
   const grants = await sql().select(`SELECT * FROM plugin_grants WHERE device = ?`, [device]);
   const out: PluginRecord[] = [];
   for (const r of rows) {
     const checked = validateManifest(json(r.manifest, null));
     if (!checked.ok || checked.manifest.id !== r.plugin_id) continue;
     const grant = toGrant(grants.find((g) => g.plugin_id === r.plugin_id));
-    const sha256 = String(r.sha256);
-    out.push({ pluginId: String(r.plugin_id), manifest: checked.manifest, source: String(r.source), sha256, installedAt: String(r.installed_at), grant, state: pluginState(sha256, grant) });
+    const source = String(r.source);
+    const sha256 = await packageHash(checked.manifest, source);
+    out.push({ pluginId: String(r.plugin_id), manifest: checked.manifest, source, sha256, installedAt: String(r.installed_at), grant, state: pluginState(sha256, grant) });
   }
   return out;
 }

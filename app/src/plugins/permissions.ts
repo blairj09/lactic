@@ -114,10 +114,10 @@ export function updateChanges(prev: PluginManifest, next: PluginManifest): Updat
   return changes;
 }
 
-/** The grant after the rider taps Update: new groups are approved by that tap, location only if ticked. */
+/** The grant after the rider taps Update: new groups are approved by that tap, location only if ticked. A plugin the rider had switched off stays off. */
 export function updatedGrant(prev: Grant | null, next: PluginManifest, sha256: string, choices: InstallChoices): Grant {
   const kept = prev ? prev.read.filter((g) => next.permissions.read.includes(g)) : [];
   const fresh = next.permissions.read.filter((g) => !(prev?.read ?? []).includes(g) && (!OPT_IN_GROUPS.includes(g) || choices.location === true));
   const read = next.permissions.read.filter((g) => kept.includes(g) || fresh.includes(g));
-  return { sha256, read, enabled: true, coachVisible: choices.coachVisible ?? prev?.coachVisible ?? false, switchedOff: null };
+  return { sha256, read, enabled: prev ? prev.enabled || Boolean(prev.switchedOff) : true, coachVisible: choices.coachVisible ?? prev?.coachVisible ?? false, switchedOff: null };
 }
