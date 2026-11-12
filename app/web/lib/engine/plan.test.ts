@@ -280,6 +280,16 @@ describe("saved plans", () => {
     expect(p.weeks.some((w) => w.phase === "build")).toBe(true);
   });
 
+  it("never opens with a recovery week, whatever day the plan starts", () => {
+    // 12 weeks from a Thursday: counting back from the test week used to make the first week a recovery week.
+    for (const goal of ["ftp", "fitness", "base"] as const) {
+      for (const [start, end] of [["2026-11-12", "2027-02-03"], ["2026-11-10", "2027-01-05"], ["2026-11-15", "2027-03-06"]]) {
+        const first = plan({ goals: [], today: start, frame: frame({ goal, start, end }) }).weeks.find((w) => !w.beforePlan)!;
+        expect(first.recoveryWeek).toBe(false);
+      }
+    }
+  });
+
   it("a base plan has no peak and a recovery week every fourth week", () => {
     const weeks = plan({ goals: [], frame: frame({ goal: "base" }) }).weeks.filter((w) => !w.beforePlan);
     expect(weeks.every((w) => w.phase === "base")).toBe(true);
