@@ -54,7 +54,7 @@ export function workReps(workout: Workout): Rep[] {
   let start = 0;
   workout.segments.forEach((s, index) => {
     const end = start + s.duration;
-    if (s.kind === "steady" && !s.hold && !s.allOut && s.target >= REP_FROM && s.target < 2 && s.duration >= REP_MIN_SECONDS)
+    if (s.kind === "steady" && !s.hold && !s.opener && !s.allOut && s.target >= REP_FROM && s.target < 2 && s.duration >= REP_MIN_SECONDS)
       reps.push({ index, start, end, target: s.target });
     start = end;
   });

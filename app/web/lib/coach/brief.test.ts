@@ -54,10 +54,17 @@ describe("briefStale", () => {
   });
 
   it("rewrites when a later recovery score moves the engine's pick, but not once today is chosen", () => {
-    expect(briefStale(brief({ recovery: true, ...day, recommended: "asPlanned" }), inputs({ recovery: true, recommended: "easier" }))).toBe(true);
-    expect(briefStale(brief({ recovery: true, ...day, recommended: "asPlanned" }), inputs({ recovery: true, recommended: "asPlanned" }))).toBe(false);
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "asPlanned", today: "asPlanned" }), inputs({ recovery: true, recommended: "easier" }))).toBe(true);
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "asPlanned", today: "asPlanned" }), inputs({ recovery: true, recommended: "asPlanned" }))).toBe(false);
     expect(briefStale(brief({ recovery: true, ...day, recommended: "asPlanned" }), inputs({ recovery: true, recommended: null }))).toBe(false);
-    expect(briefStale(brief({ recovery: true, ...day }), inputs({ recovery: true, recommended: "easier" }))).toBe(false);
+    expect(briefStale(brief({ recovery: true, ...day, today: null }), inputs({ recovery: true, recommended: "easier" }))).toBe(false);
+  });
+
+  it("rewrites a brief from before it had to mark one of today's options, once", () => {
+    const now = inputs({ recovery: true, recommended: "easier" });
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "easier" }), now)).toBe(true);
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "easier", today: null }), now)).toBe(false);
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "easier", today: "asPlanned" }), now)).toBe(false);
   });
 
   it("rewrites when the recovery score it quoted has moved a lot since", () => {
