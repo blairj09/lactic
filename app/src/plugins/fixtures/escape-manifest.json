@@ -1,0 +1,37 @@
+{
+  "apiVersion": 1,
+  "id": "escape-artist",
+  "name": "Escape Artist",
+  "version": "1.0.0",
+  "description": "Hostile test plugin: tries every way out of the sandbox.",
+  "main": "escape-plugin.js",
+  "permissions": { "read": ["live"] },
+  "publishes": [{ "id": "reached", "label": "Escapes", "kind": "number" }],
+  "contributes": {
+    "fields": [
+      { "id": "globals", "title": "Globals", "entry": "globals" },
+      { "id": "global-names", "title": "Global names", "entry": "globalNames" },
+      { "id": "dynamic-import", "title": "Import", "entry": "dynamicImport" },
+      { "id": "eval-scope", "title": "Eval", "entry": "evalScope" },
+      { "id": "tamper", "title": "Tamper", "entry": "tamper" },
+      { "id": "native-recursion", "title": "Native recursion", "entry": "nativeRecursion" },
+      { "id": "prompt-text", "title": "Prompt text", "entry": "promptText" },
+      { "id": "undeclared", "title": "Undeclared", "entry": "undeclared" },
+      { "id": "proto-pollution", "title": "Proto", "entry": "protoPollution" },
+      { "id": "fake-ui", "title": "Fake UI", "entry": "fakeUi" },
+      { "id": "huge-tree", "title": "Huge tree", "entry": "hugeTree" },
+      { "id": "deep-tree", "title": "Deep tree", "entry": "deepTree" },
+      { "id": "big-output", "title": "Big output", "entry": "bigOutput" },
+      { "id": "getter-loop", "title": "Getter loop", "entry": "getterLoop" },
+      { "id": "loop", "title": "Loop", "entry": "loop" },
+      { "id": "stubborn-loop", "title": "Stubborn loop", "entry": "stubbornLoop" },
+      { "id": "memory", "title": "Memory", "entry": "memory" },
+      { "id": "native-long", "title": "Native long", "entry": "nativeLong" },
+      { "id": "recurse", "title": "Recurse", "entry": "recurse" },
+      { "id": "later-work", "title": "Later work", "entry": "laterWork" },
+      { "id": "fake-timeout", "title": "Fake timeout", "entry": "fakeTimeout" },
+      { "id": "seen", "title": "Seen", "entry": "seen" },
+      { "id": "echo-power", "title": "Power", "entry": "echoPower" }
+    ]
+  }
+}
