@@ -156,6 +156,12 @@ export class SandboxRuntime {
       }
       return { ok: false, failure, ms: this.now() - start, restarted };
     }
+    if (overBudget) {
+      // Finished, but late: one long native call (a huge BigInt, a giant join) that QuickJS can't
+      // interrupt part-way. Count it as a timeout so a plugin can't overrun every tick and still pass.
+      result.value.dispose();
+      return { ok: false, failure: { kind: "timeout", message: "took too long" }, ms: this.now() - start, restarted: false };
+    }
     const output = ctx.typeof(result.value) === "string" ? ctx.getString(result.value) : "null";
     result.value.dispose();
     return { ok: true, output, ms: this.now() - start };

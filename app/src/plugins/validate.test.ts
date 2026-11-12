@@ -58,7 +58,10 @@ describe("plugin output", () => {
     let deep: unknown = { type: "text", text: "x" };
     for (let i = 0; i < 10; i++) deep = { type: "stack", children: [deep] };
     expect(check({ tree: deep }).ok).toBe(false);
-    expect(check({ tree: { type: "text", text: "Safe‮edir" } }).ok).toBe(false);
+    expect(check({ tree: { type: "text", text: "Safe\u202eedir" } }).ok).toBe(false);
+    expect(check({ tree: { type: "text", text: "x" + String.fromCodePoint(0xe0049, 0xe0067) } }).ok).toBe(false);
+    // Emoji with a variation selector or joiner are fine on screen.
+    expect(check({ tree: { type: "text", text: "Heart ❤️ 👩‍🚴" } }).ok).toBe(true);
   });
 
   it("refuses output over the byte limit before parsing", () => {

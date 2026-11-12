@@ -2,7 +2,7 @@
 // string is length-limited, and anything v1 doesn't allow (internet, secrets, writes) is refused
 // with a plain reason. Names and labels come only from here, are shown to the rider at install, and
 // reach the coach (if ever) marked untrusted; plugin code itself can only publish numbers.
-import { isMetricId, pluginMetricId, type MetricGroup } from "@shared/sdk";
+import { hasHiddenText, isMetricId, pluginMetricId, type MetricGroup } from "@shared/sdk";
 
 /** Groups a plugin can ask to read (the SDK's MetricGroup). Race report data has no group, so it is
  *  never offered to plugins (review S5). */
@@ -49,8 +49,6 @@ const MAIN_RE = /^[A-Za-z0-9_-]{1,40}\.js$/;
 const METRIC_NAME_RE = /^[a-z0-9_]{1,24}(?:\.[a-z0-9_-]{1,24}){0,2}$/;
 const ENTRY_RE = /^[A-Za-z_$][A-Za-z0-9_$]{0,39}$/;
 const CHOICE_RE = /^[a-z0-9][a-z0-9-]{0,23}$/;
-// Control characters and invisible direction/format marks that could disguise a name.
-const HIDDEN_CHARS = /[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁤⁦-⁩﻿]/;
 
 /** Internet, secrets and writes are not part of v1; say so rather than "unknown key". */
 const NOT_IN_V1: Record<string, string> = {
@@ -87,7 +85,7 @@ class Checker {
       return undefined;
     }
     if (v.length === 0 || v.length > max) this.fail(path, `must be 1 to ${max} characters`);
-    else if (HIDDEN_CHARS.test(v)) this.fail(path, "contains hidden characters");
+    else if (hasHiddenText(v)) this.fail(path, "contains hidden characters");
     else if (re && !re.test(v)) this.fail(path, "has an invalid format");
     return v;
   }
@@ -103,7 +101,12 @@ class Checker {
 
 /** True when a name could pass for Lactic's own ("Lactic Official", "LACT1C", "Lаctic" in Cyrillic). */
 export function looksLikeLactic(name: string): boolean {
-  const confusables: Record<string, string> = { "0": "o", "1": "l", "!": "i", "|": "l", "3": "e", "4": "a", "5": "s", "7": "t", "а": "a", "с": "c", "і": "i", "к": "k", "т": "t", "ӏ": "l" };
+  // Digits and symbols, then Cyrillic, Greek and other letters that pass for Latin ones.
+  const confusables: Record<string, string> = {
+    "0": "o", "1": "l", "!": "i", "|": "l", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s",
+    "а": "a", "с": "c", "і": "i", "к": "k", "т": "t", "ӏ": "l", "ѕ": "s", "о": "o", "е": "e",
+    "α": "a", "ι": "i", "κ": "k", "τ": "t", "ϲ": "c", "ο": "o", "ε": "e", "ı": "i", "ɩ": "i", "ʟ": "l", "ɑ": "a",
+  };
   const flatten = (s: string) =>
     s
       .normalize("NFKD")
