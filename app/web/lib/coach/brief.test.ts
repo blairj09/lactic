@@ -52,4 +52,11 @@ describe("briefStale", () => {
     const acted = brief({ ...day }, [{ change: { kind: "reset", date: "2026-10-31" }, summary: "", reason: "", status: "applied" }]);
     expect(briefStale(acted, inputs({ checkin: at }))).toBe(true);
   });
+
+  it("rewrites when a later recovery score moves the engine's pick, but not once today is chosen", () => {
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "asPlanned" }), inputs({ recovery: true, recommended: "easier" }))).toBe(true);
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "asPlanned" }), inputs({ recovery: true, recommended: "asPlanned" }))).toBe(false);
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "asPlanned" }), inputs({ recovery: true, recommended: null }))).toBe(false);
+    expect(briefStale(brief({ recovery: true, ...day }), inputs({ recovery: true, recommended: "easier" }))).toBe(false);
+  });
 });

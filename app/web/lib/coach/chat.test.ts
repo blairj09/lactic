@@ -156,6 +156,7 @@ describe("morning brief", () => {
     const replies = [
       call("get_day_options", { date: "2026-10-29" }),
       call("propose_day_change", { date: "2026-10-29", option_id: "recovery", reason: "Poor sleep" }),
+      call("suggest_today", { option_id: "recovery" }),
       say("Recovery is low, so I've suggested a recovery spin today."),
     ];
     const reply = await morningBrief(async (_m, t) => ((tools = t), replies.shift()!), data, []);
@@ -173,6 +174,24 @@ describe("morning brief", () => {
     await morningBrief(async (m) => ((system = m[0].content!), say("Weighed in at 74.6 kg.")), weighed, []);
     expect(system).toContain('"weighInToday":{"weightKg":74.6,"bodyFatPercent":14}');
   });
+  it("asks once for today's suggestion when the brief leaves it out, so the brief and the marked option agree", async () => {
+    const seen: ChatMessage[][] = [];
+    const replies = [say("Take the day off."), call("suggest_today", { option_id: "rest" }), say("Take the day off; sleep is short.")];
+    const reply = await morningBrief(async (m) => (seen.push([...m]), replies.shift()!), data, []);
+    expect(seen[1].at(-1)?.content).toMatch(/haven't called suggest_today/);
+    expect(reply).toMatchObject({ today: "rest", message: "Take the day off; sleep is short." });
+    // Asked once: a second answer without it stands.
+    const again = [say("Ride it as planned."), say("Ride it as planned.")];
+    expect((await morningBrief(async () => again.shift()!, data, [])).message).toBe("Ride it as planned.");
+  });
+
+  it("never offers mid-ride changes it can't make", async () => {
+    let system = "";
+    await morningBrief(async (m) => ((system = m[0].content!), call("suggest_today", { option_id: "asPlanned" })), data, []).catch(() => {});
+    expect(system).toMatch(/never offer to adjust it then/);
+    expect(system).toMatch(/must say the same thing/);
+  });
+
   it("reads how the athlete feels and suggests one of today's options", async () => {
     const felt = {
       ...data,
