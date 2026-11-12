@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Today puts the key things first. Recovery is four quick tiles (HRV, resting HR, breathing, sleep), each with a bar showing your usual range and a dot for last night. Then "Ready to train?" and Indoors or Outside, then today's plan next to the suggested ride, each with its own Start ride. "Something else…" offers today's other options, the library, your own workouts or a free ride. The coach's brief comes after, and it's rewritten if your recovery score changes a lot after it was written.
+- A new plan no longer starts with a recovery week when you set it up partway through a week, so your first week has real riding in it. Riders without a coach or sleep tracking no longer see lines about them after a ride or on Progress.
 - The coach's message box no longer shrinks to a sliver after you delete old conversations and start a new one.
 - Warm-ups now open the legs: before tempo, sweet spot and harder workouts, the 10-minute warm-up is a 6-minute build and three short efforts, each a little harder than the last (20 s at 110, 120 and 130% before hard days; 30 s at 90, 100 and 110% before tempo and sweet spot). Workouts stay the same length; endurance and recovery rides keep the plain build. This week's plan picks them up too.
 - A coach brief written before the brief-and-suggestion fix is written once more, so today's brief and the option marked under it agree. With Adaptive workouts on, the brief may mention that Lactic eases later reps for you during the ride.

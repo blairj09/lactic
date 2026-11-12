@@ -533,6 +533,14 @@ function unframedSchedule(today: string, upcoming: Goal[], horizonWeeks: number)
 
 /** A saved plan: its own dates, with phases counted from its first week so they stay put as weeks pass. */
 function framedSchedule(frame: PlanFrame, goals: Goal[]): Schedule {
+  const schedule = phasedSchedule(frame, goals);
+  // A plan never opens with a recovery week: counting back from the end can land one on a first
+  // week that starts mid-week, and a new plan's first days should be riding.
+  const firstWeek = schedule.firstWeek;
+  return { ...schedule, weekAt: (m) => (m === firstWeek ? { ...schedule.weekAt(m), recoveryWeek: false } : schedule.weekAt(m)) };
+}
+
+function phasedSchedule(frame: PlanFrame, goals: Goal[]): Schedule {
   const firstWeek = weekStart(frame.start);
   const event = frame.goal === "event" ? (goals.find((g) => g.id === frame.goalId) ?? null) : null;
   const end = event ? event.date : frame.end;

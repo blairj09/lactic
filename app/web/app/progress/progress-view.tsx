@@ -11,6 +11,7 @@ import { hoursMinutes } from "@/components/chart-utils";
 import { clampRange, compareRange, inRange, presetRange, summarizeRange, type CompareMode, type DateRange } from "@/lib/engine/analysis";
 import type { AnalysisData } from "@/lib/analysis-data";
 import { PageHeader, Panel } from "@/components/ui";
+import { useFeatures } from "@/lib/use-features";
 
 const DATE = /^\d{4}-\d\d-\d\d$/;
 
@@ -62,6 +63,7 @@ export default function ProgressView({
     remember(range, c);
   };
 
+  const tracking = useFeatures();
   const current = summarizeRange(data.rides, range);
   const compared = compare ? summarizeRange(data.rides, compareRange(range, compare)) : null;
   const summaries = compared ? [current, compared] : [current];
@@ -74,11 +76,16 @@ export default function ProgressView({
         title="Progress"
         line={
           <>
-            Fitness and power over time. Drag across a chart to zoom in. Recovery and sleep are on{" "}
-            <Link href="/health" className="text-ink underline underline-offset-4">
-              Health
-            </Link>
-            .
+            Fitness and power over time. Drag across a chart to zoom in.
+            {tracking.recovery && (
+              <>
+                {" "}Recovery and sleep are on{" "}
+                <Link href="/health" className="text-ink underline underline-offset-4">
+                  Health
+                </Link>
+                .
+              </>
+            )}
           </>
         }
       />
@@ -93,7 +100,7 @@ export default function ProgressView({
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {summaries.map((s, i) => (
-          <Stat key={i} label={`${labels[i]} · ${formatRange(s.range)}`} value={`${s.rides} rides`} detail={hoursMinutes(s.seconds)} />
+          <Stat key={i} label={`${labels[i]} · ${formatRange(s.range)}`} value={`${s.rides} ${s.rides === 1 ? "ride" : "rides"}`} detail={hoursMinutes(s.seconds)} />
         ))}
       </section>
 

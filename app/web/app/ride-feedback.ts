@@ -52,7 +52,9 @@ export async function saveRideFeedback(input: {
     const line = [`After ${ride.name ?? "my ride"}: ${DIFFICULTY_LABELS[input.difficulty].toLowerCase()}`, rpe ? `, RPE ${rpe}/10` : "", note ? `. "${note}"` : "", "."].join("");
     await recordChoice(supabase, localDate(new Date(ride.started_at), athlete.timezone), line);
     revalidatePath("/", "layout");
-    return { ok: true, message: "Thanks. Your plan and the coach will take it into account." };
+    // Only mention the coach to riders who have one.
+    const coach = Boolean(process.env.OPENROUTER_API_KEY);
+    return { ok: true, message: coach ? "Thanks. Your plan and the coach will take it into account." : "Thanks. Your plan will take it into account." };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
