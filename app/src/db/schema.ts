@@ -119,6 +119,8 @@ export const TABLES: Record<string, Table> = {
       created_at: now,
       route: { type: "json" },
       updated_at: now,
+      /** Changes adaptive workouts made mid-ride, and how each ended (web/lib/ride/adapt.ts). */
+      adaptations: { type: "json" },
     },
     primaryKey: ["activity_id"],
     foreignKeys: { activity_id: activity("cascade") },

@@ -35,6 +35,7 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
       saved={saved}
       favorites={state.favorites}
       today={state.today}
+      thresholdHr={state.athlete.thresholdHr}
     />
   );
 }

@@ -56,6 +56,23 @@ export interface PlayerData {
   totals: RideTotals;
   /** End was pressed: the ride is over and saving or saved. */
   ended: boolean;
+  /** Adaptive workouts (an experiment): null when it doesn't apply to this ride; `on` is this ride's switch. */
+  adaptive: { on: boolean } | null;
+  /** A change adaptive workouts just made (an ease, with Undo) or suggests (a bump). */
+  adapt: AdaptNotice | null;
+}
+
+/** An adaptive change on screen: an ease already made (Undo for `undoIn` seconds) or a bump to say yes or no to. */
+export interface AdaptNotice {
+  kind: "ease" | "bump";
+  percent: number;
+  /** The next changed rep's watts, after and before. */
+  watts: number;
+  was: number;
+  /** How many reps it changes. */
+  reps: number;
+  reasons: string[];
+  undoIn: number | null;
 }
 
 export interface PlayerControls {
@@ -79,7 +96,71 @@ export interface PlayerControls {
   onExtendBlock: (step: 1 | -1) => void;
   /** Moves an ERG hold's watts by `delta` steps while riding it. */
   onHold: (delta: number) => void;
+  /** Adaptive workouts: undo an ease, say yes or no to a bump, and switch it for this ride. */
+  onAdaptUndo: () => void;
+  onAdaptYes: () => void;
+  onAdaptNo: () => void;
+  onAdaptive: (on: boolean) => void;
   canPlay: boolean;
+}
+
+/** The notice's headline, e.g. "Next 2 reps eased to 240 W (−4%)". */
+export function adaptTitle(a: AdaptNotice): string {
+  const which = a.reps === 1 ? "Next rep" : `Next ${a.reps} reps`;
+  return a.kind === "ease" ? `${which} eased to ${a.watts} W (−${a.percent}%)` : `${which} look easy for you: ${a.watts} W (+${a.percent}%)?`;
+}
+
+/**
+ * Adaptive workouts' notice on the page and the phone: what changed and why, with Undo for an ease,
+ * or yes and no for a harder suggestion (no answer keeps the plan).
+ */
+function AdaptBanner({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
+  const a = data.adapt;
+  if (!a) return null;
+  const btn = "inline-flex h-11 items-center justify-center rounded-lg px-4 text-[15px] font-medium transition-opacity hover:opacity-85";
+  return (
+    <div role="status" className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-lg border border-line bg-raised px-4 py-3">
+      <span aria-hidden className={`flex size-8 shrink-0 items-center justify-center rounded-md text-lg font-semibold ${a.kind === "ease" ? "bg-pill-warning text-warning" : "bg-primary text-on-primary"}`}>
+        {a.kind === "ease" ? "↓" : "↑"}
+      </span>
+      <div className="min-w-0 flex-1 basis-60">
+        <div className="num font-medium">{adaptTitle(a)}</div>
+        <div className="text-sm text-muted">{a.reasons[0]}{a.kind === "bump" && " No answer keeps the plan."}</div>
+      </div>
+      {a.kind === "ease" ? (
+        <button className={`${btn} bg-primary text-on-primary`} onClick={() => controls.onAdaptUndo()}>
+          Undo{a.undoIn !== null && <span className="num ml-2 opacity-70">{a.undoIn}</span>}
+        </button>
+      ) : (
+        <div className="flex gap-2">
+          <button className={`${btn} bg-primary text-on-primary`} onClick={() => controls.onAdaptYes()}>
+            Harder
+          </button>
+          <button className={`${btn} bg-active text-ink`} onClick={() => controls.onAdaptNo()}>
+            Keep {a.was} W
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Adaptive workouts on or off for this ride. */
+function AdaptiveSwitch({ on, onChange, className }: { on: boolean; onChange: (on: boolean) => void; className: string }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      title={on ? "Adaptive on: eases later reps when you're struggling, asks before harder. Turn it off for this ride." : "Adaptive off for this ride"}
+      className={className}
+    >
+      Adaptive
+      <span className={`relative inline-block h-[1.2em] w-[2.1em] rounded-full transition-colors ${on ? "bg-primary" : "bg-active"}`}>
+        <span className={`absolute top-[0.15em] size-[0.9em] rounded-full transition-all ${on ? "left-[1.05em] bg-on-primary" : "left-[0.15em] bg-muted"}`} />
+      </span>
+    </button>
+  );
 }
 
 export { describeTarget, formatTime };
@@ -251,6 +332,8 @@ export function PlayerView({ data, controls, extra }: { data: PlayerData; contro
         </span>
       </div>
 
+      <AdaptBanner data={data} controls={controls} />
+
       <div className="grid gap-x-8 gap-y-6 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-start">
         <div aria-label="This interval" className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4 lg:grid-cols-2">
           <div className="col-span-2">
@@ -316,6 +399,7 @@ export function RemoteView({ data, controls, extra, notice }: { data: PlayerData
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pb-4">
         {notice}
+        <AdaptBanner data={data} controls={controls} />
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="truncate text-lg font-semibold tracking-tight">{data.workout.name}</h2>
           <span className="num flex-none text-sm text-muted">
@@ -654,6 +738,13 @@ function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData;
               <span className={`absolute top-1 size-4 rounded-full transition-all ${data.ergOn ? "left-5 bg-on-primary" : "left-1 bg-muted"}`} />
             </span>
           </button>
+          {data.adaptive && (
+            <AdaptiveSwitch
+              on={data.adaptive.on}
+              onChange={controls.onAdaptive}
+              className="flex h-12 items-center gap-3 rounded-lg bg-raised px-3 text-sm text-muted transition-colors hover:bg-active [&>span]:text-[24px]"
+            />
+          )}
           {showGrade && (
             <Stepper
               label={data.sprintGrade !== null ? "Sprint grade" : "Grade"}
@@ -777,6 +868,9 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
         ) : (
           <>
             <WorkoutChart workout={data.workout} ftp={ftp} position={data.position} trace={data.trace} from={from} to={from + MINI_BEHIND + MINI_AHEAD} className="min-h-0 w-full flex-1 text-ink" />
+            {data.adapt ? (
+              <MiniAdapt data={data} controls={controls} />
+            ) : (
             <div className={`num truncate pt-[1.5vh] text-muted ${MINI_LABEL}`}>
               {data.erg ? (
                 ftp > 0 && `${Math.round((data.erg.watts / ftp) * 100)}% FTP · zone ${powerZone(data.erg.watts / ftp)}`
@@ -789,6 +883,7 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
                 "Last interval"
               )}
             </div>
+            )}
           </>
         )}
       </div>
@@ -945,6 +1040,16 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
         </Group>
       )}
 
+      {data.adaptive && (
+        <Group label="Adaptive">
+          <AdaptiveSwitch
+            on={data.adaptive.on}
+            onChange={controls.onAdaptive}
+            className={`inline-flex ${D_H} ${D_TEXT} items-center gap-[0.6em] rounded-md bg-raised px-[0.7em] font-medium text-ink transition-colors hover:bg-active`}
+          />
+        </Group>
+      )}
+
       <Group label="Overlay">
         <div className="flex gap-1.5">
           <button className={button} onClick={() => onResize(-1)} title="Make the overlay smaller" aria-label="Smaller overlay">
@@ -1057,6 +1162,34 @@ function MiniExtendOrEnd({ data, controls }: { data: PlayerData; controls: Playe
           End
         </button>
       </div>
+    </div>
+  );
+}
+
+/** The overlay's line under the chart while adaptive workouts has something to say: what changed, with Undo or yes and no. */
+function MiniAdapt({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
+  const a = data.adapt!;
+  const btn = `inline-flex ${MINI_H} shrink-0 items-center justify-center rounded-md px-[0.8em] font-medium ${MINI_TEXT} transition-opacity hover:opacity-85`;
+  return (
+    <div role="status" className="flex min-w-0 items-center gap-[2vh] pt-[1.5vh]">
+      <span aria-hidden className={`size-[0.7em] shrink-0 rounded-full ${MINI_LABEL} ${a.kind === "ease" ? "bg-warning" : "bg-primary"}`} />
+      <span className={`num min-w-0 flex-1 truncate ${MINI_LABEL}`} title={a.reasons[0]}>
+        {adaptTitle(a)}
+      </span>
+      {a.kind === "ease" ? (
+        <button className={`${btn} bg-primary text-on-primary`} onClick={() => controls.onAdaptUndo()}>
+          Undo{a.undoIn !== null && <span className="num ml-[0.4em] opacity-70">{a.undoIn}</span>}
+        </button>
+      ) : (
+        <>
+          <button className={`${btn} bg-primary text-on-primary`} onClick={() => controls.onAdaptYes()}>
+            Harder
+          </button>
+          <button className={`${btn} bg-raised text-ink`} onClick={() => controls.onAdaptNo()}>
+            Keep
+          </button>
+        </>
+      )}
     </div>
   );
 }
