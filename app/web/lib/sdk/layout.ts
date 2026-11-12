@@ -89,7 +89,8 @@ const MAX_CARDS = 40;
 const obj = (v: unknown): Record<string, unknown> | null => (typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
 const text = (v: unknown, max = 40): string | null => (typeof v === "string" && v.trim() && v.length <= max ? v.trim() : null);
 
-function parseField(v: unknown): FieldRef | null {
+/** One ride field from untrusted input (a saved layout or a coach proposal), or null when it isn't well formed. */
+export function parseField(v: unknown): FieldRef | null {
   const o = obj(v);
   if (!o) return null;
   if (typeof o.metric === "string" && METRIC_ID.test(o.metric)) return { metric: o.metric };
