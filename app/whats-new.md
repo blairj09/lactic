@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- The Last night card on Today and Health is now called Recovery.
 - Race courses: set a target finish time and Lactic works out the FTP it takes, whether that's realistic by race day, and the power to hold on each climb to make it. If you need more FTP, the plan builds toward it. Pick how you'll ride the event (solo, a small group or a bunch) and times allow for the draft, with what getting dropped on the main climb would cost you.
 - Race courses: times now show a likely range, and allow for racing at altitude (Lactic asks where you live) and in the heat. Fueling follows the current sports-nutrition guidelines. Curious how it's all worked out? Settings → About links to the science behind it.
 - Race courses: road riders can measure their own drag from recent outdoor rides with power (via intervals.icu). Lactic then checks itself by timing each of those rides from its own power, and tells you how close it came.

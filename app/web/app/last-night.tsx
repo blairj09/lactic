@@ -37,7 +37,7 @@ export default function LastNight({
   const rows = glance.metrics.filter((m) => m.nights.some((n) => n.value !== null));
 
   return (
-    <Panel title="Last night" meta={<SourceLine recovery={recovery} source={source} />}>
+    <Panel title="Recovery" meta={<SourceLine recovery={recovery} source={source} />}>
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line lg:grid-cols-[16rem_minmax(0,1.5fr)_minmax(0,0.8fr)]">
         <div className="bg-surface p-4">
           <div className="flex items-center gap-4">
@@ -443,7 +443,7 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
   const sleep = today?.sleepHours != null ? [hm(today.sleepHours), glance.sleepScore && `${glance.sleepScore.measures.ofNeed}% of your need`].filter(Boolean).join(", ") : null;
   const more = (
     <Link href="/health" className="text-sm whitespace-nowrap text-ink underline underline-offset-4">
-      Last night on Health
+      Recovery on Health
     </Link>
   );
   const warnings = shownSignals(glance);
@@ -470,7 +470,7 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
             {reason ? `${reason}.` : ""} {sleep ? `Slept ${sleep}.` : ""}
           </span>{" "}
           <Link href="/health" className="whitespace-nowrap text-ink underline underline-offset-4">
-            Last night
+            More on Health
           </Link>
         </p>
         {signals}

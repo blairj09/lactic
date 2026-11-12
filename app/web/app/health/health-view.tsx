@@ -110,7 +110,7 @@ export default function HealthView({
               }}
             />
           ) : (
-            <Panel title="Last night">
+            <Panel title="Recovery">
               <p className="text-sm text-muted">No night recorded yet.</p>
             </Panel>
           )}
