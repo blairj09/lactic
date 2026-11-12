@@ -28,6 +28,8 @@
       { "id": "memory", "title": "Memory", "entry": "memory" },
       { "id": "native-long", "title": "Native long", "entry": "nativeLong" },
       { "id": "recurse", "title": "Recurse", "entry": "recurse" },
+      { "id": "slow-native", "title": "Slow native", "entry": "slowNative" },
+      { "id": "redos", "title": "Regex", "entry": "redos" },
       { "id": "later-work", "title": "Later work", "entry": "laterWork" },
       { "id": "fake-timeout", "title": "Fake timeout", "entry": "fakeTimeout" },
       { "id": "seen", "title": "Seen", "entry": "seen" },
