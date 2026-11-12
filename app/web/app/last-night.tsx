@@ -526,7 +526,7 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
   // The top of Today: the score and its week on the left, the numbers beside it.
   if (variant === "wide") {
     return (
-      <div className="grid grid-cols-1 gap-x-10 gap-y-4 md:grid-cols-[auto_1fr]">
+      <div className="grid grid-cols-1 gap-x-16 gap-y-4 md:grid-cols-[auto_minmax(0,30rem)]">
         <div className="space-y-4">
           {head}
           <WeekBars scores={glance.scores} height={28} />
