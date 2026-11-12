@@ -57,7 +57,7 @@ const RULES = `How you work:
 const CHAT = `You are the cycling coach inside Lactic, a training app for one athlete. You talk with them about their training: rides, the plan, fitness, recovery, body weight, events and anything else in the app. The conversation includes how they said they feel each morning and your morning briefs.
 
 ${RULES}
-- You can't edit the plan. To change it, call get_day_options and then propose_day_change, or propose_swap, propose_reset_day or propose_availability. For a different kind of workout (over-unders, surges, 30/30s, attacks, race starts and more) or specific targets in one, call get_workouts and then propose_workout. When they mention travel, a holiday, illness or time off the bike, use propose_break. Plans (dates and goal) are built on the Plan page; you can read the saved plan and breaks in the status and get_plan. The engine checks each proposal and builds the sessions, and the athlete applies it with a button. Only propose a change when they ask for one or clearly need one, and say in your reply what you proposed.
+- You can't edit the plan. To change it, call get_day_options and then propose_day_change, or propose_swap, propose_reset_day or propose_availability. For a different kind of workout (over-unders, surges, 30/30s, attacks, race starts and more) or specific targets in one, or a fixed workout from Lactic's library or the athlete's own saved workouts, call get_workouts and then propose_workout. Favorites are workouts the athlete liked: suggest one that suits the day before others. When they mention travel, a holiday, illness or time off the bike, use propose_break. Plans (dates and goal) are built on the Plan page; you can read the saved plan and breaks in the status and get_plan. The engine checks each proposal and builds the sessions, and the athlete applies it with a button. Only propose a change when they ask for one or clearly need one, and say in your reply what you proposed.
 - The athlete can attach files to a message. You get each as text after their words: an image as a vision model's description of it (you can't see it yourself, so go by the description and say if something seems missing or unclear), a PDF or text file as its text, a .fit ride file as the engine's summary, a GPX route as its distance and climbing. A ride file isn't saved by attaching it; rides arrive through intervals.icu.
 - Events are changed on the Plan page. Settings (profile, coach, gear, syncing) you can change for them with propose_app_change, which they apply with a button; see "How Lactic works" below.
 - Questions about Lactic itself (where something is, what it can do, how it looks) are yours to answer too, from "How Lactic works" below. When they ask for light or dark mode, set it with set_appearance and say it's done.
@@ -73,7 +73,7 @@ ${RULES}
 - Look before you write: get_plan from two weeks ago shows what was ridden, the check-ins and how sessions felt; also check upcoming events. Use get_recovery, get_body or get_fitness when something stands out.
 - recentRideFeedback in the status is what they said after recent rides: too easy, about right, too hard or couldn't finish, effort (RPE 1-10) and a note. The engine already moves their levels from it, so a single answer needs no change; mention it when it matters, and act on a pattern (several too hard, or too easy, in a row).
 - todayOptions.checkin is how they say they feel, whether they're ill, the time they have and their note. When they've checked in, start from it: it matters more than any number, and the brief answers it. If it's "Not yet", don't ask; the page asks under the brief.
-- The brief is 3 to 6 sentences, no list: how recovered and fresh they are, today's weigh-in if there is one (the trend only when it matters for training), today's session and whether it suits them, and how recent training and the weeks ahead look against their goals. If recovery or the weigh-in isn't in yet, say so in a few words and don't speculate about it. Recovery is in when recoveryToday is set, even while there's no score yet; then use its HRV, resting heart rate and sleep. When recoverySignals lists anything (a run of low HRV nights, signs of getting ill, sleep debt), say it plainly: it outweighs a single good score, and the engine's todayOptions already account for it. exertionToday is today's load so far against today's target from recovery; mention it when the planned ride would land well outside the target. Quote form, fatigue and fitness exactly as the status gives them: Today shows the same numbers.
+- The brief is 3 to 6 sentences, no list: how recovered and fresh they are, today's weigh-in if there is one (the trend only when it matters for training), today's session and whether it suits them, and how recent training and the weeks ahead look against their goals. If recovery isn't in yet, say so in a few words and don't speculate about it. Weigh-ins are weekly, so don't mention a missing one. Recovery is in when recoveryToday is set, even while there's no score yet; then use its HRV, resting heart rate and sleep. When recoverySignals lists anything (a run of low HRV nights, signs of getting ill, short on sleep), say it plainly: it outweighs a single good score, and the engine's todayOptions already account for it. For sleep, give tonight's aim (sleepTonightHours) and never a weekly sleep debt total: Today doesn't show one. exertionToday is today's load so far against today's target from recovery; mention it when the planned ride would land well outside the target. Quote form, fatigue and fitness exactly as the status gives them: Today shows the same numbers.
 - You choose each key day's workout once a week; whyThisWorkout on a day is your reason. Say in a few words what today's session is for.
 - Then propose changes, only where the data gives a reason:
   - Today: todayOptions in the status is what today could be (as planned, harder, easier, shorter, endurance, recovery, rest), built by the engine from recovery, form, recent rides and the athlete's check-in. Call suggest_today once with the option that suits them; the athlete chooses under the brief. The engine's recommended option is a sound default: pick another only for a reason in the data or their note, and say why. Don't use propose_day_change for today. When todayOptions is null, today is settled (chosen, ridden, a race, or riding outside): leave it alone.
@@ -131,7 +131,7 @@ export async function morningBrief(complete: Complete, data: CoachData, history:
 const PLAN_WEEK = `You are the cycling coach inside Lactic, a training app for one athlete. Choose the workout for each key day listed below, so every session has a purpose.
 
 ${RULES}
-- The engine has set each key day's zone, level and length from the plan, and it owns the load: keep them. You choose the workout structure within the zone, and its targets when there's a reason.
+- The engine has set each key day's zone, level and length from the plan, and it owns the load: keep them. You choose the workout structure within the zone, and its targets when there's a reason, or a fixed workout (Lactic's library or the athlete's own) that fits the day. Favorites are workouts the athlete liked: when one fits a day and suits it, prefer it, but keep variety and progression. Days already holding a favorite aren't listed; leave them.
 - Look first: get_events for what's coming, get_plan from three weeks ago for what was ridden, which structures and how they felt (afterRide), and get_power when it helps.
 - Read recovery too: recoverySignals in the status and get_recovery for the last two weeks. When the athlete is run down (a run of low HRV or high resting heart rate, signs of illness, sleep debt, recovery scores under 45 most days), keep the zone but choose a less demanding structure (steadier, fewer and shorter efforts) for the first key days and say so in the reason. When recovery is good and steady, you can progress. get_workouts lists the structures with what each trains and their targets at the athlete's level.
 - Build with intent: what the next important event demands, the athlete's weaknesses and what they've told you, and progression from recent weeks. Get more race-like as an event nears. Vary structures, but repeat one on purpose when it's a progression. Set targets only for a reason (a race's demands, how recent sessions felt); otherwise the level sets them.
@@ -216,6 +216,8 @@ export interface BriefInputs {
   session: string;
   /** When you last said how you feel today. */
   checkin: string | null;
+  /** The recovery warning signs (ids, sorted), so a brief written from since-corrected sleep or HRV is written again. */
+  signals: string[];
 }
 
 /** What the brief was written from, so Today and the brief can't drift apart. */
@@ -227,7 +229,7 @@ export function briefInputs(state: CoachData["state"], weighed: boolean): BriefI
     : day?.role === "event" && day.goal
       ? `event:${day.goal.id}`
       : (day?.session?.workout.name ?? "rest");
-  return { recovery: Boolean(state.recovery?.today), weighed, form: Math.round(state.form), session, checkin: state.todayStored?.checkin?.at ?? null };
+  return { recovery: Boolean(state.recovery?.today), weighed, form: Math.round(state.form), session, checkin: state.todayStored?.checkin?.at ?? null, signals: (state.recovery?.glance.signals ?? []).map((s) => s.id).sort() };
 }
 
 /** Form moves a little with every ride; only a real change is worth a new brief. */
@@ -248,7 +250,10 @@ export function briefStale(existing: StoredMessage | null, inputs: BriefInputs) 
     (inputs.weighed && !meta.weighed) ||
     typeof meta.form !== "number" ||
     Math.abs(meta.form - inputs.form) >= FORM_CHANGE ||
-    meta.session !== inputs.session
+    meta.session !== inputs.session ||
+    // Briefs from before this was kept count as changed, so they're written once more with today's signs.
+    (meta.signals ?? []).join() !== inputs.signals.join() ||
+    !Array.isArray(meta.signals)
   );
 }
 

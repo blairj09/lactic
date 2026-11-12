@@ -154,17 +154,18 @@ function glanceFrom(data: any[], today: string, sleepNeedHours: number, daytime:
   const i = nights.findIndex((x) => x.day === today);
   const debt = nights.length ? sleepDebt(nights, sleepNeedHours, 7, today) : null;
   const todayExertion = daytime?.days.find((d) => d.day === today)?.exertion ?? null;
+  const needTonight = sleepNeedTonight(sleepNeedHours, debt ?? 0, todayExertion);
   const byDay = new Map(trend.map((d) => [d.day, d.score]));
   return {
     metrics,
-    signals: recoverySignals(metrics, debt),
+    signals: recoverySignals(metrics, debt, needTonight),
     scores: Array.from({ length: 7 }, (_, k) => {
       const day = addDays(today, k - 6);
       return { day, score: byDay.get(day) ?? null };
     }),
     sleepScore: i < 0 ? null : sleepScore(nights[i], nights.slice(0, i), sleepNeedHours),
     sleepDebtHours: debt,
-    sleepNeedTonight: sleepNeedTonight(sleepNeedHours, debt ?? 0, todayExertion),
+    sleepNeedTonight: needTonight,
   };
 }
 

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2b55d6">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<title>Privacy · Lactic</title>
+<meta name="description" content="How Lactic handles your data: it stays on your own devices, with no Lactic account or server.">
+<meta property="og:title" content="Privacy · Lactic">
+<meta property="og:url" content="https://lactic.fit/privacy">
+<meta property="og:site_name" content="Lactic">
+<style>
+  .legal { max-width: 760px; margin: 0 auto; padding: 32px 0 96px; }
+  .legal h1 { font-size: clamp(40px, 6vw, 64px); line-height: 1; letter-spacing: -0.04em; font-weight: 800; font-stretch: 112%; margin: 12px 0 20px; }
+  .legal .lede { font-size: 20px; color: var(--body); }
+  .legal h2 { font-size: 28px; letter-spacing: -0.02em; font-weight: 750; margin: 56px 0 14px; }
+  .legal h3 { font-size: 18px; font-weight: 700; margin: 28px 0 8px; }
+  .legal p, .legal li { color: var(--body); font-size: 17px; line-height: 1.65; }
+  .legal p + p { margin-top: 14px; }
+  .legal ul { padding-left: 22px; margin: 12px 0; }
+  .legal li + li { margin-top: 6px; }
+  .legal .note { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin: 22px 0; }
+  .legal table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 15px; }
+  .legal th, .legal td { text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); color: var(--body); vertical-align: top; }
+  .legal th { font-weight: 600; color: var(--muted); font-size: 13px; }
+  .legal .table-scroll { overflow-x: auto; }
+  .legal .toc { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 28px; font-size: 15px; }
+  .legal .toc a { text-decoration: none; }
+  .legal ol.refs { padding-left: 22px; }
+  .legal ol.refs li { font-size: 15px; }
+  .legal sup a { text-decoration: none; font-size: 12px; }
+  .legal .toc-group { flex-basis: 100%; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-top: 6px; }
+  .legal .toc-group:empty { margin-top: 0; }
+  .legal .eyebrow.part { margin: 80px 0 -44px; text-transform: uppercase; letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M2 21V15H4.5V10.5H7V6.5H9.5V3H12V15H22V21Z" fill="currentColor"/></svg></span>
+      Lactic<span class="beta-tag">Beta</span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a class="nav-link" href="/#why">Features</a>
+      <a class="nav-link" href="/#coach">AI coach</a>
+      <a class="nav-link" href="/#gear">Gear</a>
+      <a class="nav-link" href="https://github.com/blairj09/lactic">GitHub</a>
+      <a class="nav-link" href="https://ko-fi.com/lactic">Support</a>
+      <a class="nav-cta" href="https://github.com/blairj09/lactic/releases/latest">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <article class="legal">
+    <p class="eyebrow">Privacy</p>
+    <h1>Your data stays yours.</h1>
+    <p class="lede">Lactic keeps your training on your own devices. There&apos;s no Lactic account and no Lactic server holding your rides, health or settings. This page covers the Lactic desktop app (Mac, Windows, Linux), the Lactic Fit iPhone app and its Apple Watch app, and this website.</p>
+    <p>Last updated 11 November 2026.</p>
+
+    <h2>What stays on your devices</h2>
+    <p>Your profile, plan, rides, recovery and sleep numbers, weight, coach chats and settings live in one database file on your computer, and in the iPhone app on your iPhone. API keys and sign-ins are kept in your system&apos;s keychain. Lactic has no analytics or tracking in the apps, and we don&apos;t sell or share your data with anyone.</p>
+
+    <h2>Apple Health</h2>
+    <p>With your permission, the iPhone app reads sleep, heart rate variability, resting heart rate, heart rate, breathing rate, wrist temperature, steps, active energy, VO2 max and workouts from Apple Health, and writes your Lactic rides back to Health as cycling workouts with their heart rate, distance and energy. Health data is used only to give you recovery scores and fit your training. It&apos;s never used for advertising, never sold, and never sent to Lactic. It moves only between your own devices, as below, and to services you choose to connect.</p>
+
+    <h2>Between your iPhone and your computer</h2>
+    <p>When you pair the iPhone app with your computer, the two sync directly over your local network, encrypted with a key only your two devices know. When they can&apos;t reach each other, the iPhone can leave encrypted updates in your own iCloud Drive for your computer to pick up. Nothing goes through a Lactic server.</p>
+
+    <h2>Services you choose to connect</h2>
+    <p>Lactic only talks to these if you turn them on, and each gets only what it needs. Their own privacy policies apply to what you send them.</p>
+    <ul>
+      <li><strong>Your AI coach.</strong> If you use the built-in coach, the messages you send and the training data it looks up to answer you (plan, rides, recovery numbers) go to the AI provider you pick, with your own key: OpenRouter, Anthropic, OpenAI, Google, or another provider you set up. A model running on your computer keeps it all local. If you coach through an AI app such as Claude Desktop, that app reads from Lactic on your computer. With no coach, nothing goes anywhere.</li>
+      <li><strong>intervals.icu.</strong> Brings your ride history, sleep and weight in, and sends your rides and planned workouts back, using your intervals.icu key.</li>
+      <li><strong>Strava</strong> (an experiment you turn on). Lactic posts your rides to your Strava account. When you sign in, lactic.fit passes your sign-in to Strava to get your access, because an open-source app can&apos;t keep its own Strava secret. It hands the access straight back to your device and doesn&apos;t store or log it.</li>
+      <li><strong>Race courses</strong> (an experiment). Searching for a race asks BikeReg and Ride with GPS; the course&apos;s location goes to Open-Meteo for the weather forecast. Route maps load from OpenStreetMap.</li>
+    </ul>
+
+    <h2>Feedback you send</h2>
+    <p>When you use Send feedback, your note, and a screenshot only if you attach one, go through lactic.fit to become an issue on Lactic&apos;s public GitHub page, where anyone can read it. You see exactly what will be sent before you send it. Leave out anything you don&apos;t want public.</p>
+
+    <h2>Updates</h2>
+    <p>The desktop app checks GitHub for new versions of Lactic. That check sends nothing about you or your training.</p>
+
+    <h2>This website</h2>
+    <p>lactic.fit is hosted on Vercel and counts page visits with Vercel Web Analytics, which uses no cookies and doesn&apos;t identify you. The live demo runs entirely in your browser with made-up data.</p>
+
+    <h2>Deleting your data</h2>
+    <p>Settings &rarr; Your data &rarr; Delete all my data removes every ride, plan, setting and saved key from that device. Deleting the iPhone app removes its data from your iPhone. Data you sent to a connected service stays there until you delete it in that service.</p>
+
+    <h2>Children</h2>
+    <p>Lactic isn&apos;t aimed at children under 13 and doesn&apos;t knowingly collect anything from them.</p>
+
+    <h2>Changes and questions</h2>
+    <p>If this policy changes, we&apos;ll update this page and its date. Lactic is open source, so you can read exactly what it does on <a href="https://github.com/blairj09/lactic">GitHub</a>. Questions? Email <a href="mailto:help@lactic.fit">help@lactic.fit</a>, <a href="https://github.com/blairj09/lactic/issues">open an issue on GitHub</a>, or use Send feedback in the app.</p>
+  </article>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>Lactic · lactic.fit</span>
+    <span><a href="/science">The science</a> · <a href="https://ko-fi.com/lactic">Support Lactic</a> · Ride Free.</span>
+    <span class="footer-legal">Lactic and the Lactic logo are trademarks of James Blair. <a href="https://github.com/blairj09/lactic/blob/main/TRADEMARKS.md">Trademark policy</a> · <a href="/privacy">Privacy</a></span>
+  </div>
+</footer>
+</body>
+</html>

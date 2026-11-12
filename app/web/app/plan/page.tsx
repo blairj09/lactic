@@ -18,7 +18,9 @@ import OutdoorToggle from "@/components/outdoor-toggle";
 import { driftOffer } from "@/lib/engine/stability";
 import { AvailabilityForm, ReplanChip, BreakForm, DeleteBreakButton, EndPlanButton, GoalForm, GoalList, PickWorkoutsButton, PlanForm } from "./forms";
 import PhaseStrip from "./phase-strip";
-import EditableDay from "./day-editor";
+import EditableDay, { type WorkoutChoices } from "./day-editor";
+import { customKey, customLibraryWorkout, keyOf, type LibraryWorkout } from "@/lib/engine/workout-library";
+import { formatTime } from "../ride/player";
 import EditableEvent from "./event-editor";
 import { CHANGE_WINDOW_DAYS } from "@/lib/coach/changes";
 
@@ -59,6 +61,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const otherPlans = state.plans.filter((p) => p.id !== activePlan?.id && p.end >= today);
   const breaks = state.breaks.filter((b) => b.end >= today);
   const moveTargets = editableDays(state);
+  const choices = workoutChoices(state);
 
   return (
     <>
@@ -149,7 +152,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
 
       <section className="space-y-4">
         {plan.weeks.slice(0, DETAIL_WEEKS).map((week) => (
-          <WeekView key={week.start} week={week} state={state} moveTargets={moveTargets} />
+          <WeekView key={week.start} week={week} state={state} moveTargets={moveTargets} choices={choices} />
         ))}
         {plan.weeks.length > DETAIL_WEEKS && (
           <details className="rounded-lg border border-line bg-surface">
@@ -278,7 +281,19 @@ function editableDays(state: TrainingState) {
     .map((d) => ({ date: d.date, label: formatDate(d.date, true) }));
 }
 
-function WeekView({ week, state, moveTargets }: { week: PlanWeek; state: TrainingState; moveTargets: { date: string; label: string }[] }) {
+/** The day popup's own menu groups: your favorites (starter and yours), then My workouts. */
+function workoutChoices(state: TrainingState): WorkoutChoices {
+  const label = (w: LibraryWorkout) => `${w.workout.name} (${ZONE_LABELS[w.zone]}, ${formatTime(w.duration)})`;
+  return {
+    favorites: state.favoriteWorkouts.map((w) => ({ key: keyOf(w), label: label(w), workout: w.workout })),
+    mine: state.customWorkouts.map((c) => {
+      const w = customLibraryWorkout(c.id, c.workout);
+      return { key: customKey(c.id), label: w ? label(w) : c.workout.name, workout: c.workout };
+    }),
+  };
+}
+
+function WeekView({ week, state, moveTargets, choices }: { week: PlanWeek; state: TrainingState; moveTargets: { date: string; label: string }[]; choices: WorkoutChoices }) {
   const tz = state.athlete.timezone;
   const started = week.start <= state.today;
   // A day either side, so a session moved across the week's edge still matches.
@@ -340,6 +355,7 @@ function WeekView({ week, state, moveTargets }: { week: PlanWeek; state: Trainin
                 outside: day.date <= addDays(state.today, WORKOUT_DAYS - 1) ? state.outdoor.some((o) => o.date === day.date) : null,
               }}
               ftp={state.athlete.ftp ?? 0}
+              choices={choices}
               moveTargets={moveTargets}
               className="group bg-surface"
             >

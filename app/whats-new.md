@@ -7,6 +7,22 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Warm-ups now finish at the power of your first interval and cool-downs start at the power of your last, so there's no jump or drop where they meet. Hard first efforts still start with a step up. Edit the first interval and the warm-up follows it.
+- Sleep: the coach no longer quotes a weekly sleep debt total. Like Today, it tells you how much to aim for tonight. iPhone: Health reads no longer start partway through a night, so a night can't be cut down to its last few minutes, and older nights are read again once to fix any that were.
+- Today asks "Ready for it?" right in the workout card, above Start ride, since how you feel is what can change the ride.
+- Today is about today: your workout first, then how this week and your plan are tracking, your form and your recovery. Rest days get a proper rest-day card. Last week's review moved to the top of Progress.
+- Weighing in is now weekly: Today only asks before your first ride of the week, and only when there's no weigh-in from the last 7 days (scale, typed in, or Apple Health). You can type your weight in right there, or put it off until next week.
+- The Last night card on Today and Health is now called Recovery.
+- Race courses: set a target finish time and Lactic works out the FTP it takes, whether that's realistic by race day, and the power to hold on each climb to make it. If you need more FTP, the plan builds toward it. Pick how you'll ride the event (solo, a small group or a bunch) and times allow for the draft, with what getting dropped on the main climb would cost you.
+- Race courses: times now show a likely range, and allow for racing at altitude (Lactic asks where you live) and in the heat. Fueling follows the current sports-nutrition guidelines. Curious how it's all worked out? Settings → About links to the science behind it.
+- Race courses: road riders can measure their own drag from recent outdoor rides with power (via intervals.icu). Lactic then checks itself by timing each of those rides from its own power, and tells you how close it came.
+- On a computer, Ride is now a tab in the top bar between Plan and Progress, and it stays highlighted while you're on it, so you can always tell where you are.
+- The iPhone screen stays on while it's showing a ride, whether the iPhone is running the trainer or showing the ride on your computer.
+- iPhone: rides no longer show up twice in Apple Health and Fitness, and rides that were saved twice before are cleaned up (Lactic keeps one copy).
+- Favorites now count everywhere: workouts you've saved yourself can go into your plan too, the AI coach can suggest and pick workouts from the library and your own (favorites first), and the coach's weekly picks no longer replace a favorite the plan already chose.
+- Plan: the day popup's "Use a workout…" menu now lists your favorites and your own workouts above the library. Your plan also mixes in workouts from the library that fit, alongside its own, with your favorites first.
+
+## 0.2.0
+
 - Post rides to Strava from the iPhone app (an experiment): connect Strava in Settings on an iPhone you use on its own, or, if it's paired with your computer, rides you record on the iPhone go to Strava from your computer once they sync, so none shows up twice.
 - Sleep debt is fixed: reading Health from your iPhone could keep only the last hour or two of some nights, which made sleep debt far too high. The iPhone reads your last 60 days once more to put those nights back, and debt now counts only the last 7 days.
 - Today no longer shows a weekly sleep debt warning. When you're behind on sleep it just says how long to aim for tonight to catch up; the week's total is still on the Sleep page.

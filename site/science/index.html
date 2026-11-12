@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The science behind Lactic</title>
+<meta name="description" content="How Lactic works out training load, plans, recovery, sleep and race times: the models it uses, the numbers it picks, and the research behind them.">
+<meta property="og:title" content="The science behind Lactic">
+<meta property="og:description" content="The models, the numbers and the research behind Lactic's plans, recovery scores and race reports.">
+<meta property="og:url" content="https://lactic.fit/science">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Lactic">
+<meta property="og:image" content="https://lactic.fit/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#2b55d6">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .science { max-width: 760px; margin: 0 auto; padding: 32px 0 96px; }
+  .science h1 { font-size: clamp(40px, 6vw, 64px); line-height: 1; letter-spacing: -0.04em; font-weight: 800; font-stretch: 112%; margin: 12px 0 20px; }
+  .science .lede { font-size: 20px; color: var(--body); }
+  .science h2 { font-size: 28px; letter-spacing: -0.02em; font-weight: 750; margin: 56px 0 14px; }
+  .science h3 { font-size: 18px; font-weight: 700; margin: 28px 0 8px; }
+  .science p, .science li { color: var(--body); font-size: 17px; line-height: 1.65; }
+  .science p + p { margin-top: 14px; }
+  .science ul { padding-left: 22px; margin: 12px 0; }
+  .science li + li { margin-top: 6px; }
+  .science .note { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin: 22px 0; }
+  .science table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 15px; }
+  .science th, .science td { text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); color: var(--body); vertical-align: top; }
+  .science th { font-weight: 600; color: var(--muted); font-size: 13px; }
+  .science .table-scroll { overflow-x: auto; }
+  .science .toc { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 28px; font-size: 15px; }
+  .science .toc a { text-decoration: none; }
+  .science ol.refs { padding-left: 22px; }
+  .science ol.refs li { font-size: 15px; }
+  .science sup a { text-decoration: none; font-size: 12px; }
+  .science .toc-group { flex-basis: 100%; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-top: 6px; }
+  .science .toc-group:empty { margin-top: 0; }
+  .science .eyebrow.part { margin: 80px 0 -44px; text-transform: uppercase; letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M2 21V15H4.5V10.5H7V6.5H9.5V3H12V15H22V21Z" fill="currentColor"/></svg></span>
+      Lactic<span class="beta-tag">Beta</span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a class="nav-link" href="/#why">Features</a>
+      <a class="nav-link" href="/#coach">AI coach</a>
+      <a class="nav-link" href="/#gear">Gear</a>
+      <a class="nav-link" href="https://github.com/blairj09/lactic">GitHub</a>
+      <a class="nav-link" href="https://ko-fi.com/lactic">Support</a>
+      <a class="nav-cta" href="https://github.com/blairj09/lactic/releases/latest">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <article class="science">
+    <p class="eyebrow">The science</p>
+    <h1>How Lactic works it out</h1>
+    <p class="lede">Lactic's plans, recovery scores, sleep targets and race reports come from published models and research wherever there is some. This page explains what each number is based on, what we chose where the research gives a range, where a number is our own rule, and how far to trust it.</p>
+    <nav class="toc" aria-label="On this page">
+      <span class="toc-group">Training</span>
+      <a href="#load">Load, fitness and form</a>
+      <a href="#plans">Plans and ramp rate</a>
+      <a href="#ftp">FTP and zones</a>
+      <a href="#levels">Workouts and progression</a>
+      <a href="#checkin">Morning check-in</a>
+      <span class="toc-group">Recovery</span>
+      <a href="#recovery">Recovery score</a>
+      <a href="#signs">Warning signs</a>
+      <a href="#sleep">Sleep</a>
+      <a href="#exertion">Exertion</a>
+      <span class="toc-group">Body</span>
+      <a href="#body">Weight, body fat and VO2 max</a>
+      <span class="toc-group">Race day</span>
+      <a href="#trust">How far to trust race times</a>
+      <a href="#speed">Speed and time</a>
+      <a href="#draft">Riding in a group</a>
+      <a href="#pacing">Pacing</a>
+      <a href="#altitude">Altitude</a>
+      <a href="#heat">Heat</a>
+      <a href="#weather">Wind and weather</a>
+      <a href="#fuel">Fuel and fluid</a>
+      <a href="#target">Target times</a>
+      <a href="#training">Training for a course</a>
+      <span class="toc-group"></span>
+      <a href="#refs">References</a>
+    </nav>
+
+    <h2 id="kinds">Research, convention and our own rules</h2>
+    <p>Not every number has a study behind it, and we'd rather say so. Each part of Lactic is one of three things:</p>
+    <ul>
+      <li><strong>A published model:</strong> the physics of riding, training stress, the fitness and fatigue curves, heart rate exertion, critical power, VO2 max from power, body fat from impedance, and the race day effects of altitude, heat and fuel.</li>
+      <li><strong>Coaching convention:</strong> widely used ways of doing things that rest on experience more than trials. Power zones, the 20-minute and ramp tests, phases of a plan, recovery weeks and how fast to build all fall here.</li>
+      <li><strong>Our own rules:</strong> where nothing published fits a rider's day, we wrote a simple rule and say so on this page. The recovery score's weights, sleep debt, the morning check-in and the workout levels are ours. They're open source, so you can see exactly what they do.</li>
+    </ul>
+    <p>Every number is worked out by these rules, the same way every time. The AI coach, if you use one, reads the numbers and suggests changes you approve. It never works a number out itself.</p>
+
+    <p class="eyebrow part">Training</p>
+    <h2 id="load">Training load, fitness and form</h2>
+    <p>Every ride gets a training stress score: hours ridden × intensity² × 100, where intensity is normalized power over FTP. An hour flat out at FTP scores 100.<sup><a href="#r-allen">1</a></sup> Rides without power use average heart rate over threshold heart rate instead. It's rougher, but it keeps heart rate rides from counting as rest days.</p>
+    <p>From the daily stress, Lactic keeps three numbers, following Banister's model of training as fitness built up and fatigue that clears faster.<sup><a href="#r-banister">2</a>,<a href="#r-allen">1</a></sup></p>
+    <ul>
+      <li><strong>Fitness:</strong> your stress averaged over about six weeks (a 42-day exponential average).</li>
+      <li><strong>Fatigue:</strong> the same over about a week (7 days).</li>
+      <li><strong>Form:</strong> yesterday's fitness minus yesterday's fatigue. Above +5 is fresh, a good day to race. Between −10 and +5 is normal training. Down to −30 is tired from productive training, and below that is time to rest. Above +15 for long, fitness starts to slip.</li>
+    </ul>
+
+    <h2 id="plans">Plans and how fast they build</h2>
+    <p>A plan counts back from your main (A) event: a taper week, then specialty, build and base. Specialty takes about a quarter of the weeks (at most four), build about 60% of the rest (at most eight) and base the remainder. This is classic periodization: general fitness first, then the work that looks most like your event.<sup><a href="#r-issurin">3</a></sup></p>
+    <ul>
+      <li><strong>Base:</strong> sweet spot and tempo intervals, with plenty of endurance riding.</li>
+      <li><strong>Build:</strong> threshold and VO2 max. For long events, the long ride works toward three quarters of the event's time.</li>
+      <li><strong>Specialty:</strong> the efforts your event asks for: surges for crits and cyclocross, sustained power for time trials and climbs, a mix for road and gravel.</li>
+      <li><strong>Taper:</strong> see <a href="#training">training for a course</a>.</li>
+    </ul>
+    <h3>Ramp rate</h3>
+    <p>Each week's load is set so your fitness rises by your ramp rate: +3 a week if you choose gently, +5 (the default) for steady and +7 for aggressive. Load weeks ride at about your current fitness plus six times the ramp rate each day, which lifts the 42-day average by roughly the ramp rate over a week.</p>
+    <p>There's no trial that names the right ramp rate. A few points a week is what coaches using this model commonly recommend, and the risk of a fast build is better known: in many sports, a sharp jump in load over what you're used to goes with more illness and injury.<sup><a href="#r-gabbett">4</a></sup> How well that ratio predicts injury is debated,<sup><a href="#r-impellizzeri">5</a></sup> so Lactic doesn't rely on it. It just keeps the build steady and lets you choose how steady. When the hours you have can't reach the load your ramp rate calls for, the plan says so.</p>
+    <h3>Easier weeks and days</h3>
+    <ul>
+      <li><strong>Recovery weeks:</strong> every fourth week rides about 60% of a steady week's load. Taper and FTP test weeks ride about 55%.</li>
+      <li><strong>Hard days:</strong> never two back to back, and at least one rest day a week. A key session you miss moves to a later open day that week, shortened if it has to be, but never next to another hard day or in the three days before an event.</li>
+      <li><strong>Breaks:</strong> four or more days off the bike in a week make it a recovery week. After a week or more off, the first week back is an easier re-entry week, since fitness starts to fade after a couple of weeks without training.<sup><a href="#r-mujika">6</a></sup></li>
+    </ul>
+    <p>Every easier day names the rule that made it easier, so the plan never goes light without a reason you can read.</p>
+
+    <h2 id="ftp">FTP and zones</h2>
+    <p>FTP is the power you can hold for about an hour. Lactic sets it in one of three ways:</p>
+    <ul>
+      <li><strong>Ramp test:</strong> 75% of your best minute.</li>
+      <li><strong>20-minute test:</strong> 95% of your best 20 minutes.<sup><a href="#r-allen">1</a></sup></li>
+      <li><strong>From your rides:</strong> a critical power fit (work = critical power × time + W′) through your best efforts from 3 to 20 minutes.<sup><a href="#r-monod">7</a>,<a href="#r-jones">8</a></sup> Critical power sits close to FTP for most riders, so Lactic treats them as the same. Short efforts are left out because they lean on your anaerobic reserve.</li>
+    </ul>
+    <p>When your rides say FTP has gone up (by at least 3% and 5 W), Today offers the new number. It never offers to lower it from rides that just didn't include a hard effort. After eight weeks, about one training block, it suggests a retest on a day you'll come to fresh.</p>
+    <p>Power zones are Coggan's seven, set from FTP. Heart rate zones are his five, set from threshold heart rate: up to 69%, 84%, 95% and 106%, then above.<sup><a href="#r-allen">1</a></sup> If you don't know your max heart rate, Lactic uses 208 − 0.7 × age.<sup><a href="#r-tanaka">9</a></sup></p>
+
+    <h2 id="levels">Workouts and progression</h2>
+    <p>Lactic keeps a level for each kind of workout, from endurance to anaerobic. Your first levels come from your power curve: the hardest interval you've shown you can hold, a level lower because a workout repeats it. From then on, finishing a workout moves you up and stopping early moves you down. The post-ride question (too easy, about right or too hard) fine-tunes it. Next week's sessions aim half a level beyond what you've done. This is progressive overload: a little more than last time, when last time went well.</p>
+    <p>Each ride you record in Lactic gets an execution score out of 100. Every block scores the time you rode it times how close the power came: full marks within 5% of the target, nothing at 25% off. Hard blocks count more than the easy riding between them. These rules are ours.</p>
+
+    <h2 id="checkin">The morning check-in</h2>
+    <p>Each morning, Lactic adds up the reasons to back off and the reasons to push: your recovery score, how your form compares with your fitness, how you say you feel, recent workouts that felt too hard, a big day off the bike yesterday, and warning signs over the last few nights (see <a href="#signs">warning signs</a>). Enough reasons to back off turn the day into a level easier, then endurance, then rest. Plenty of good signs offer a harder session. Feeling ill always means rest. You always choose.</p>
+    <p>The way they add up is our own rule. In cyclists, training guided by morning HRV did at least as well as a fixed plan,<sup><a href="#r-javaloyes">10</a></sup> which is the idea behind easing off on poor mornings rather than pushing through.</p>
+
+    <p class="eyebrow part">Recovery</p>
+    <h2 id="recovery">Recovery score</h2>
+    <p>Your recovery score compares last night with your own usual, not with other people. 50 is a normal day for you, higher is better recovered, lower is less.</p>
+    <ul>
+      <li><strong>HRV</strong> counts most (half the score). It's log-transformed, because HRV is skewed, and compared with your last 60 days. Monitoring HRV against your own baseline this way is the approach supported in endurance athletes.<sup><a href="#r-plews">11</a></sup> RMSSD (from a chest strap) and SDNN (from an Apple Watch) are never mixed in one baseline.</li>
+      <li><strong>Resting heart rate</strong> counts 30%: higher than usual is worse.</li>
+      <li><strong>Sleep</strong> counts 20%, against your sleep need.</li>
+      <li><strong>Breathing rate</strong> counts 10%: higher than usual is worse.</li>
+      <li><strong>Yesterday's exertion</strong> counts 10% when your watch has the day's heart rate: a big day costs a little, an easy one gives a little back.</li>
+    </ul>
+    <p>The score needs two weeks of HRV or resting heart rate to have a usual to compare with. Wrist temperature is shown beside it but doesn't change it. The weights are our own choice.</p>
+    <h3 id="ranges">Your usual ranges</h3>
+    <p>The Health page and Today's Last night card show each measure against your usual range: the middle 80% of your last 30 days, once there are at least 10 of them. A night outside it is flagged only on the side that means poorer recovery, like HRV below or resting heart rate above.</p>
+
+    <h2 id="signs">Warning signs across nights</h2>
+    <p>One night's score can't see a pattern, so Lactic also looks for runs:</p>
+    <ul>
+      <li>HRV below your usual range three nights running.</li>
+      <li>Resting heart rate above it two nights running.</li>
+      <li>Breathing rate up together with wrist temperature (0.5 °C or more over your usual) or resting heart rate. Wearable studies found resting heart rate, breathing rate and skin temperature rise around the start of an infection, often before symptoms,<sup><a href="#r-mishra">12</a>,<a href="#r-natarajan">13</a>,<a href="#r-smarr">14</a></sup> so Lactic says you may be coming down with something.</li>
+      <li>Four hours or more of sleep debt.</li>
+    </ul>
+    <p>Each one makes an easier day more likely in the morning check-in, and the coach keeps them in mind when it picks the week's workouts.</p>
+
+    <h2 id="sleep">Sleep</h2>
+    <p>Adults need 7 hours or more a night,<sup><a href="#r-watson">15</a></sup> and athletes in training often do better with more: basketball players who slept more for several weeks got faster and more accurate.<sup><a href="#r-mah">16</a></sup> Lactic starts from a sleep need of 8 hours, which you can change in Settings.</p>
+    <ul>
+      <li><strong>Sleep score:</strong> how long you slept against your need (half the score), time asleep of time in bed (20%), deep and REM sleep as a share of the night (20%, full marks at 40%, about what adults get) and how regular your bedtime is against the last two weeks (10%). Regular sleep times go with better daytime performance.<sup><a href="#r-phillips">17</a></sup></li>
+      <li><strong>Sleep debt:</strong> each night's shortfall over the last 7 nights. Extra sleep pays it back at half the rate, and it never goes below zero.</li>
+      <li><strong>Aim for tonight:</strong> your need plus a third of your debt, and a little more after a big day, at most 1½ hours more. Debt is paid back over a few nights rather than all at once, because recovering from short sleep takes more than one long night,<sup><a href="#r-belenky">18</a></sup> and an extra four hours in bed isn't realistic. That's the "Aim for 8h 30m tonight to catch up" line on Today.</li>
+    </ul>
+    <p>The debt and tonight's target are our own rules, kept simple on purpose.</p>
+
+    <h2 id="exertion">Exertion</h2>
+    <p>Exertion is how hard your whole day was on your heart, rides and everything else, from 0 to 10. It's built on Banister's training impulse (TRIMP): each minute counts by how far into your heart rate reserve you were, weighted more steeply as it gets harder, with the published curves for men and women.<sup><a href="#r-banister91">19</a>,<a href="#r-morton">20</a></sup> Minutes under a quarter of your reserve, like walking around, don't count. Lactic turns the total into 0 to 10 so it rises quickly at first and slowly at the top: about 3 is a day on your feet, 5 an hour's endurance ride, 7 a hard session and 8 or more a big day. A day needs about 8 hours of heart rate to count. The 0 to 10 scale is ours.</p>
+
+    <p class="eyebrow part">Body</p>
+    <h2 id="body">Weight, body fat and VO2 max</h2>
+    <ul>
+      <li><strong>Weight:</strong> a single weigh-in swings with water, so changes compare the average of a week of weigh-ins with a week earlier. Weighing in once a week, in the morning before you ride, is plenty. Your latest weigh-in sets W/kg and VO2 max.</li>
+      <li><strong>Body fat:</strong> from a scale that measures impedance hand to foot, Lactic uses Sun and colleagues' equation, built on a large multi-ethnic sample.<sup><a href="#r-sun">21</a></sup> Standard Bluetooth scales work theirs out themselves, and Lactic keeps their number as reported. Either way, home scales are good for the trend, not the exact number.</li>
+      <li><strong>VO2 max:</strong> from your best 5 minutes of power, with the ACSM cycling equation: 10.8 × W/kg + 7.<sup><a href="#r-acsm">22</a></sup> Or taken from Apple Health when your watch has one.</li>
+      <li><strong>Fitness age:</strong> the age whose average VO2 max matches yours, from the HUNT study's measurements of nearly 4,000 healthy adults.<sup><a href="#r-loe">23</a></sup></li>
+    </ul>
+
+    <p class="eyebrow part">Race day</p>
+<h2 id="trust">How far to trust race times</h2>
+    <p>The physics of riding a bike is well understood. With a rider's real drag and rolling resistance, a power model predicted measured road power with an error of 2.7 W (R² 0.97).<sup><a href="#r-martin">24</a></sup> What makes a prediction miss is usually the inputs, not the physics: your drag area, your tyres and the road, your form on the day, the wind, and who you ride with.</p>
+    <p>So the pre-race report gives a most likely time and a likely range. The range comes from re-running the model with each uncertain input at the slow and the fast end:</p>
+    <ul>
+      <li>Drag area ±8% while Lactic uses a typical value for your kind of bike, or ±4% once it has measured yours.</li>
+      <li>Rolling resistance ±15%.</li>
+      <li>Your power on the day ±3%.</li>
+      <li>The draft ±8 points in a small group and ±15 in a bunch.</li>
+    </ul>
+    <div class="note">
+      <p><strong>Climbs are the most reliable part.</strong> On a climb, gravity does most of the work, and gravity depends on weight and power, which you know well. On the flat, drag dominates and the inputs matter more. In a road race the bunch decides the speed, so a finish time there is a rough guide. What getting dropped on a climb costs you is worth more than the minute.</p>
+    </div>
+
+    <h2 id="speed">Speed and time</h2>
+    <p>For every 100 m of the course, Lactic finds the speed at which the power you'll ride at balances what holds you back:</p>
+    <ul>
+      <li><strong>Gravity:</strong> from the grade and the weight of you and your bike.</li>
+      <li><strong>Rolling resistance:</strong> from the tyres and the surface.</li>
+      <li><strong>Air:</strong> from your drag area, your speed plus the wind, and the air's density, which falls with altitude.</li>
+      <li><strong>Drivetrain losses:</strong> about 2.4%.</li>
+    </ul>
+    <p>This is the model validated by Martin and colleagues.<sup><a href="#r-martin">24</a></sup> Typical values for each kind of event:</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Event</th><th>Drag area (m²)</th><th>Rolling resistance</th><th>Bike (kg)</th></tr></thead>
+        <tbody>
+          <tr><td>Time trial</td><td>0.24</td><td>0.004</td><td>9</td></tr>
+          <tr><td>Road race, criterium</td><td>0.30</td><td>0.0045</td><td>8</td></tr>
+          <tr><td>Gran fondo, hill climb</td><td>0.32</td><td>0.0045</td><td>8.5</td></tr>
+          <tr><td>Gravel</td><td>0.36</td><td>0.008</td><td>9.5</td></tr>
+          <tr><td>Mountain bike, cyclocross</td><td>0.42</td><td>0.012</td><td>11</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Descending speed is capped by corners and brakes, not physics: 70 km/h on a road bike, 50 on gravel and 35 off-road.</p>
+
+    <h3>Measuring your own drag</h3>
+    <p>Drag area is the input that varies most between riders. Position, size and clothing can move it by a third. So Lactic can measure yours from your recent outdoor rides with power, using their files from intervals.icu.</p>
+    <p>Each ride is cut into 30-second blocks. In each block, the energy you put through the pedals has to equal the energy that went into climbing, speeding up, rolling resistance and the air. With rolling resistance at a typical value, every block gives one estimate of your drag. This is the energy-balance form of Chung's "virtual elevation" method.<sup><a href="#r-chung">25</a></sup></p>
+    <ul>
+      <li><strong>Which blocks count:</strong> steady pedaling only. Descents, corners, stops and steep ramps are left out, because brakes and slow speeds make the estimate unreliable.</li>
+      <li><strong>Per ride:</strong> the median over the blocks, which shrugs off gusts and GPS jitter.</li>
+      <li><strong>Across rides:</strong> group rides read low because of the draft, so Lactic takes the median of your higher-reading rides.</li>
+    </ul>
+    <p>Lactic then checks itself. It times each ride from that ride's own power, using the drag measured from your other rides, and tells you how close it came.</p>
+
+    <h2 id="draft">Riding in a group</h2>
+    <p>Behind a single wheel, the following rider's drag drops by about 25% to 50%, depending on the gap and position.<sup><a href="#r-kyle">26</a>,<a href="#r-blocken13">27</a></sup> Deep inside a large peloton it drops by 90% or more.<sup><a href="#r-blocken18">28</a></sup> Real racing is messier: you move up, close gaps, take the wind on corners and in crosswinds, and spend time near the front.</p>
+    <p>Lactic takes 28% off your drag in a small group that shares turns, and half in a bunch, which sits well inside the published ranges. The draft fades below about 15 km/h, so it matters little on climbs. For group events, the report also times the course as if you were dropped at the foot of the main climb and rode the rest alone.</p>
+
+    <h2 id="pacing">How hard to ride each part</h2>
+    <p>Riding harder on climbs and into the wind, and easier on descents and with the wind behind you, is faster than holding even power for the same effort.<sup><a href="#r-swain">29</a>,<a href="#r-atkinson">30</a></sup> Lactic paces each part of the course that way.</p>
+    <ul>
+      <li><strong>The whole race:</strong> an intensity factor (a share of FTP) for the kind of event and how hard it's raced. It eases as the event gets longer, following Allen and Coggan's ranges for each type of event.<sup><a href="#r-allen">1</a></sup></li>
+      <li><strong>Climbs:</strong> the power-duration curve, scaled from FTP by how long the climb takes. That's about 120% of FTP for 3 minutes, 100% for about 20 minutes, and less for longer.<sup><a href="#r-allen">1</a>,<a href="#r-jones">8</a></sup></li>
+      <li><strong>Long days:</strong> hours of work lower what you can hold later on. This is called durability.<sup><a href="#r-maunder">31</a></sup> Professionals rode a 20-minute time trial 2.9% lower after about 4 hours (from 8.5% lower to 1% higher).<sup><a href="#r-barranco">32</a></sup> Amateurs tend to fade more, so Lactic takes 3% off climbs in events of 1.5 to 3 hours, 5% off up to 5 hours, and 8% off beyond that.</li>
+    </ul>
+
+    <h2 id="altitude">Altitude</h2>
+    <p>Thinner air lowers drag, which helps, but it also lowers the oxygen you can use, which costs power. Lactic uses Bassett and colleagues' equations, built from cycling hour records, for aerobic power at altitude.<sup><a href="#r-bassett">33</a></sup> There are separate curves for riders who live at altitude and for riders who've been there only a few days. A rider from near sea level holds about 12% less power at 2,000 m and 16% less at 2,500 m.</p>
+    <p>Your FTP was set where you live, so Lactic works the cost out from your home elevation, which it asks for when a course goes high. Racing below where you live costs nothing.</p>
+
+    <h2 id="heat">Heat</h2>
+    <p>Trained cyclists rode a 30-minute time trial 6.5% lower at 32°C than at 23°C.<sup><a href="#r-tatterson">34</a></sup> Lactic takes about 0.7% off for each degree above 21°C, at most 15%, using the forecast temperature at each point on the course when you'll be there. Pacing targets in the report already include it.</p>
+
+    <h2 id="weather">Wind and weather</h2>
+    <p>Forecasts come from <a href="https://open-meteo.com/">Open-Meteo</a> for up to five points along the course, from about 15 days out. They're refreshed every few hours, and more often in the last two days.</p>
+    <p>Forecast wind is given at 10 m above the ground. Near the ground it is slower: from the log wind profile, wind at a rider's height over open country is about 0.6 of the 10 m wind (less among trees and buildings).<sup><a href="#r-wind">35</a></sup> Lactic uses 0.6, resolves it along your direction of travel on each stretch, and feeds it into the speed model.</p>
+
+    <h2 id="fuel">Fuel and fluid</h2>
+    <ul>
+      <li><strong>During the race:</strong> none under 75 minutes (a gel before the start covers it), 60 g an hour for most events, and 90 g an hour for long hard ones. That's within 30 to 60 g for 1 to 2.5 hours and up to 90 g of mixed sugars beyond that.<sup><a href="#r-thomas">36</a>,<a href="#r-jeuk">37</a></sup></li>
+      <li><strong>Carbohydrate loading:</strong> 10 g per kg a day for the two days before events over 90 minutes, the low end of 10 to 12 g/kg for 36 to 48 hours.<sup><a href="#r-thomas">36</a></sup></li>
+      <li><strong>Pre-race meal:</strong> 2 g/kg three hours before the start, within 1 to 4 g/kg 1 to 4 hours before.<sup><a href="#r-thomas">36</a></sup></li>
+      <li><strong>Fluid:</strong> 400 to 800 ml an hour, more as it gets warmer, to keep weight loss under 2%.<sup><a href="#r-sawka">38</a></sup> Sweat rates vary a lot between people. Weighing yourself before and after a hot training ride tells you yours.</li>
+      <li><strong>Sodium:</strong> about 575 mg in every liter you drink, the middle of 20 to 30 mmol per liter (460 to 690 mg).<sup><a href="#r-sawka">38</a></sup></li>
+    </ul>
+    <p>Feeds go every 20 minutes. They move to just before a climb, or over its top, so you aren't eating halfway up.</p>
+
+    <h2 id="target">Target times</h2>
+    <p>Set a finish time and Lactic runs the speed model backwards to find the FTP that rides the course in that time at the event's effort. It then compares that with a realistic FTP by race day.</p>
+    <p>A realistic gain is about 3% in a month of structured training, 6% in two months and 10% in five, slowing as it goes. Trained cyclists gained about 8% in 40-minute time-trial power over 12 weeks of structured training, with wide variation between riders.<sup><a href="#r-almquist">39</a></sup> Newer riders often gain more and very experienced ones less.</p>
+
+    <h2 id="training">Training for a course</h2>
+    <p>Training works best when it looks like the event. When your A race has a course, Lactic shapes the plan around it:</p>
+    <ul>
+      <li><strong>Long climbs:</strong> sustained threshold and sweet-spot work in blocks as long as the main climb.</li>
+      <li><strong>Short, steep kicks:</strong> repeated VO2 max efforts.</li>
+      <li><strong>Flat courses:</strong> the plan trains for the kind of event.</li>
+      <li><strong>A target time above your current FTP:</strong> base weeks swap tempo for threshold.</li>
+    </ul>
+    <p>The last week before the event cuts volume roughly in half and keeps the intensity, in line with a meta-analysis of tapering (volume down 41% to 60%, intensity kept).<sup><a href="#r-bosquet">40</a></sup></p>
+
+    <h2 id="refs">References</h2>
+    <ol class="refs">
+      <li id="r-allen">Allen H, Coggan AR, McGregor S. <i>Training and Racing with a Power Meter</i>. 3rd ed. VeloPress; 2019.</li>
+      <li id="r-banister">Banister EW, Calvert TW, Savage MV, Bach T. A systems model of training for athletic performance. <i>Aust J Sports Med</i>. 1975;7(3):57–61.</li>
+      <li id="r-issurin">Issurin VB. New horizons for the methodology and physiology of training periodization. <i>Sports Med</i>. 2010;40(3):189–206.</li>
+      <li id="r-gabbett">Gabbett TJ. The training–injury prevention paradox: should athletes be training smarter and harder? <i>Br J Sports Med</i>. 2016;50(5):273–280.</li>
+      <li id="r-impellizzeri">Impellizzeri FM, Tenan MS, Kempton T, Novak A, Coutts AJ. Acute:chronic workload ratio: conceptual issues and fundamental pitfalls. <i>Int J Sports Physiol Perform</i>. 2020;15(6):907–913.</li>
+      <li id="r-mujika">Mujika I, Padilla S. Detraining: loss of training-induced physiological and performance adaptations. Part I. <i>Sports Med</i>. 2000;30(2):79–87.</li>
+      <li id="r-monod">Monod H, Scherrer J. The work capacity of a synergic muscular group. <i>Ergonomics</i>. 1965;8(3):329–338.</li>
+      <li id="r-jones">Jones AM, Vanhatalo A, Burnley M, Morton RH, Poole DC. Critical power: implications for determination of VO2max and exercise tolerance. <i>Med Sci Sports Exerc</i>. 2010;42(10):1876–1890.</li>
+      <li id="r-tanaka">Tanaka H, Monahan KD, Seals DR. Age-predicted maximal heart rate revisited. <i>J Am Coll Cardiol</i>. 2001;37(1):153–156.</li>
+      <li id="r-javaloyes">Javaloyes A, Sarabia JM, Lamberts RP, Moya-Ramon M. Training prescription guided by heart-rate variability in cycling. <i>Int J Sports Physiol Perform</i>. 2019;14(1):23–32.</li>
+      <li id="r-plews">Plews DJ, Laursen PB, Stanley J, Kilding AE, Buchheit M. Training adaptation and heart rate variability in elite endurance athletes: opening the door to effective monitoring. <i>Sports Med</i>. 2013;43(9):773–781.</li>
+      <li id="r-mishra">Mishra T, Wang M, Metwally AA, et al. Pre-symptomatic detection of COVID-19 from smartwatch data. <i>Nat Biomed Eng</i>. 2020;4(12):1208–1220.</li>
+      <li id="r-natarajan">Natarajan A, Su HW, Heneghan C. Assessment of physiological signs associated with COVID-19 measured using wearable devices. <i>NPJ Digit Med</i>. 2020;3:156.</li>
+      <li id="r-smarr">Smarr BL, Aschbacher K, Fisher SM, et al. Feasibility of continuous fever monitoring using wearable devices. <i>Sci Rep</i>. 2020;10:21640.</li>
+      <li id="r-watson">Watson NF, Badr MS, Belenky G, et al. Recommended amount of sleep for a healthy adult: a joint consensus statement of the American Academy of Sleep Medicine and Sleep Research Society. <i>Sleep</i>. 2015;38(6):843–844.</li>
+      <li id="r-mah">Mah CD, Mah KE, Kezirian EJ, Dement WC. The effects of sleep extension on the athletic performance of collegiate basketball players. <i>Sleep</i>. 2011;34(7):943–950.</li>
+      <li id="r-phillips">Phillips AJK, Clerx WM, O’Brien CS, et al. Irregular sleep/wake patterns are associated with poorer academic performance and delayed circadian and sleep/wake timing. <i>Sci Rep</i>. 2017;7:3216.</li>
+      <li id="r-belenky">Belenky G, Wesensten NJ, Thorne DR, et al. Patterns of performance degradation and restoration during sleep restriction and subsequent recovery: a sleep dose-response study. <i>J Sleep Res</i>. 2003;12(1):1–12.</li>
+      <li id="r-banister91">Banister EW. Modeling elite athletic performance. In: MacDougall JD, Wenger HA, Green HJ, eds. <i>Physiological Testing of the High-Performance Athlete</i>. 2nd ed. Human Kinetics; 1991:403–424.</li>
+      <li id="r-morton">Morton RH, Fitz-Clarke JR, Banister EW. Modeling human performance in running. <i>J Appl Physiol</i>. 1990;69(3):1171–1177.</li>
+      <li id="r-sun">Sun SS, Chumlea WC, Heymsfield SB, et al. Development of bioelectrical impedance analysis prediction equations for body composition with the use of a multicomponent model for use in epidemiologic surveys. <i>Am J Clin Nutr</i>. 2003;77(2):331–340.</li>
+      <li id="r-acsm">American College of Sports Medicine. <i>ACSM’s Guidelines for Exercise Testing and Prescription</i>. 11th ed. Wolters Kluwer; 2021 (metabolic equations).</li>
+      <li id="r-loe">Loe H, Rognmo Ø, Saltin B, Wisløff U. Aerobic capacity reference data in 3816 healthy men and women 20–90 years of age. <i>PLoS One</i>. 2013;8(5):e64319.</li>
+      <li id="r-martin">Martin JC, Milliken DL, Cobb JE, McFadden KL, Coggan AR. Validation of a mathematical model for road cycling power. <i>J Appl Biomech</i>. 1998;14(3):276–291.</li>
+      <li id="r-chung">Chung R. Estimating CdA with a power meter. 2012. Also: Debraux P, Grappe F, Manolova AV, Bertucci W. Aerodynamic drag in cycling: methods of assessment. <i>Sports Biomech</i>. 2011;10(3):197–218.</li>
+      <li id="r-kyle">Kyle CR. Reduction of wind resistance and power output of racing cyclists and runners travelling in groups. <i>Ergonomics</i>. 1979;22(4):387–397.</li>
+      <li id="r-blocken13">Blocken B, Defraeye T, Koninckx E, Carmeliet J, Hespel P. CFD simulations of the aerodynamic drag of two drafting cyclists. <i>Comput Fluids</i>. 2013;71:435–445.</li>
+      <li id="r-blocken18">Blocken B, van Druenen T, Toparlar Y, et al. Aerodynamic drag in cycling pelotons: new insights by CFD simulation and wind tunnel testing. <i>J Wind Eng Ind Aerodyn</i>. 2018;179:319–337.</li>
+      <li id="r-swain">Swain DP. A model for optimizing cycling performance by varying power on hills and in wind. <i>Med Sci Sports Exerc</i>. 1997;29(8):1104–1108.</li>
+      <li id="r-atkinson">Atkinson G, Peacock O, Passfield L. Variable versus constant power strategies during cycling time-trials: prediction of time savings using an up-to-date mathematical model. <i>J Sports Sci</i>. 2007;25(9):1001–1009.</li>
+      <li id="r-maunder">Maunder E, Seiler S, Mildenhall MJ, Kilding AE, Plews DJ. The importance of 'durability' in the physiological profiling of endurance athletes. <i>Sports Med</i>. 2021;51(8):1619–1628.</li>
+      <li id="r-barranco">Barranco-Gil D, Valenzuela PL, Ozcoidi LM, et al. Durability in professional cyclists: a field study. <i>Int J Sports Physiol Perform</i>. 2023;18(1):99–103.</li>
+      <li id="r-bassett">Bassett DR Jr, Kyle CR, Passfield L, Broker JP, Burke ER. Comparing cycling world hour records, 1967–1996: modeling with empirical data. <i>Med Sci Sports Exerc</i>. 1999;31(11):1665–1676.</li>
+      <li id="r-tatterson">Tatterson AJ, Hahn AG, Martin DT, Febbraio MA. Effects of heat stress on physiological responses and exercise performance in elite cyclists. <i>J Sci Med Sport</i>. 2000;3(2):186–193.</li>
+      <li id="r-wind">Stull RB. <i>An Introduction to Boundary Layer Meteorology</i>. Kluwer; 1988 (the log wind profile).</li>
+      <li id="r-thomas">Thomas DT, Erdman KA, Burke LM. American College of Sports Medicine joint position statement: nutrition and athletic performance. <i>Med Sci Sports Exerc</i>. 2016;48(3):543–568.</li>
+      <li id="r-jeuk">Jeukendrup A. A step towards personalized sports nutrition: carbohydrate intake during exercise. <i>Sports Med</i>. 2014;44(Suppl 1):S25–S33.</li>
+      <li id="r-sawka">Sawka MN, Burke LM, Eichner ER, Maughan RJ, Montain SJ, Stachenfeld NS. American College of Sports Medicine position stand: exercise and fluid replacement. <i>Med Sci Sports Exerc</i>. 2007;39(2):377–390.</li>
+      <li id="r-almquist">Almquist NW, Eriksen HB, Wilhelmsen M, et al. No differences between 12 weeks of block- vs. traditional-periodized training in performance adaptations in trained cyclists. <i>Front Physiol</i>. 2022;13:837634.</li>
+      <li id="r-bosquet">Bosquet L, Montpetit J, Arvisais D, Mujika I. Effects of tapering on performance: a meta-analysis. <i>Med Sci Sports Exerc</i>. 2007;39(8):1358–1365.</li>
+    </ol>
+    <p>Spotted something we've got wrong, or a better study? <a href="https://github.com/blairj09/lactic/issues">Tell us on GitHub</a>. All of the models are open source, in <a href="https://github.com/blairj09/lactic/tree/main/app/web/lib/engine">app/web/lib/engine</a>.</p>
+  </article>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>Lactic · lactic.fit</span>
+    <span><a href="/science">The science</a> · <a href="https://ko-fi.com/lactic">Support Lactic</a> · Ride Free.</span>
+    <span class="footer-legal">Lactic and the Lactic logo are trademarks of James Blair. <a href="https://github.com/blairj09/lactic/blob/main/TRADEMARKS.md">Trademark policy</a> · <a href="/privacy">Privacy</a></span>
+  </div>
+</footer>
+</body>
+</html>

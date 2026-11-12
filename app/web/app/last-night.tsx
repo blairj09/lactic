@@ -37,7 +37,7 @@ export default function LastNight({
   const rows = glance.metrics.filter((m) => m.nights.some((n) => n.value !== null));
 
   return (
-    <Panel title="Last night" meta={<SourceLine recovery={recovery} source={source} />}>
+    <Panel title="Recovery" meta={<SourceLine recovery={recovery} source={source} />}>
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line lg:grid-cols-[16rem_minmax(0,1.5fr)_minmax(0,0.8fr)]">
         <div className="bg-surface p-4">
           <div className="flex items-center gap-4">
@@ -435,7 +435,7 @@ export function ExertionBar({ exertion, eased = false, compact = false }: { exer
  * and sleep. The full card is on Health; this links there. `row` sits in the Morning panel, `line` is
  * one sentence over the workout, `column` is Today's side column.
  */
-export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday; variant: "row" | "line" | "column" }) {
+export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday; variant: "row" | "line" | "column" | "wide" }) {
   const units = useUnits();
   const { glance, score, today } = recovery;
   const word = score ? recoveryWord(score.score) : null;
@@ -443,7 +443,7 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
   const sleep = today?.sleepHours != null ? [hm(today.sleepHours), glance.sleepScore && `${glance.sleepScore.measures.ofNeed}% of your need`].filter(Boolean).join(", ") : null;
   const more = (
     <Link href="/health" className="text-sm whitespace-nowrap text-ink underline underline-offset-4">
-      Last night on Health
+      Recovery on Health
     </Link>
   );
   const warnings = shownSignals(glance);
@@ -470,7 +470,7 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
             {reason ? `${reason}.` : ""} {sleep ? `Slept ${sleep}.` : ""}
           </span>{" "}
           <Link href="/health" className="whitespace-nowrap text-ink underline underline-offset-4">
-            Last night
+            More on Health
           </Link>
         </p>
         {signals}
@@ -503,6 +503,43 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
   }
 
   const rows = glance.metrics.filter((m) => m.key !== "exertion" && m.key !== "sleepHours" && m.value !== null);
+  const list = (className: string) => (
+    <dl className={`text-sm ${className}`}>
+      {rows.map((m) => (
+        <div key={m.key} className="flex items-baseline justify-between gap-3">
+          <dt className="text-muted">{LABEL[m.key]}</dt>
+          <dd className="num text-right">
+            <span className={m.concern ? "font-medium text-warning" : "font-medium"}>{format(m.key, m.value!, units)}</span>
+            {m.range && <span className="text-muted"> · usual {usual(m.key, m.range, units)}</span>}
+          </dd>
+        </div>
+      ))}
+      {sleep && (
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-muted">Sleep</dt>
+          <dd className="num text-right font-medium">{sleep}</dd>
+        </div>
+      )}
+    </dl>
+  );
+
+  // The top of Today: the score and its week on the left, the numbers beside it.
+  if (variant === "wide") {
+    return (
+      <div className="grid grid-cols-1 gap-x-16 gap-y-4 md:grid-cols-[auto_minmax(0,30rem)]">
+        <div className="space-y-4">
+          {head}
+          <WeekBars scores={glance.scores} height={28} />
+        </div>
+        <div className="space-y-3">
+          {list("space-y-1.5")}
+          {signals}
+          {more}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {head}

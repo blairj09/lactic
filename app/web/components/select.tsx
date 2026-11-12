@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 
 /**
  * The app's dropdown: a drop-in for a native <select> that draws its own menu in the app's tokens
- * (light and dark), so no OS menu pops up. Write <option> children as you would for a <select>;
+ * (light and dark), so no OS menu pops up. Write <option> (and <optgroup>) children as you would for a <select>;
  * `onChange` gets the new value. A `name` posts the value with its form through a hidden input.
  *
  * Keyboard: Up/Down/Enter/Space open it; Up/Down/Home/End/PageUp/PageDown move; typing jumps to a
@@ -216,6 +216,12 @@ export default function Select({
           >
             {options.map((o, i) => {
               const isSelected = i === selectedIndex;
+              if (o.group)
+                return (
+                  <div key={`${o.value}-${i}`} id={optionId(i)} role="presentation" className="px-2.5 pt-2.5 pb-1 text-xs font-medium tracking-wide text-muted uppercase first:pt-1">
+                    {o.label}
+                  </div>
+                );
               return (
                 <div
                   key={`${o.value}-${i}`}
@@ -249,9 +255,11 @@ interface Option {
   label: React.ReactNode;
   text: string;
   disabled: boolean;
+  /** An <optgroup>'s label: shown as a heading, never picked. */
+  group?: boolean;
 }
 
-type OptionProps = { value?: string | number; children?: React.ReactNode; disabled?: boolean };
+type OptionProps = { value?: string | number; children?: React.ReactNode; disabled?: boolean; label?: string };
 
 /** The <option> children, through fragments and arrays, as plain data. */
 function collectOptions(children: React.ReactNode): Option[] {
@@ -259,6 +267,12 @@ function collectOptions(children: React.ReactNode): Option[] {
   Children.forEach(children, (child) => {
     if (!isValidElement<OptionProps & { children?: React.ReactNode }>(child)) return;
     if (child.type === Fragment) {
+      out.push(...collectOptions(child.props.children));
+      return;
+    }
+    if (child.type === "optgroup") {
+      const label = child.props.label ?? "";
+      out.push({ value: `\u0000group:${label}`, label, text: "", disabled: true, group: true });
       out.push(...collectOptions(child.props.children));
       return;
     }

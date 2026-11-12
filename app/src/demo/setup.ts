@@ -3,6 +3,7 @@
 // scripted coach switched on. Runs on every load, so each visit starts from the same place.
 
 import { summarizeRide } from "@shared/engine/activity";
+import { chartStream } from "@shared/engine/ride-detail";
 import { storeRides } from "@shared/activities";
 import { rememberDevice, DEVICE_KEYS, forgetDevice } from "@shared/ble/devices";
 import { createLocalClient } from "~/db/supa";
@@ -80,7 +81,7 @@ async function seedHistory() {
     kinds[k][1](watts);
     const hr = watts.map((w, i) => Math.round(95 + (w / FTP) * 70 + Math.min(i / 600, 1) * 8));
     const summary = summarizeRide({ watts, heartRate: hr, cadence: watts.map(() => 90), hasPower: true, hasHeartRate: true });
-    rides.push({ source: "zwift", externalId: `demo-${d}`, name: kinds[k][0], startedAt: day.toISOString(), distanceMeters: (watts.length / 3600) * 31000, summary });
+    rides.push({ source: "zwift", externalId: `demo-${d}`, name: kinds[k][0], startedAt: day.toISOString(), distanceMeters: (watts.length / 3600) * 31000, summary, stream: chartStream({ watts, heartRate: hr, cadence: watts.map(() => 90) }) });
   }
   await storeRides(supa as never, rides as never);
 
