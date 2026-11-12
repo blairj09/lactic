@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GET, summarize } from "../api/stats.js";
+import { load, summarize } from "../scripts/download-stats.mjs";
 
 const files = (v, counts) => Object.entries(counts).map(([suffix, download_count]) => ({ name: suffix === "latest.json" ? suffix : `Lactic_${v}_${suffix}`, download_count }));
 
@@ -19,13 +19,18 @@ test("counts installers, updates and checks per release, skipping previews and s
   assert.equal(s.totals.downloads, 24);
 });
 
-test("answers JSON, or 502 when GitHub is down", async () => {
+test("takes every-file sweeps out of the likely-people count", () => {
+  const s = summarize(releases);
+  // 0.2.0: 4/3/2/1, floor 1 → 10 - 4 = 6. 0.1.5: 7/7/0/0, floor 0 → 14.
+  assert.deepEqual(s.releases.map((r) => [r.sweeps, r.likely]), [[1, 6], [0, 14]]);
+  assert.equal(s.totals.likely, 20);
+});
+
+test("loads from GitHub", async () => {
   const real = globalThis.fetch;
   try {
     globalThis.fetch = async () => new Response(JSON.stringify(releases), { status: 200 });
-    const res = await GET();
-    assert.equal(res.status, 200);
-    assert.equal((await res.json()).totals.windows, 10);
+    assert.equal((await load()).totals.windows, 10);
   } finally {
     globalThis.fetch = real;
   }
