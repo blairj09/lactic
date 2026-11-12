@@ -42,7 +42,8 @@ describe("layout edits", () => {
   });
 
   it("adds a field to an empty slot but never replaces one", () => {
-    const base = defaultLayout(); // six-chart page with five fields
+    const base = defaultLayout();
+    base.ride.workout.pages[0] = { name: "Workout", template: "six-chart", fields: base.ride.workout.pages[0].fields.slice(0, 5) };
     const added = edit(base, { action: "add_field", field: "ride.elapsed" });
     expect(added.ride.workout.pages[0].fields).toHaveLength(6);
     expect(added.ride.workout.pages[0].fields.slice(0, 5)).toEqual(base.ride.workout.pages[0].fields);
@@ -65,9 +66,9 @@ describe("layout edits", () => {
 
   it("splits free ride off the workout set when it's edited on its own", () => {
     const l = edit(defaultLayout(), { action: "remove_field", set: "free", page: 1, slot: 1 });
-    expect(l.ride.workout.pages[0].fields).toHaveLength(5);
+    expect(l.ride.workout.pages[0].fields).toHaveLength(10);
     expect(l.ride.free).not.toBe("follow");
-    expect((l.ride.free as { pages: { fields: unknown[] }[] }).pages[0].fields).toHaveLength(4);
+    expect((l.ride.free as { pages: { fields: unknown[] }[] }).pages[0].fields).toHaveLength(9);
     expect(l.ride.overlay).toBe("follow");
   });
 

@@ -82,7 +82,7 @@ describe("get_layout", () => {
     expect(r.tabs[0]).toMatchObject({ tab: "health", name: "Health", shown: true });
     expect(r.today.cards[0]).toMatchObject({ widget: "lactic.recovery", shown: false, name: "Recovery", from: "Lactic" });
     expect(r.today.canAdd.map((c) => c.widget)).toEqual(["lactic.recovery"]);
-    expect(r.rideFields.workout[0].fields.map((f) => f.name)).toEqual(["Interval left", "Power 3s", "Target", "Heart rate", "Cadence"]);
+    expect(r.rideFields.workout[0].fields.map((f) => f.name)).toEqual(["Interval left", "Power", "Target", "Heart rate", "Cadence", "Avg power", "Avg HR", "Avg cadence", "TSS", "To go"]);
     expect(r.rideFields.freeRide).toBe("same as the workout pages");
     expect(r).not.toHaveProperty("note");
   });
