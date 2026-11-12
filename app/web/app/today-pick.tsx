@@ -101,7 +101,7 @@ export default function TodayPick({
   if (!shown) {
     return (
       <Panel title="Something else?" className="self-start">
-        <p className="-mt-3 mb-4 text-sm text-muted">The plan fits today. Ride a different one if you&apos;d like.</p>
+        <p className="-mt-3 mb-4 text-sm text-muted">{today.plain === "rest" ? "Nothing planned today. Pick any ride you like." : "The plan fits today. Ride a different one if you'd like."}</p>
         <div className="flex">{menu}</div>
         {error && <Result ok={false}>{error}</Result>}
       </Panel>

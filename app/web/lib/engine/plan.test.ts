@@ -280,6 +280,19 @@ describe("saved plans", () => {
     expect(p.weeks.some((w) => w.phase === "build")).toBe(true);
   });
 
+  it("fits the first week into the days from the start, so setup day gets a ride when it has time", () => {
+    // Mon rest, Tue-Thu 1 h, Fri rest, Sat 2 h, Sun 1.5 h; set up on a Thursday.
+    const availability: [number, number, number, number, number, number, number] = [0, 60, 60, 60, 0, 120, 90];
+    for (const goal of ["ftp", "fitness", "base"] as const) {
+      const p = plan({ goals: [], availability, today: "2026-11-12", frame: frame({ goal, start: "2026-11-12", end: "2027-02-03" }) });
+      const first = p.weeks.find((w) => !w.beforePlan)!;
+      const rides = first.days.filter((d) => d.session);
+      expect(rides.every((d) => d.date >= "2026-11-12")).toBe(true);
+      expect(first.days.find((d) => d.date === "2026-11-12")!.session).not.toBeNull();
+      expect(rides.length).toBe(3);
+    }
+  });
+
   it("never opens with a recovery week, whatever day the plan starts", () => {
     // 12 weeks from a Thursday: counting back from the test week used to make the first week a recovery week.
     for (const goal of ["ftp", "fitness", "base"] as const) {

@@ -29,6 +29,8 @@ import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
 import RaceReportPrompt from "./race-report-prompt";
 import RestDay from "./rest-day";
+import FirstRide from "./first-ride";
+import { firstRideDay } from "@/lib/first-ride";
 import ThisWeek from "./this-week";
 import type { RaceFollowUp } from "@/lib/engine/race/followup";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
@@ -298,6 +300,8 @@ export function TodayWorkout({
   const rodeToday = rides.some((r) => localDate(r.startedAt, athlete.timezone) === today);
   const eased = Boolean(todayPlan?.rule && EASED.has(todayPlan.rule));
   const exertionBar = exertion && (exertion.soFar !== null || exertion.target) ? <ExertionBar exertion={exertion} eased={eased} compact /> : null;
+  // The day the plan starts with nothing on it: a short first ride rather than a rest day.
+  const firstRide = !ridden && !chosen && !outside?.workout && todayPlan?.role !== "event" && Boolean(athlete.ftp) && firstRideDay(state, rodeToday);
 
   const title = outside?.workout
     ? outside.workout.name
@@ -309,7 +313,9 @@ export function TodayWorkout({
       ? todayPlan.goal.name
       : planned
         ? planned.workout.name
-        : "Rest day";
+        : firstRide
+          ? "Your first ride"
+          : "Rest day";
 
   let body: React.ReactNode;
   let heading: React.ReactNode = title;
@@ -383,6 +389,8 @@ export function TodayWorkout({
         {ready}
         {start !== undefined ? <div className="mt-auto pt-1">{start}</div> : <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />}
       </div>
+    ) : firstRide ? (
+      <FirstRide state={state} />
     ) : (
       <RestDay state={state} />
     );

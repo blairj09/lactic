@@ -307,7 +307,9 @@ function totalsRows(data: PlayerData): [label: string, value: number | string | 
  * The large view on the Ride page, read from the saddle a metre or more away. Like the overlay:
  * this interval on the left, the workout in the middle, the ride so far on the right.
  */
-export function PlayerView({ data, controls, extra }: { data: PlayerData; controls: PlayerControls; extra?: React.ReactNode }) {
+export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; controls: PlayerControls; extra?: React.ReactNode; dock?: React.ReactNode }) {
+  // On a phone, once a ride is under way its controls dock above the tab bar, so they're never a scroll away.
+  const docked = data.elapsed > 0 && !data.ended && !data.finished;
   const off = powerVsTarget(data);
   const { erg } = data;
   return (
@@ -378,10 +380,28 @@ export function PlayerView({ data, controls, extra }: { data: PlayerData; contro
           <UpNext data={data} />
         )}
         <div className="space-y-4">
-          <PageControls data={data} controls={controls} />
+          <div className={docked ? "max-md:hidden" : undefined}>
+            <PageControls data={data} controls={controls} />
+          </div>
           {extra}
         </div>
       </div>
+      {docked && (
+        <>
+          {/* Room at the end of the page for the docked bar. */}
+          <div aria-hidden="true" className="h-48 md:hidden" />
+          <div
+            aria-label="Ride controls"
+            className="fixed inset-x-0 z-20 border-t border-line bg-surface px-4 py-3 md:hidden"
+            style={{ bottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px))" }}
+          >
+            <div className="mx-auto max-w-md space-y-3">
+              <PageControls data={data} controls={controls} />
+              {dock}
+            </div>
+          </div>
+        </>
+      )}
     </section>
   );
 }
