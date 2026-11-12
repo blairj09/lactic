@@ -91,3 +91,18 @@ export async function saveLayout(supabase: Supabase, layout: Layout, device: Lay
     : await supabase.from("layouts").insert({ device, name: "My layout", layout: checked, active: true, updated_at: now });
   if (writeError) throw writeError;
 }
+
+/**
+ * Saves a device's active layout: updates the active row, or makes the first one ("My layout") the
+ * first time a rider customizes. The layout is checked by parseLayout() before it's written.
+ */
+export async function saveLayout(supabase: Supabase, layout: Layout, device: LayoutDevice = "desktop"): Promise<void> {
+  const checked = parseLayout(layout);
+  const now = new Date().toISOString();
+  const { data, error } = await supabase.from("layouts").select("id").eq("device", device).eq("active", true).order("updated_at", { ascending: false }).limit(1);
+  if (error) throw error;
+  const { error: writeError } = data?.length
+    ? await supabase.from("layouts").update({ layout: checked, updated_at: now }).eq("id", data[0].id)
+    : await supabase.from("layouts").insert({ device, name: "My layout", layout: checked, active: true, updated_at: now });
+  if (writeError) throw writeError;
+}
