@@ -190,3 +190,25 @@ export function withNewCards(layout: Layout): Layout {
   const missing = DEFAULT_TODAY.filter((c) => !layout.today.some((x) => x.widget === c.widget));
   return missing.length ? { ...layout, today: [...layout.today, ...missing.map((c) => ({ ...c }))] } : layout;
 }
+
+/** A run of Today cards drawn together: one Large card, or consecutive Medium or Small cards side by side. */
+export interface CardRow {
+  size: CardSize;
+  widgets: string[];
+}
+
+/**
+ * Today's cards in layout order, as rows to draw. Hidden cards and cards with nothing to show
+ * today (`shows` false: the rest day card on a training day, the weigh-in nudge when it isn't due)
+ * are left out before grouping, so a missing card never leaves a hole.
+ */
+export function cardRows(cards: readonly CardEntry[], shows: (widget: string) => boolean): CardRow[] {
+  const rows: CardRow[] = [];
+  for (const c of cards) {
+    if (c.hidden || !shows(c.widget)) continue;
+    const last = rows.at(-1);
+    if (c.size !== "large" && last?.size === c.size) last.widgets.push(c.widget);
+    else rows.push({ size: c.size, widgets: [c.widget] });
+  }
+  return rows;
+}

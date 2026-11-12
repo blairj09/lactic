@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultLayout, formatMetric, isMetricId, LACTIC_METRICS, MetricRegistry, parseLayout, pluginMetricId, ridePages, validateKit, withNewCards } from "./index";
+import { cardRows, defaultLayout, formatMetric, isMetricId, LACTIC_METRICS, MetricRegistry, parseLayout, pluginMetricId, ridePages, validateKit, withNewCards } from "./index";
 
 describe("metric registry", () => {
   it("has well-formed, unique ids", () => {
@@ -143,5 +143,38 @@ describe("layouts", () => {
     const next = withNewCards(l);
     expect(next.today.at(-1)?.widget).toBe("lactic.brief");
     expect(next.today[0].hidden).toBe(true);
+  });
+});
+
+describe("Today's card rows", () => {
+  const cards = defaultLayout().today;
+  it("puts the default layout's form and last ride side by side, the rest full width", () => {
+    expect(cardRows(cards, () => true)).toEqual([
+      { size: "large", widgets: ["lactic.recovery"] },
+      { size: "large", widgets: ["lactic.weigh-in"] },
+      { size: "large", widgets: ["lactic.workout"] },
+      { size: "large", widgets: ["lactic.brief"] },
+      { size: "large", widgets: ["lactic.this-week"] },
+      { size: "medium", widgets: ["lactic.form", "lactic.last-ride"] },
+    ]);
+  });
+
+  it("leaves out hidden cards and cards with nothing to show, without leaving a gap", () => {
+    const layout = cards.map((c) => (c.widget === "lactic.brief" ? { ...c, hidden: true } : c));
+    const rows = cardRows(layout, (w) => w !== "lactic.weigh-in" && w !== "lactic.last-ride");
+    expect(rows.map((r) => r.widgets)).toEqual([["lactic.recovery"], ["lactic.workout"], ["lactic.this-week"], ["lactic.form"]]);
+  });
+
+  it("groups consecutive small cards, but not across a different size", () => {
+    const rows = cardRows(
+      [
+        { widget: "lactic.form", size: "small", hidden: false },
+        { widget: "lactic.recovery", size: "small", hidden: false },
+        { widget: "lactic.brief", size: "large", hidden: false },
+        { widget: "lactic.last-ride", size: "small", hidden: false },
+      ],
+      () => true,
+    );
+    expect(rows.map((r) => r.widgets)).toEqual([["lactic.form", "lactic.recovery"], ["lactic.brief"], ["lactic.last-ride"]]);
   });
 });
