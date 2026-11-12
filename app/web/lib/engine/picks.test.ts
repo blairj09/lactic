@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { STARTING_LEVELS } from "./library";
-import { applyPicks, unpickedKeyDays } from "./picks";
+import { applyPicks, holdsFavorite, pickFits, unpickedKeyDays } from "./picks";
+import { libraryFits, librarySession, WORKOUT_LIBRARY } from "./workout-library";
+import type { Plan } from "./plan";
 import { buildPlan, DEFAULT_RAMP_RATE, type Availability } from "./plan";
 
 const today = "2026-11-02";
@@ -33,6 +35,37 @@ describe("coach picks over the plan", () => {
     expect(unpickedKeyDays(plan, [], today, through)).toHaveLength(keys.length);
     const pick = { date: keys[0].date, template: `${keys[0].session!.zone}-intervals`, reason: "x" };
     expect(unpickedKeyDays(plan, [pick], today, through)).toHaveLength(keys.length - 1);
+  });
+});
+
+describe("coach picks and favorites", () => {
+  const start = { fitness: 50, fatigue: 50 };
+  // The first key day some starter workout fits.
+  const day = keys.find((d) => libraryFits(d.session!.zone, d.session!.level, d.session!.duration).length)!;
+  const fit = libraryFits(day.session!.zone, day.session!.level, day.session!.duration)[0];
+  const withFavorite = (p: Plan): Plan => ({
+    ...p,
+    weeks: p.weeks.map((w) => ({ ...w, days: w.days.map((d) => (d.date === day.date ? { ...d, session: librarySession(fit) } : d)) })),
+  });
+
+  it("picks a fixed workout that fits the day, and refuses one that doesn't", () => {
+    expect(pickFits(day, `library:${fit.id}`)).toBe(true);
+    const wrong = WORKOUT_LIBRARY.find((w) => w.zone !== day.session!.zone && w.category !== "tests")!;
+    expect(pickFits(day, `library:${wrong.id}`)).toBe(false);
+    const out = applyPicks(plan, [{ date: day.date, template: `library:${fit.id}`, reason: "A favorite." }], today, start);
+    const picked = out.weeks.flatMap((w) => w.days).find((d) => d.date === day.date)!;
+    expect(picked.session!.library).toBe(fit.id);
+    expect(picked.why).toBe("A favorite.");
+  });
+
+  it("never picks over a favorite the plan chose, nor asks the coach to", () => {
+    const fav = withFavorite(plan);
+    const favDay = fav.weeks.flatMap((w) => w.days).find((d) => d.date === day.date)!;
+    expect(holdsFavorite(favDay)).toBe(true);
+    expect(applyPicks(fav, [{ date: day.date, template: `${day.session!.zone}-intervals`, reason: "x" }], today, start)).toBe(fav);
+    const through = keys[keys.length - 1].date;
+    expect(unpickedKeyDays(fav, [], today, through).map((d) => d.date)).not.toContain(day.date);
+    expect(unpickedKeyDays(fav, [], today, through)).toHaveLength(keys.length - 1);
   });
 });
 

@@ -11,7 +11,8 @@ import { DIFFICULTY_LABELS } from "../engine/feedback";
 import { FEEL_AFTER_LABELS } from "../engine/levels";
 import { buildSession, ZONE_LABELS, ZONES, type Session, type Zone } from "../engine/library";
 import { checkTweaks, FOCUS_LABELS, FOCUSES, templateById, TEMPLATES, type Focus, type Param, type Params, type Template } from "../engine/templates";
-import { pickFits, type WorkoutPick } from "../engine/picks";
+import { isWorkoutKey, pickFits, type WorkoutPick } from "../engine/picks";
+import { customKey, customLibraryWorkout, keyOf, libraryKey, librarySession, WORKOUT_LIBRARY, workoutByKey } from "../engine/workout-library";
 import { dayOptions } from "../engine/overrides";
 import { BREAK_KIND_LABELS, BREAK_RIDING_LABELS, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES, describeDay, GOAL_KIND_LABELS, goalIntensity, goalMinutes, PHASE_LABELS, PLAN_GOAL_LABELS, type Availability, type Break, type PlanDay } from "../engine/plan";
 import { addDays } from "../engine/pmc";
@@ -117,7 +118,7 @@ export const TOOLS = [
   ),
   fn(
     "get_workouts",
-    "The engine's workout structures (classic intervals, over-unders, surges, 30/30s, pyramids, attacks, race starts, sprints...) with what each trains and its targets at the athlete's level, with ranges. Filter by zone and/or focus.",
+    "The engine's workout structures (classic intervals, over-unders, surges, 30/30s, pyramids, attacks, race starts, sprints...) with what each trains and its targets at the athlete's level, with ranges; and fixed workouts (`fixed`): Lactic's starter library and the athlete's own saved workouts (mine), each with its zone, level and minutes, favorites first (the athlete liked them). Filter by zone and/or focus (focus filters structures only).",
     {
       zone: { type: "string", enum: ["endurance", "tempo", "sweetSpot", "threshold", "vo2max", "anaerobic"] },
       focus: { type: "string", enum: [...FOCUSES] },
@@ -125,10 +126,10 @@ export const TOOLS = [
   ),
   fn(
     "propose_workout",
-    "Propose a specific workout structure on a day, from get_workouts, optionally at a level and with targets set directly. The engine builds it to fit the minutes; the athlete sees it with an Apply button.",
+    "Propose a specific workout on a day, from get_workouts: a structure, optionally at a level and with targets set directly, which the engine builds to fit the minutes; or a fixed workout (an id starting library: or custom:), which goes on the day as it is (level, minutes and targets don't apply). The athlete sees it with an Apply button.",
     {
       date: date("The day"),
-      workout_id: { type: "string", description: "An id from get_workouts" },
+      workout_id: { type: "string", description: "An id from get_workouts: a structure, or a fixed workout" },
       level: { type: "number", minimum: 1, maximum: 10, description: "Default: the athlete's level in the zone" },
       minutes: { type: "integer", minimum: 20, maximum: 360, description: "Default: the day's planned length, or 60" },
       targets: { type: "object", description: "Targets to set, by key from get_workouts: % of FTP for power targets, seconds for durations, whole numbers for counts. Others follow the level." },
@@ -197,10 +198,10 @@ export const READ_TOOL_NAMES = ["get_rides", "get_ride", "get_fitness", "get_pla
 export const PICK_TOOLS = [
   fn(
     "pick_workout",
-    "Choose the workout for one of the key days you were given: a structure from get_workouts in that day's zone, optionally with targets set. The engine keeps the day's level and length and builds it.",
+    "Choose the workout for one of the key days you were given: a structure from get_workouts in that day's zone, optionally with targets set, which the engine builds at the day's level and length; or a fixed workout from get_workouts (library: or custom:) that fits the day: same zone, within 1 level, no longer than the day and at most 15 minutes shorter.",
     {
       date: date("The key day"),
-      workout_id: { type: "string", description: "An id from get_workouts, in the day's zone" },
+      workout_id: { type: "string", description: "An id from get_workouts, in the day's zone: a structure or a fixed workout" },
       targets: { type: "object", description: "Targets to set, by key from get_workouts: % of FTP for power, seconds for durations, whole numbers for counts. Leave out to follow the level." },
       reason: { type: "string", description: "One sentence to the athlete: why this workout on this day" },
     },
@@ -271,6 +272,7 @@ export function runTool(data: CoachData, name: string, args: Record<string, unkn
       case "get_workouts":
         return out(getWorkouts(data, args));
       case "propose_workout": {
+        if (isWorkoutKey(String(args.workout_id ?? ""))) return propose(data, { kind: "fixed", date: String(args.date ?? ""), workout: String(args.workout_id) }, args.reason);
         const template = templateById(String(args.workout_id ?? ""));
         if (!template) throw new Error("Unknown workout_id; get ids from get_workouts");
         const level = typeof args.level === "number" ? Math.round(args.level * 10) / 10 : undefined;
@@ -769,7 +771,8 @@ function sessionInfo(session: Session) {
     level: session.level,
     minutes: Math.round(session.duration / 60),
     stress: Math.round(session.stress),
-    structure: session.template,
+    structure: session.library || session.custom ? undefined : session.template,
+    fixedWorkout: session.library ? libraryKey(session.library) : session.custom ? customKey(session.custom) : undefined,
     targetsSet: session.tweaks && Object.keys(session.tweaks).length ? toDisplay(templateById(session.template), session.tweaks) : undefined,
   };
 }
@@ -777,9 +780,11 @@ function sessionInfo(session: Session) {
 /** A key day's workout from the weekly planning run, checked and built by the engine before it's kept. */
 function pickWorkout(data: CoachData, args: Record<string, unknown>): ToolResult {
   const date = String(args.date ?? "");
-  const template = templateById(String(args.workout_id ?? ""));
-  if (!template) throw new Error("Unknown workout_id; get ids from get_workouts");
+  const id = String(args.workout_id ?? "");
   const day = data.state.basePlan.weeks.flatMap((w) => w.days).find((d) => d.date === date);
+  if (isWorkoutKey(id)) return pickFixed(data, day, date, id, args.reason);
+  const template = templateById(id);
+  if (!template) throw new Error("Unknown workout_id; get ids from get_workouts");
   if (!day || day.role !== "key" || !day.session) throw new Error(`${date} isn't one of the key days to plan`);
   if (!pickFits(day, template.id)) throw new Error(`${date} trains ${ZONE_LABELS[day.session.zone]}; pick a ${ZONE_LABELS[day.session.zone]} workout`);
   const tweaks = checkTweaks(template, args.targets && typeof args.targets === "object" ? fromDisplay(template, args.targets as Record<string, unknown>) : {});
@@ -793,13 +798,46 @@ function pickWorkout(data: CoachData, args: Record<string, unknown>): ToolResult
   };
 }
 
-/** Structures with their targets at the athlete's level in the zone, as the coach reads them. */
+/** A fixed workout (starter library or My workouts) for a key day, if it fits the day's slot. */
+function pickFixed(data: CoachData, day: PlanDay | undefined, date: string, key: string, reasonArg: unknown): ToolResult {
+  if (!day || day.role !== "key" || !day.session) throw new Error(`${date} isn't one of the key days to plan`);
+  const entry = workoutByKey(key, data.state.customWorkouts ?? []);
+  if (!entry) throw new Error("Unknown workout_id; get ids from get_workouts");
+  if (!pickFits(day, key, data.state.customWorkouts ?? [])) {
+    const s = day.session;
+    throw new Error(
+      `${entry.workout.name} (${ZONE_LABELS[entry.zone]}, level ${entry.level}, ${Math.round(entry.duration / 60)} min) doesn't fit ${date}: it needs ${ZONE_LABELS[s.zone]}, level ${s.level - 1} to ${s.level + 1}, ${Math.round(s.duration / 60) - 15} to ${Math.round(s.duration / 60)} min. Pick a structure or another fixed workout`,
+    );
+  }
+  const reason = typeof reasonArg === "string" ? reasonArg.trim().slice(0, 300) : "";
+  if (!reason) throw new Error("Give a reason for the athlete");
+  const session = librarySession(entry);
+  return { content: JSON.stringify({ picked: describeDay({ ...day, session, stress: session.stress }) }), pick: { date, template: key, reason } };
+}
+
+/** Structures with their targets at the athlete's level in the zone, and fixed workouts (favorites first), as the coach reads them. */
 function getWorkouts(data: CoachData, args: Record<string, unknown>) {
   const zone = typeof args.zone === "string" && (ZONES as readonly string[]).includes(args.zone) ? (args.zone as Zone) : null;
   const focus = typeof args.focus === "string" && (FOCUSES as readonly string[]).includes(args.focus) ? (args.focus as Focus) : null;
   const list = TEMPLATES.filter((t) => (!zone || t.zone === zone) && (!focus || t.focus.includes(focus)));
+  const favorites = new Set(data.state.favorites ?? []);
+  const mine = (data.state.customWorkouts ?? []).flatMap((c) => customLibraryWorkout(c.id, c.workout) ?? []);
+  const fixed = [...WORKOUT_LIBRARY.filter((w) => w.category !== "tests"), ...mine]
+    .filter((w) => !zone || w.zone === zone)
+    .map((w) => ({ w, key: keyOf(w) }))
+    .sort((a, b) => Number(favorites.has(b.key)) - Number(favorites.has(a.key)));
   return {
-    note: "Targets are at the athlete's level in the zone; a different level moves them. Power targets are % of FTP. Set any with propose_workout's targets.",
+    note: "Structures: targets are at the athlete's level in the zone; a different level moves them. Power targets are % of FTP. Set any with propose_workout's targets. Fixed workouts go on a day as they are; for a planned key day one must fit (same zone, within 1 level, no longer than the day and at most 15 minutes shorter). Prefer a favorite that fits when it suits the day.",
+    fixed: fixed.map(({ w, key }) => ({
+      id: key,
+      name: w.workout.name,
+      zone: ZONE_LABELS[w.zone],
+      level: w.level,
+      minutes: Math.round(w.duration / 60),
+      about: w.description,
+      ...(favorites.has(key) ? { favorite: true } : {}),
+      ...(w.custom ? { mine: true } : {}),
+    })),
     workouts: list.map((t) => {
       const level = data.state.levels[t.zone];
       const values = t.defaults(level);

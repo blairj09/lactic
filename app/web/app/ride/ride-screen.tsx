@@ -520,6 +520,7 @@ function RideOnThisDevice({
     if (edited) return source === "custom" && customId ? customKey(customId) : null;
     if (source === "starter" && starterId) return libraryKey(starterId);
     if (source === "planned" && planned?.library && !planned.edited) return libraryKey(planned.library);
+    if (source === "planned" && planned?.custom && !planned.edited) return customKey(planned.custom);
     if (source === "custom" && customId) return customKey(customId);
     return null;
   };
