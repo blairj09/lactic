@@ -69,12 +69,17 @@ export default function ThisWeek({ state, rideShapes = {}, className }: { state:
   );
 }
 
+/** Tile height and the shape inside it, phone then desktop. */
+const TILE = { box: "h-13 sm:h-20", graph: 32 };
+
 /** One day: its workout's shape and stress inside the tile, ticked once ridden. */
 function DayCell({ day, today, workout, event, shape, ftp }: { day: GlanceDay; today: string; workout: Workout | null; event: string | null; shape: number[] | null; ftp: number | null }) {
   const isToday = day.date === today;
   const letter = new Date(`${day.date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
   const rest = day.planned === 0 && day.done === 0 && !event;
-  const ridden = day.done > 0 && (day.mark === null || day.mark === "done" || day.mark === "unplanned");
+  // A ride that made up a moved session counts as ridden too: it's the day the work happened.
+  const rode = day.done > 0;
+  const ridden = rode && day.mark !== "partial";
   const tone = ridden
     ? "border-accent bg-accent-soft"
     : day.mark === "partial"
@@ -87,20 +92,20 @@ function DayCell({ day, today, workout, event, shape, ftp }: { day: GlanceDay; t
             ? "border-transparent bg-raised"
             : "border-line bg-ground";
   const badge = ridden ? "✓" : day.mark === "partial" ? "½" : day.mark === "missed" ? "✕" : day.mark === "moved" ? "→" : null;
-  const label = day.mark ? DAY_MARK_LABELS[day.mark] : ridden ? "Ridden" : rest ? "Rest" : `${day.planned} TSS planned`;
+  const label = ridden && day.mark === "moved" ? "Ridden (moved here)" : day.mark ? DAY_MARK_LABELS[day.mark] : ridden ? "Ridden" : rest ? "Rest" : `${day.planned} TSS planned`;
   // Show what was ridden once there is something, else what's planned.
   const stress = day.done || day.planned;
   return (
     <li className="min-w-0 text-center" title={`${letter}: ${label}`}>
       <div className={`text-xs ${isToday ? "font-medium text-ink" : "text-muted"}`}>{isToday ? "Today" : letter}</div>
       <div
-        className={`relative mt-1 flex h-16 flex-col overflow-hidden rounded-md border sm:h-24 ${tone} ${isToday ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : ""}`}
+        className={`relative mt-1 flex ${TILE.box} flex-col overflow-hidden rounded-md border ${tone} ${isToday ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : ""}`}
       >
         {rest ? (
           <span className="m-auto text-xs text-faint">Rest</span>
         ) : (
           <>
-            <div className="flex items-start justify-between px-1.5 pt-1">
+            <div className="relative z-10 flex items-start justify-between px-1.5 pt-1">
               <span className={`num text-xs font-medium sm:text-sm ${day.mark === "missed" ? "text-warning" : "text-ink"}`}>{stress || ""}</span>
               {badge && (
                 <span
@@ -111,15 +116,15 @@ function DayCell({ day, today, workout, event, shape, ftp }: { day: GlanceDay; t
                 </span>
               )}
             </div>
-            {ridden && shape?.length ? (
-              <div className="mt-auto px-1 pb-1">
+            {rode && shape?.length ? (
+              <div className="absolute inset-x-0 bottom-0 px-1 pb-1">
                 <RideShape watts={shape} ftp={ftp} />
               </div>
             ) : event ? (
               <span className="mt-auto truncate px-1 pb-1.5 text-[11px] text-ink">{event}</span>
             ) : workout ? (
-              <div className={`mt-auto px-1 pb-1 ${day.mark === "missed" || day.mark === "moved" ? "opacity-40" : ""}`}>
-                <WorkoutProfile workout={workout} height={44} fit />
+              <div className={`absolute inset-x-0 bottom-0 px-1 pb-1 ${day.mark === "missed" || day.mark === "moved" ? "opacity-40" : ""}`}>
+                <WorkoutProfile workout={workout} height={TILE.graph} fit />
               </div>
             ) : (
               <span className="mt-auto pb-1.5 text-[11px] text-muted">{ridden ? "Ride" : ""}</span>
@@ -134,12 +139,12 @@ function DayCell({ day, today, workout, event, shape, ftp }: { day: GlanceDay; t
 /** What was ridden, as a filled power trace on the same scale as a workout's blocks (1.3 × FTP at the top). */
 function RideShape({ watts, ftp }: { watts: number[]; ftp: number | null }) {
   const top = (ftp ?? Math.max(...watts)) * 1.3 || 1;
-  const h = 44;
+  const h = TILE.graph;
   const w = watts.length;
   const y = (v: number) => h - Math.min(1, v / top) * h;
   const path = `M0 ${h} ` + watts.map((v, i) => `L${i} ${y(v).toFixed(1)} L${i + 1} ${y(v).toFixed(1)}`).join(" ") + ` L${w} ${h} Z`;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="block h-11 w-full text-accent" aria-hidden="true">
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="block w-full text-accent" style={{ height: h }} aria-hidden="true">
       <path d={path} fill="currentColor" fillOpacity={0.55} />
     </svg>
   );
