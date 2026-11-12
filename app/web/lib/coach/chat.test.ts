@@ -5,6 +5,7 @@ import type { ChatMessage } from "./openrouter";
 import { data, plan, state } from "./fixture";
 import { libraryFits, WORKOUT_LIBRARY } from "../engine/workout-library";
 import { runTool } from "./tools";
+import { NO_EXPERIMENTS, setCurrentExperiments } from "../experiments";
 
 const call = (name: string, args: unknown, id = name): ChatMessage => ({
   role: "assistant",
@@ -190,6 +191,14 @@ describe("morning brief", () => {
     await morningBrief(async (m) => ((system = m[0].content!), call("suggest_today", { option_id: "asPlanned" })), data, []).catch(() => {});
     expect(system).toMatch(/never offer to adjust it then/);
     expect(system).toMatch(/must say the same thing/);
+    expect(system).not.toMatch(/Adaptive workouts is on/);
+    setCurrentExperiments({ ...NO_EXPERIMENTS, adaptive_workouts: true });
+    try {
+      await morningBrief(async (m) => ((system = m[0].content!), say("Ride it.")), data, []);
+      expect(system).toMatch(/Adaptive workouts is on/);
+    } finally {
+      setCurrentExperiments(NO_EXPERIMENTS);
+    }
   });
 
   it("reads how the athlete feels and suggests one of today's options", async () => {

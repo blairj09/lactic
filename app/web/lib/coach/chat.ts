@@ -16,6 +16,7 @@ import type { OptionId } from "../engine/checkin";
 import { attachmentNames, turnsForModel, type Attachment } from "./attachments";
 import { appTools } from "./app-tools";
 import { todayOptions } from "../today-options";
+import { experiments } from "../experiments";
 import { APP_GUIDE } from "./app-guide";
 import { FEEDBACK_TOOLS, forFeatures, MEMORY_TOOLS, PICK_TOOLS, READ_TOOL_NAMES, runTool, status, TODAY_TOOLS, TOOLS, type CoachData, type FeedbackDraft, type MemoryOp } from "./tools";
 
@@ -79,11 +80,14 @@ ${RULES}
 - Then propose changes, only where the data gives a reason:
   - Today: todayOptions in the status is what today could be (as planned, harder, easier, shorter, endurance, recovery, rest), built by the engine from recovery, form, recent rides and the athlete's check-in. Call suggest_today once with the option that suits them; the athlete sees it marked Suggested under the brief and chooses. The engine's recommended option is a sound default: pick another only for a reason in the data or their note, and say why. Don't use propose_day_change for today. When todayOptions is null, today is settled (chosen, ridden, a race, or riding outside): leave it alone.
   - The brief's advice for today and your suggest_today must say the same thing. If you suggest asPlanned, tell them to ride it as planned; if you suggest easier, shorter or another option, the brief recommends that option by name (for example "take the level-easier version under this") and says why. Never write "ride it as planned" while suggesting something else, or the reverse.
-- You can't see or change a ride while it's happening, and the athlete doesn't talk to you mid-ride, so never offer to adjust it then ("tell me and we'll drop a rep"). If they may need to back off, say what they can do themselves: choose an easier option under the brief now, or during the ride lower the intensity with the minus button or skip an interval.
   - The plan ahead: at most two changes, from what you saw. Sessions that felt too hard or too easy, missed days, several poor nights in a row, or a forecast that's off for an event. Use get_day_options with propose_day_change, propose_swap, get_workouts with propose_workout when a different structure would suit the athlete or their event better, or propose_availability for a lasting change to weekly hours or ramp rate.
   - Often the right answer is no change. Never propose something just to have a proposal.
 - Mention each proposal in the brief in a few words. The athlete accepts or dismisses each one with a button under it.
+- You can't see or change a ride while it's happening, and the athlete doesn't talk to you mid-ride, so never offer to adjust it then ("tell me and we'll drop a rep"). If they may need to back off, say what they can do themselves: choose an easier option under the brief now, or during the ride lower the intensity with the minus button or skip an interval.
 - On a race day (raceToday in the status), the brief is the race plan instead, 4 to 7 sentences: readiness in one line, then pacing and tactics for this kind of race, using their power numbers from get_power and FTP (for cyclocross: the start, the first lap, recovering on the straights, and run-ups; for a time trial or hill climb: target watts and not starting too hard; for long events: holding back early). Don't repeat the warm-up, timeline or fuelling, which the Today page already shows from raceToday. Don't propose changes to today; a change to the days after the race is fine if recovery calls for it.`;
+
+/** Added to the brief when the athlete has the Adaptive workouts experiment on. */
+const ADAPTIVE = `- Adaptive workouts is on: during the ride Lactic itself eases later reps a little when heart rate or cadence show they're struggling, and asks before making them harder. You may say so, as something the app does, not you.`;
 
 const MAX_TURNS = 8;
 /** Earlier messages sent with each new one, at most; older ones are folded into the summary. */
@@ -124,7 +128,7 @@ export function feedbackOffered(history: ChatTurn[]) {
 /** This morning's brief, from the status, the tools and the recent conversation, with any plan changes it proposes. */
 export async function morningBrief(complete: Complete, data: CoachData, history: ChatTurn[], summary = "", hooks: ChatHooks = {}): Promise<ChatReply> {
   const messages: ChatMessage[] = [
-    { role: "system", content: system(BRIEF, data, summary) },
+    { role: "system", content: system(experiments().adaptive_workouts ? `${BRIEF}\n${ADAPTIVE}` : BRIEF, data, summary) },
     ...turnsForModel(history.slice(-6)).map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: "Write today's morning brief." },
   ];
@@ -223,6 +227,8 @@ export interface BriefInputs {
   checkin: string | null;
   /** The recovery warning signs (ids, sorted), so a brief written from since-corrected sleep or HRV is written again. */
   signals: string[];
+  /** The coach's pick among today's options; null when it marked none. Missing on briefs from before it was kept. */
+  today?: OptionId | null;
   /** The engine's pick among today's options, so a brief that advised one is rewritten when a later recovery score moves it. */
   recommended?: OptionId | null;
 }
@@ -251,6 +257,9 @@ export function briefStale(existing: StoredMessage | null, inputs: BriefInputs) 
   if (!existing) return true;
   const meta = existing.meta as Partial<BriefInputs>;
   if ((meta.checkin ?? null) !== inputs.checkin) return true;
+  // Written before the brief had to mark one of today's options (so Today fell back to the engine's,
+  // which could disagree with it): written once more. A brief that marked none has today: null.
+  if (inputs.recommended != null && !("today" in meta)) return true;
   if (existing.proposals.some((p) => p.status !== "pending")) return false;
   return (
     (inputs.recovery && !meta.recovery) ||

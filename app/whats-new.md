@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- A coach brief written before the brief-and-suggestion fix is written once more, so today's brief and the option marked under it agree. With Adaptive workouts on, the brief may mention that Lactic eases later reps for you during the ride.
 - New experiment, adaptive workouts (turn it on in Settings → Experimental features): if a workout is clearly too hard, say your cadence fades at the end of a rep or your heart rate won't come down between reps, Lactic eases the reps still to come by a few percent and offers Undo. If it looks too easy, it asks before making them harder, and no answer keeps the plan. It never changes the rep you're in, tests or race openers. The ride's page shows what changed and why.
 - Today's coach brief and the suggested option under it now always agree: if the coach says ride it as planned, that's what's marked, and when a later recovery score changes the advice, the brief is rewritten. The coach also no longer offers to change a workout mid-ride; it points you to an easier option before you start, or the intensity and skip buttons while you ride.
 - Warm-ups now finish at the power of your first interval and cool-downs start at the power of your last, so there's no jump or drop where they meet. Hard first efforts still start with a step up. Edit the first interval and the warm-up follows it.
