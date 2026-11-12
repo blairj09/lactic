@@ -119,7 +119,7 @@ export const FEVERISH_DELTA_C = 0.5;
  * it two nights running, breathing rate up together with wrist temperature or resting heart rate (often
  * the start of an illness), and sleep debt. Needs the measures' usual ranges.
  */
-export function recoverySignals(metrics: GlanceMetric[], sleepDebtHours: number | null): RecoverySignal[] {
+export function recoverySignals(metrics: GlanceMetric[], sleepDebtHours: number | null, sleepNeedTonight?: number): RecoverySignal[] {
   const get = (key: GlanceKey) => metrics.find((m) => m.key === key);
   const signals: RecoverySignal[] = [];
   const run = (m: GlanceMetric | undefined, side: "low" | "high", count: number) => {
@@ -144,7 +144,9 @@ export function recoverySignals(metrics: GlanceMetric[], sleepDebtHours: number 
   }
 
   if (sleepDebtHours !== null && sleepDebtHours >= SLEEP_DEBT_SIGNAL_HOURS) {
-    signals.push({ id: "sleepDebt", strain: 1, reason: `${formatHours(sleepDebtHours)} of sleep debt this week` });
+    // No weekly total: one rough night swings it by hours, and riders read it as a verdict. Tonight's aim is what to act on.
+    const aim = sleepNeedTonight !== undefined ? `: aim for ${formatHours(sleepNeedTonight)} tonight` : "";
+    signals.push({ id: "sleepDebt", strain: 1, reason: `Short on sleep this week${aim}` });
   }
   return signals;
 }

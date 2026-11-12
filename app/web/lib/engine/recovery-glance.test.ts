@@ -77,7 +77,9 @@ describe("recoverySignals", () => {
   it("counts sleep debt from 4 hours", () => {
     const m = recoveryGlance({ today: TODAY, trend: [], exertion: new Map() });
     expect(recoverySignals(m, 3.5)).toEqual([]);
-    expect(recoverySignals(m, 4.5)).toEqual([{ id: "sleepDebt", strain: 1, reason: "4h 30m of sleep debt this week" }]);
+    expect(recoverySignals(m, 4.5)).toEqual([{ id: "sleepDebt", strain: 1, reason: "Short on sleep this week" }]);
+    // The reason gives tonight's aim, never the weekly total.
+    expect(recoverySignals(m, 20.3, 9.5)[0].reason).toBe("Short on sleep this week: aim for 9h 30m tonight");
   });
 });
 

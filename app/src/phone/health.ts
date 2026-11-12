@@ -13,8 +13,12 @@ import { ackPending, authorizeHealth, phoneStatus, readHealth, removeDuplicateWo
 
 // Device-local settings ("phone." never syncs).
 const IMPORTED = "phone.health.imported";
-/** Set once 60 days were read again to put back full nights that earlier reads had cut short. */
-const REREAD = "phone.health.reread.nights";
+/**
+ * Set once 60 days were read again to put back full nights that earlier reads had cut short. The
+ * second key reads them once more: a computer still on an older version could cut nights short
+ * after the first re-read, and those rows synced back.
+ */
+const REREAD = "phone.health.reread.nights2";
 export const WRITE_RIDES = "phone.health.writeRides";
 const WRITE_SINCE = "phone.health.writeSince";
 const WRITTEN = "phone.health.written";

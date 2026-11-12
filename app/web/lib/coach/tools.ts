@@ -380,7 +380,8 @@ export function status(data: CoachData) {
     yesterdayExertion: tracking.recovery ? yesterdayExertion(state) : undefined,
     // Runs of poor nights and signs of illness the single score can't show; today's options already count them.
     recoverySignals: tracking.recovery ? (state.recovery?.glance.signals.map((x) => x.reason) ?? []) : undefined,
-    sleepDebtHours: tracking.recovery ? (state.recovery?.glance.sleepDebtHours ?? null) : undefined,
+    // Tonight's sleep aim (more after short nights or a big day). The weekly debt total stays out: Today doesn't show it either.
+    sleepTonightHours: tracking.recovery ? (state.recovery?.glance.sleepDebtHours != null ? state.recovery.glance.sleepNeedTonight : null) : undefined,
     exertionToday: tracking.recovery ? exertionTodaySummary(state) : undefined,
     recoveryToday: tracking.recovery && state.recovery?.today
       ? { hrvMs: opt(state.recovery.today.hrv), restingHr: opt(state.recovery.today.restingHeartRate), sleepHours: opt(state.recovery.today.sleepHours, 1) }
