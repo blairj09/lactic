@@ -34,7 +34,7 @@ export interface InstalledPlugin {
   /** Permission groups it was granted. */
   reads: MetricGroup[];
   /** Metrics it publishes, ids under "plugin.<id>.". */
-  metrics: { id: string; label: string; unit: MetricUnit; scope: MetricScope; description: string }[];
+  metrics: { id: string; label: string; unit: MetricUnit; scope: MetricScope; description: string; /** Fixed choices (ids like "fresh"), for a metric that publishes one instead of a number. */ choices?: string[] }[];
   /** Today cards it adds. */
   widgets: { id: string; name: string }[];
 }
@@ -69,7 +69,8 @@ export type CoachChannel = "chat" | "mcp";
 export const MCP_WITHHELD: readonly MetricGroup[] = ["recovery", "location"];
 
 const PLUGIN_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
-const VERSION = /^\d{1,4}\.\d{1,4}\.\d{1,4}$/;
+const VERSION = /^\d{1,4}\.\d{1,4}\.\d{1,4}(?:-[0-9A-Za-z.-]{1,20})?$/;
+const CHOICE = /^[a-z0-9][a-z0-9-]{0,23}$/;
 const UNITS: readonly MetricUnit[] = ["W", "W/kg", "bpm", "rpm", "s", "km/h", "kJ", "%", "ms", "h", "kg", "score", "tss", ""];
 const DAY = /^\d{4}-\d\d-\d\d$/;
 export const MAX_POINTS = 120;
@@ -110,7 +111,7 @@ export function pluginList(all: InstalledPlugin[], via: CoachChannel) {
       metrics: p.metrics
         .filter((m) => m.id.startsWith(`plugin.${p.id}.`))
         .slice(0, 20)
-        .map((m) => ({ id: m.id, unit: UNITS.includes(m.unit) ? m.unit : "", scope: m.scope, untrusted: { label: label(m.label, 40), description: label(m.description, 140) } })),
+        .map((m) => ({ id: m.id, unit: UNITS.includes(m.unit) ? m.unit : "", scope: m.scope, ...(m.choices ? { choices: m.choices.filter((c) => CHOICE.test(c)).slice(0, 12) } : {}), untrusted: { label: label(m.label, 40), description: label(m.description, 140) } })),
       cards: p.widgets.slice(0, 10).map((w) => ({ id: w.id, untrusted: { name: label(w.name, 40) } })),
       untrusted: { name: label(p.name, 40), description: label(p.description, 140) },
     })),
@@ -127,7 +128,14 @@ function tidy(n: number): number {
   return Number(n.toPrecision(4));
 }
 
-/** read_plugin_metric: one plugin metric's values over a date range, numbers only, tagged with the source. */
+/** A value the coach may see: a finite number, or one of the metric's fixed choices. Anything else is dropped. */
+function allowed(value: unknown, choices: string[] | undefined): number | string | null {
+  if (typeof value === "number" && Number.isFinite(value)) return tidy(value);
+  if (typeof value === "string" && choices?.includes(value) && CHOICE.test(value)) return value;
+  return null;
+}
+
+/** read_plugin_metric: one plugin metric's values over a date range, numbers (or fixed choices) only, tagged with the source. */
 export async function readPluginMetric(src: PluginSource, args: Record<string, unknown>, via: CoachChannel, today: string) {
   const metric = typeof args.metric === "string" ? args.metric : "";
   const plugin = visiblePlugins(await src.list(), via).find((p) => metric.startsWith(`plugin.${p.id}.`) && p.metrics.some((m) => m.id === metric));
@@ -137,9 +145,10 @@ export async function readPluginMetric(src: PluginSource, args: Record<string, u
   if (from > to) throw new Error("from is on or before to");
   const def = plugin.metrics.find((m) => m.id === metric)!;
   const points = (await src.read(metric, from, to))
-    .filter((p) => DAY.test(p.date) && p.date >= from && p.date <= to && typeof p.value === "number" && Number.isFinite(p.value))
+    .map((p) => ({ p, value: allowed(p.value, def.choices) }))
+    .filter(({ p, value }) => value !== null && typeof p.date === "string" && DAY.test(p.date) && p.date >= from && p.date <= to)
     .slice(-MAX_POINTS)
-    .map((p) => ({ date: p.date, ...(typeof p.rideId === "string" && /^[0-9a-f-]{8,40}$/i.test(p.rideId) ? { rideId: p.rideId } : {}), value: tidy(p.value as number) }));
+    .map(({ p, value }) => ({ date: p.date, ...(typeof p.rideId === "string" && /^[0-9a-f-]{8,40}$/i.test(p.rideId) ? { rideId: p.rideId } : {}), value }));
   return {
     source: sourceTag(plugin),
     metric,
