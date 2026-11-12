@@ -4,7 +4,9 @@ import { DAY_MARK_LABELS } from "@/lib/engine/compliance";
 import { addDays } from "@/lib/engine/pmc";
 import { PHASE_LABELS, weekStart } from "@/lib/engine/plan";
 import { planWeek, weekGlance, type GlanceDay, type Tracking } from "@/lib/engine/week-glance";
-import { complianceDays, type TrainingState } from "@/lib/training";
+import WorkoutProfile from "@/components/workout-profile";
+import type { Workout } from "@/lib/engine/workout";
+import { complianceDays, plannedOn, type TrainingState } from "@/lib/training";
 
 const TRACKING: Record<Tracking, string> = {
   ahead: "Ahead of plan",
@@ -59,7 +61,7 @@ export default function ThisWeek({ state, className }: { state: TrainingState; c
         </div>
         <ol className="grid grid-cols-7 gap-1.5" aria-label="Days this week">
           {glance.days.map((d) => (
-            <DayCell key={d.date} day={d} today={today} />
+            <DayCell key={d.date} day={d} today={today} workout={plannedOn(state, d.date)?.session?.workout ?? null} event={state.plan.weeks.flatMap((w) => w.days).find((p) => p.date === d.date)?.goal?.name ?? null} />
           ))}
         </ol>
       </div>
@@ -67,35 +69,60 @@ export default function ThisWeek({ state, className }: { state: TrainingState; c
   );
 }
 
-function DayCell({ day, today }: { day: GlanceDay; today: string }) {
+/** One day: its workout's shape and stress inside the tile, ticked once ridden. */
+function DayCell({ day, today, workout, event }: { day: GlanceDay; today: string; workout: Workout | null; event: string | null }) {
   const isToday = day.date === today;
-  const past = day.date < today;
   const letter = new Date(`${day.date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
-  const rest = day.planned === 0 && day.done === 0;
-  // Filled when ridden, outlined when still to come, dashed when missed or moved.
+  const rest = day.planned === 0 && day.done === 0 && !event;
   const ridden = day.done > 0 && (day.mark === null || day.mark === "done" || day.mark === "unplanned");
   const tone = ridden
-    ? "bg-accent text-white border-accent"
+    ? "border-accent bg-accent-soft"
     : day.mark === "partial"
-      ? "bg-accent-soft text-ink border-accent"
+      ? "border-accent border-dashed bg-accent-soft"
       : day.mark === "missed"
-        ? "border-dashed border-warning text-warning"
+        ? "border-dashed border-warning"
         : day.mark === "moved"
-          ? "border-dashed border-line text-muted"
+          ? "border-dashed border-line"
           : rest
-            ? "border-transparent bg-raised text-faint"
-            : "border-line text-muted";
-  const symbol = ridden ? "✓" : day.mark === "partial" ? "½" : day.mark === "missed" ? "✕" : day.mark === "moved" ? "→" : rest ? "Rest" : "";
-  const label = day.mark ? DAY_MARK_LABELS[day.mark] : ridden ? "Ridden" : rest ? "Rest" : past ? "" : `${day.planned} TSS planned`;
+            ? "border-transparent bg-raised"
+            : "border-line bg-ground";
+  const badge = ridden ? "✓" : day.mark === "partial" ? "½" : day.mark === "missed" ? "✕" : day.mark === "moved" ? "→" : null;
+  const label = day.mark ? DAY_MARK_LABELS[day.mark] : ridden ? "Ridden" : rest ? "Rest" : `${day.planned} TSS planned`;
+  // Show what was ridden once there is something, else what's planned.
+  const stress = day.done || day.planned;
   return (
     <li className="min-w-0 text-center" title={`${letter}: ${label}`}>
       <div className={`text-xs ${isToday ? "font-medium text-ink" : "text-muted"}`}>{isToday ? "Today" : letter}</div>
       <div
-        className={`num mt-1 flex h-11 items-center justify-center rounded-md border text-sm ${tone} ${isToday ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : ""}`}
+        className={`relative mt-1 flex h-16 flex-col overflow-hidden rounded-md border sm:h-24 ${tone} ${isToday ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : ""}`}
       >
-        {symbol}
+        {rest ? (
+          <span className="m-auto text-xs text-faint">Rest</span>
+        ) : (
+          <>
+            <div className="flex items-start justify-between px-1.5 pt-1">
+              <span className={`num text-xs font-medium sm:text-sm ${day.mark === "missed" ? "text-warning" : "text-ink"}`}>{stress || ""}</span>
+              {badge && (
+                <span
+                  className={`hidden size-4 items-center justify-center rounded-full text-[10px] sm:flex ${ridden ? "bg-accent text-white" : day.mark === "missed" ? "text-warning" : "text-muted"}`}
+                  aria-label={label}
+                >
+                  {badge}
+                </span>
+              )}
+            </div>
+            {event ? (
+              <span className="mt-auto truncate px-1 pb-1.5 text-[11px] text-ink">{event}</span>
+            ) : workout ? (
+              <div className={`mt-auto px-1 pb-1 ${day.mark === "missed" || day.mark === "moved" ? "opacity-40" : ""}`}>
+                <WorkoutProfile workout={workout} height={44} fit />
+              </div>
+            ) : (
+              <span className="mt-auto pb-1.5 text-[11px] text-muted">{ridden ? "Ride" : ""}</span>
+            )}
+          </>
+        )}
       </div>
-      <div className="num mt-1 truncate text-[11px] text-muted">{day.done ? `${day.done} TSS` : day.planned ? `${day.planned} TSS` : " "}</div>
     </li>
   );
 }

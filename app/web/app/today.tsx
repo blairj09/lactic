@@ -91,16 +91,13 @@ export default function TodayView({
 
       <RaceSoon state={state} />
 
-      {/* Two columns on a computer: what to ride on the left, with form and the last ride under it, and whether you're
-          up for it on the right. On a phone: the workout, then This morning, then form and the last ride. The second
-          row takes any extra height, so the strip stays right under the workout. */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:grid-rows-[auto_1fr]">
-        <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} exertion={exertionTodayFor(state)} />
-        <div className="self-start lg:col-start-3 lg:row-span-2 lg:row-start-1">
+      {/* Top to bottom: how you are today (recovery and how you feel), today's workout, how the week and the plan are
+          tracking, then form and the last ride side by side on a computer. */}
+      <div className="space-y-4">
         <Morning
-          title="This morning"
-          stacked
-          lastNight={recovery?.today ? <RecoverySummary recovery={recovery} variant="column" /> : undefined}
+          title=""
+          weighInStep={false}
+          lastNight={recovery?.today ? <RecoverySummary recovery={recovery} variant="wide" /> : undefined}
           day={today}
           recovery={{ in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource }}
           weighIn={todaysWeighIn ? { weightKg: todaysWeighIn.weightKg, bodyFatPercent: todaysWeighIn.bodyFatPercent } : null}
@@ -112,19 +109,15 @@ export default function TodayView({
           brief={brief}
           today={todayChoice(state, coachEnabled)}
         />
-        </div>
 
-        <div className="space-y-4 self-start lg:col-span-2">
-          <ThisWeek state={state} />
+        <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} exertion={exertionTodayFor(state)} className="" />
 
+        <ThisWeek state={state} />
+
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
           {/* Today's form, with the fitness and fatigue it comes from. On a phone, form takes the top row. */}
           <section aria-label="Form" className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3">
-            <Stat
-              className="col-span-2 sm:col-span-1"
-              label="Form"
-              value={signed(Math.round(now.form))}
-              sub={formBand(now.form).meaning}
-            />
+            <Stat className="col-span-2 sm:col-span-1" label="Form" value={signed(Math.round(now.form))} sub={formBand(now.form).meaning} />
             <Stat
               label="Fitness"
               value={Math.round(now.fitness)}

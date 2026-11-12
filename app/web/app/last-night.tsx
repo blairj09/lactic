@@ -435,7 +435,7 @@ export function ExertionBar({ exertion, eased = false, compact = false }: { exer
  * and sleep. The full card is on Health; this links there. `row` sits in the Morning panel, `line` is
  * one sentence over the workout, `column` is Today's side column.
  */
-export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday; variant: "row" | "line" | "column" }) {
+export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday; variant: "row" | "line" | "column" | "wide" }) {
   const units = useUnits();
   const { glance, score, today } = recovery;
   const word = score ? recoveryWord(score.score) : null;
@@ -503,6 +503,43 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
   }
 
   const rows = glance.metrics.filter((m) => m.key !== "exertion" && m.key !== "sleepHours" && m.value !== null);
+  const list = (className: string) => (
+    <dl className={`text-sm ${className}`}>
+      {rows.map((m) => (
+        <div key={m.key} className="flex items-baseline justify-between gap-3">
+          <dt className="text-muted">{LABEL[m.key]}</dt>
+          <dd className="num text-right">
+            <span className={m.concern ? "font-medium text-warning" : "font-medium"}>{format(m.key, m.value!, units)}</span>
+            {m.range && <span className="text-muted"> · usual {usual(m.key, m.range, units)}</span>}
+          </dd>
+        </div>
+      ))}
+      {sleep && (
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-muted">Sleep</dt>
+          <dd className="num text-right font-medium">{sleep}</dd>
+        </div>
+      )}
+    </dl>
+  );
+
+  // The top of Today: the score and its week on the left, the numbers beside it.
+  if (variant === "wide") {
+    return (
+      <div className="grid grid-cols-1 gap-x-10 gap-y-4 md:grid-cols-[auto_1fr]">
+        <div className="space-y-4">
+          {head}
+          <WeekBars scores={glance.scores} height={28} />
+        </div>
+        <div className="space-y-3">
+          {list("space-y-1.5")}
+          {signals}
+          {more}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {head}

@@ -40,6 +40,9 @@ export interface MorningProps {
   /** One step under another, for a narrow column. */
   stacked?: boolean;
   title?: string;
+  /** Untitled (Today's top card) also drops "Ask the coach", which the top bar's Coach button covers. */
+  /** False leaves weighing in out of the card (Today, where it's a weekly nudge of its own). */
+  weighInStep?: boolean;
 }
 
 export interface TodayChoice {
@@ -63,7 +66,7 @@ type Skips = { recovery?: boolean; weigh?: boolean };
  * skipped, so it's written once from the full picture; how you feel rewrites it when it lands.
  * Riding never waits on any of it.
  */
-export default function Morning({ day, recovery, weighIn: weighed, profile, brief, today, lastNight, stacked = false, title = "Morning" }: MorningProps) {
+export default function Morning({ day, recovery, weighIn: weighed, profile, brief, today, lastNight, stacked = false, title = "Morning", weighInStep = true }: MorningProps) {
   const router = useRouter();
   // Bluetooth and remembered devices are only known in the browser.
   const units = useUnits();
@@ -101,7 +104,7 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
   const recoveryReady = !tracking.recovery || recoveryDone || skips.recovery || !fromHealth;
   const weighDone = Boolean(weighed) || weigh.phase === "saved";
   // Weighing in is a step once a scale is paired (in Settings or on Health), or when today's weight is already in.
-  const showWeigh = tracking.weight && (weighDone || Boolean(device?.scale));
+  const showWeigh = weighInStep && tracking.weight && (weighDone || Boolean(device?.scale));
   const weighReady = !showWeigh || weighDone || skips.weigh || (device !== null && device.bluetooth && !profile);
   const waitingOn = [!recoveryReady && ("recovery" as const), !weighReady && ("weigh" as const)].filter((s) => s !== false);
   const pending = waitingOn.map((s) => (s === "weigh" ? "weigh-in" : s)).join(" and ");
@@ -156,7 +159,7 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
     <Panel
       title={title}
       meta={
-        brief !== null ? (
+        brief !== null && title ? (
           <button type="button" onClick={() => openCoach()} className="hover:text-ink">
             Ask the coach
           </button>
