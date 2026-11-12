@@ -28,7 +28,7 @@ import { planAhead, recordCheckin, recordChoice } from "@/lib/coach/conversation
 import { changeableDay } from "@/lib/coach/changes";
 import { localDate } from "@/lib/engine/activity";
 import { editedSession } from "@/lib/engine/overrides";
-import { favoriteLibraryIds, libraryWorkout, librarySession } from "@/lib/engine/workout-library";
+import { libraryWorkout, librarySession } from "@/lib/engine/workout-library";
 import { readWorkout } from "@/lib/engine/workout-edit";
 import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
 import { loadTrainingState, saveKeptWeek, type CheckinRecord, type TrainingState } from "@/lib/training";
@@ -217,7 +217,7 @@ export async function previewPlan(_: PlanPreview | null, form: FormData): Promis
       fatigue: state.fatigue,
       levels: state.levels,
       rampRate: state.athlete.rampRate,
-      favorites: favoriteLibraryIds(state.favorites),
+      favorites: state.favoriteWorkouts,
     });
     const end = plan.target ? plan.forecast.find((d) => d.date === plan.target!.date) : plan.forecast.find((d) => d.date === frame.end);
     return {

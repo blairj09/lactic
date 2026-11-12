@@ -7,7 +7,7 @@ import { addDays, fitnessSeries, type FitnessDay } from "./pmc";
 import { pickTemplate, WORK_TOTAL, type Focus } from "./templates";
 import type { Pack } from "./course/pacing";
 import { courseShape, type CourseDemands } from "./course/shape";
-import { libraryFits, librarySession } from "./workout-library";
+import { libraryFits, librarySession, type LibraryWorkout } from "./workout-library";
 
 export const GOAL_KINDS = ["roadRace", "criterium", "cyclocross", "mountainBike", "track", "timeTrial", "gravel", "granFondo", "hillClimb"] as const;
 export type GoalKind = (typeof GOAL_KINDS)[number];
@@ -165,7 +165,7 @@ export function phaseFocus(phase: Phase, target: Goal | null): Focus[] {
 /** How a week picks its key workouts: the structures its phase favors, and the rider's favorite library workouts. */
 interface Picking {
   focus: Focus[];
-  favorites: readonly string[];
+  favorites: readonly (string | LibraryWorkout)[];
   /** One key day rides intervals as long as the target event's main climb (course/shape.ts). */
   climb?: { zone: Zone; seconds: number; note: string } | null;
 }
@@ -357,8 +357,8 @@ export interface PlanInput {
   frame?: PlanFrame | null;
   /** Scheduled time away. */
   breaks?: Break[];
-  /** Starter library workouts the rider favorited (ids): key days use one when it fits. */
-  favorites?: readonly string[];
+  /** Workouts the rider favorited (starter library ids, or workouts including My workouts): key days use one when it fits. */
+  favorites?: readonly (string | LibraryWorkout)[];
 }
 
 export interface Plan {

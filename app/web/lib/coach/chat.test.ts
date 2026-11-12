@@ -3,6 +3,7 @@ import { resolveChange } from "./changes";
 import { coachChat, morningBrief, planWeek, summarize } from "./chat";
 import type { ChatMessage } from "./openrouter";
 import { data, plan, state } from "./fixture";
+import { libraryFits, WORKOUT_LIBRARY } from "../engine/workout-library";
 import { runTool } from "./tools";
 
 const call = (name: string, args: unknown, id = name): ChatMessage => ({
@@ -233,6 +234,28 @@ describe("workout structures in the chat", () => {
   });
 });
 
+describe("fixed workouts and favorites in the chat", () => {
+  const customs = [{ id: "c1", workout: { name: "My threshold 2 x 20", segments: [{ kind: "steady" as const, duration: 600, target: 0.6 }, { kind: "steady" as const, duration: 1200, target: 1 }, { kind: "steady" as const, duration: 300, target: 0.5 }, { kind: "steady" as const, duration: 1200, target: 1 }, { kind: "steady" as const, duration: 300, target: 0.5 }] }, updatedAt: "2026-10-01T00:00:00Z" }];
+  const withFavorites = { ...data, state: { ...data.state, favorites: ["custom:c1", "library:threshold-2x20"], customWorkouts: customs } };
+
+  it("lists starter and my workouts with favorites first", () => {
+    const list = JSON.parse(runTool(withFavorites, "get_workouts", { zone: "threshold" }).content);
+    expect(list.workouts.length).toBeGreaterThan(0);
+    expect(list.fixed.slice(0, 2).map((w: { id: string }) => w.id).sort()).toEqual(["custom:c1", "library:threshold-2x20"]);
+    expect(list.fixed[0].favorite).toBe(true);
+    expect(list.fixed.find((w: { id: string }) => w.id === "custom:c1")).toMatchObject({ mine: true, zone: "Threshold" });
+    expect(list.fixed.every((w: { zone: string }) => w.zone === "Threshold")).toBe(true);
+  });
+
+  it("proposes a fixed workout as it is", () => {
+    const day = withFavorites.state.plan.weeks.flatMap((w) => w.days).find((d) => d.date > data.state.today && d.role === "key")!;
+    const result = runTool(withFavorites, "propose_workout", { date: day.date, workout_id: "custom:c1", reason: "One you liked" });
+    expect(result.proposal?.change).toEqual({ kind: "fixed", date: day.date, workout: "custom:c1" });
+    expect(result.proposal?.summary).toContain("My threshold 2 x 20");
+    expect(runTool(withFavorites, "propose_workout", { date: day.date, workout_id: "library:nope", reason: "x" }).content).toMatch(/Error/);
+  });
+});
+
 describe("weekly workout picks", () => {
   const keyDays = () => data.state.basePlan.weeks.flatMap((w) => w.days).filter((d) => d.date >= data.state.today && d.role === "key");
 
@@ -252,6 +275,17 @@ describe("weekly workout picks", () => {
     expect(reply.picks).toEqual([{ date: day.date, template: right, tweaks: undefined, reason: "Race-like surges for the cross season." }]);
     expect(reply.message).toContain("Surges");
     expect(seen[0][1].content).toContain(day.date);
+  });
+
+  it("picks a fixed workout that fits a key day, and explains one that doesn't", async () => {
+    const day = keyDays().find((d) => libraryFits(d.session!.zone, d.session!.level, d.session!.duration).length)!;
+    const fit = libraryFits(day.session!.zone, day.session!.level, day.session!.duration)[0];
+    const misfit = WORKOUT_LIBRARY.find((w) => w.zone !== day.session!.zone && w.category !== "tests")!;
+    const replies = [call("pick_workout", { date: day.date, workout_id: `library:${misfit.id}`, reason: "x" }), call("pick_workout", { date: day.date, workout_id: `library:${fit.id}`, reason: "One you liked." }), say("Done.")];
+    const seen: ChatMessage[][] = [];
+    const reply = await planWeek(async (messages) => (seen.push([...messages]), replies.shift()!), data, [day]);
+    expect(seen[1].at(-1)!.content).toMatch(/^Error: .*doesn't fit/);
+    expect(reply.picks).toEqual([{ date: day.date, template: `library:${fit.id}`, reason: "One you liked." }]);
   });
 
   it("only offers reading tools and pick_workout", async () => {
