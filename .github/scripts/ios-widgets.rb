@@ -81,7 +81,7 @@ targets["LacticWidgets"] = target.call("LacticWidgets",
     "TARGETED_DEVICE_FAMILY" => "1,2",
     "LD_RUNPATH_SEARCH_PATHS" => "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks",
   },
-  dependencies: [{ "sdk" => "WidgetKit.framework" }, { "sdk" => "SwiftUI.framework" }])
+  dependencies: [{ "sdk" => "WidgetKit.framework" }, { "sdk" => "SwiftUI.framework" }, { "sdk" => "AppIntents.framework" }])
 
 targets["LacticWatchWidgets"] = target.call("LacticWatchWidgets",
   type: "app-extension", platform: "watchOS", os: "10.0", id: "#{bundle_id}.watchkitapp.widget", info: widget,

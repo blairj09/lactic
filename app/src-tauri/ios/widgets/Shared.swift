@@ -79,6 +79,15 @@ struct Snapshot: Decodable {
   var recoveryTracked: Bool? = nil
   var tomorrow: Today? = nil
   var week: Week? = nil
+  /// The Fields widget's numbers, worded by the app; the rider picks which to show.
+  var fields: [Field]? = nil
+
+  struct Field: Decodable {
+    let key: String
+    let label: String
+    let value: String
+    let unit: String
+  }
 
   var score: Int? { recovery?.score.map { Int($0.rounded()) } }
   /// False only when the rider said they don't track sleep; then the widgets lead with the ride.
@@ -103,7 +112,21 @@ struct Snapshot: Decodable {
         Week.Day(label: d.0, state: d.1, today: i == 4)
       },
       rides: Week.Count(done: 3, planned: 5),
-      time: Week.Time(done: "3h 05m", planned: "6h 10m", share: 0.5)))
+      time: Week.Time(done: "3h 05m", planned: "6h 10m", share: 0.5)),
+    fields: [
+      Field(key: "recovery", label: "Recovery", value: "64", unit: ""),
+      Field(key: "hrv", label: "HRV", value: "58", unit: "ms"),
+      Field(key: "restingHr", label: "Resting HR", value: "49", unit: "bpm"),
+      Field(key: "sleep", label: "Sleep", value: "7h 32m", unit: ""),
+      Field(key: "form", label: "Form", value: "−8", unit: ""),
+      Field(key: "fitness", label: "Fitness", value: "58", unit: ""),
+      Field(key: "fatigue", label: "Fatigue", value: "66", unit: ""),
+      Field(key: "ftp", label: "FTP", value: "250", unit: "W"),
+      Field(key: "today", label: "Today", value: "Threshold 4 x 8", unit: ""),
+      Field(key: "week", label: "This week", value: "3h 05m", unit: "of 6h 10m"),
+      Field(key: "rides", label: "Rides", value: "3 of 5", unit: ""),
+      Field(key: "weight", label: "Weight", value: "71.4", unit: "kg"),
+    ])
 }
 
 enum Store {

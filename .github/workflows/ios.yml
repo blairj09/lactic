@@ -85,7 +85,7 @@ jobs:
         # The iPhone widgets and the Watch app with its widgets (targets the TestFlight job adds to the project).
         run: |
           ios=$(xcrun --sdk iphonesimulator --show-sdk-path)
-          swiftc -typecheck -parse-as-library -sdk "$ios" -target arm64-apple-ios17.0-simulator src-tauri/ios/widgets/Shared.swift src-tauri/ios/widgets/iPhone.swift
+          swiftc -typecheck -parse-as-library -sdk "$ios" -target arm64-apple-ios17.0-simulator src-tauri/ios/widgets/Shared.swift src-tauri/ios/widgets/iPhone.swift src-tauri/ios/widgets/Fields.swift
           watch=$(xcrun --sdk watchsimulator --show-sdk-path)
           swiftc -typecheck -parse-as-library -sdk "$watch" -target arm64-apple-watchos10.0-simulator src-tauri/ios/widgets/Shared.swift src-tauri/ios/watch/App.swift
           swiftc -typecheck -parse-as-library -sdk "$watch" -target arm64-apple-watchos10.0-simulator src-tauri/ios/widgets/Shared.swift src-tauri/ios/watch/Widgets.swift

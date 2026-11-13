@@ -35,7 +35,7 @@ spec=$(cd "$project" && pwd)/project.yml
 test -f "$spec" || { echo "::error::No project.yml in the generated project"; exit 1; }
 gen=$(dirname "$spec")
 for t in LacticWidgets LacticWatch LacticWatchWidgets; do rm -rf "${gen:?}/$t" && mkdir -p "$gen/$t" && cp src-tauri/ios/widgets/Shared.swift "$gen/$t/"; done
-cp src-tauri/ios/widgets/iPhone.swift "$gen/LacticWidgets/"
+cp src-tauri/ios/widgets/iPhone.swift src-tauri/ios/widgets/Fields.swift "$gen/LacticWidgets/"
 cp src-tauri/ios/watch/App.swift "$gen/LacticWatch/"
 cp src-tauri/ios/watch/Widgets.swift "$gen/LacticWatchWidgets/"
 # The Watch app's icon: Lactic's, one 1024 px image that watchOS sizes itself.
