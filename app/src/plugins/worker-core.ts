@@ -19,7 +19,7 @@ export function handleMessage(state: WorkerState, module: QuickJSWASMModule, msg
         post({ type: "result", seq: msg.seq, ok: false, failure: { kind: "not-loaded", message: "plugin is not loaded" }, ms: 0, restarted: false });
         return;
       }
-      post({ type: "result", seq: msg.seq, ...state.runtime.call(msg.entry, msg.input) });
+      post({ type: "result", seq: msg.seq, ...state.runtime.call(msg.entry, msg.input, msg.budget) });
     }
   } catch {
     // The engine itself broke (not just the plugin). Nothing in this worker can be trusted now: say so,

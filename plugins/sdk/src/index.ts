@@ -21,10 +21,14 @@ export type KitNode =
   /** A 0 to 1 bar. */
   | { type: "meter"; value: number; label?: string; tone?: Tone }
   | { type: "stack"; direction?: "row" | "column"; gap?: "sm" | "md"; children: KitNode[] }
+  /** A small table of text cells, e.g. one row per interval. Up to 8 columns and 200 rows, 60 characters a cell. */
+  | { type: "table"; columns: string[]; rows: string[][]; align?: ("left" | "right")[] }
+  /** A line over a ride against time (s) or distance (km), up to 2000 points, with up to 40 marked stretches. */
+  | { type: "profile"; x: number[]; y: (number | null)[]; xUnit?: "s" | "km"; yUnit?: string; tone?: Tone; marks?: { from: number; to: number; label?: string; tone?: Tone }[] }
   | { type: "button"; label: string; action: KitAction };
 
 /** Limits Lactic enforces on a tree; anything over them is refused for that call. */
-export const KIT_LIMITS = { nodes: 200, depth: 6, text: 280, points: 400 } as const;
+export const KIT_LIMITS = { nodes: 200, depth: 6, text: 280, points: 400, profilePoints: 2000, marks: 40, columns: 8, rows: 200, cell: 60 } as const;
 
 // ---- Metrics ----
 
@@ -67,11 +71,31 @@ export type LacticMetricId = (typeof METRICS)[keyof typeof METRICS][number];
 
 // ---- Handlers ----
 
+/** One saved ride, for ride analyses. Streams are sampled every `stepSeconds`; null where there was no reading. */
+export interface RideInput {
+  /** Seconds since the Unix epoch. */
+  startedAt: number;
+  durationSeconds: number;
+  distanceMeters: number | null;
+  stepSeconds: number;
+  watts: (number | null)[] | null;
+  heartRate: (number | null)[] | null;
+  cadence: (number | null)[] | null;
+  /** The workout's target watts per sample; null on a free ride. */
+  target: (number | null)[] | null;
+  /** The workout's intervals as ridden (empty on a free ride). */
+  intervals: { index: number; kind: "steady" | "ramp" | "freeRide"; planned: number; ridden: number; target: number | null; power: number | null; heartRate: number | null; cadence: number | null }[];
+  /** GPS track, only if the rider ticked "where you ride": latitude, longitude, ride second. */
+  route: { lat: number[]; lng: number[]; t: (number | null)[] } | null;
+}
+
 export interface HandlerInput {
   /** Only metrics from groups the rider approved. null when there's no value (no power meter, no ride). */
   metrics: Partial<Record<LacticMetricId, number | null>> & Record<string, number | null>;
   /** Seconds since the Unix epoch. Plugins have no clock of their own. */
   now: number;
+  /** Only for ride analyses: the saved ride. */
+  ride?: RideInput;
 }
 
 export interface HandlerOutput {
@@ -80,7 +104,10 @@ export interface HandlerOutput {
   metrics?: Record<string, number | string | null>;
 }
 
-/** A handler runs once per tick (about once a second on the ride screen), synchronously, within 20 ms. */
+/**
+ * Widgets and fields run once per tick (about once a second on the ride screen), synchronously,
+ * within 20 ms. Ride analyses run once on a saved ride, within 2 s, and may return up to 128 KB.
+ */
 export type Handler = (input: HandlerInput) => HandlerOutput | null | undefined;
 
 declare global {
@@ -123,5 +150,6 @@ export interface PluginManifest {
   main: string;
   permissions: { read: MetricGroup[] };
   publishes?: PublishedMetric[];
-  contributes: { widgets?: Contribution[]; fields?: Contribution[] };
+  /** `analyses` need "rides" in permissions.read. */
+  contributes: { widgets?: Contribution[]; fields?: Contribution[]; analyses?: Contribution[] };
 }

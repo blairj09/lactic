@@ -37,7 +37,8 @@ export interface PluginManifest {
   main: string;
   permissions: { read: MetricGroup[] };
   publishes: PublishedMetric[];
-  contributes: { widgets: Contribution[]; fields: Contribution[] };
+  /** `analyses` run once on a saved ride (never during one) and draw on its ride page. Present only when non-empty, so older manifests hash the same. */
+  contributes: { widgets: Contribution[]; fields: Contribution[]; analyses?: Contribution[] };
 }
 
 export type ManifestResult = { ok: true; manifest: PluginManifest } | { ok: false; errors: string[] };
@@ -190,10 +191,10 @@ export function validateManifest(raw: unknown): ManifestResult {
     } else c.fail(`${p}.kind`, 'must be "number" or "choice"');
   });
 
-  const contributions = (key: "widgets" | "fields", v: unknown): Contribution[] => {
+  const contributions = (key: "widgets" | "fields" | "analyses", v: unknown): Contribution[] => {
     const out: Contribution[] = [];
     const ids = new Set<string>();
-    c.arr(v ?? [], `manifest.contributes.${key}`, key === "widgets" ? 16 : 32).forEach((w, i) => {
+    c.arr(v ?? [], `manifest.contributes.${key}`, key === "widgets" ? 16 : key === "analyses" ? 8 : 32).forEach((w, i) => {
       const p = `manifest.contributes.${key}[${i}]`;
       const o = c.obj(w, p, ["id", "title", "entry"], ["id", "title", "entry"]);
       if (!o) return;
@@ -208,11 +209,15 @@ export function validateManifest(raw: unknown): ManifestResult {
   };
   let widgets: Contribution[] = [];
   let fields: Contribution[] = [];
-  const contributes = c.obj(top.contributes, "manifest.contributes", ["widgets", "fields"], []);
+  let analyses: Contribution[] = [];
+  const contributes = c.obj(top.contributes, "manifest.contributes", ["widgets", "fields", "analyses"], []);
   if (contributes) {
     widgets = contributions("widgets", contributes.widgets);
     fields = contributions("fields", contributes.fields);
-    if (widgets.length + fields.length === 0 && c.errors.length === 0) c.fail("manifest.contributes", "must add at least one widget or field");
+    analyses = contributions("analyses", contributes.analyses);
+    if (widgets.length + fields.length + analyses.length === 0 && c.errors.length === 0) c.fail("manifest.contributes", "must add at least one widget, field or ride analysis");
+    // A ride analysis reads a whole saved ride, so it has to ask for rides.
+    if (analyses.length && !read.includes("rides")) c.fail("manifest.contributes.analyses", 'needs "rides" in permissions.read');
   }
 
   if (c.errors.length || !id || !name || !version || !description || !main) return { ok: false, errors: c.errors.length ? c.errors : ["manifest: invalid"] };
@@ -229,7 +234,7 @@ export function validateManifest(raw: unknown): ManifestResult {
       main,
       permissions: { read },
       publishes,
-      contributes: { widgets, fields },
+      contributes: analyses.length ? { widgets, fields, analyses } : { widgets, fields },
     },
   };
 }
@@ -250,5 +255,5 @@ export function parseManifestText(text: string): ManifestResult {
 
 /** Every handler name the manifest points at; the sandbox refuses calls to anything else. */
 export function manifestEntries(m: PluginManifest): string[] {
-  return [...new Set([...m.contributes.widgets, ...m.contributes.fields].map((c) => c.entry))];
+  return [...new Set([...m.contributes.widgets, ...m.contributes.fields, ...(m.contributes.analyses ?? [])].map((c) => c.entry))];
 }

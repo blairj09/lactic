@@ -24,6 +24,10 @@ export type KitNode =
   /** A 0 to 1 bar, e.g. how much of the week is done. */
   | { type: "meter"; value: number; label?: string; tone?: Tone }
   | { type: "stack"; direction?: "row" | "column"; gap?: "sm" | "md"; children: KitNode[] }
+  /** A small table of text cells, e.g. one row per climb or interval. Counts as one node. */
+  | { type: "table"; columns: string[]; rows: string[][]; align?: ("left" | "right")[] }
+  /** A line over a ride (power, heart rate, a plugin's own series) against time or distance, with marked stretches. */
+  | { type: "profile"; x: number[]; y: (number | null)[]; xUnit?: "s" | "km"; yUnit?: string; tone?: Tone; marks?: { from: number; to: number; label?: string; tone?: Tone }[] }
   | { type: "button"; label: string; action: KitAction };
 
 export type KitNodeType = KitNode["type"];
@@ -37,6 +41,14 @@ export const KIT_LIMITS = {
   text: 280,
   /** Points in a sparkline or bars. */
   points: 400,
+  /** Points in a profile. */
+  profilePoints: 2000,
+  /** Marked stretches on a profile. */
+  marks: 40,
+  /** Table columns and rows, and characters in one cell. */
+  columns: 8,
+  rows: 200,
+  cell: 60,
 } as const;
 
 const TONES: readonly Tone[] = ["default", "good", "warn", "bad", "muted"];
@@ -60,14 +72,19 @@ export function validateKit(input: unknown, { fromPlugin = true }: { fromPlugin?
     if (v.length > KIT_LIMITS.text) return fail(`${name} is longer than ${KIT_LIMITS.text} characters`);
     return v;
   };
+  const cell = (v: unknown, name: string): string => {
+    if (typeof v !== "string") return fail(`table ${name}s must be text`);
+    if (v.length > KIT_LIMITS.cell) return fail(`a table ${name} is longer than ${KIT_LIMITS.cell} characters`);
+    return v;
+  };
   const tone = (v: unknown): Tone | undefined => {
     if (v === undefined) return undefined;
     if (!TONES.includes(v as Tone)) return fail(`unknown tone ${String(v)}`);
     return v as Tone;
   };
-  const series = (v: unknown, name: string): (number | null)[] => {
+  const series = (v: unknown, name: string, max: number = KIT_LIMITS.points): (number | null)[] => {
     if (!Array.isArray(v)) return fail(`${name} must be a list`);
-    if (v.length > KIT_LIMITS.points) return fail(`${name} has more than ${KIT_LIMITS.points} points`);
+    if (v.length > max) return fail(`${name} has more than ${max} points`);
     return v.map((x) => (x === null ? null : typeof x === "number" && Number.isFinite(x) ? x : fail(`${name} must hold numbers`)));
   };
   const pick = <T extends string>(v: unknown, options: readonly T[], name: string): T | undefined => {
@@ -102,6 +119,30 @@ export function validateKit(input: unknown, { fromPlugin = true }: { fromPlugin?
       case "stack": {
         if (!Array.isArray(o.children)) return fail("stack children must be a list");
         return strip({ type: "stack", direction: pick(o.direction, ["row", "column"] as const, "direction"), gap: pick(o.gap, ["sm", "md"] as const, "gap"), children: o.children.map((c) => walk(c, depth + 1)) });
+      }
+      case "table": {
+        if (!Array.isArray(o.columns) || o.columns.length === 0 || o.columns.length > KIT_LIMITS.columns) return fail(`table needs 1 to ${KIT_LIMITS.columns} columns`);
+        const columns = o.columns.map((c) => cell(c, "column"));
+        if (!Array.isArray(o.rows) || o.rows.length > KIT_LIMITS.rows) return fail(`table can have at most ${KIT_LIMITS.rows} rows`);
+        const rows = o.rows.map((r) => (Array.isArray(r) && r.length === columns.length ? r.map((c) => cell(c, "cell")) : fail("each table row needs one cell per column")));
+        const align = o.align === undefined ? undefined : Array.isArray(o.align) && o.align.length === columns.length ? o.align.map((a) => pick(a, ["left", "right"] as const, "align")!) : fail("align needs one entry per column");
+        return strip({ type: "table", columns, rows, align });
+      }
+      case "profile": {
+        const x = series(o.x, "x", KIT_LIMITS.profilePoints);
+        const y = series(o.y, "y", KIT_LIMITS.profilePoints);
+        if (x.length !== y.length || x.some((v) => v === null)) return fail("profile needs one x number per y value");
+        const marks =
+          o.marks === undefined
+            ? undefined
+            : Array.isArray(o.marks) && o.marks.length <= KIT_LIMITS.marks
+              ? o.marks.map((m) => {
+                  const mm = (m ?? {}) as Record<string, unknown>;
+                  if (typeof mm.from !== "number" || typeof mm.to !== "number" || !Number.isFinite(mm.from) || !Number.isFinite(mm.to)) return fail("profile marks need from and to numbers");
+                  return strip({ from: mm.from, to: mm.to, label: str(mm.label, "mark label", true), tone: tone(mm.tone) });
+                })
+              : fail(`profile can have at most ${KIT_LIMITS.marks} marks`);
+        return strip({ type: "profile", x: x as number[], y, xUnit: pick(o.xUnit, ["s", "km"] as const, "x unit"), yUnit: str(o.yUnit, "y unit", true), tone: tone(o.tone), marks });
       }
       case "button": {
         const a = o.action as Record<string, unknown> | undefined;
