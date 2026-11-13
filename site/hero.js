@@ -8,10 +8,10 @@
 //   and touch scroll the page. A click puts it back in use.
 (function () {
   var STEPS = [
-    { title: "Today", hash: "#/", target: '[data-tour="today"]', body: "Where each day starts: recovery, weigh-in, how you feel, and the session that fits. After a ride it shows how you did against the plan." },
+    { title: "Today", hash: "#/", target: '[data-tour="today"]', body: "Where each day starts: today's workout and Start ride up top, with this morning's recovery beside it. After a ride it shows how you did against the plan." },
     { title: "Plan", hash: "#/plan", target: '[data-tour="plan"]', body: "Your weeks laid out, recovery weeks built in, and where your fitness lands at the end. Click a day to change it, or drag it to another." },
-    { title: "Progress", hash: "#/progress", target: '[data-tour="progress"]', body: "Fitness, fatigue and form, your power curve and every ride. Every number comes from an open engine." },
-    { title: "Health", hash: "#/health", target: '[data-tour="health"]', body: "Recovery, sleep, HRV, resting heart rate and weight, from your watch or ring. Click any of them for its history." },
+    { title: "Progress", hash: "#/progress", target: '[data-tour="progress"]', body: "Trends for fitness, fatigue, form and your power curve. Rides for every ride on a calendar or a list. Every number comes from an open engine." },
+    { title: "Health", hash: "#/health", target: '[data-tour="health"]', body: "Last night up top: recovery, sleep, HRV and resting heart rate against your usual range. Then weight and more. Click any of them for its history." },
     { title: "Coach", hash: "#/", coach: true, target: "aside:not([inert])", body: "Ask why today is hard, or to move Saturday's ride. It reads your numbers and suggests changes for you to apply. Or ride without one." },
     { title: "Ride", hash: "#/ride", target: ['[data-tour="ride-player"]', '[data-tour="ride"]'], corner: true, body: "Lactic sets the watts on your smart trainer, interval by interval. This demo has a simulated trainer, so you can ride it right here." },
   ];

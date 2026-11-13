@@ -6,7 +6,7 @@
 import { addDays } from "../engine/pmc";
 import { BREAK_KIND_LABELS, BREAK_KINDS, BREAK_RIDING, BREAK_RIDING_LABELS, buildPlan, describeDay, type Availability, type Break, type Plan, type PlanDay } from "../engine/plan";
 import { dayOptions, type DayOptionId } from "../engine/overrides";
-import { favoriteLibraryIds } from "../engine/workout-library";
+import { librarySession, workoutByKey } from "../engine/workout-library";
 import { buildSession, MAX_LEVEL, MIN_LEVEL, type Session } from "../engine/library";
 import { checkTweaks, templateById, type Params } from "../engine/templates";
 import type { TrainingState } from "../training";
@@ -19,6 +19,8 @@ export type PlanChange =
   | { kind: "day"; date: string; option: DayOptionId; minutes?: number }
   /** A specific workout structure on a day, at a level and with any targets set directly (FTP fractions, seconds, counts). */
   | { kind: "workout"; date: string; template: string; level?: number; minutes?: number; tweaks?: Params }
+  /** A fixed workout on a day, as it is: one from the starter library (`library:<id>`) or My workouts (`custom:<id>`). */
+  | { kind: "fixed"; date: string; workout: string }
   | { kind: "swap"; date: string; otherDate: string }
   | { kind: "reset"; date: string }
   | { kind: "availability"; availability?: Availability; rampRate?: number }
@@ -42,7 +44,7 @@ export type ChangeEffect =
   | { kind: "break"; break: Omit<Break, "id">; summary: string }
   | { kind: "app"; setting: AppSetting; summary: string };
 
-type State = Pick<TrainingState, "today" | "plan" | "basePlan" | "levels" | "goals" | "athlete" | "fitness" | "fatigue" | "rides" | "activePlan" | "breaks"> & Partial<Pick<TrainingState, "favorites">>;
+type State = Pick<TrainingState, "today" | "plan" | "basePlan" | "levels" | "goals" | "athlete" | "fitness" | "fatigue" | "rides" | "activePlan" | "breaks"> & Partial<Pick<TrainingState, "favoriteWorkouts" | "customWorkouts">>;
 
 /** Works out a change against the current plan, or throws with a reason the coach can act on. */
 export function resolveChange(state: State, change: PlanChange): ChangeEffect {
@@ -64,6 +66,13 @@ export function resolveChange(state: State, change: PlanChange): ChangeEffect {
       const tweaks = checkTweaks(template, change.tweaks ?? {});
       const session = buildSession(template.zone, level, minutes * 60, { template: template.id, tweaks });
       if (session.template !== template.id) throw new Error(`${template.name} doesn't fit in ${minutes} minutes with those targets; give it more minutes or shorter efforts`);
+      return { kind: "days", days: [{ date: day.date, session }], summary: `${label(day.date)}: ${describe(day.session)} → ${describe(session)}` };
+    }
+    case "fixed": {
+      const day = changeableDay(state, change.date);
+      const entry = workoutByKey(change.workout, state.customWorkouts ?? []);
+      if (!entry) throw new Error(`There's no workout "${change.workout}"; get ids from get_workouts`);
+      const session = librarySession(entry);
       return { kind: "days", days: [{ date: day.date, session }], summary: `${label(day.date)}: ${describe(day.session)} → ${describe(session)}` };
     }
     case "swap": {
@@ -141,7 +150,7 @@ function describeBreak(state: State, b: Omit<Break, "id">): string {
     fatigue: state.fatigue,
     levels: state.levels,
     rampRate: state.athlete.rampRate,
-    favorites: favoriteLibraryIds(state.favorites ?? []),
+    favorites: state.favoriteWorkouts ?? [],
   });
   const peak = (plan: Plan) => {
     const day = plan.target ? plan.forecast.find((d) => d.date === plan.target!.date) : plan.forecast[plan.forecast.length - 1];
@@ -175,7 +184,7 @@ function describeSettingsChange(state: State, availability: Availability, rampRa
     fatigue: state.fatigue,
     levels: state.levels,
     rampRate,
-    favorites: favoriteLibraryIds(state.favorites ?? []),
+    favorites: state.favoriteWorkouts ?? [],
   });
   const hours = (a: Availability) => (a.reduce((x, y) => x + y, 0) / 60).toFixed(1);
   const load = (plan: Plan) => Math.round(average(plan.weeks.slice(0, 4).map((w) => w.stress)));

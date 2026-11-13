@@ -7,7 +7,7 @@ import { localDate } from "@/lib/engine/activity";
 import { ZONE_LABELS } from "@/lib/engine/library";
 import { addDays } from "@/lib/engine/pmc";
 import { signed } from "@/lib/format";
-import { BREAK_KIND_LABELS, BREAK_RIDING_LABELS, PHASE_LABELS, PLAN_GOAL_LABELS, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES, weekStart, type Break, type PlanDay, type PlanWeek } from "@/lib/engine/plan";
+import { BREAK_KIND_LABELS, BREAK_RIDING_LABELS, PHASE_LABELS, PLAN_GOAL_LABELS, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES, weekStart, DEFAULT_RAMP_RATE, type Break, type PlanDay, type PlanWeek } from "@/lib/engine/plan";
 import { createClient } from "@/lib/supabase/server";
 import { complianceDays, loadTrainingState, plannedOn, ridesFor, type TrainingState } from "@/lib/training";
 import { DAY_MARK_LABELS, markDays, weekProgress, type DayMark, type DayResult } from "@/lib/engine/compliance";
@@ -18,7 +18,9 @@ import OutdoorToggle from "@/components/outdoor-toggle";
 import { driftOffer } from "@/lib/engine/stability";
 import { AvailabilityForm, ReplanChip, BreakForm, DeleteBreakButton, EndPlanButton, GoalForm, GoalList, PickWorkoutsButton, PlanForm } from "./forms";
 import PhaseStrip from "./phase-strip";
-import EditableDay from "./day-editor";
+import EditableDay, { type WorkoutChoices } from "./day-editor";
+import { customKey, customLibraryWorkout, keyOf, type LibraryWorkout } from "@/lib/engine/workout-library";
+import { formatTime } from "../ride/player";
 import EditableEvent from "./event-editor";
 import { CHANGE_WINDOW_DAYS } from "@/lib/coach/changes";
 
@@ -50,7 +52,8 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const loadWeeks = plan.weeks.filter((w) => !w.recoveryWeek && (w.phase === "base" || w.phase === "build"));
   const average = (values: number[]) => values.reduce((a, b) => a + b, 0) / Math.max(values.length, 1);
   const shortfall = { planned: average(loadWeeks.map((w) => w.stress)), target: average(loadWeeks.map((w) => w.target)) };
-  const timeLimited = loadWeeks.length && shortfall.planned < 0.85 * shortfall.target ? shortfall : null;
+  // Only for riders who picked a faster build than the default: on the default it's noise they never asked about.
+  const timeLimited = loadWeeks.length && athlete.rampRate > DEFAULT_RAMP_RATE && shortfall.planned < 0.85 * shortfall.target ? shortfall : null;
   const raceDay = plan.target ? plan.forecast.find((d) => d.date === plan.target!.date) : null;
   const planEnd = activePlan && !plan.target ? plan.forecast.find((d) => d.date === activePlan.end) : null;
   const planWeeks = activePlan ? Math.floor(daysBetween(weekStart(activePlan.start), weekStart(plan.target?.date ?? activePlan.end)) / 7) + 1 : 0;
@@ -59,6 +62,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const otherPlans = state.plans.filter((p) => p.id !== activePlan?.id && p.end >= today);
   const breaks = state.breaks.filter((b) => b.end >= today);
   const moveTargets = editableDays(state);
+  const choices = workoutChoices(state);
 
   return (
     <>
@@ -117,8 +121,8 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
 
       {timeLimited && (
         <Notice>
-          Your time limits harder weeks to about {Math.round(timeLimited.planned)} TSS, short of the {Math.round(timeLimited.target)} your ramp rate
-          calls for. Add time or choose a gentler ramp.
+          Your hours cap how hard the build weeks can get, so fitness will climb slower than the pace you picked. Add time, or pick a gentler
+          pace under Setup.
         </Notice>
       )}
 
@@ -149,7 +153,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
 
       <section className="space-y-4">
         {plan.weeks.slice(0, DETAIL_WEEKS).map((week) => (
-          <WeekView key={week.start} week={week} state={state} moveTargets={moveTargets} />
+          <WeekView key={week.start} week={week} state={state} moveTargets={moveTargets} choices={choices} />
         ))}
         {plan.weeks.length > DETAIL_WEEKS && (
           <details className="rounded-lg border border-line bg-surface">
@@ -278,7 +282,19 @@ function editableDays(state: TrainingState) {
     .map((d) => ({ date: d.date, label: formatDate(d.date, true) }));
 }
 
-function WeekView({ week, state, moveTargets }: { week: PlanWeek; state: TrainingState; moveTargets: { date: string; label: string }[] }) {
+/** The day popup's own menu groups: your favorites (starter and yours), then My workouts. */
+function workoutChoices(state: TrainingState): WorkoutChoices {
+  const label = (w: LibraryWorkout) => `${w.workout.name} (${ZONE_LABELS[w.zone]}, ${formatTime(w.duration)})`;
+  return {
+    favorites: state.favoriteWorkouts.map((w) => ({ key: keyOf(w), label: label(w), workout: w.workout })),
+    mine: state.customWorkouts.map((c) => {
+      const w = customLibraryWorkout(c.id, c.workout);
+      return { key: customKey(c.id), label: w ? label(w) : c.workout.name, workout: c.workout };
+    }),
+  };
+}
+
+function WeekView({ week, state, moveTargets, choices }: { week: PlanWeek; state: TrainingState; moveTargets: { date: string; label: string }[]; choices: WorkoutChoices }) {
   const tz = state.athlete.timezone;
   const started = week.start <= state.today;
   // A day either side, so a session moved across the week's edge still matches.
@@ -340,6 +356,7 @@ function WeekView({ week, state, moveTargets }: { week: PlanWeek; state: Trainin
                 outside: day.date <= addDays(state.today, WORKOUT_DAYS - 1) ? state.outdoor.some((o) => o.date === day.date) : null,
               }}
               ftp={state.athlete.ftp ?? 0}
+              choices={choices}
               moveTargets={moveTargets}
               className="group bg-surface"
             >

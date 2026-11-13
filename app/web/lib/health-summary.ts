@@ -91,7 +91,7 @@ export function healthSummary(input: {
     }
   }
   const upToToday = nights.filter((n) => n.day <= today);
-  const debt = upToToday.length ? sleepDebt(upToToday, athlete.sleepNeedHours) : null;
+  const debt = upToToday.length ? sleepDebt(upToToday, athlete.sleepNeedHours, 7, today) : null;
 
   return {
     exertion: { yesterday: find(yesterdayDay), today: find(today), normal, baselineDays: exertionBaselineDays(days, today), target: exertionTarget(input.recovery, normal), byDay },

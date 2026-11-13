@@ -11,6 +11,7 @@ import { hoursMinutes } from "@/components/chart-utils";
 import { clampRange, compareRange, inRange, presetRange, summarizeRange, type CompareMode, type DateRange } from "@/lib/engine/analysis";
 import type { AnalysisData } from "@/lib/analysis-data";
 import { PageHeader, Panel } from "@/components/ui";
+import { useFeatures } from "@/lib/use-features";
 
 const DATE = /^\d{4}-\d\d-\d\d$/;
 
@@ -23,6 +24,7 @@ export default function ProgressView({
   initial,
   fitness,
   levels,
+  review,
   tabs,
 }: {
   data: AnalysisData;
@@ -31,6 +33,8 @@ export default function ProgressView({
   fitness?: React.ReactNode;
   /** Progression levels, which are where you are now rather than over the range; shown beside the power profile. */
   levels?: React.ReactNode;
+  /** The coach's review of last week, once written; a fixed week, so above the range picker. */
+  review?: React.ReactNode;
   /** The Trends / Rides switch, under the header. */
   tabs?: React.ReactNode;
 }) {
@@ -59,6 +63,7 @@ export default function ProgressView({
     remember(range, c);
   };
 
+  const tracking = useFeatures();
   const current = summarizeRange(data.rides, range);
   const compared = compare ? summarizeRange(data.rides, compareRange(range, compare)) : null;
   const summaries = compared ? [current, compared] : [current];
@@ -71,16 +76,23 @@ export default function ProgressView({
         title="Progress"
         line={
           <>
-            Fitness and power over time. Drag across a chart to zoom in. Recovery and sleep are on{" "}
-            <Link href="/health" className="text-ink underline underline-offset-4">
-              Health
-            </Link>
-            .
+            Fitness and power over time. Drag across a chart to zoom in.
+            {tracking.recovery && (
+              <>
+                {" "}Recovery and sleep are on{" "}
+                <Link href="/health" className="text-ink underline underline-offset-4">
+                  Health
+                </Link>
+                .
+              </>
+            )}
           </>
         }
       />
 
       {tabs}
+
+      {review}
 
       <div className="sticky top-12 z-10 -mx-4 space-y-2 border-b border-line bg-ground px-4 py-3 sm:-mx-6 sm:px-6">
         <RangePicker range={range} onChange={setRange} today={today} earliest={earliest} compare={compare} onCompareChange={setCompare} />
@@ -88,7 +100,7 @@ export default function ProgressView({
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {summaries.map((s, i) => (
-          <Stat key={i} label={`${labels[i]} · ${formatRange(s.range)}`} value={`${s.rides} rides`} detail={hoursMinutes(s.seconds)} />
+          <Stat key={i} label={`${labels[i]} · ${formatRange(s.range)}`} value={`${s.rides} ${s.rides === 1 ? "ride" : "rides"}`} detail={hoursMinutes(s.seconds)} />
         ))}
       </section>
 

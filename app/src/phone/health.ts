@@ -9,10 +9,16 @@ import { createClient } from "~/db/supabase-client";
 import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { logEvent } from "~/support/log";
-import { ackPending, authorizeHealth, phoneStatus, readHealth, saveWeighIn, saveWorkout, takePending } from "./plugin";
+import { ackPending, authorizeHealth, phoneStatus, readHealth, removeDuplicateWorkouts, saveWeighIn, saveWorkout, takePending } from "./plugin";
 
 // Device-local settings ("phone." never syncs).
 const IMPORTED = "phone.health.imported";
+/**
+ * Set once 60 days were read again to put back full nights that earlier reads had cut short. The
+ * second key reads them once more: a computer still on an older version could cut nights short
+ * after the first re-read, and those rows synced back.
+ */
+const REREAD = "phone.health.reread.nights2";
 export const WRITE_RIDES = "phone.health.writeRides";
 const WRITE_SINCE = "phone.health.writeSince";
 const WRITTEN = "phone.health.written";
@@ -23,6 +29,8 @@ const ASKED_TYPES = "phone.health.askedTypes";
 const HEALTH_TYPES = 2;
 /** Weigh-ins from these never go to Health: it gave them to us, or intervals.icu's are a day's value, not a moment's. */
 const NOT_TO_HEALTH = ["apple_health", "intervals"];
+/** Set once the extra copies left by the old double save were taken out of Health. */
+const DEDUPED = "phone.health.duplicatesRemoved";
 /** Rides older than this are left alone (Health has them from elsewhere, or they're history). */
 const WRITE_WINDOW_DAYS = 14;
 
@@ -52,7 +60,7 @@ export function syncPhoneHealth(): Promise<string | null> {
         await authorizeHealth().catch(() => {});
         await setSetting(ASKED_TYPES, HEALTH_TYPES);
       }
-      const first = !(await getSetting<boolean>(IMPORTED, false));
+      const first = !(await getSetting<boolean>(IMPORTED, false)) || !(await getSetting<boolean>(REREAD, false));
       const bodies = [await readHealth(first ? 60 : 3)];
       const pending = await takePending();
       bodies.push(...pending.map((p) => p.body));
@@ -67,6 +75,7 @@ export function syncPhoneHealth(): Promise<string | null> {
       }
       if (pending.length) await ackPending(pending.map((p) => p.id));
       await setSetting(IMPORTED, true);
+      await setSetting(REREAD, true);
       const at = new Date().toISOString();
       await setSetting("health.lastImport", { at, nights, days, latest, failed: [], from: "iphone" });
       // Synced: the computer's Sleep and recovery card shows this as the source and its status.
@@ -104,8 +113,47 @@ interface StreamRow {
   route: unknown;
 }
 
-/** Writes each recent ride that isn't in Health yet. Each ride is tried once. */
-export async function writeRides(): Promise<number> {
+let writing: Promise<number> | null = null;
+let writeAgain = false;
+
+/**
+ * Writes each recent ride that isn't in Health yet. Each ride is tried once. Runs one at a time:
+ * a Health wake and synced rides from the computer often ask together, and two runs side by side
+ * both saw the ride as new and saved it twice. A call during a run makes it go round once more.
+ */
+export function writeRides(): Promise<number> {
+  if (writing) {
+    writeAgain = true;
+    return writing;
+  }
+  writing = (async () => {
+    await removeOldDuplicates();
+    let saved = 0;
+    do {
+      writeAgain = false;
+      saved += await writeNewRides();
+    } while (writeAgain);
+    return saved;
+  })().finally(() => {
+    writing = null;
+  });
+  return writing;
+}
+
+/** Once: deletes the second copies of rides that older versions saved to Health twice. */
+async function removeOldDuplicates(): Promise<void> {
+  if (await getSetting<boolean>(DEDUPED, false)) return;
+  try {
+    const { removed } = await removeDuplicateWorkouts();
+    if (removed) logEvent("health", "info", `Removed ${removed} duplicate ${removed === 1 ? "ride" : "rides"} from Apple Health`);
+    await setSetting(DEDUPED, true);
+  } catch (e) {
+    // Not allowed yet, say: try again next time.
+    logEvent("health", "error", `Couldn't remove duplicate rides from Health: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+async function writeNewRides(): Promise<number> {
   if (!(await getSetting<boolean>(WRITE_RIDES, true))) return 0;
   const since = await getSetting<string | null>(WRITE_SINCE, null);
   if (!since) return 0;

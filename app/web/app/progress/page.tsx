@@ -15,6 +15,11 @@ import { loadCalendarRides } from "@/lib/ride-calendar-data";
 import { loadTrainingState } from "@/lib/training";
 import FitnessPanel, { FITNESS_DAYS } from "./fitness-panel";
 import ProgressView from "./progress-view";
+import WeekReviewCard from "../week-review";
+import { loadReview } from "@/lib/coach/store";
+import { addDays } from "@/lib/engine/pmc";
+import { PHASE_LABELS, weekStart } from "@/lib/engine/plan";
+import type { WeekReview } from "@/lib/engine/review";
 
 export const metadata = { title: "Progress · My Coach" };
 export const dynamic = "force-dynamic";
@@ -36,6 +41,16 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
   // profile and VO2 max both use it.
   const measurements = await loadBodyMeasurements(supabase, new Date(Date.now() - 90 * 86_400_000)).catch((e) => (console.error(e), []));
   const weightKg = measurements.at(-1)?.weightKg ?? athlete.weightKg;
+  const monday = weekStart(localDate(new Date(), athlete.timezone));
+  const reviewMessage = await loadReview(supabase, addDays(monday, -7)).catch((e) => (console.error(e), null));
+  const thisWeek = state?.plan.weeks.find((w) => w.start === monday);
+  const review = reviewMessage?.meta.review ? (
+    <WeekReviewCard
+      review={reviewMessage.meta.review as WeekReview}
+      message={reviewMessage.content}
+      thisWeek={thisWeek ? `This week: ${PHASE_LABELS[thisWeek.phase].toLowerCase()}${thisWeek.recoveryWeek ? " (recovery week)" : ""}, ${thisWeek.stress} TSS planned.` : null}
+    />
+  ) : null;
   const fitness = await loadFitness(supabase, athlete, rides, weightKg).catch((e) => (console.error(e), null));
   return (
     <>
@@ -47,6 +62,7 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
           tabs={<ProgressTabs tab="trends" />}
           fitness={fitness && <FitnessPanel fitness={fitness} today={localDate(new Date(), athlete.timezone)} />}
           levels={state && <LevelsPanel state={state} />}
+          review={review}
         />
       </Page>
     </>

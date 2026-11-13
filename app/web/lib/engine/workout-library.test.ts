@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 import { twentyMinuteTestFtp } from "./ftp";
 import { isRampTest, STARTING_LEVELS } from "./library";
 import { buildPlan, type Availability, type Goal } from "./plan";
-import { workoutDuration } from "./workout";
+import { ramp, steady, workoutDuration, type Workout } from "./workout";
 import {
+  customLibraryWorkout,
   favoriteLibraryIds,
+  favoriteWorkouts,
+  keyOf,
+  workoutByKey,
+  zoneFor,
   isTwentyMinuteTest,
   LIBRARY_CATEGORIES,
   libraryFits,
@@ -91,8 +96,13 @@ describe("plan with favorites", () => {
     buildPlan({ today: "2026-10-29", goals: [race], availability, fitness: 55, fatigue: 60, levels: STARTING_LEVELS, favorites });
   const keys = (p: ReturnType<typeof plan>) => p.weeks.flatMap((w) => w.days).filter((d) => d.role === "key" && d.session);
 
-  it("leaves the plan as it was without favorites", () => {
-    expect(keys(plan()).every((d) => !d.session!.library)).toBe(true);
+  it("without favorites, mixes starter library workouts that fit with the engine's structures", () => {
+    const days = keys(plan());
+    expect(days.every((d) => !d.session!.favorite)).toBe(true);
+    const library = days.filter((d) => d.session!.library);
+    expect(library.length).toBeGreaterThan(0);
+    expect(days.some((d) => d.session!.template && !d.session!.library)).toBe(true);
+    for (const d of library) expect(libraryWorkout(d.session!.library)!.zone).toBe(d.session!.zone);
     expect(JSON.stringify(plan([]))).toBe(JSON.stringify(plan()));
   });
 
@@ -102,9 +112,63 @@ describe("plan with favorites", () => {
     const favorites = WORKOUT_LIBRARY.filter((w) => without.some((d) => libraryFits(d.session!.zone, d.session!.level, 3600).includes(w))).map((w) => w.id);
     expect(favorites.length).toBeGreaterThan(0);
     const days = keys(plan(favorites));
-    const used = days.filter((d) => d.session!.library);
+    const used = days.filter((d) => d.session!.favorite);
     expect(used.length).toBeGreaterThan(0);
     for (const d of used) expect(favorites).toContain(d.session!.library);
-    expect(days.some((d) => !d.session!.library)).toBe(true);
+    expect(days.some((d) => !d.session!.favorite)).toBe(true);
+  });
+});
+
+const minutes = (m: number, target: number) => steady(m * 60, target);
+const mine = (name: string, segments: Workout["segments"]): Workout => ({ name, segments });
+
+describe("My workouts as the plan sees them", () => {
+  it("reads most starter workouts' zones back from their intervals", () => {
+    const read = WORKOUT_LIBRARY.filter((w) => w.category !== "tests" && zoneFor(w.workout) === w.zone);
+    expect(read.length).toBeGreaterThanOrEqual(WORKOUT_LIBRARY.length - 8);
+  });
+
+  it("works out zone and level: threshold blocks, sweet spot with surges, 30/30s, steady endurance, easy spins", () => {
+    const warm = ramp(600, 0.45, 0.7);
+    const cool = ramp(300, 0.65, 0.4);
+    const threshold = customLibraryWorkout("a", mine("My 2x20", [warm, minutes(20, 1), minutes(5, 0.5), minutes(20, 1), cool]))!;
+    expect(threshold).toMatchObject({ id: "a", custom: true, zone: "threshold" });
+    expect(threshold.level).toBe(levelFor("threshold", threshold.workout));
+    const surges = mine("Surgy", [warm, ...Array.from({ length: 10 }, () => [steady(105, 0.89), steady(15, 1.3)]).flat(), cool]);
+    expect(zoneFor(surges)).toBe("sweetSpot");
+    const thirties = mine("30/30", [warm, ...Array.from({ length: 12 }, () => [steady(30, 1.2), steady(30, 0.5)]).flat(), cool]);
+    expect(zoneFor(thirties)).toBe("vo2max");
+    const endurance = customLibraryWorkout("b", mine("Long one", [warm, minutes(105, 0.66), cool]))!;
+    expect(endurance.zone).toBe("endurance");
+    expect(endurance.level).toBeGreaterThanOrEqual(5);
+    expect(zoneFor(mine("Spin", [minutes(30, 0.5)]))).toBe("recovery");
+    expect(customLibraryWorkout("c", mine("Free", [{ kind: "freeRide", duration: 3600 }]))).toBeNull();
+  });
+
+  it("resolves favorite keys to workouts, starter and mine, and skips ones that are gone", () => {
+    const customs = [{ id: "c1", workout: mine("My 2x20", [minutes(10, 0.6), minutes(20, 1), minutes(5, 0.5), minutes(20, 1), minutes(5, 0.5)]) }];
+    const out = favoriteWorkouts(["custom:c1", "library:tempo-45", "custom:gone", "library:gone"], customs);
+    expect(out.map(keyOf)).toEqual(["custom:c1", "library:tempo-45"]);
+    expect(librarySession(out[0])).toMatchObject({ custom: "c1", zone: "threshold" });
+    expect(librarySession(out[0]).library).toBeUndefined();
+    expect(workoutByKey("tempo-45", customs)).toBeNull();
+  });
+});
+
+describe("plan with favorites of my own", () => {
+  const availability: Availability = [0, 60, 60, 60, 0, 180, 120];
+  const race: Goal = { id: "a", name: "Spring classic", date: "2027-03-20", priority: "A", kind: "roadRace" };
+  const build = (favorites?: Parameters<typeof buildPlan>[0]["favorites"]) =>
+    buildPlan({ today: "2026-10-29", goals: [race], availability, fitness: 55, fatigue: 60, levels: STARTING_LEVELS, favorites });
+
+  it("uses a favorited workout of mine on a key day it fits", () => {
+    const keys = build().weeks.flatMap((w) => w.days).filter((d) => d.role === "key" && d.session);
+    // Copies of the starter workouts that fit the plan's key days, saved as mine.
+    const copies = WORKOUT_LIBRARY.filter((w) => keys.some((d) => libraryFits(d.session!.zone, d.session!.level, 3600).includes(w)))
+      .flatMap((w) => customLibraryWorkout(`mine-${w.id}`, { ...w.workout, name: `My ${w.workout.name}` }) ?? []);
+    expect(copies.length).toBeGreaterThan(0);
+    const used = build(copies).weeks.flatMap((w) => w.days).filter((d) => d.session?.custom);
+    expect(used.length).toBeGreaterThan(0);
+    for (const d of used) expect(d.session!.library).toBeUndefined();
   });
 });

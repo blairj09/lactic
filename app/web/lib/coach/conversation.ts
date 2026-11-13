@@ -2,7 +2,7 @@
 // conversation's running summary short. Shared by the chat and brief routes.
 
 import { briefInputs, briefStale, coachChat, HISTORY_MESSAGES, KEEP_MESSAGES, morningBrief, planWeek, summarize, type ChatHooks } from "./chat";
-import { unpickedKeyDays } from "../engine/picks";
+import { holdsFavorite, unpickedKeyDays } from "../engine/picks";
 import { weekStart } from "../engine/plan";
 import { addDays } from "../engine/pmc";
 import { openRouter, type Complete } from "./openrouter";
@@ -96,7 +96,7 @@ export async function brief(supabase: Supabase, hooks: ChatHooks): Promise<Store
     content: reply.message,
     proposals,
     model: coach.model,
-    meta: { ...inputs, ...(reply.today ? { today: reply.today } : {}) },
+    meta: { ...inputs, ...(inputs.recommended != null ? { today: reply.today ?? null } : {}) },
   });
 }
 
@@ -123,11 +123,12 @@ export async function planAhead(supabase: Supabase, hooks: ChatHooks = {}, { all
   await keepSnapshot(supabase, state, monday);
   const review = await reviewDue(supabase, state, monday);
   const through = addDays(monday, 13);
-  // Days you changed yourself (or applied a coach change to) keep that session, so there's nothing to pick.
+  // Days you changed yourself (or applied a coach change to) keep that session, and days holding one of your
+  // favorites keep it, so there's nothing to pick.
   const days = (
     all
-      ? state.basePlan.weeks.flatMap((w) => w.days).filter((d) => d.date >= state.today && d.date <= through && d.role === "key" && d.session && !d.goal)
-      : unpickedKeyDays(state.basePlan, state.picks ?? [], state.today, through)
+      ? state.basePlan.weeks.flatMap((w) => w.days).filter((d) => d.date >= state.today && d.date <= through && d.role === "key" && d.session && !d.goal && !holdsFavorite(d))
+      : unpickedKeyDays(state.basePlan, state.picks ?? [], state.today, through, state.customWorkouts ?? [])
   ).filter((d) => !state.changedDays.includes(d.date));
   if (days.length === 0 && !review) return 0;
   if (!all && !review && (await plannedSince(supabase, new Date(Date.now() - PLAN_EVERY_HOURS * 3600_000)))) return 0;

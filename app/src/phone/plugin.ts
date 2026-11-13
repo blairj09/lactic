@@ -3,6 +3,7 @@
 
 import type { HealthWorkout } from "@/lib/engine/health-export";
 import type { EndAlert } from "@/lib/ride/end-alert";
+import type { LiveActivityState } from "@/lib/ride/live-activity";
 import type { WidgetSnapshot } from "@/lib/widget-snapshot";
 import { invoke } from "~/platform/native";
 
@@ -41,6 +42,8 @@ export const ackPending = (ids: string[]) => call<void>("ack_pending", { ids });
 export const saveWorkout = (workout: HealthWorkout) => call<{ saved: boolean; reason: string | null }>("save_workout", { ...workout });
 /** Saves one weigh-in (kg, body fat 0 to 100) to Apple Health, unless it's there already. */
 export const saveWeighIn = (w: { id: string; at: number; kg: number; fatPercent: number | null }) => call<{ saved: boolean; reason: string | null }>("save_weigh_in", { ...w });
+/** Deletes extra copies of rides Lactic saved to Health more than once (last 60 days). */
+export const removeDuplicateWorkouts = () => call<{ removed: number }>("remove_duplicate_workouts");
 /** Pairs with the computer whose QR code (a https://lactic.fit/pair#... link) was scanned. */
 export const pair = (url: string) => call<{ computer: string }>("pair", { url });
 export const unpair = () => call<void>("unpair");
@@ -55,8 +58,16 @@ export const scheduleRideEnd = (alert: EndAlert & { computer: string; workoutNam
 /** No ride end to tell about any more (paused, ended, closed): drops the waiting notification. */
 export const cancelRideEnd = () => call<void>("cancel_ride_end");
 
+/** Opens a sign-in page (Strava's) in the system sign-in sheet; resolves with the lactic:// address it came back to. */
+export const webAuth = (url: string, scheme: string) => call<{ url: string }>("web_auth", { url, scheme });
+
 /** Hands the home and lock screen widgets today's snapshot (widget-snapshot.ts) and has them redraw. */
 export const saveWidget = (snapshot: WidgetSnapshot) => call<void>("save_widget", { json: JSON.stringify(snapshot) });
+
+/** Starts or updates the ride's Live Activity (lock screen and Dynamic Island). */
+export const rideActivity = (state: LiveActivityState) => call<void>("ride_activity", { json: JSON.stringify(state) });
+/** Ends it: at once, or after a couple of minutes when the workout was done. */
+export const endRideActivity = (linger: boolean) => call<void>("end_ride_activity", { linger });
 
 /** Called when a background wake read new Health data. */
 export async function onHealthWake(cb: () => void): Promise<() => void> {

@@ -1,6 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import { Panel, Stat } from "@/components/ui";
 import type { DayMark } from "@/lib/engine/compliance";
 import { DIFFICULTIES, DIFFICULTY_LABELS } from "@/lib/engine/feedback";
@@ -9,7 +6,6 @@ import type { WeekReview } from "@/lib/engine/review";
 import { signed } from "@/lib/format";
 import { Prose } from "./coach/prose";
 
-const HIDDEN = "review.hidden";
 // Besides done, which is the figure.
 const MARKS: [DayMark, string][] = [
   ["partial", "partly done"],
@@ -19,38 +15,17 @@ const MARKS: [DayMark, string][] = [
 ];
 
 /**
- * The coach's look back at last week, on Today for the first days of the new week: the engine's numbers
+ * The coach's look back at last week, at the top of Progress → Trends once it's written: the engine's numbers
  * (stress against the plan, how days went, how sessions felt, levels that moved) with the coach's words
- * under them, and what this week is. Hide puts it away until next week's.
+ * under them, and what this week is.
  */
 export default function WeekReviewCard({ review, message, thisWeek }: { review: WeekReview; message: string; thisWeek: string | null }) {
-  const [hidden, setHidden] = useState(false);
-  useEffect(() => {
-    try {
-      setHidden(localStorage.getItem(HIDDEN) === review.start);
-    } catch {}
-  }, [review.start]);
-  if (hidden) return null;
-  const hide = () => {
-    setHidden(true);
-    try {
-      localStorage.setItem(HIDDEN, review.start);
-    } catch {}
-  };
-
   const days = MARKS.filter(([m]) => review.marks[m] > 0).map(([m, word]) => `${review.marks[m]} ${word}`);
   const felt = DIFFICULTIES.filter((d) => review.felt[d] > 0).map((d) => `${review.felt[d]} ${DIFFICULTY_LABELS[d].toLowerCase()}`);
   return (
     <Panel
       title="Last week"
-      meta={
-        <span className="flex items-baseline gap-3">
-          {range(review.start, review.end)}
-          <button type="button" onClick={hide} className="text-ink underline underline-offset-4 hover:text-muted">
-            Hide
-          </button>
-        </span>
-      }
+      meta={range(review.start, review.end)}
     >
       <div className="space-y-4">
         {/* Two by two on a phone, so the card stays short. */}

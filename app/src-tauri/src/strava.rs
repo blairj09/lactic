@@ -6,8 +6,10 @@
 // it. The tokens land here, in the keychain, and never reach the web layer: uploads carry the
 // `keychain:strava` placeholder and net.rs adds the access token on the way out.
 //
-// Sign-in: a one-shot listener on 127.0.0.1 (Strava always accepts localhost as a redirect) catches
-// the browser coming back with the code.
+// Sign-in on a computer: a one-shot listener on 127.0.0.1 (Strava always accepts localhost as a
+// redirect) catches the browser coming back with the code. On the iPhone, a sign-in sheet catches
+// Strava sending the rider to lactic://lactic.fit/strava, and the code comes here through
+// `strava_finish`.
 
 use crate::net::Net;
 use crate::secrets::Secrets;
@@ -185,11 +187,24 @@ pub async fn strava_connect(app: tauri::AppHandle, net: State<'_, Net>, secrets:
         _ = tokio::time::sleep(SIGN_IN_TIMEOUT) => Err("Strava sign-in timed out. Try again.".into()),
     };
     let (code, scope) = result?;
+    finish(&net, &secrets, code, scope).await
+}
+
+/// The iPhone's sign-in: the app shows Strava's page in a sign-in sheet (the lactic-phone
+/// plugin's web_auth, since iOS pauses the app, and a 127.0.0.1 listener with it, while Safari is
+/// in front) and hands the code it came back with to this.
+#[tauri::command]
+pub async fn strava_finish(net: State<'_, Net>, secrets: State<'_, Secrets>, code: String, scope: String) -> Result<Connected, String> {
+    finish(&net, &secrets, code, scope).await
+}
+
+/// Swaps the sign-in code for tokens through the relay and keeps them in the keychain.
+async fn finish(net: &Net, secrets: &Secrets, code: String, scope: String) -> Result<Connected, String> {
     if !scope.split(',').any(|s| s == "activity:write") {
         return Err("Lactic needs \"Upload your activities\" ticked on Strava's page to post your rides. Try again and leave it ticked.".into());
     }
-    let tokens = call_relay(&net, serde_json::json!({ "grant_type": "authorization_code", "code": code })).await?;
-    save(&secrets, &tokens)?;
+    let tokens = call_relay(net, serde_json::json!({ "grant_type": "authorization_code", "code": code })).await?;
+    save(secrets, &tokens)?;
     let athlete = tokens.athlete.clone().ok_or("Strava didn't say who signed in")?;
     let name = [athlete.firstname.unwrap_or_default(), athlete.lastname.unwrap_or_default()].join(" ").trim().to_string();
     Ok(Connected { athlete_id: athlete.id.to_string(), name, scope })

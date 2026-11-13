@@ -6,7 +6,7 @@
 import type { Zone } from "../library";
 import type { Focus } from "../templates";
 import { goalIntensity, goalMinutes, type Goal, type GoalKind } from "../plan";
-import { airDensity, bikeSetup, climbFraction, climbSeconds, riderOf, type Rider } from "./pacing";
+import { airDensity, bikeSetup, climbFraction, climbSeconds, DRAFT, packOf, riderOf, type Pack, type Rider } from "./pacing";
 import type { CourseSummary, CourseType } from "./profile";
 
 export interface DemandClimb {
@@ -37,16 +37,17 @@ export interface CourseDemands {
 }
 
 /** A course's demands for a rider: how long each climb takes them at race pace. */
-export function courseDemands(summary: CourseSummary, kind: GoalKind, goal: Pick<Goal, "intensity" | "minutes" | "kind">, rider: Rider): CourseDemands {
+export function courseDemands(summary: CourseSummary, kind: GoalKind, goal: Pick<Goal, "intensity" | "minutes" | "kind"> & { pack?: Pack | null }, rider: Rider): CourseDemands {
   const r = riderOf(rider);
   const setup = bikeSetup(kind);
   const mass = r.weightKg + setup.bikeKg;
   const hours = goalMinutes(goal as Goal) / 60;
   const intensity = goalIntensity(goal as Goal);
+  const draft = DRAFT[packOf({ kind, pack: goal.pack })];
   const timed = summary.climbs.map((c) => {
-    const first = climbSeconds(c, r.ftp * 0.95, mass, setup);
+    const first = climbSeconds(c, r.ftp * 0.95, mass, setup, draft);
     const f = climbFraction(first, hours, intensity);
-    return { c, seconds: climbSeconds(c, r.ftp * f, mass, setup) };
+    return { c, seconds: climbSeconds(c, r.ftp * f, mass, setup, draft) };
   });
   // Flat riding time at about 32 km/h on the road, slower off it; enough to weigh climbing against.
   const flatSpeed = (setup.crr > 0.006 ? 24 : 32) / 3.6 * Math.sqrt(airDensity(0) / 1.225);

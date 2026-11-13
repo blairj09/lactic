@@ -1,12 +1,13 @@
 // Settings → Connections → Strava: connect once, and rides recorded here post to Strava as Lactic
-// activities. Shown while the "Post rides to Strava" experiment is on.
+// activities. Shown while the "Post rides to Strava" experiment is on. A paired iPhone shows the
+// computer's connection instead: the computer posts the rides recorded on the phone.
 
 import { useEffect, useState } from "react";
 import { button, Result } from "@/components/ui";
 import { ExperimentalTag } from "@/components/experimental-tag";
 import { Section } from "@/app/settings/settings-form";
 import { useExperiments } from "@/lib/use-experiments";
-import { isDesktop, openExternal } from "~/platform/native";
+import { isDesktop, isPhone, openExternal } from "~/platform/native";
 import {
   connectStrava,
   disconnectStrava,
@@ -15,6 +16,7 @@ import {
   setStravaUploads,
   stravaActivityUrl,
   stravaClientId,
+  stravaPoster,
   STRAVA_ORANGE,
   type StravaConnection,
   type StravaUpload,
@@ -53,6 +55,7 @@ export function StravaSection() {
 export function StravaPanel() {
   const [connection, setConnection] = useState<StravaConnection | null | undefined>(undefined);
   const [available, setAvailable] = useState<boolean | null>(null);
+  const [poster, setPoster] = useState<Awaited<ReturnType<typeof stravaPoster>> | null>(null);
   const [uploads, setUploads] = useState<StravaUpload[]>([]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -65,12 +68,13 @@ export function StravaPanel() {
 
   useEffect(() => {
     void reload();
+    void stravaPoster().then(setPoster);
     void stravaClientId().then((id) => setAvailable(id !== null));
   }, []);
 
   async function connect() {
     setBusy(true);
-    setResult({ ok: true, message: "Finish in your browser: sign in to Strava and choose Authorize." });
+    setResult({ ok: true, message: isPhone() ? "Sign in to Strava and choose Authorize." : "Finish in your browser: sign in to Strava and choose Authorize." });
     try {
       const c = await connectStrava();
       setConnection(c);
@@ -104,7 +108,9 @@ export function StravaPanel() {
   }
 
   if (!isDesktop) return <p className="text-sm text-muted">Strava connects in the desktop app.</p>;
-  if (connection === undefined) return null;
+  if (connection === undefined || poster === null) return null;
+  if (poster === "nowhere") return <p className="text-sm text-muted">Strava connects in Lactic on your computer for now.</p>;
+  const viaComputer = poster === "computer";
 
   const connectButton = (
     <button
@@ -117,6 +123,13 @@ export function StravaPanel() {
       Connect with Strava
     </button>
   );
+
+  if (!connection && viaComputer)
+    return (
+      <p className="text-sm text-muted">
+        Connect Strava in Lactic on your computer. Your computer then posts the rides you record on this iPhone too, once they sync, so none goes twice.
+      </p>
+    );
 
   if (!connection)
     return (
@@ -134,13 +147,17 @@ export function StravaPanel() {
   return (
     <div className="space-y-4 text-sm">
       <p>
-        Connected{connection.athleteName ? ` as ${connection.athleteName}` : ""}.
+        {viaComputer ? "Connected on your computer" : "Connected"}
+        {connection.athleteName ? ` as ${connection.athleteName}` : ""}.
+        {viaComputer && <span className="text-muted"> It posts the rides you record on this iPhone once they sync, so none goes twice.</span>}
       </p>
       {connection.needsReconnect && (
         <div role="alert" className="space-y-2 rounded-lg border border-line bg-raised p-3">
           <p className="font-medium">Strava signed Lactic out.</p>
-          <p className="text-muted">Connect again and the rides waiting will go.</p>
-          {connectButton}
+          <p className="text-muted">
+            {viaComputer ? "Connect Strava again in Lactic on your computer, and the rides waiting will go." : "Connect again and the rides waiting will go."}
+          </p>
+          {!viaComputer && connectButton}
         </div>
       )}
       <label className="flex items-start gap-3">
@@ -185,16 +202,18 @@ export function StravaPanel() {
           </ul>
         </div>
       )}
-      <div className="flex flex-wrap gap-2">
-        {uploads.some((u) => u.status === "pending" || u.status === "processing") && (
-          <button type="button" className={button.secondary} onClick={() => void retry()} disabled={busy}>
-            Send now
+      {!viaComputer && (
+        <div className="flex flex-wrap gap-2">
+          {uploads.some((u) => u.status === "pending" || u.status === "processing") && (
+            <button type="button" className={button.secondary} onClick={() => void retry()} disabled={busy}>
+              Send now
+            </button>
+          )}
+          <button type="button" className={button.ghost} onClick={() => void disconnect()} disabled={busy}>
+            Disconnect Strava
           </button>
-        )}
-        <button type="button" className={button.ghost} onClick={() => void disconnect()} disabled={busy}>
-          Disconnect Strava
-        </button>
-      </div>
+        </div>
+      )}
       {result && <Result ok={result.ok}>{result.message}</Result>}
     </div>
   );

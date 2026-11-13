@@ -1,6 +1,11 @@
 // Fuel and kit for a course: carbohydrate, fluid and salt for the time it'll take and the heat it's
-// forecast, when to eat (not halfway up a climb), and what to wear. Standard sports-nutrition
-// guidance scaled to you; the same carbohydrate rule as the race-day card (raceday.ts).
+// forecast, when to eat (not halfway up a climb), and what to wear. Carbohydrate follows the ACSM,
+// Academy of Nutrition and Dietetics and Dietitians of Canada position (Thomas et al. 2016) and
+// Jeukendrup 2014: 30 to 60 g an hour for 1 to 2.5 hours, up to 90 g of mixed sugars beyond that,
+// and 10 to 12 g/kg a day for the 36 to 48 hours before events over 90 minutes. Fluid and salt
+// follow the ACSM fluid position (Sawka et al. 2007): 0.4 to 0.8 L an hour, enough to lose under 2%
+// of body weight, with 20 to 30 mmol of sodium a liter (460 to 690 mg). The same carbohydrate rule
+// as the race-day card (raceday.ts).
 
 import { carbsPerHour } from "../raceday";
 import type { Goal } from "../plan";
@@ -28,19 +33,19 @@ export interface FuelPlan {
   /** Whether fluid and salt come from the forecast (else a mild day is assumed). */
   fromForecast: boolean;
   feeds: Feed[];
-  /** Carbohydrate the evening before and in the pre-race meal, grams; null without a weight. */
-  carbLoad: { dayBefore: number; meal: number } | null;
+  /** Carbohydrate each day for the days before (1 or 2) and in the pre-race meal, grams; null without a weight. */
+  carbLoad: { perDay: number; days: number; meal: number } | null;
 }
 
-/** Fluid an hour, ml, by how warm it feels: about 400 in the cold up to 1,000 in real heat. */
+/** Fluid an hour, ml, by how warm it feels: 400 in the cold to 800 in real heat (Sawka et al. 2007). */
 export function fluidPerHour(feels: number | null): number {
   if (feels === null) return 600;
-  return feels <= 10 ? 400 : feels <= 18 ? 550 : feels <= 24 ? 700 : feels <= 30 ? 850 : 1000;
+  return feels <= 10 ? 400 : feels <= 18 ? 500 : feels <= 24 ? 600 : feels <= 30 ? 700 : 800;
 }
 
+/** Sodium an hour, mg: about 575 mg in each liter you drink, the middle of 460 to 690 (Sawka et al. 2007). */
 export function sodiumPerHour(feels: number | null): number {
-  if (feels === null) return 400;
-  return feels <= 18 ? 300 : feels <= 27 ? 500 : 800;
+  return Math.round((fluidPerHour(feels) * 0.575) / 10) * 10;
 }
 
 const kmAt = (k: number) => Math.round((k * STEP) / 100) / 10;
@@ -90,8 +95,10 @@ export function fuelPlan(goal: Goal, profile: CourseProfile, pacing: Pacing, wea
     sodiumPerHour: sodiumPerHour(feels),
     fromForecast: weather !== null,
     feeds,
-    // Over 90 minutes: 6 g/kg the day before (8 over 2.5 hours); 2 g/kg in the meal 3 hours out.
-    carbLoad: weightKg ? { dayBefore: Math.round((weightKg * (minutes >= 150 ? 8 : minutes >= 90 ? 6 : 5)) / 10) * 10, meal: Math.round((weightKg * 2) / 10) * 10 } : null,
+    // Over 90 minutes: 10 g/kg a day for the two days before (the low end of 10 to 12); shorter, a
+    // normal high-carbohydrate day before (7 g/kg). 2 g/kg in the meal 3 hours out (1 to 4 g/kg, 1 to
+    // 4 hours before).
+    carbLoad: weightKg ? { perDay: Math.round((weightKg * (minutes >= 90 ? 10 : 7)) / 10) * 10, days: minutes >= 90 ? 2 : 1, meal: Math.round((weightKg * 2) / 10) * 10 } : null,
   };
 }
 

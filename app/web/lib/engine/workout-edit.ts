@@ -1,4 +1,4 @@
-import { intervals, ramp, steady, workoutDuration, type Segment, type Workout } from "./workout";
+import { alignRamps, intervals, ramp, rampsJoined, steady, workoutDuration, type Segment, type Workout } from "./workout";
 
 // Editing a workout's intervals: pure helpers for the Ride page's workout editor and for checking
 // workouts saved to My workouts. Targets stay fractions of FTP.
@@ -51,10 +51,11 @@ const withSegments = (workout: Workout, segments: Segment[]): Workout => ({ ...w
 
 export function updateSegment(workout: Workout, index: number, segment: Segment): Workout {
   if (!workout.segments[index]) return workout;
-  return withSegments(
-    workout,
-    workout.segments.map((s, i) => (i === index ? cleanSegment(segment) : s)),
-  );
+  // A warm-up or cool-down that met the edited interval keeps meeting it.
+  const joined = rampsJoined(workout.segments);
+  const last = workout.segments.length - 1;
+  const segments = workout.segments.map((s, i) => (i === index ? cleanSegment(segment) : s));
+  return withSegments(workout, alignRamps(segments, { start: joined.start && index === 1, end: joined.end && index === last - 1 }));
 }
 
 /** Inserts intervals after `index` (-1 for the start). */

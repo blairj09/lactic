@@ -11,6 +11,7 @@ import {
 import { DEFAULT_AVAILABILITY, DEFAULT_RAMP_RATE, type Availability } from "@/lib/engine/plan";
 import type { PowerCurve } from "@/lib/engine/power";
 import type { ChartStream, RideInterval } from "@/lib/engine/ride-detail";
+import { readAdaptations, type Adaptation } from "@/lib/ride/adapt";
 import type { Workout } from "@/lib/engine/workout";
 import type { createClient } from "@/lib/supabase/server";
 
@@ -52,6 +53,8 @@ export interface NewRide {
 export interface RideStream extends ChartStream {
   workout?: Workout | null;
   intervals?: RideInterval[] | null;
+  /** What adaptive workouts changed during the ride (an experiment). */
+  adaptations?: Adaptation[] | null;
 }
 
 export interface StoredRide {
@@ -181,6 +184,8 @@ async function storeStreams(supabase: Supabase, userId: string, rides: NewRide[]
         workout: s.workout ?? null,
         intervals: s.intervals ?? null,
         route: s.route ?? null,
+        // Only when there's something to keep, so rides upsert the same as before it existed.
+        ...(s.adaptations?.length ? { adaptations: s.adaptations } : {}),
       },
     ];
   });
@@ -194,6 +199,14 @@ async function storeStreams(supabase: Supabase, userId: string, rides: NewRide[]
 
 export interface StoredStream extends RideStream {
   activityId: string;
+}
+
+/** Just the power of a few rides (5 s means), for small ride shapes. Empty for rides with no stored stream. */
+export async function loadWatts(supabase: Supabase, activityIds: string[]): Promise<Map<string, (number | null)[]>> {
+  if (!activityIds.length) return new Map();
+  const { data, error } = await supabase.from("activity_streams").select("activity_id, watts").in("activity_id", activityIds);
+  if (error) return (console.error(error), new Map());
+  return new Map((data as { activity_id: string; watts: (number | null)[] | null }[]).filter((r) => r.watts?.length).map((r) => [r.activity_id, r.watts!]));
 }
 
 export async function loadStream(supabase: Supabase, activityId: string): Promise<StoredStream | null> {
@@ -210,6 +223,7 @@ export async function loadStream(supabase: Supabase, activityId: string): Promis
     workout: data.workout,
     intervals: data.intervals,
     route: data.route ?? null,
+    adaptations: readAdaptations(data.adaptations),
   };
 }
 

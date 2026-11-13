@@ -1,6 +1,6 @@
 # lactic.fit
 
-Static landing page for Lactic, served by its own Vercel project (root directory `site`, framework Other, no build step).
+Static landing page for Lactic, served by its own Vercel project (root directory `site`, framework Other; the build step only makes the app demo, see below).
 
 The page is plain HTML + CSS (index.html, styles.css). The Download buttons start the installer for the visitor's OS and open a popup with its install steps and the other systems (download.js). Downloads go through `api/release.js` (`/api/release?get=mac|windows|appimage|deb`), which redirects to that file in the latest GitHub release. Design source: the "combined" board on https://claude.ai/artifact/8DJz3W7N3eKyksfbgUAi4i
 
@@ -31,7 +31,9 @@ Without them it answers 503 and the app's Connect with Strava button stays off. 
 
 ## Live demo in the hero
 
-The app window on the homepage is the real Lactic app, built from `app/` in demo mode (`npm run build:demo` there, run by this folder's `npm run build` on Vercel) into `site/demo/` (not committed). It runs in the browser with an in-memory database that `app/src/demo/setup.ts` fills on every visit: a profile, a 12-week plan, twelve weeks of rides, sleep and weight, and the simulated trainer and heart rate strap paired. The coach is scripted (`app/src/demo/coach.ts`): it explains itself and proposes a weekend swap through the coach's real tool. The static picture shows until the demo says it's ready, and stays if it never loads.
+The app window on the homepage is the real Lactic app, built in demo mode into `site/demo/` (not committed). It always matches the **latest release**, not main: `npm run build` here (`scripts/build-demo.mjs`, what Vercel runs) downloads the source of the tag that github.com/blairj09/lactic/releases/latest points to, runs that tag's own `npm run build:demo`, and writes `demo/release.json` with the tag. Download buttons and the version in the download popup already come from the latest release at request time (`api/release.js`).
+
+When a new release ships, the release job in `.github/workflows/app.yml` calls the `VERCEL_DEPLOY_HOOK_URL` secret (a Vercel deploy hook on lactic-site for `main`) so the homepage redeploys within minutes. Vercel's ignored build step (`scripts/should-build.mjs`) also rebuilds production on any push to main when lactic.fit's `demo/release.json` isn't the latest release, so the site catches up even without the hook. Site PR previews build the released demo too; to try unreleased demo changes, run `npm run build:local` (builds this checkout's `app/`). It runs in the browser with an in-memory database that `app/src/demo/setup.ts` fills on every visit: a profile, a 12-week plan, twelve weeks of rides, sleep and weight, and the simulated trainer and heart rate strap paired. The coach is scripted (`app/src/demo/coach.ts`): it explains itself and proposes a weekend swap through the coach's real tool. The static picture shows until the demo says it's ready, and stays if it never loads.
 
 The demo opens as a short tour in the style of the app's first-run tour: each stop opens a screen (Today, Plan, Progress, Health, Coach, Ride: left to right across the top bar), lights up the part it's about and explains it in a card. Back, Next and the step strip move it along; Exit tour (or a click in the window) hands the demo over to explore, and Take the tour in the title bar brings it back. The demo never takes the page's scroll: while the tour shows, or once the pointer leaves the window (or a tap lands outside it, or Done is pressed), a see-through shield covers it so the wheel and touch scroll the page. All of this is `hero.js`.
 

@@ -37,7 +37,7 @@ export default function LastNight({
   const rows = glance.metrics.filter((m) => m.nights.some((n) => n.value !== null));
 
   return (
-    <Panel title="Last night" meta={<SourceLine recovery={recovery} source={source} />}>
+    <Panel title="Recovery" meta={<SourceLine recovery={recovery} source={source} />}>
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line lg:grid-cols-[16rem_minmax(0,1.5fr)_minmax(0,0.8fr)]">
         <div className="bg-surface p-4">
           <div className="flex items-center gap-4">
@@ -57,9 +57,9 @@ export default function LastNight({
             </div>
           </div>
           <WeekBars scores={glance.scores} />
-          {glance.signals.length > 0 && (
+          {shownSignals(glance).length > 0 && (
             <ul className="mt-3 space-y-1 text-sm text-warning">
-              {glance.signals.map((s) => (
+              {shownSignals(glance).map((s) => (
                 <li key={s.id}>{s.reason}.</li>
               ))}
             </ul>
@@ -276,9 +276,22 @@ function Spark({ metric }: { metric: GlanceMetric }) {
 export function sleepLines(glance: RecoveryToday["glance"]): string[] {
   const lines: string[] = [];
   if (glance.sleepScore) lines.push(`${glance.sleepScore.measures.ofNeed}% of your need`);
-  if (glance.sleepDebtHours !== null)
-    lines.push(glance.sleepDebtHours > 0 ? `${hm(glance.sleepDebtHours)} short this week · aim for ${hm(glance.sleepNeedTonight)} tonight` : `On track this week · aim for ${hm(glance.sleepNeedTonight)} tonight`);
+  if (glance.sleepDebtHours !== null) lines.push(`Aim for ${hm(glance.sleepNeedTonight)} tonight${glance.sleepDebtHours > 0 ? " to catch up" : ""}`);
   return lines;
+}
+
+/**
+ * Warning signs to show. Sleep debt isn't one of them: a week's total read as alarming and gave
+ * nothing to do, so it shows as tonight's aim instead (catchUp). The engine still weighs it, and the
+ * Sleep page and the coach still have the number.
+ */
+export function shownSignals(glance: RecoveryToday["glance"]) {
+  return glance.signals.filter((s) => s.id !== "sleepDebt");
+}
+
+/** "Aim for 8h 30m tonight to catch up." when there's sleep debt; nothing otherwise. */
+export function catchUp(glance: RecoveryToday["glance"]): string | null {
+  return glance.sleepDebtHours !== null && glance.sleepDebtHours > 0 ? `Aim for ${hm(glance.sleepNeedTonight)} tonight to catch up.` : null;
 }
 
 function SleepCell({ recovery, timeZone, href }: { recovery: RecoveryToday; timeZone: string; href?: string }) {
@@ -422,7 +435,7 @@ export function ExertionBar({ exertion, eased = false, compact = false }: { exer
  * and sleep. The full card is on Health; this links there. `row` sits in the Morning panel, `line` is
  * one sentence over the workout, `column` is Today's side column.
  */
-export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday; variant: "row" | "line" | "column" }) {
+export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday; variant: "row" | "line" | "column" | "wide" | "tiles" }) {
   const units = useUnits();
   const { glance, score, today } = recovery;
   const word = score ? recoveryWord(score.score) : null;
@@ -430,16 +443,25 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
   const sleep = today?.sleepHours != null ? [hm(today.sleepHours), glance.sleepScore && `${glance.sleepScore.measures.ofNeed}% of your need`].filter(Boolean).join(", ") : null;
   const more = (
     <Link href="/health" className="text-sm whitespace-nowrap text-ink underline underline-offset-4">
-      Last night on Health
+      Recovery on Health
     </Link>
   );
-  const signals = glance.signals.length > 0 && (
-    <ul className="space-y-0.5 text-sm text-warning">
-      {glance.signals.map((s) => (
-        <li key={s.id}>{s.reason}.</li>
-      ))}
-    </ul>
+  const warnings = shownSignals(glance);
+  const aim = catchUp(glance);
+  const signals = (warnings.length > 0 || aim) && (
+    <div className="space-y-0.5 text-sm">
+      {warnings.length > 0 && (
+        <ul className="space-y-0.5 text-warning">
+          {warnings.map((s) => (
+            <li key={s.id}>{s.reason}.</li>
+          ))}
+        </ul>
+      )}
+      {aim && <p className="text-muted">{aim}</p>}
+    </div>
   );
+
+  if (variant === "tiles") return <RecoveryTiles recovery={recovery} />;
 
   if (variant === "line") {
     return (
@@ -450,7 +472,7 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
             {reason ? `${reason}.` : ""} {sleep ? `Slept ${sleep}.` : ""}
           </span>{" "}
           <Link href="/health" className="whitespace-nowrap text-ink underline underline-offset-4">
-            Last night
+            More on Health
           </Link>
         </p>
         {signals}
@@ -483,6 +505,43 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
   }
 
   const rows = glance.metrics.filter((m) => m.key !== "exertion" && m.key !== "sleepHours" && m.value !== null);
+  const list = (className: string) => (
+    <dl className={`text-sm ${className}`}>
+      {rows.map((m) => (
+        <div key={m.key} className="flex items-baseline justify-between gap-3">
+          <dt className="text-muted">{LABEL[m.key]}</dt>
+          <dd className="num text-right">
+            <span className={m.concern ? "font-medium text-warning" : "font-medium"}>{format(m.key, m.value!, units)}</span>
+            {m.range && <span className="text-muted"> · usual {usual(m.key, m.range, units)}</span>}
+          </dd>
+        </div>
+      ))}
+      {sleep && (
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-muted">Sleep</dt>
+          <dd className="num text-right font-medium">{sleep}</dd>
+        </div>
+      )}
+    </dl>
+  );
+
+  // The top of Today: the score and its week on the left, the numbers beside it.
+  if (variant === "wide") {
+    return (
+      <div className="grid grid-cols-1 gap-x-16 gap-y-4 md:grid-cols-[auto_minmax(0,30rem)]">
+        <div className="space-y-4">
+          {head}
+          <WeekBars scores={glance.scores} height={28} />
+        </div>
+        <div className="space-y-3">
+          {list("space-y-1.5")}
+          {signals}
+          {more}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {head}
@@ -506,6 +565,80 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
       </dl>
       {signals}
       {more}
+    </div>
+  );
+}
+
+const TILE_KEYS: GlanceKey[] = ["hrv", "restingHeartRate", "respiratoryRate", "sleepHours"];
+
+/**
+ * The top of Today: the score and its word, then a tile per measure (HRV, resting HR, breathing,
+ * sleep) with a bar where the shaded part is your usual range and the dot is last night, amber when
+ * it's outside on the side that means poorer recovery. The numbers behind it are on Health.
+ */
+function RecoveryTiles({ recovery }: { recovery: RecoveryToday }) {
+  const units = useUnits();
+  const { glance, score } = recovery;
+  const metrics = TILE_KEYS.flatMap((key) => glance.metrics.filter((m) => m.key === key && m.value !== null));
+  const warnings = shownSignals(glance);
+  const aim = glance.sleepDebtHours !== null && glance.sleepDebtHours > 0 ? `Aim for ${hm(glance.sleepNeedTonight)} tonight` : null;
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-6">
+        <div className="flex items-center gap-3 md:w-44 md:flex-none">
+          <ScoreRing score={score?.score ?? null} size={56} />
+          <div className="min-w-0 flex-1">
+            {score ? (
+              <div className="text-lg font-medium capitalize">{recoveryWord(score.score)}</div>
+            ) : (
+              <div className="text-sm text-muted">
+                Baseline: {recovery.baselineDays} of {MINIMUM_BASELINE_DAYS} nights
+              </div>
+            )}
+            <Link href="/health" className="text-sm text-muted underline underline-offset-4 hover:text-ink">
+              Details
+            </Link>
+          </div>
+        </div>
+        {metrics.length > 0 && (
+          <div className="grid flex-1 grid-cols-2 gap-2 md:grid-cols-4">
+            {metrics.map((m) => (
+              <RangeTile key={m.key} metric={m} units={units} note={m.key === "sleepHours" ? aim : null} />
+            ))}
+          </div>
+        )}
+      </div>
+      {warnings.length > 0 && <p className="text-sm text-warning">{warnings.map((s) => `${s.reason}.`).join(" ")}</p>}
+    </div>
+  );
+}
+
+/** One measure: last night's value, and a bar of where it sits against your usual range. */
+function RangeTile({ metric, units, note }: { metric: GlanceMetric; units: UnitSystem; note: string | null }) {
+  const { key, value, range, concern, nights } = metric;
+  const number = format(key, value!, units, false);
+  const suffix = key === "hrv" ? "ms" : key === "restingHeartRate" ? "bpm" : null;
+  // The bar spans the range and the last two weeks, with a little room either side.
+  const seen = nights.flatMap((n) => (n.value === null ? [] : [n.value]));
+  const lo = Math.min(value!, ...seen, ...(range ? [range.low] : []));
+  const hi = Math.max(value!, ...seen, ...(range ? [range.high] : []));
+  const pad = (hi - lo) * 0.12 || Math.abs(hi) * 0.05 || 1;
+  const at = (v: number) => ((v - (lo - pad)) / (hi + pad - (lo - pad))) * 100;
+  return (
+    <div className="rounded-md bg-raised px-3 py-2.5" title={range ? `${LABEL[key]} ${format(key, value!, units)}, usual ${usual(key, range, units)}` : undefined}>
+      <div className="text-xs text-muted">{LABEL[key]}</div>
+      <div className="num text-lg font-semibold leading-tight">
+        <span className={concern ? "text-warning" : undefined}>{number}</span>
+        {suffix && <span className="ml-1 text-xs font-normal text-muted">{suffix}</span>}
+      </div>
+      <div className="relative mt-2 h-1.5 rounded-full bg-active" role="img" aria-label={range ? `Usual ${usual(key, range, units)}` : "No usual range yet"}>
+        {range && <div className="absolute inset-y-0 rounded-full bg-accent/45" style={{ left: `${at(range.low)}%`, width: `${Math.max(at(range.high) - at(range.low), 2)}%` }} />}
+        <div
+          className={`absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-raised ${concern ? "bg-warning" : "bg-ink"}`}
+          style={{ left: `${at(value!)}%` }}
+        />
+      </div>
+      {note && <div className="mt-1.5 text-xs text-muted">{note}</div>}
     </div>
   );
 }

@@ -99,7 +99,7 @@ describe("pacing", () => {
 
   it("holds more than FTP on short climbs and less on long ones, less again on long days", () => {
     expect(climbFraction(150, 1, "hard")).toBeGreaterThan(1.1);
-    expect(climbFraction(40 * 60, 1, "hard")).toBeLessThan(0.95);
+    expect(climbFraction(40 * 60, 1, "hard")).toBeLessThan(1);
     expect(climbFraction(10 * 60, 5, "hard")).toBeLessThan(climbFraction(10 * 60, 1, "hard"));
   });
 

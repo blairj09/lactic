@@ -1,5 +1,5 @@
-// Lactic's top bar, in place of the web app's (src/components/nav.tsx): the same four screens,
-// Coach and Ride, plus the window's drag area and room for the macOS traffic lights. On a phone
+// Lactic's top bar, in place of the web app's (src/components/nav.tsx): the screens (Ride among
+// them, so it highlights like the rest when you're on it) and Coach, plus the window's drag area and room for the macOS traffic lights. On a phone
 // the screens and Ride move to a tab bar along the bottom, within reach of a thumb.
 
 import Link from "next/link";
@@ -25,6 +25,9 @@ export default function Nav({ current }: { current: string }) {
   const tracking = useFeatures();
   // Health has nothing to show when the rider tracks neither recovery nor weight.
   const links = LINKS.filter((l) => l.href !== "/health" || hasHealth(tracking));
+  // Ride sits between Plan and Progress, in the bar and in the phone's tab bar alike.
+  const tabs = [...links.slice(0, 2), { href: "/ride", label: "Ride" }, ...links.slice(2)];
+  const coach = mode === "builtin" || mode === "external";
   return (
     <>
     <header className="lactic-drag lactic-titlebar sticky top-0 z-30 border-b border-line bg-ground pt-[env(safe-area-inset-top)]">
@@ -33,7 +36,7 @@ export default function Nav({ current }: { current: string }) {
           <Wordmark />
         </Link>
         <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
-          {links.map(({ href, label }) => (
+          {tabs.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
@@ -53,15 +56,7 @@ export default function Nav({ current }: { current: string }) {
           )}
           {mode === "builtin" && mcp && <ExternalCoachButton alongside />}
           {mode === "external" && <ExternalCoachButton />}
-          <Link
-            href="/ride"
-            data-tour="ride"
-            aria-current={current === "/ride" ? "page" : undefined}
-            className="hidden h-8 items-center rounded-md bg-primary px-3.5 text-sm font-medium text-on-primary transition-opacity hover:opacity-85 aria-[current=page]:hidden md:inline-flex"
-          >
-            Ride
-          </Link>
-          <span aria-hidden className="mx-1 hidden h-5 w-px bg-line md:block" />
+          {coach && <span aria-hidden className="mx-1 hidden h-5 w-px bg-line md:block" />}
           {/* The website demo has no feedback to send. */}
           {!isDemo && (
             <span className="hidden md:contents">
@@ -86,7 +81,7 @@ export default function Nav({ current }: { current: string }) {
     </header>
     <nav aria-label="Main" className="lactic-tabbar fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ground pb-[env(safe-area-inset-bottom)] md:hidden">
       <div className="mx-auto flex h-14 max-w-md items-stretch justify-around px-2">
-        {[...links.slice(0, 2), { href: "/ride", label: "Ride" }, ...links.slice(2)].map(({ href, label }) => (
+        {tabs.map(({ href, label }) => (
           <Link
             key={href}
             href={href}

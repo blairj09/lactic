@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoExportSamples, columnSamples, healthNights, healthWeighIns, parseHealthDate, sleepStage } from "./health-import";
+import { autoExportSamples, columnSamples, cutShortNight, healthNights, healthWeighIns, parseHealthDate, sleepStage } from "./health-import";
 
 const line = (start: string, end: string, value: string) => `2026-11-0${start}-05:00|2026-11-0${end}-05:00|${value}`;
 
@@ -189,5 +189,24 @@ describe("healthWeighIns", () => {
 
   it("is empty without weight columns", () => {
     expect(healthWeighIns({ sleepStart: [] })).toEqual([]);
+  });
+});
+
+describe("cutShortNight", () => {
+  const full = { start: 1_000, end: 1_000 + 7.5 * 3600, asleepHours: 7 };
+
+  it("keeps a stored night over a read that began partway through it", () => {
+    // A 7:00 read of the last 3 days starts at 7:00 three mornings ago and sees only that night's last hour.
+    expect(cutShortNight(full, { start: full.end - 3600, end: full.end, asleepHours: 1 })).toBe(true);
+  });
+
+  it("takes the full night over one read mid-night", () => {
+    const partial = { start: full.start, end: full.start + 3 * 3600, asleepHours: 2.8 };
+    expect(cutShortNight(partial, full)).toBe(false);
+  });
+
+  it("takes a re-read of the same night and anything without times", () => {
+    expect(cutShortNight(full, { ...full, asleepHours: 6.9 })).toBe(false);
+    expect(cutShortNight({ start: null, end: null, asleepHours: 7 }, { start: 5, end: 6, asleepHours: 1 })).toBe(false);
   });
 });

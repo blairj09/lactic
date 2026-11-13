@@ -31,7 +31,7 @@ export function remoteRide(): OverlayPayload | null {
   return { data: { ...data, trace }, canPlay: controls.canPlay };
 }
 
-const ALLOWED = new Set<Exclude<ControlName, "resize">>(["onPlayPause", "onSkip", "onBack", "onIntensity", "onErg", "onErgMode", "onGrade", "onExtend", "onEnd", "onExtendMinutes", "onExtendWatts", "onExtendKind", "onExtendBlock", "onHold"]);
+const ALLOWED = new Set<Exclude<ControlName, "resize">>(["onPlayPause", "onSkip", "onBack", "onIntensity", "onErg", "onErgMode", "onGrade", "onExtend", "onEnd", "onExtendMinutes", "onExtendWatts", "onExtendKind", "onExtendBlock", "onHold", "onAdaptUndo", "onAdaptYes", "onAdaptNo", "onAdaptive"]);
 
 /** Runs a button pressed on the phone, as if pressed here. */
 export function runRemoteControl(message: ControlMessage): boolean {

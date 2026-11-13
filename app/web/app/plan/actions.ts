@@ -28,13 +28,15 @@ import { planAhead, recordCheckin, recordChoice } from "@/lib/coach/conversation
 import { changeableDay } from "@/lib/coach/changes";
 import { localDate } from "@/lib/engine/activity";
 import { editedSession } from "@/lib/engine/overrides";
-import { favoriteLibraryIds, libraryWorkout, librarySession } from "@/lib/engine/workout-library";
+import { librarySession, workoutByKey } from "@/lib/engine/workout-library";
 import { readWorkout } from "@/lib/engine/workout-edit";
 import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
 import { loadTrainingState, saveKeptWeek, type CheckinRecord, type TrainingState } from "@/lib/training";
 import { todayOptions } from "@/lib/today-options";
 import { createClient } from "@/lib/supabase/server";
-import { courseFromFile, courseFromUrl, saveCourse } from "@/lib/course";
+import { courseFromFile, courseFromUrl, saveCourse, saveCourseTarget } from "@/lib/course";
+import { PACKS, type Pack } from "@/lib/engine/course/pacing";
+import { parseFinishTime } from "@/lib/engine/course/target";
 import { experiments } from "@/lib/experiments";
 import { courseSaved } from "./course-actions";
 import type { ActionResult } from "../actions";
@@ -90,6 +92,11 @@ export async function saveGoal(_: ActionResult | null, form: FormData): Promise<
         : link
           ? await courseFromUrl(link)
           : null;
+    const targetText = String(form.get("target_time") ?? "").trim();
+    const targetSeconds = course && targetText ? parseFinishTime(targetText) : null;
+    if (course && targetText && targetSeconds === null) throw new Error("Give the target time as hours and minutes, like 4:30");
+    const packValue = String(form.get("pack") ?? "");
+    const pack = PACKS.includes(packValue as Pack) ? (packValue as Pack) : null;
     const supabase = await createClient();
     const goalId = id || crypto.randomUUID();
     if (id) {
@@ -100,6 +107,7 @@ export async function saveGoal(_: ActionResult | null, form: FormData): Promise<
       if (error) throw error;
     }
     const withCourse = course ? ` ${await courseSaved(await saveCourse(supabase, goalId, course.name, course.track))}` : "";
+    if (course && (targetSeconds || pack)) await saveCourseTarget(supabase, goalId, targetSeconds, pack);
     return id ? `Updated ${name}.${withCourse}` : `Added ${name}. The plan now builds toward it.${withCourse}`;
   });
 }
@@ -209,7 +217,7 @@ export async function previewPlan(_: PlanPreview | null, form: FormData): Promis
       fatigue: state.fatigue,
       levels: state.levels,
       rampRate: state.athlete.rampRate,
-      favorites: favoriteLibraryIds(state.favorites),
+      favorites: state.favoriteWorkouts,
     });
     const end = plan.target ? plan.forecast.find((d) => d.date === plan.target!.date) : plan.forecast.find((d) => d.date === frame.end);
     return {
@@ -388,16 +396,22 @@ export async function saveDayWorkout(date: string, raw: unknown): Promise<Action
   });
 }
 
-/** Puts a starter library workout on a day as its session (keeping its zone and level), then sends the plan to intervals.icu. */
-export async function saveDayLibrary(date: string, id: string): Promise<ActionResult> {
+/**
+ * Puts a workout on a day as itself, then sends the plan to intervals.icu: a starter library workout
+ * (`library:<id>`) or one of My workouts (`custom:<id>`), with the zone and level the engine gives it.
+ * One of yours the engine can't place in a zone is saved as an edited workout instead.
+ */
+export async function saveDayFixed(date: string, key: string): Promise<ActionResult> {
   return attempt(async () => {
-    const entry = libraryWorkout(id);
-    if (!entry) throw new Error("That workout isn't in the library");
     const supabase = await createClient();
     const state = await loadTrainingState(supabase);
-    editableDay(state, date);
-    await writeDays(supabase, state, [{ date, session: librarySession(entry) }]);
-    return `Saved “${entry.workout.name}”.${await pushChangedPlan(supabase)}`;
+    const day = editableDay(state, date);
+    const entry = workoutByKey(key, state.customWorkouts);
+    const mine = key.startsWith("custom:") ? state.customWorkouts.find((c) => c.id === key.slice(7)) : null;
+    if (!entry && !mine) throw new Error(key.startsWith("custom:") ? "That workout isn't in My workouts any more" : "That workout isn't in the library");
+    const session = entry ? librarySession(entry) : editedSession(mine!.workout, day.session, state.levels);
+    await writeDays(supabase, state, [{ date, session }]);
+    return `Saved “${session.workout.name}”.${await pushChangedPlan(supabase)}`;
   });
 }
 

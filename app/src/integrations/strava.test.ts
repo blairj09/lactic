@@ -10,8 +10,18 @@ vi.mock("~/platform/native", () => ({
     if (command === "strava_refresh" && refreshFails) throw "reconnect: Strava turned the sign-in down.";
   },
   openExternal: async () => {},
+  isPhone: () => device !== "computer",
+  os: () => (device === "computer" ? "macos" : "ios"),
 }));
 let refreshFails = false;
+/** Which device the test runs as: a computer, an iPhone on its own, or one paired with a computer. */
+let device: "computer" | "phone" | "paired" = "computer";
+vi.mock("~/phone/plugin", () => ({
+  phoneStatus: async () => ({ paired: device === "paired" ? { computer: "Mac", deviceId: "d", lastSentAt: null } : null }),
+  webAuth: async () => ({ url: "" }),
+}));
+const synced: string[] = [];
+vi.mock("~/phone/link", () => ({ syncWithComputer: async () => void synced.push("sync") }));
 // The test runs the job itself; nothing in the background.
 vi.mock("./background", () => ({ registerJob: () => {}, notifyChanged: () => {} }));
 
@@ -20,7 +30,7 @@ import { setSql } from "~/db/sql";
 import { migrate } from "~/db/migrate";
 import { localClient } from "~/db/supabase-client";
 import { setCurrentExperiments } from "@/lib/experiments";
-import { loadStrava, postRideToStrava, queueStravaRide, recentStravaUploads, stravaUploadFor, syncStrava } from "./strava";
+import { connectStrava, disconnectStrava, loadStrava, postRideToStrava, queueStravaRide, readStravaReturn, recentStravaUploads, stravaUploadFor, syncStrava } from "./strava";
 
 const RIDE = "00000000-0000-4000-8000-0000000000a1";
 type Call = { url: string; form: FormData | null };
@@ -34,8 +44,10 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  setCurrentExperiments({ race_report: false, strava_upload: true, course_prep: false });
+  setCurrentExperiments({ race_report: false, strava_upload: true, course_prep: false, adaptive_workouts: false });
   refreshFails = false;
+  device = "computer";
+  synced.length = 0;
   calls = [];
   replies = [];
   invoked.length = 0;
@@ -97,9 +109,9 @@ describe("posting rides to Strava", () => {
   });
 
   it("queues nothing with the experiment off or posting turned off", async () => {
-    setCurrentExperiments({ race_report: false, strava_upload: false, course_prep: false });
+    setCurrentExperiments({ race_report: false, strava_upload: false, course_prep: false, adaptive_workouts: false });
     await queueStravaRide(RIDE, new Uint8Array([1]));
-    setCurrentExperiments({ race_report: false, strava_upload: true, course_prep: false });
+    setCurrentExperiments({ race_report: false, strava_upload: true, course_prep: false, adaptive_workouts: false });
     await localClient.from("strava_connections").update({ upload_rides: false }).neq("athlete_id", "");
     await queueStravaRide(RIDE, new Uint8Array([1]));
     expect(await recentStravaUploads()).toEqual([]);
@@ -114,5 +126,36 @@ describe("posting rides to Strava", () => {
     await syncStrava();
     expect(await stravaUploadFor(RIDE)).toMatchObject({ status: "sent", stravaId: "555" });
     await localClient.from("activity_streams").delete().eq("activity_id", RIDE);
+  });
+});
+
+describe("Strava on the iPhone", () => {
+  it("posts from an iPhone used on its own", async () => {
+    device = "phone";
+    await queueStravaRide(RIDE, new Uint8Array([1]));
+    replies.push(json({ id: 1, activity_id: 556 }, 201));
+    await syncStrava();
+    expect(await stravaUploadFor(RIDE)).toMatchObject({ status: "sent", stravaId: "556" });
+  });
+
+  it("leaves posting to the computer when paired, so a ride never goes twice", async () => {
+    device = "paired";
+    await queueStravaRide(RIDE, new Uint8Array([1]));
+    await vi.waitFor(() => expect(synced).toEqual(["sync"]));
+    expect(await syncStrava()).toBeUndefined();
+    expect(invoked).not.toContain("strava_refresh");
+    expect(calls).toEqual([]);
+    // Still waiting, for the computer to send once it syncs; the phone hasn't marked the sign-in bad.
+    expect(await stravaUploadFor(RIDE)).toMatchObject({ status: "pending" });
+    expect((await loadStrava())?.needsReconnect).toBe(false);
+    await expect(connectStrava()).rejects.toThrow(/on your computer/);
+    await expect(disconnectStrava()).rejects.toThrow(/on your computer/);
+  });
+
+  it("reads the code from where Strava's sign-in sent the iPhone back", () => {
+    expect(readStravaReturn("lactic://lactic.fit/strava?state=s1&code=abc123&scope=read,activity:write", "s1")).toEqual({ code: "abc123", scope: "read,activity:write" });
+    expect(() => readStravaReturn("lactic://lactic.fit/strava?state=old&code=abc", "s1")).toThrow(/out of date/);
+    expect(() => readStravaReturn("lactic://lactic.fit/strava?state=s1&error=access_denied", "s1")).toThrow(/didn't allow/);
+    expect(() => readStravaReturn("lactic://lactic.fit/strava?state=s1", "s1")).toThrow(/didn't finish/);
   });
 });

@@ -15,7 +15,9 @@ const easyWord = (s: Segment) => (level(s) < 0.56 ? "Recovery" : "Endurance");
 /** One label per segment, in order. */
 export function segmentRoles(workout: Workout): string[] {
   const segments = workout.segments;
-  const hard = segments.map((s) => level(s) >= EFFORT_FROM);
+  // Openers are part of the warm-up, not efforts.
+  const isOpener = (s: Segment) => s.kind === "steady" && Boolean(s.opener);
+  const hard = segments.map((s) => level(s) >= EFFORT_FROM && !isOpener(s));
 
   // Efforts: runs of consecutive hard segments.
   const efforts: { first: number; last: number }[] = [];
@@ -30,6 +32,7 @@ export function segmentRoles(workout: Workout): string[] {
   if (efforts.length === 0) {
     // Steady riding: name the ramps at either end.
     if (segments.length > 1 && segments[0].kind === "ramp") roles[0] = "Warm-up";
+    segments.forEach((s, i) => isOpener(s) && (roles[i] = "Warm-up"));
     const end = segments.length - 1;
     if (end > 0 && segments[end].kind === "ramp") roles[end] = "Cool-down";
     return roles;
@@ -37,7 +40,9 @@ export function segmentRoles(workout: Workout): string[] {
 
   const firstHard = efforts[0].first;
   const lastHard = efforts[efforts.length - 1].last;
-  for (let i = 0; i < firstHard; i++) roles[i] = "Warm-up";
+  const openerCount = segments.slice(0, firstHard).filter(isOpener).length;
+  let openerNumber = 0;
+  for (let i = 0; i < firstHard; i++) roles[i] = isOpener(segments[i]) ? `Warm-up · opener ${++openerNumber} of ${openerCount}` : "Warm-up";
   // The last segment (and any ramp) after the final effort is the cool-down; steady riding before it keeps its own name.
   for (let i = lastHard + 1; i < segments.length; i++) if (i === segments.length - 1 || segments[i].kind === "ramp") roles[i] = "Cool-down";
 
