@@ -72,6 +72,7 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .hero-side .lede { flex: 1 1 420px; max-width: 54ch; }
 .nowrap { white-space: nowrap; }
 .lede { font-size: clamp(18px, 1.5vw, 21px); line-height: 1.5; color: var(--body); }
+.lede strong { color: var(--ink); font-weight: 700; }
 
 /* Product window */
 .app { background: var(--surface); border: 1px solid var(--line); border-bottom: 0; border-radius: 16px 16px 0 0; box-shadow: 0 -10px 60px -30px rgba(13, 17, 23, 0.35); overflow: hidden; }
