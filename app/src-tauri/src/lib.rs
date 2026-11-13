@@ -2,6 +2,8 @@
 // browser can't: the SQLite database, the keychain, Bluetooth, HTTP without CORS, files, a native
 // ride overlay and the MCP server for external AI coaches.
 
+#[cfg(desktop)]
+pub mod apps;
 pub mod ble;
 pub mod db;
 pub mod files;
@@ -100,6 +102,16 @@ pub fn run() {
         // the public half is in tauri.conf.json. (The iPhone app updates through the App Store.)
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        // With the menu bar icon on (head unit with Zwift), closing the window hides it instead, so
+        // Lactic is still running when Zwift opens.
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" && apps::keeps_running() {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .on_menu_event(|app, event| {
             if event.id() == "check-updates" {
                 use tauri::Emitter;
@@ -184,6 +196,8 @@ pub fn run() {
         files::icloud_drive,
         files::home_dir,
         window::overlay_open,
+        apps::training_app_open,
+        apps::menu_bar_set,
         window::overlay_close,
         window::overlay_support,
         mcp::mcp_respond,
@@ -245,5 +259,14 @@ pub fn run() {
         files::icloud_drive,
         files::home_dir,
     ]);
-    builder.run(context).expect("error while running Lactic");
+    builder
+        .build(context)
+        .expect("error while building Lactic")
+        .run(|_app, _event| {
+            // Clicking Lactic in the Dock brings back a window hidden behind the menu bar icon.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { has_visible_windows: false, .. } = _event {
+                apps::show_main(_app);
+            }
+        });
 }

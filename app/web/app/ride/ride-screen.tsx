@@ -43,6 +43,7 @@ import { RemoteHost } from "~/ride/remote";
 import { pluginFieldOptions, usePluginFields, usePlugins } from "~/plugins/ride-fields";
 import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
 import { useKeepAwake } from "~/platform/keep-awake";
+import { HEAD_UNIT_EVENT } from "~/ride/head-unit-auto";
 import { isDesktop, isPhone } from "~/platform/native";
 import { isDemo } from "~/demo/flag";
 import type { TracePoint } from "./workout-chart";
@@ -640,6 +641,18 @@ function RideOnThisDevice({
       ride(next);
     }
   };
+
+  // Head unit with Zwift: Zwift (or Rouvy, MyWhoosh) opened while this page is up. Before a ride, get
+  // the head unit ready; pedaling starts it. A ride under way carries on as it is.
+  const toHeadUnit = useRef(() => {});
+  toHeadUnit.current = () => {
+    if (!startedAt.current && elapsedRef.current === 0 && !headUnit) pickSource("headUnit");
+  };
+  useEffect(() => {
+    const on = () => toHeadUnit.current();
+    window.addEventListener(HEAD_UNIT_EVENT, on);
+    return () => window.removeEventListener(HEAD_UNIT_EVENT, on);
+  }, []);
 
   const pickStarter = (entry: LibraryWorkout) => {
     setStarterId(entry.id);

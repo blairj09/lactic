@@ -10,6 +10,7 @@ import { useState } from "react";
 import { Panel, Segmented, button, input } from "@/components/ui";
 import Select from "@/components/select";
 import { formatTime } from "./player";
+import { canWatchApps, useHeadUnitAuto } from "~/ride/head-unit-auto";
 
 /**
  * What the player is set up to ride: the plan's session, a generated workout, a starter library
@@ -272,6 +273,7 @@ export default function RideNow({
           <div>
             <p className="text-[15px] font-medium text-ink">Your fields over Zwift, Rouvy or any app</p>
             <p className="text-sm text-muted">Lactic reads your sensors and leaves the trainer to the other app.</p>
+            <HeadUnitAuto />
           </div>
         )}
       </div>
@@ -431,5 +433,23 @@ function MyWorkouts({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Head unit with Zwift, in the Lactic app on a computer: Lactic stays in the menu bar and gets the
+ * head unit ready whenever Zwift, Rouvy or MyWhoosh opens.
+ */
+function HeadUnitAuto() {
+  const [on, setOn] = useHeadUnitAuto();
+  if (!canWatchApps()) return null;
+  return (
+    <label className="mt-4 flex cursor-pointer items-start gap-3">
+      <input type="checkbox" className="mt-1 size-4 accent-[var(--primary)]" checked={on} onChange={(e) => setOn(e.target.checked)} />
+      <span>
+        <span className="block text-[15px]">Start with Zwift, Rouvy or MyWhoosh</span>
+        <span className="block text-sm text-muted">Lactic stays in the menu bar. When one opens, pedal and the head unit starts.</span>
+      </span>
+    </label>
   );
 }
