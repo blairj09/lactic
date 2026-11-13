@@ -8,7 +8,8 @@ import type { RideTotals } from "@/lib/ride/totals";
 import type { FieldShown } from "@/lib/ride/fields";
 import { fieldKey } from "@/lib/ride/fields";
 import { DEFAULT_RIDE_PAGE, PAGE_TEMPLATES, type FieldRef, type RidePage } from "@/lib/sdk/layout";
-import { Big, FieldGrid, PageDots, PluginMark, TONE, hasChart, swipeHandlers, type Shown, type Tone } from "./field-grid";
+import { Big, FieldChart, FieldGrid, PageDots, PluginMark, TONE, hasChart, swipeHandlers, type Shown, type Tone } from "./field-grid";
+import type { RideChart } from "@/lib/sdk/plugin-fields";
 import WorkoutChart, { type TracePoint } from "./workout-chart";
 
 /** Everything the in-ride views show, worked out once per second in RideScreen. */
@@ -322,7 +323,7 @@ export function shownField(ref: FieldRef, data: PlayerData, short = false): Show
   }
   const f = data.fields.values[fieldKey(ref)];
   if (!f) return { label: "metric" in ref ? ref.metric : ref.custom.label, value: undefined, unit: "" };
-  return { label: f.label, value: f.value ?? undefined, unit: f.unit, reason: f.reason, ...(f.sub ? { sub: f.sub } : {}), ...(f.tone ? { tone: f.tone } : {}), ...(f.plugin ? { plugin: true } : {}) };
+  return { label: f.label, value: f.value ?? undefined, unit: f.unit, reason: f.reason, ...(f.sub ? { sub: f.sub } : {}), ...(f.tone ? { tone: f.tone } : {}), ...(f.plugin ? { plugin: true } : {}), ...(f.chart ? { chart: f.chart } : {}) };
 }
 
 /**
@@ -468,7 +469,7 @@ export function RemoteView({ data, controls, extra, notice }: { data: PlayerData
                   onClick={() => setWhy(f.value === undefined && f.reason ? f : null)}
                   aria-label={f.value === undefined && f.reason ? `${f.label}: ${f.reason}` : undefined}
                 >
-                  <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} lead={i < 3} plugin={f.plugin} />
+                  <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} lead={i < 3} plugin={f.plugin} chart={f.chart} />
                 </button>
               ) : null,
             )}
@@ -901,7 +902,7 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
     const tone = isInterval ? (data.autoPaused || data.startIn !== null ? "warning" : undefined) : f.tone;
     // On the standard page heart rate and cadence are smaller, as they were before layouts.
     const small = twoRows || (page.template === "standard" ? i >= 3 : shown.length > 4 && i >= 3);
-    return <Mini key={i} label={label} value={f.value} tone={tone} sub={sub} small={small} plugin={f.plugin} />;
+    return <Mini key={i} label={label} value={f.value} tone={tone} sub={sub} small={small} plugin={f.plugin} chart={f.chart} />;
   };
   const [drawer, setDrawer] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -1288,14 +1289,15 @@ function MiniAdapt({ data, controls }: { data: PlayerData; controls: PlayerContr
   );
 }
 
-function Mini({ label, value, tone, sub, small, plugin }: { label: string; value: number | string | undefined; tone?: Tone; sub?: string | null; small?: boolean; plugin?: boolean }) {
+function Mini({ label, value, tone, sub, small, plugin, chart }: { label: string; value: number | string | undefined; tone?: Tone; sub?: string | null; small?: boolean; plugin?: boolean; chart?: RideChart }) {
   return (
     <div className="flex shrink-0 flex-col justify-center">
       <div className={`flex items-center gap-[0.35em] whitespace-nowrap text-muted ${MINI_LABEL}`}>
         {plugin && <PluginMark />}
         {label}
       </div>
-      <div className={`num font-medium tracking-tight ${small ? MINI_VALUE_SMALL : MINI_VALUE} ${tone ? TONE[tone] : ""}`}>{value ?? <span className="text-faint">–</span>}</div>
+      {(value !== undefined || !chart) && <div className={`num font-medium tracking-tight ${small ? MINI_VALUE_SMALL : MINI_VALUE} ${tone ? TONE[tone] : ""}`}>{value ?? <span className="text-faint">–</span>}</div>}
+      {chart && <FieldChart chart={chart} small />}
       <div className={`num whitespace-nowrap ${MINI_LABEL} ${tone ? TONE[tone] : "text-muted"}`}>{sub ?? " "}</div>
     </div>
   );

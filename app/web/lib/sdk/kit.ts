@@ -19,8 +19,8 @@ export type KitNode =
   | { type: "text"; text: string; tone?: Tone; size?: "sm" | "md" | "lg"; weight?: "normal" | "medium" | "semibold" }
   /** A small trend line; values only, scaled to fit. */
   | { type: "sparkline"; values: (number | null)[]; tone?: Tone }
-  /** Simple bars, e.g. per day; labels optional. */
-  | { type: "bars"; values: (number | null)[]; labels?: string[]; tone?: Tone }
+  /** Simple bars, e.g. per day; labels optional. `palette: "zones"` colours bar 1 as zone 1, bar 2 as zone 2 and so on (up to 7). */
+  | { type: "bars"; values: (number | null)[]; labels?: string[]; tone?: Tone; palette?: "zones" }
   /** A 0 to 1 bar, e.g. how much of the week is done. */
   | { type: "meter"; value: number; label?: string; tone?: Tone }
   | { type: "stack"; direction?: "row" | "column"; gap?: "sm" | "md"; children: KitNode[] }
@@ -110,7 +110,7 @@ export function validateKit(input: unknown, { fromPlugin = true }: { fromPlugin?
         return strip({ type: "sparkline", values: series(o.values, "values"), tone: tone(o.tone) });
       case "bars": {
         const labels = o.labels === undefined ? undefined : Array.isArray(o.labels) && o.labels.length <= KIT_LIMITS.points ? o.labels.map((l) => str(l, "label")!) : fail("labels must be a short list");
-        return strip({ type: "bars", values: series(o.values, "values"), labels, tone: tone(o.tone) });
+        return strip({ type: "bars", values: series(o.values, "values"), labels, tone: tone(o.tone), palette: pick(o.palette, ["zones"] as const, "palette") });
       }
       case "meter": {
         if (typeof o.value !== "number" || !Number.isFinite(o.value)) return fail("meter value must be a number");

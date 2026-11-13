@@ -25,6 +25,16 @@ describe("a plugin's tree as a ride field", () => {
     expect(fieldFromKit({ type: "text", text: "nothing" })).toBeNull();
   });
 
+  it("adds one small chart, cut down to fit a ride field", () => {
+    const f = fieldFromKit({ type: "stack", children: [{ type: "field", label: "x", value: "Z3", unit: "13 min" }, { type: "bars", values: [4, 11, 13, null, -1], labels: ["Z1", "Z2", "Z3", "Z4", "Z5"], palette: "zones" }, { type: "sparkline", values: [1, 2] }] });
+    expect(f).toEqual({ value: "Z3", unit: "13 min", chart: { kind: "bars", values: [4, 11, 13, 0, 0], labels: ["Z1", "Z2", "Z3", "Z4", "Z5"], zones: true } });
+    expect(fieldFromKit({ type: "sparkline", values: Array.from({ length: 400 }, (_, i) => i) })).toMatchObject({ value: null, chart: { kind: "line" } });
+    expect((fieldFromKit({ type: "sparkline", values: Array.from({ length: 400 }, (_, i) => i) })?.chart as { values: number[] }).values).toHaveLength(120);
+    expect(fieldFromKit({ type: "bars", values: new Array(11).fill(1) })).toBeNull();
+    expect(fieldFromKit({ type: "bars", values: [1, 2], labels: ["long label", "b"] })?.chart).toEqual({ kind: "bars", values: [1, 2] });
+    expect(fieldFromKit({ type: "meter", value: 0.68, tone: "good" })?.chart).toEqual({ kind: "meter", value: 0.68, tone: "positive" });
+  });
+
   it("keeps a ride field short", () => {
     expect(fieldFromKit({ type: "field", label: "x", value: "STOP PEDALLING NOW" })).toBeNull();
     expect(fieldFromKit({ type: "field", label: "x", value: "1", unit: "watts per kg" })).toBeNull();

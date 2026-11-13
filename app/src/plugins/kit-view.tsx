@@ -110,7 +110,7 @@ export function KitView({ node, onOpenDetail }: { node: KitNode; onOpenDetail?: 
       return (
         <div className="flex h-12 items-end gap-0.5">
           {node.values.map((v, i) => (
-            <div key={i} className="flex-1 rounded-sm" style={{ height: `${((v ?? 0) / max) * 100}%`, background: STROKE[node.tone ?? "default"], opacity: v === null ? 0.2 : 0.8 }} title={node.labels?.[i]} />
+            <div key={i} className="flex-1 rounded-sm" style={{ height: `${((v ?? 0) / max) * 100}%`, background: node.palette === "zones" ? `var(--zone-${Math.min(7, i + 1)})` : STROKE[node.tone ?? "default"], opacity: v === null ? 0.2 : node.palette === "zones" ? 1 : 0.8 }} title={node.labels?.[i]} />
           ))}
         </div>
       );

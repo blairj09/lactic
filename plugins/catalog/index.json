@@ -205,6 +205,28 @@
       "file": "dist/w-prime-1.0.1.lacticplugin",
       "bytes": 4622,
       "sha256": "c8134a96134f285be21684235f19d89967a7cda0178afc5ba884683fffcae6f2"
+    },
+    {
+      "id": "zones",
+      "name": "Zones",
+      "version": "0.1.0",
+      "description": "Live ride fields for time in heart rate and power zones, and your power over the last 5 minutes.",
+      "reads": [
+        "live"
+      ],
+      "adds": {
+        "fields": [
+          "HR zones",
+          "Power zones",
+          "Power, last 5 min"
+        ],
+        "analyses": [],
+        "widgets": []
+      },
+      "source": "zones/src/plugin.ts",
+      "file": "dist/zones-0.1.0.lacticplugin",
+      "bytes": 2844,
+      "sha256": "54c4f5be76f18bba3ba8a373af711cec24567911b88bfe2e268b707f4fecda96"
     }
   ]
 }

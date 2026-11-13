@@ -17,7 +17,8 @@ export type KitNode =
   /** A small trend line; values only, scaled to fit. */
   | { type: "sparkline"; values: (number | null)[]; tone?: Tone }
   /** Simple bars, e.g. per day; labels optional. */
-  | { type: "bars"; values: (number | null)[]; labels?: string[]; tone?: Tone }
+  /** `palette: "zones"` colours bar 1 as zone 1, bar 2 as zone 2 and so on (up to 7), in Lactic's zone colours. */
+  | { type: "bars"; values: (number | null)[]; labels?: string[]; tone?: Tone; palette?: "zones" }
   /** A 0 to 1 bar. */
   | { type: "meter"; value: number; label?: string; tone?: Tone }
   | { type: "stack"; direction?: "row" | "column"; gap?: "sm" | "md"; children: KitNode[] }
