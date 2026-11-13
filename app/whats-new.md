@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Before your first ride, Today shows one line about where your fitness numbers come from instead of form, fitness and fatigue at zero. The Plan page's warning about your hours limiting the build now only shows if you picked a faster pace than the default, and says it in plain words.
 - Today: This week's day tiles are shorter, and a ride that made up a session moved from another day now shows its ride shape instead of just its TSS.
 - Your plan starts the day you set Lactic up: the first week's rides fit into the days left in it. If there's nothing planned that day, Today offers an easy 30-minute first ride to try your trainer.
 - iPhone: during a ride, pause, skip, intensity and End ride stay docked above the tabs, so you never scroll to reach them.
