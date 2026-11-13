@@ -4,6 +4,7 @@ Plugins add cards to Today and fields to the ride screen in **Lactic Modular**, 
 
 - `sdk/` is `@lactic/sdk`: TypeScript types for the plugin API, the kit, metric ids and the manifest, `definePlugin()`, and `lactic-pack`, which turns a manifest and a built bundle into a `.lacticplugin` file.
 - `starter/` is a small working plugin (Sweet Spot) to copy from.
+- `AI-GUIDE.md`: give it to an AI assistant along with these folders to have it write a plugin for you.
 
 ## What a plugin can do
 
