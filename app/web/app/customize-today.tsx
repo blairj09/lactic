@@ -4,6 +4,10 @@
 // sized and removed in place, with an "Add a card" panel for the ones taken off. Undo, Cancel and
 // Done sit in a bar along the top; Reset puts Lactic's default back and keeps the rider's layout as
 // a copy. Every move also works from the keyboard: the ⋯ menu, and ⌥↑ / ⌥↓ on a card's grip.
+//
+// On the iPhone (reached by holding a card, hold-to-customize.tsx) it's laid out for touch: a "–"
+// hides a card, the size chip steps through its sizes, tapping a card opens its menu (Move up and
+// down for VoiceOver), Undo and Reset sit under ⋯ in the bar, and Add a card is a sheet.
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -12,6 +16,7 @@ import { cardRows, type Layout } from "@/lib/sdk/layout";
 import { addCard, hiddenCards, moveCard, nudgeCard, removeCard, rowColumns, sameLayout, shownCards, sizeCard } from "@/lib/sdk/layout-editor";
 import { SIZE_LABELS, todayCard } from "@/lib/sdk/builtin-widgets";
 import type { CardSize } from "@/lib/sdk/widgets";
+import { isPhone } from "~/platform/native";
 import { resetLayoutAction, saveLayoutAction } from "./layout-actions";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -26,8 +31,10 @@ interface Drag {
   y: number;
 }
 
-export default function CustomizeToday({ layout: initial }: { layout: Layout }) {
+export default function CustomizeToday({ layout: initial, phone = isPhone() }: { layout: Layout; phone?: boolean }) {
   const router = useRouter();
+  const [barMenu, setBarMenu] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [history, setHistory] = useState<Layout[]>([initial]);
   const layout = history[history.length - 1];
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -58,7 +65,11 @@ export default function CustomizeToday({ layout: initial }: { layout: Layout }) 
         e.preventDefault();
         undo();
       }
-      if (e.key === "Escape") setMenu(null);
+      if (e.key === "Escape") {
+        setMenu(null);
+        setBarMenu(false);
+        setAdding(false);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -182,31 +193,88 @@ export default function CustomizeToday({ layout: initial }: { layout: Layout }) 
   const dragged = drag ? todayCard(drag.widget) : null;
 
   return (
-    <div onClick={() => setMenu(null)}>
-      <div className="sticky top-12 z-20 -mx-4 mb-5 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-accent/25 bg-accent-soft px-4 py-2.5 sm:-mx-6 sm:px-6">
-        <span className="font-medium">Customizing Today</span>
-        <span className="hidden text-sm text-muted sm:inline">Drag cards, or use ⋯ to move them.</span>
-        <div className="ml-auto flex items-center gap-1.5">
-          <button type="button" className={button.ghost} onClick={undo} disabled={history.length < 2 || busy}>
-            ↶ Undo
-          </button>
-          <button type="button" className={cx(button.ghost, "ml-2")} onClick={() => setConfirmReset(true)} disabled={busy}>
-            Reset…
-          </button>
-          <button type="button" className={cx(button.small, "ml-2")} onClick={leave} disabled={busy}>
+    <div
+      onClick={() => {
+        setMenu(null);
+        setBarMenu(false);
+      }}
+    >
+      {phone ? (
+        <div className="sticky top-12 z-20 -mx-4 mb-4 flex items-center gap-2 border-b border-line bg-surface px-4 py-2">
+          <button type="button" className="h-9 text-sm text-accent" onClick={leave} disabled={busy}>
             Cancel
           </button>
+          <span className="flex-1 text-center font-medium">Today</span>
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button type="button" aria-label="More" aria-haspopup="menu" aria-expanded={barMenu} className="flex size-9 items-center justify-center text-lg text-accent" onClick={() => setBarMenu(!barMenu)}>
+              ⋯
+            </button>
+            {barMenu && (
+              <div role="menu" className="absolute top-full right-0 z-50 mt-1 w-44 rounded-lg border border-line bg-surface p-1 shadow-xl">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full rounded-md px-3 py-2.5 text-left text-sm disabled:text-faint"
+                  disabled={history.length < 2 || busy}
+                  onClick={() => {
+                    setBarMenu(false);
+                    undo();
+                  }}
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="w-full rounded-md px-3 py-2.5 text-left text-sm"
+                  disabled={busy}
+                  onClick={() => {
+                    setBarMenu(false);
+                    setConfirmReset(true);
+                  }}
+                >
+                  Reset…
+                </button>
+              </div>
+            )}
+          </div>
           <button type="button" className={button.smallPrimary} onClick={done} disabled={busy}>
             Done
           </button>
         </div>
-      </div>
+      ) : (
+        <div className="sticky top-12 z-20 -mx-4 mb-5 flex flex-wrap items-center gap-x-3 gap-y-2 border-y border-accent/25 bg-accent-soft px-4 py-2.5 sm:-mx-6 sm:px-6">
+          <span className="font-medium">Customizing Today</span>
+          <span className="hidden text-sm text-muted sm:inline">Drag cards, or use ⋯ to move them.</span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <button type="button" className={button.ghost} onClick={undo} disabled={history.length < 2 || busy}>
+              ↶ Undo
+            </button>
+            <button type="button" className={cx(button.ghost, "ml-2")} onClick={() => setConfirmReset(true)} disabled={busy}>
+              Reset…
+            </button>
+            <button type="button" className={cx(button.small, "ml-2")} onClick={leave} disabled={busy}>
+              Cancel
+            </button>
+            <button type="button" className={button.smallPrimary} onClick={done} disabled={busy}>
+              Done
+            </button>
+          </div>
+        </div>
+      )}
       {error && <p className="mb-4 text-sm text-negative">Couldn&apos;t save: {error}</p>}
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
         <div className="space-y-3" aria-label="Today's cards" role="list">
           {rows.map((row) => (
-            <div key={row.widgets.join(" ")} className={cx("grid grid-cols-1 gap-3", rowColumns(row) === 2 && "sm:grid-cols-2", rowColumns(row) === 3 && "sm:grid-cols-2 lg:grid-cols-3")}>
+            <div
+              key={row.widgets.join(" ")}
+              className={cx(
+                "grid grid-cols-1 gap-3",
+                rowColumns(row) === 2 && (phone && row.size === "small" ? "grid-cols-2" : "sm:grid-cols-2"),
+                rowColumns(row) === 3 && (phone ? "grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"),
+              )}
+            >
               {row.widgets.map((w) => {
                 const card = todayCard(w);
                 const entry = shown.find((c) => c.widget === w)!;
@@ -231,54 +299,111 @@ export default function CustomizeToday({ layout: initial }: { layout: Layout }) 
                       <span className="w-full text-center text-sm text-accent">Drop {card.name} here</span>
                     ) : (
                       <>
-                        <button
-                          type="button"
-                          data-grip
-                          aria-label={`Move ${card.name}. Option and the arrow keys move it up or down.`}
-                          className="flex h-9 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-faint hover:text-ink active:cursor-grabbing"
-                          onPointerDown={onDown(w)}
-                          onKeyDown={onGripKey(w)}
-                        >
-                          <Grip />
-                        </button>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium">{card.name}</div>
-                          <div className={cx("truncate text-sm text-muted", entry.size === "small" && row.widgets.length > 1 && "hidden xl:block")}>
-                            {entry.size !== "large" && row.widgets.length === 1 ? `Full width until another ${SIZE_LABELS[entry.size]} card sits next to it` : card.description}
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                          <div role="radiogroup" aria-label={`${card.name} size`} className="inline-flex rounded-md bg-raised p-0.5">
-                            {SIZES.map((s) => {
-                              const ok = card.sizes.includes(s);
-                              return (
-                                <button
-                                  key={s}
-                                  type="button"
-                                  role="radio"
-                                  aria-checked={entry.size === s}
-                                  aria-label={SIZE_LABELS[s]}
-                                  title={ok ? SIZE_LABELS[s] : `${card.name} can't be ${SIZE_LABELS[s].toLowerCase()}`}
-                                  disabled={!ok}
-                                  onClick={() => resize(w, s)}
-                                  className="h-6 w-6 rounded text-xs font-semibold text-muted hover:text-ink disabled:text-control disabled:hover:text-control aria-checked:bg-surface aria-checked:text-ink aria-checked:shadow-[0_0_0_1px_var(--line)]"
-                                >
-                                  {SHORT[s]}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <button
-                            type="button"
-                            aria-label={`More for ${card.name}`}
-                            aria-haspopup="menu"
-                            aria-expanded={menu === w}
-                            onClick={() => setMenu(menu === w ? null : w)}
-                            className={cx("flex size-7 items-center justify-center rounded-md border bg-surface text-muted hover:text-ink", menu === w ? "border-accent text-accent" : "border-line")}
-                          >
-                            ⋯
-                          </button>
-                        </div>
+                        {phone ? (
+                          <>
+                            {!card.required && (
+                              <button
+                                type="button"
+                                aria-label={`Remove ${card.name}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  remove(w);
+                                }}
+                                className="absolute -top-2 -left-2 z-10 flex size-6 items-center justify-center rounded-full bg-muted text-base leading-none font-bold text-surface"
+                              >
+                                –
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              aria-label={`${card.name}: move or resize`}
+                              aria-haspopup="menu"
+                              aria-expanded={menu === w}
+                              className="min-w-0 flex-1 text-left"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenu(menu === w ? null : w);
+                              }}
+                            >
+                              <div className="truncate font-medium">{card.name}</div>
+                              {!(entry.size === "small" && row.widgets.length > 1) && <div className="truncate text-sm text-muted">{card.description}</div>}
+                            </button>
+                            {card.sizes.length > 1 && (
+                              <button
+                                type="button"
+                                aria-label={`${card.name} size: ${SIZE_LABELS[entry.size]}. Tap for the next size.`}
+                                className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded-md bg-raised px-1.5 text-xs font-semibold text-muted"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const fits = SIZES.filter((s) => card.sizes.includes(s));
+                                  resize(w, fits[(fits.indexOf(entry.size) + 1) % fits.length]);
+                                }}
+                              >
+                                {SHORT[entry.size]}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              data-grip
+                              aria-label={`Move ${card.name}`}
+                              className="flex h-10 w-7 shrink-0 touch-none items-center justify-center rounded text-faint"
+                              onPointerDown={onDown(w)}
+                            >
+                              <Grip />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              data-grip
+                              aria-label={`Move ${card.name}. Option and the arrow keys move it up or down.`}
+                              className="flex h-9 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded text-faint hover:text-ink active:cursor-grabbing"
+                              onPointerDown={onDown(w)}
+                              onKeyDown={onGripKey(w)}
+                            >
+                              <Grip />
+                            </button>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-medium">{card.name}</div>
+                              <div className={cx("truncate text-sm text-muted", entry.size === "small" && row.widgets.length > 1 && "hidden xl:block")}>
+                                {entry.size !== "large" && row.widgets.length === 1 ? `Full width until another ${SIZE_LABELS[entry.size]} card sits next to it` : card.description}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <div role="radiogroup" aria-label={`${card.name} size`} className="inline-flex rounded-md bg-raised p-0.5">
+                                {SIZES.map((s) => {
+                                  const ok = card.sizes.includes(s);
+                                  return (
+                                    <button
+                                      key={s}
+                                      type="button"
+                                      role="radio"
+                                      aria-checked={entry.size === s}
+                                      aria-label={SIZE_LABELS[s]}
+                                      title={ok ? SIZE_LABELS[s] : `${card.name} can't be ${SIZE_LABELS[s].toLowerCase()}`}
+                                      disabled={!ok}
+                                      onClick={() => resize(w, s)}
+                                      className="h-6 w-6 rounded text-xs font-semibold text-muted hover:text-ink disabled:text-control disabled:hover:text-control aria-checked:bg-surface aria-checked:text-ink aria-checked:shadow-[0_0_0_1px_var(--line)]"
+                                    >
+                                      {SHORT[s]}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <button
+                                type="button"
+                                aria-label={`More for ${card.name}`}
+                                aria-haspopup="menu"
+                                aria-expanded={menu === w}
+                                onClick={() => setMenu(menu === w ? null : w)}
+                                className={cx("flex size-7 items-center justify-center rounded-md border bg-surface text-muted hover:text-ink", menu === w ? "border-accent text-accent" : "border-line")}
+                              >
+                                ⋯
+                              </button>
+                            </div>
+                          </>
+                        )}
                         {menu === w && (
                           <CardMenu
                             name={card.name}
@@ -287,6 +412,7 @@ export default function CustomizeToday({ layout: initial }: { layout: Layout }) 
                             first={at === 0}
                             last={at === shownCards(layout).length - 1}
                             removable={!card.required}
+                            keys={!phone}
                             onPick={(pick) => {
                               setMenu(null);
                               if (pick === "up") nudge(w, -1);
@@ -307,34 +433,47 @@ export default function CustomizeToday({ layout: initial }: { layout: Layout }) 
           {shown.length === 0 && <p className="rounded-lg border border-dashed border-control p-6 text-center text-sm text-muted">Today is empty. Add a card from the list.</p>}
         </div>
 
-        <aside className="rounded-lg border border-line bg-surface p-4" aria-label="Add a card">
-          <h2 className="font-medium">Add a card</h2>
-          <p className="mt-0.5 text-sm text-muted">{hidden.length ? "Cards you took off Today wait here." : "Cards you take off Today wait here."}</p>
-          <div className="mt-3 space-y-2">
-            {hidden.map((c) => {
-              const card = todayCard(c.widget);
-              return (
-                <div key={c.widget} className="flex items-center gap-3 rounded-md border border-line px-3 py-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm">{card.name}</div>
-                    <div className="text-xs text-muted">{card.description}</div>
+        {phone ? (
+          <button
+            type="button"
+            className="w-full rounded-lg border-[1.5px] border-dashed border-control py-3 text-sm font-medium text-accent"
+            onClick={(e) => {
+              e.stopPropagation();
+              setAdding(true);
+            }}
+          >
+            + Add a card
+          </button>
+        ) : (
+          <aside className="rounded-lg border border-line bg-surface p-4" aria-label="Add a card">
+            <h2 className="font-medium">Add a card</h2>
+            <p className="mt-0.5 text-sm text-muted">{hidden.length ? "Cards you took off Today wait here." : "Cards you take off Today wait here."}</p>
+            <div className="mt-3 space-y-2">
+              {hidden.map((c) => {
+                const card = todayCard(c.widget);
+                return (
+                  <div key={c.widget} className="flex items-center gap-3 rounded-md border border-line px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm">{card.name}</div>
+                      <div className="text-xs text-muted">{card.description}</div>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Add ${card.name}`}
+                      onClick={() => {
+                        change(addCard(layout, c.widget), `${card.name} added at the bottom`);
+                        if (removed === c.widget) setRemoved(null);
+                      }}
+                      className="flex size-7 shrink-0 items-center justify-center rounded-md bg-raised font-medium hover:bg-active"
+                    >
+                      +
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    aria-label={`Add ${card.name}`}
-                    onClick={() => {
-                      change(addCard(layout, c.widget), `${card.name} added at the bottom`);
-                      if (removed === c.widget) setRemoved(null);
-                    }}
-                    className="flex size-7 shrink-0 items-center justify-center rounded-md bg-raised font-medium hover:bg-active"
-                  >
-                    +
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </aside>
+                );
+              })}
+            </div>
+          </aside>
+        )}
       </div>
 
       {dragged && drag && (
@@ -356,6 +495,49 @@ export default function CustomizeToday({ layout: initial }: { layout: Layout }) 
       <p aria-live="polite" className="sr-only">
         {said}
       </p>
+
+      {phone && adding && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/35" onClick={() => setAdding(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-card-title"
+            className="max-h-[70vh] w-full overflow-y-auto rounded-t-2xl bg-surface px-4 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-3 h-1.5 w-9 rounded-full bg-control" />
+            <h2 id="add-card-title" className="font-medium">
+              Add a card
+            </h2>
+            {hidden.length === 0 && <p className="mt-1 text-sm text-muted">Cards you take off Today wait here.</p>}
+            <div className="mt-3 space-y-2">
+              {hidden.map((c) => {
+                const card = todayCard(c.widget);
+                return (
+                  <div key={c.widget} className="flex items-center gap-3 rounded-md border border-line px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm">{card.name}</div>
+                      <div className="text-xs text-muted">{card.description}</div>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Add ${card.name}`}
+                      onClick={() => {
+                        change(addCard(layout, c.widget), `${card.name} added at the bottom`);
+                        setAdding(false);
+                        if (removed === c.widget) setRemoved(null);
+                      }}
+                      className="flex size-7 shrink-0 items-center justify-center rounded-md bg-raised font-medium hover:bg-active"
+                    >
+                      +
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmReset && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4" role="dialog" aria-modal="true" aria-labelledby="reset-title">
@@ -383,20 +565,39 @@ export default function CustomizeToday({ layout: initial }: { layout: Layout }) 
 
 type Pick = "up" | "down" | "top" | "remove" | CardSize;
 
-function CardMenu({ name, size, sizes, first, last, removable, onPick }: { name: string; size: CardSize; sizes: CardSize[]; first: boolean; last: boolean; removable: boolean; onPick: (p: Pick) => void }) {
+function CardMenu({
+  name,
+  size,
+  sizes,
+  first,
+  last,
+  removable,
+  keys = true,
+  onPick,
+}: {
+  name: string;
+  size: CardSize;
+  sizes: CardSize[];
+  first: boolean;
+  last: boolean;
+  removable: boolean;
+  /** Show the ⌥↑ / ⌥↓ shortcuts (not on a phone). */
+  keys?: boolean;
+  onPick: (p: Pick) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => ref.current?.querySelector<HTMLElement>("button:not(:disabled)")?.focus(), []);
   const items = useMemo(
     () =>
       [
-        { pick: "up" as Pick, label: "Move up", key: "⌥↑", off: first },
-        { pick: "down" as Pick, label: "Move down", key: "⌥↓", off: last },
+        { pick: "up" as Pick, label: "Move up", key: keys ? "⌥↑" : undefined, off: first },
+        { pick: "down" as Pick, label: "Move down", key: keys ? "⌥↓" : undefined, off: last },
         { pick: "top" as Pick, label: "Move to top", off: first },
         null,
         ...SIZES.filter((s) => sizes.includes(s)).map((s) => ({ pick: s as Pick, label: `${SIZE_LABELS[s]}${s === size ? " ✓" : ""}`, off: s === size })),
         ...(removable ? [null, { pick: "remove" as Pick, label: "Remove from Today", danger: true }] : []),
       ] as ({ pick: Pick; label: string; key?: string; off?: boolean; danger?: boolean } | null)[],
-    [first, last, size, sizes, removable],
+    [first, last, size, sizes, removable, keys],
   );
   // Up and down arrows step through the menu, as in a native one.
   const onKey = (e: ReactKeyboardEvent) => {

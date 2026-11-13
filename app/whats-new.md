@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic Modular on iPhone: hold any Today card to rearrange Today. Drag cards, tap "–" to take one off, tap its size to change it, and add cards back from the bottom. The iPhone starts with your computer's layout and keeps its own after you change it.
 - Make Today yours: "Customize Today" at the bottom of Today lets you drag cards into any order, make them small, medium or large, and take off the ones you don't want (they wait in "Add a card"). Undo, Cancel and Reset are always there. Reorder or hide tabs in Settings → Layout.
 - Lactic Modular: add plugins from a GitHub link or a .lacticplugin file in Settings → Plugins. You see what each one reads before it's added, switch it on or off per computer, and choose whether the coach sees its numbers. Updates are only offered, never automatic. Plugins can add a section to a ride's page, but never show up on Today.
 - Lactic Modular: choose your ride screen's numbers, like on a bike computer. Before a ride, press Customize fields to pick a layout (the usual screen, or 1, 4, 6 with the chart, 8 or 10 big numbers), tap a field to choose what it shows, and add pages you flip through with ← → or a swipe while riding. Make your own fields with no code, like 10-second power, % of FTP, this interval's average, or your best 15-second (or any length) power so far in the ride. Free rides, the overlay over Zwift and the iPhone follow the same pages unless you set them up separately.

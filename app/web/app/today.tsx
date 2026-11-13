@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
 import { cardRows, defaultLayout, type Layout } from "@/lib/sdk/layout";
 import CustomizeToday from "./customize-today";
+import HoldToCustomize from "./hold-to-customize";
 import { rowColumns } from "@/lib/sdk/layout-editor";
 
 // Rows of Medium or Small cards by how many columns they take (rowColumns): a lone Medium card
@@ -230,19 +231,21 @@ export default function TodayView({
 
       {/* Top to bottom by default: recovery, "Ready to train?", today's plan beside the suggested option (stacked on a phone),
           the coach's brief, how the week and the plan are tracking, then form and the last ride side by side on a computer. */}
-      <div className="space-y-4">
-        {cardRows(layout.today, (w) => cards[w] != null).map((row) =>
-          row.size === "large" ? (
-            <Fragment key={row.widgets[0]}>{cards[row.widgets[0]]}</Fragment>
-          ) : (
-            <div key={row.widgets.join(" ")} className={ROW_GRID[row.size === "small" ? "small" : "medium"][rowColumns(row)]}>
-              {row.widgets.map((w) => (
-                <Fragment key={w}>{cards[w]}</Fragment>
-              ))}
-            </div>
-          ),
-        )}
-      </div>
+      <HoldToCustomize>
+        <div className="space-y-4">
+          {cardRows(layout.today, (w) => cards[w] != null).map((row) =>
+            row.size === "large" ? (
+              <Fragment key={row.widgets[0]}>{cards[row.widgets[0]]}</Fragment>
+            ) : (
+              <div key={row.widgets.join(" ")} className={ROW_GRID[row.size === "small" ? "small" : "medium"][rowColumns(row)]}>
+                {row.widgets.map((w) => (
+                  <Fragment key={w}>{cards[w]}</Fragment>
+                ))}
+              </div>
+            ),
+          )}
+        </div>
+      </HoldToCustomize>
 
       {/* A quiet way into Customize Today (review U5), after the last card; also in Settings → Layout. */}
       <div className="mt-8 text-center">

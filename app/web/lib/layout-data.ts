@@ -11,6 +11,18 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 /** "desktop" for the computer, "phone" for the iPhone (the phone follows the computer until changed there). */
 export type LayoutDevice = "desktop" | "phone";
 
+let thisDevice: LayoutDevice = "desktop";
+
+/** Set once at boot: which device's layout this app reads and saves when none is named. */
+export function setLayoutDevice(device: LayoutDevice): void {
+  thisDevice = device;
+}
+
+/** The device this app is: "phone" on the iPhone, "desktop" otherwise. */
+export function layoutDevice(): LayoutDevice {
+  return thisDevice;
+}
+
 /** A layout kept as a copy: its name and, in a few words, how it differs from Lactic's default. */
 export interface SavedLayout {
   id: string;
@@ -25,9 +37,14 @@ async function activeRow(supabase: Supabase, device: LayoutDevice): Promise<{ id
   return (data?.[0] as { id: string; layout: unknown } | undefined) ?? null;
 }
 
-/** The active layout for a device, checked by parseLayout(); the default when there's none or it can't be read. */
-export async function loadLayout(supabase: Supabase, device: LayoutDevice = "desktop"): Promise<Layout> {
-  const row = await activeRow(supabase, device).catch(() => null);
+/**
+ * The active layout for a device, checked by parseLayout(); the default when there's none or it
+ * can't be read. A phone that was never customized shows the computer's layout; its first change
+ * saves its own copy, and from then on each changes on its own.
+ */
+export async function loadLayout(supabase: Supabase, device: LayoutDevice = thisDevice): Promise<Layout> {
+  let row = await activeRow(supabase, device).catch(() => null);
+  if (!row && device === "phone") row = await activeRow(supabase, "desktop").catch(() => null);
   return row ? withNewCards(parseLayout(row.layout)) : defaultLayout();
 }
 
@@ -49,13 +66,18 @@ async function setAside(supabase: Supabase, device: LayoutDevice): Promise<boole
   return custom;
 }
 
-/** Back to Lactic's default. The rider's layout is kept as a copy first (review U5). */
-export async function resetLayout(supabase: Supabase, device: LayoutDevice = "desktop"): Promise<{ kept: boolean }> {
-  return { kept: await setAside(supabase, device) };
+/**
+ * Back to Lactic's default. The rider's layout is kept as a copy first (review U5). A phone saves
+ * the default as its own, or it would go back to following the computer's layout.
+ */
+export async function resetLayout(supabase: Supabase, device: LayoutDevice = thisDevice): Promise<{ kept: boolean }> {
+  const kept = await setAside(supabase, device);
+  if (device === "phone") await saveLayout(supabase, defaultLayout(), "phone", "Default");
+  return { kept };
 }
 
 /** Copies kept by Reset and Restore, newest first. Copies that match the default are left out. */
-export async function listSavedLayouts(supabase: Supabase, device: LayoutDevice = "desktop"): Promise<SavedLayout[]> {
+export async function listSavedLayouts(supabase: Supabase, device: LayoutDevice = thisDevice): Promise<SavedLayout[]> {
   const { data, error } = await supabase.from("layouts").select("id, name, layout, updated_at").eq("device", device).eq("active", false).order("updated_at", { ascending: false });
   if (error) throw error;
   const base = defaultLayout();
@@ -65,7 +87,7 @@ export async function listSavedLayouts(supabase: Supabase, device: LayoutDevice 
 }
 
 /** Makes a saved copy the active layout; the one it replaces becomes a copy, so Restore can be undone the same way. */
-export async function restoreLayout(supabase: Supabase, id: string, device: LayoutDevice = "desktop"): Promise<void> {
+export async function restoreLayout(supabase: Supabase, id: string, device: LayoutDevice = thisDevice): Promise<void> {
   await setAside(supabase, device);
   const { error } = await supabase.from("layouts").update({ active: true, updated_at: new Date().toISOString() }).eq("id", id).eq("device", device);
   if (error) throw error;
@@ -81,13 +103,13 @@ export async function deleteSavedLayout(supabase: Supabase, id: string): Promise
  * Saves a device's active layout: updates the active row, or makes the first one ("My layout") the
  * first time a rider customizes. The layout is checked by parseLayout() before it's written.
  */
-export async function saveLayout(supabase: Supabase, layout: Layout, device: LayoutDevice = "desktop"): Promise<void> {
+export async function saveLayout(supabase: Supabase, layout: Layout, device: LayoutDevice = thisDevice, name = "My layout"): Promise<void> {
   const checked = parseLayout(layout);
   const now = new Date().toISOString();
   const { data, error } = await supabase.from("layouts").select("id").eq("device", device).eq("active", true).order("updated_at", { ascending: false }).limit(1);
   if (error) throw error;
   const { error: writeError } = data?.length
     ? await supabase.from("layouts").update({ layout: checked, updated_at: now }).eq("id", data[0].id)
-    : await supabase.from("layouts").insert({ device, name: "My layout", layout: checked, active: true, updated_at: now });
+    : await supabase.from("layouts").insert({ device, name, layout: checked, active: true, updated_at: now });
   if (writeError) throw writeError;
 }
