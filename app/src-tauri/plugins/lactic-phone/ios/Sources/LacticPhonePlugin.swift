@@ -92,6 +92,15 @@ struct Pending: Encodable {
   let body: JSONValue
 }
 
+struct WeighInArgs: Decodable {
+  let id: String
+  /// Unix seconds.
+  let at: Double
+  let kg: Double
+  /// 0 to 100.
+  let fatPercent: Double?
+}
+
 struct Saved: Encodable {
   let saved: Bool
   let reason: String?
@@ -328,6 +337,8 @@ enum Health {
       HKQuantityType(.activeEnergyBurned),
       HKQuantityType(.stepCount),
       HKQuantityType(.vo2Max),
+      HKQuantityType(.bodyMass),
+      HKQuantityType(.bodyFatPercentage),
       HKObjectType.workoutType(),
     ]
     t.insert(HKQuantityType(.distanceCycling))
@@ -340,6 +351,8 @@ enum Health {
       HKQuantityType(.activeEnergyBurned),
       HKQuantityType(.distanceCycling),
       HKQuantityType(.heartRate),
+      HKQuantityType(.bodyMass),
+      HKQuantityType(.bodyFatPercentage),
     ]
     if #available(iOS 17.0, *) {
       t.insert(HKQuantityType(.cyclingPower))
@@ -427,6 +440,14 @@ enum Health {
     try await quantities(.appleSleepingWristTemperature, .degreeCelsius(), from: since, date: "wristTempStart", value: "wristTempValue", end: "wristTempEnd")
     try await quantities(.heartRate, perMinute, from: hrSince, date: "heartRateDate", value: "heartRateValue")
     try await quantities(.vo2Max, HKUnit(from: "ml/kg*min"), from: since, date: "vo2maxDate", value: "vo2maxValue")
+    // Weigh-ins from other scales and apps; Lactic's own (written below) are left out so they don't come back.
+    func others(_ id: HKQuantityTypeIdentifier, _ unit: HKUnit, date: String, value: String) async throws {
+      let list = try await samples(HKQuantityType(id), since: since).compactMap { $0 as? HKQuantitySample }.filter { !fromLactic($0) }
+      put(date, list.map { iso.string(from: $0.startDate) })
+      put(value, list.map { String($0.quantity.doubleValue(for: unit)) })
+    }
+    try await others(.bodyMass, .gramUnit(with: .kilo), date: "weightDate", value: "weightValue")
+    try await others(.bodyFatPercentage, .percent(), date: "bodyFatDate", value: "bodyFatValue")
     let energy = try await dailySums(HKQuantityType(.activeEnergyBurned), unit: .kilocalorie(), since: since)
     put("activeEnergyDate", energy.map { iso.string(from: $0.0) })
     put("activeEnergyValue", energy.map { String($0.1) })
@@ -434,6 +455,36 @@ enum Health {
     put("stepsDate", steps.map { iso.string(from: $0.0) })
     put("stepsValue", steps.map { String($0.1) })
     return .object(body)
+  }
+
+  /// Written by this app (a weigh-in made in Lactic).
+  static func fromLactic(_ sample: HKSample) -> Bool {
+    if sample.sourceRevision.source.bundleIdentifier == Bundle.main.bundleIdentifier { return true }
+    return (sample.metadata?[HKMetadataKeyExternalUUID] as? String)?.hasPrefix("lactic:") ?? false
+  }
+
+  // MARK: Weigh-ins into Health
+
+  static func saveWeighIn(_ w: WeighInArgs) async throws -> Saved {
+    let at = Date(timeIntervalSince1970: w.at)
+    let uuid = "lactic:\(w.id)"
+    let near = try await samples(HKQuantityType(.bodyMass), since: at.addingTimeInterval(-3600))
+      .compactMap { $0 as? HKQuantitySample }
+      .filter { abs($0.startDate.timeIntervalSince(at)) < 3600 }
+    if near.contains(where: { ($0.metadata?[HKMetadataKeyExternalUUID] as? String) == uuid }) {
+      return Saved(saved: false, reason: "already saved")
+    }
+    // The scale wrote it to Health itself (or another app did): within ten minutes is the same weigh-in.
+    if let other = near.first(where: { abs($0.startDate.timeIntervalSince(at)) < 600 }) {
+      return Saved(saved: false, reason: "already in Health from \(other.sourceRevision.source.name)")
+    }
+    let metadata: [String: Any] = [HKMetadataKeyExternalUUID: uuid]
+    var list: [HKSample] = [HKQuantitySample(type: HKQuantityType(.bodyMass), quantity: HKQuantity(unit: .gramUnit(with: .kilo), doubleValue: w.kg), start: at, end: at, metadata: metadata)]
+    if let fat = w.fatPercent, fat > 0, fat < 80 {
+      list.append(HKQuantitySample(type: HKQuantityType(.bodyFatPercentage), quantity: HKQuantity(unit: .percent(), doubleValue: fat / 100), start: at, end: at, metadata: metadata))
+    }
+    try await store.save(list)
+    return Saved(saved: true, reason: nil)
   }
 
   // MARK: Rides into Health
@@ -802,6 +853,14 @@ class LacticPhonePlugin: Plugin {
       // After any save still finishing, so a ride part-way through saving isn't counted.
       _ = await Health.lastSaveDone()
       do { invoke.resolve(try await Health.removeDuplicates(days: 60)) }
+      catch { invoke.reject(error.localizedDescription) }
+    }
+  }
+
+  @objc public func saveWeighIn(_ invoke: Invoke) throws {
+    let args = try invoke.parseArgs(WeighInArgs.self)
+    Task {
+      do { invoke.resolve(try await Health.saveWeighIn(args)) }
       catch { invoke.reject(error.localizedDescription) }
     }
   }

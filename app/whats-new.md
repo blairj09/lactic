@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Weigh-ins from other scales in Apple Health now come into Lactic on iPhone and keep your profile weight current, and weigh-ins from your Body Pod or typed into Lactic are saved to Apple Health when "Save rides and weigh-ins to Health" is on.
+- Pairing an iPhone you've been using on its own with a computer that already has a plan now also brings across the events, breaks, race reports and check-ins you added on the phone. The computer's plan for the days ahead stays as it is.
 - With the AI app coach turned off, Claude and other AI apps that still list Lactic no longer show a "Couldn't start" error; they see one tool that says how to turn the coach on.
 - On iPhone, your ride shows on the lock screen and in the Dynamic Island: the interval under way with its countdown, power against target, heart rate, cadence, what's next and time left. It shows for rides on the iPhone and, while Lactic is open on it, for a ride on your computer too.
 - If the connection drops while the coach writes today's brief, Lactic tries again on its own, and shows Try again instead of "error decoding response body".

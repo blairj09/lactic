@@ -40,6 +40,8 @@ export const readHealth = (days: number) => call<Record<string, unknown>>("read_
 export const takePending = () => call<{ id: string; body: Record<string, unknown> }[]>("take_pending");
 export const ackPending = (ids: string[]) => call<void>("ack_pending", { ids });
 export const saveWorkout = (workout: HealthWorkout) => call<{ saved: boolean; reason: string | null }>("save_workout", { ...workout });
+/** Saves one weigh-in (kg, body fat 0 to 100) to Apple Health, unless it's there already. */
+export const saveWeighIn = (w: { id: string; at: number; kg: number; fatPercent: number | null }) => call<{ saved: boolean; reason: string | null }>("save_weigh_in", { ...w });
 /** Deletes extra copies of rides Lactic saved to Health more than once (last 60 days). */
 export const removeDuplicateWorkouts = () => call<{ removed: number }>("remove_duplicate_workouts");
 /** Pairs with the computer whose QR code (a https://lactic.fit/pair#... link) was scanned. */

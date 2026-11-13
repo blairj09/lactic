@@ -5,7 +5,7 @@
 // imports whatever lands there. Both use the same formats the web app's /api/health took, parsed
 // by the same engine code.
 
-import { autoExportSamples, columnDaySamples, columnSamples, cutShortNight, healthDays, healthNights } from "@/lib/engine/health-import";
+import { autoExportSamples, columnDaySamples, columnSamples, cutShortNight, healthDays, healthNights, healthWeighIns } from "@/lib/engine/health-import";
 import { createClient } from "~/db/supabase-client";
 import { invoke, isDesktop, isPhone } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
@@ -74,6 +74,8 @@ export interface IngestResult {
   nights: number;
   days: number;
   latest: string | null;
+  /** Weigh-ins from other scales and apps in Health, newly added. */
+  weighIns?: number;
 }
 
 const num = (v: unknown, lo: number, hi: number) => {
@@ -165,7 +167,35 @@ export async function ingestHealth(body: Record<string, unknown>): Promise<Inges
       out.days = rows.length;
     }
   }
+
+  out.weighIns = await ingestWeighIns(body);
   return out;
+}
+
+/** A weigh-in already in Lactic this close to one from Health is the same one (a scale that writes to both). */
+const SAME_WEIGH_IN_MS = 10 * 60_000;
+
+/** Weigh-ins from other scales and apps in Apple Health, as body measurements; the profile weight follows the newest. */
+async function ingestWeighIns(body: Record<string, unknown>): Promise<number> {
+  const weighIns = healthWeighIns(body);
+  if (!weighIns.length) return 0;
+  const supabase = createClient();
+  const from = new Date((weighIns[0].at - 86_400) * 1000).toISOString();
+  const { data: existing, error } = await supabase.from("body_measurements").select("measured_at").gte("measured_at", from);
+  if (error) throw new Error(error.message);
+  const times = ((existing ?? []) as { measured_at: string }[]).map((m) => Date.parse(m.measured_at));
+  const fresh = weighIns
+    .filter((w) => !times.some((t) => Math.abs(t - w.at * 1000) < SAME_WEIGH_IN_MS))
+    .map((w) => ({ measured_at: new Date(w.at * 1000).toISOString(), source: SOURCE, weight_kg: w.weightKg, body_fat_pct: w.bodyFatPercent }));
+  if (!fresh.length) return 0;
+  const { error: insertError } = await supabase.from("body_measurements").upsert(fresh, { onConflict: "user_id,measured_at" });
+  if (insertError) throw new Error(insertError.message);
+  const { data: newest } = await supabase.from("body_measurements").select("measured_at, weight_kg").order("measured_at", { ascending: false }).limit(1);
+  const latest = (newest as { measured_at: string; weight_kg: number | string }[] | null)?.[0];
+  if (latest && fresh.some((f) => Date.parse(f.measured_at) === Date.parse(latest.measured_at))) {
+    await supabase.from("athlete_settings").upsert({ weight_kg: Math.round(Number(latest.weight_kg) * 100) / 100, updated_at: new Date().toISOString() });
+  }
+  return fresh.length;
 }
 
 // --- the iCloud Drive folder --------------------------------------------------------------------
