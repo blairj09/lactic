@@ -36,7 +36,7 @@ cleanup() { hdiutil detach -quiet "$mnt" 2>/dev/null || true; rm -rf "$work"; }
 trap cleanup EXIT
 
 if [ -z "$target" ]; then
-  echo "Fetching the latest $NAME…"
+  echo "Fetching the latest ${NAME}…"
   url=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/tags/$TAG" | grep -o '"browser_download_url": *"[^"]*\.dmg"' | head -1 | sed -E 's/.*"(https[^"]+)"$/\1/')
   [ -n "$url" ] || { echo "No $NAME build yet: https://github.com/$REPO/releases/tag/$TAG"; exit 1; }
   curl -fL# -o "$work/preview.dmg" "$url"
@@ -56,7 +56,7 @@ else
     if gh api "repos/$REPO/actions/runs/$id/artifacts" -q '.artifacts[].name' | grep -qx "$ARTIFACT"; then run=$id; break; fi
   done
   [ -n "$run" ] || { echo "No finished Mac build of $branch yet. Check https://github.com/$REPO/actions?query=branch%3A$branch"; exit 1; }
-  echo "Downloading the Mac build from run $run…"
+  echo "Downloading the Mac build from run ${run}…"
   gh run download "$run" -R "$REPO" -n "$ARTIFACT" -D "$work/artifact"
   dmg=$(find "$work/artifact" -name '*.dmg' | head -1)
   mv "$dmg" "$work/preview.dmg"
