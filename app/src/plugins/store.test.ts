@@ -7,6 +7,8 @@ import { setDeviceIdForTests } from "./device";
 import { packagePlugin, parsePackage, type PluginPackage } from "./package";
 import { approvePlugin, installPlugin, listPlugins, markSwitchedOff, preparePackage, readValues, recordValues, removePlugin, setCoachVisible, setPluginEnabled, updatePlugin } from "./store";
 import { storedPluginSource } from "./source";
+import { CATALOG_ORIGIN, catalogEntries, catalogState, catalogText, isCatalogPackage } from "./catalog";
+import { sourceLabel } from "./github";
 import { pluginList } from "@/lib/coach/plugins";
 
 const MAC = "11111111-1111-4111-8111-111111111111";
@@ -217,5 +219,38 @@ describe("running", () => {
     for (let i = 0; i < 3; i++) await host!.call("field", {});
     await new Promise((res) => setTimeout(res, 20));
     expect((await listPlugins())[0].state).toBe("switched-off");
+  });
+});
+
+describe("Lactic's own plugins (catalog)", () => {
+  it("adds a bundled plugin as from Lactic, with its checksum checked", async () => {
+    const entry = catalogEntries().find((e) => e.id === "fuel")!;
+    const prepared = await preparePackage(await catalogText(entry));
+    expect(prepared.kind).toBe("new");
+    if (prepared.kind !== "new") return;
+    expect(await isCatalogPackage(prepared.pkg.sha256)).toBe(true);
+    await installPlugin(prepared.pkg, {}, CATALOG_ORIGIN);
+    const [p] = await listPlugins();
+    expect(p.origin).toBe(CATALOG_ORIGIN);
+    expect(sourceLabel(p.origin)).toBe("Lactic");
+    expect(catalogState(entry, p.manifest.version)).toBe("added");
+    expect(catalogState(entry, "0.0.1")).toBe("update");
+    expect(catalogState(entry, null)).toBe("add");
+  });
+
+  it("never lets other code claim to be from Lactic", async () => {
+    // Saving with the catalog origin is refused for anything Lactic didn't ship.
+    await expect(installPlugin(await pkg(), {}, CATALOG_ORIGIN)).rejects.toThrow(/isn't one of Lactic's plugins/);
+    // A stored row (from sync, a backup or an edit) claiming it is shown as from a file.
+    await installPlugin(await pkg(), {}, null);
+    await sql().execute(`UPDATE plugins SET origin = ?`, [CATALOG_ORIGIN]);
+    const [p] = await listPlugins();
+    expect(p.origin).toBeNull();
+    expect(sourceLabel(p.origin)).toBe("a file");
+  });
+
+  it("refuses a bundled file that doesn't match its checksum", async () => {
+    const entry = { ...catalogEntries()[0], sha256: "0".repeat(64) };
+    await expect(catalogText(entry)).rejects.toThrow(/checksum/);
   });
 });

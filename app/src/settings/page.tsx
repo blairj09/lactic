@@ -215,7 +215,7 @@ export default async function SettingsPage() {
         </div>
         {pluginsAllowed && (
           <div id="plugins" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-            <Section title="Plugins" description="Cards, ride fields and ride analyses by other riders. No internet, no changes, and they read only what you allow. Add ones you trust.">
+            <Section title="Plugins" description="Cards, ride fields and ride analyses, from Lactic or other riders. No internet, no changes, and they read only what you allow. Add ones you trust.">
               <PluginsPanel />
             </Section>
             {isDesktop && (

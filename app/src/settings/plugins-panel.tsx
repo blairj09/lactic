@@ -1,15 +1,17 @@
 // Settings → Plugins (Lactic Modular): what's added, on or off on this computer, whether the coach
-// sees its numbers, and adding from GitHub or a file. Updates found on GitHub are only offered.
+// sees its numbers, and adding from Lactic's own plugins (Browse), GitHub or a file. Updates are only offered.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { button, Result } from "@/components/ui";
 import { GROUP_WORDS, type InstallChoices } from "~/plugins/permissions";
 import { approvePlugin, installPlugin, listPlugins, preparePackage, removePlugin, setCoachVisible, setPluginEnabled, updatePlugin, type PluginRecord, type Prepared } from "~/plugins/store";
 import { checkForUpdates, type Offer } from "~/plugins/updates";
+import { CATALOG_ORIGIN } from "~/plugins/catalog";
 import { PACKAGE_EXTENSION } from "~/plugins/package";
-import { GitHubDialog, PermissionDialog, PluginIcon, RefusedDialog, sourceChange, sourceLabel, UpdateDialog } from "./plugin-dialogs";
+import { BrowseDialog, GitHubDialog, PermissionDialog, PluginIcon, RefusedDialog, sourceChange, sourceLabel, UpdateDialog } from "./plugin-dialogs";
 
 type Open =
   | { kind: "github" }
+  | { kind: "browse" }
   | { kind: "add"; prepared: Extract<Prepared, { kind: "new" }>; origin: string | null }
   | { kind: "update"; prepared: Extract<Prepared, { kind: "update" }>; origin: string | null }
   | { kind: "approve"; plugin: PluginRecord }
@@ -154,6 +156,9 @@ export function PluginsPanel() {
         </ul>
       )}
       <div className="flex flex-wrap items-center gap-2">
+        <button type="button" className={button.primary} onClick={() => setOpen({ kind: "browse" })}>
+          Browse…
+        </button>
         <button type="button" className={button.secondary} onClick={() => setOpen({ kind: "github" })}>
           Add from GitHub…
         </button>
@@ -165,6 +170,7 @@ export function PluginsPanel() {
       <p className="text-muted">Updates are never automatic.</p>
       {note && <Result ok={note.ok}>{note.text}</Result>}
 
+      {open?.kind === "browse" && <BrowseDialog installed={new Map((plugins ?? []).map((p) => [p.pluginId, p.manifest.version]))} onPick={(text) => handle(text, CATALOG_ORIGIN)} onClose={close} />}
       {open?.kind === "github" && <GitHubDialog onClose={close} onFound={(text, origin) => handle(text, origin)} />}
       {open?.kind === "refused" && <RefusedDialog reason={open.reason} onClose={close} />}
       {open?.kind === "add" && (

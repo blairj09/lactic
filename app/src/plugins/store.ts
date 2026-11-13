@@ -5,6 +5,7 @@ import { sql, type Row } from "~/db/sql";
 import type { MetricGroup } from "@shared/sdk";
 import { validateManifest, type PluginManifest } from "./manifest";
 import { deviceId } from "./device";
+import { CATALOG_ORIGIN, isCatalogPackage } from "./catalog";
 import { parsePackage, sha256Hex, type PluginPackage } from "./package";
 import { grantedGroups, pluginState, updateChanges, updatedGrant, type Grant, type InstallChoices, type PluginState, type UpdateChanges } from "./permissions";
 
@@ -74,7 +75,11 @@ export async function listPlugins(): Promise<PluginRecord[]> {
     const grant = toGrant(grants.find((g) => g.plugin_id === r.plugin_id));
     const source = String(r.source);
     const sha256 = await packageHash(checked.manifest, source);
-    out.push({ pluginId: String(r.plugin_id), manifest: checked.manifest, source, sha256, installedAt: String(r.installed_at), origin: typeof r.origin === "string" && r.origin ? r.origin : null, grant, state: pluginState(sha256, grant) });
+    let origin = typeof r.origin === "string" && r.origin ? r.origin : null;
+    // "From Lactic" is only ever shown for a package Lactic shipped; a row (from sync, a backup or
+    // an edit) can't claim it.
+    if (origin === CATALOG_ORIGIN && !(await isCatalogPackage(sha256))) origin = null;
+    out.push({ pluginId: String(r.plugin_id), manifest: checked.manifest, source, sha256, installedAt: String(r.installed_at), origin, grant, state: pluginState(sha256, grant) });
   }
   return out;
 }
@@ -106,6 +111,7 @@ async function saveGrant(pluginId: string, g: Grant) {
 
 /** `origin` is where this exact file came from (null for a chosen file), so the source line never claims a repo the code didn't come from. */
 async function savePackage(pkg: PluginPackage, origin: string | null) {
+  if (origin === CATALOG_ORIGIN && !(await isCatalogPackage(pkg.sha256))) throw new Error("That isn't one of Lactic's plugins.");
   const now = new Date().toISOString();
   const m = pkg.manifest;
   await sql().execute(

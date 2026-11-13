@@ -78,7 +78,7 @@ export interface UpdateChanges {
   quiet: boolean;
 }
 
-function compareVersions(a: string, b: string): number {
+export function compareVersions(a: string, b: string): number {
   const parse = (v: string) => {
     const [core, pre] = v.split("-", 2);
     return { nums: core.split(".").map(Number), pre: pre ?? null };
