@@ -3,8 +3,8 @@
 // plan can schedule: its zone, a level worked out from its time in zone (the same scale as the
 // engine's generated workouts in library.ts), length and planned stress. Targets are fractions of FTP.
 
-import { openers, rampTest, ZONE_LABELS, MAX_LEVEL, MIN_LEVEL, type Session, type Zone } from "./library";
-import { plannedStress, ramp, sprint, steady, workoutDuration, type Segment, type Workout } from "./workout";
+import { openers, openerStyle, rampTest, ZONE_LABELS, MAX_LEVEL, MIN_LEVEL, type Session, type Zone } from "./library";
+import { alignRamps, plannedStress, ramp, sprint, steady, withOpeners, workoutDuration, type Segment, type Workout } from "./workout";
 
 /** How the library is browsed: the zones, with sprints and tests apart from the anaerobic and VO2 work they count as. */
 export const LIBRARY_CATEGORIES = ["recovery", "endurance", "tempo", "sweetSpot", "threshold", "vo2max", "anaerobic", "sprints", "tests"] as const;
@@ -17,7 +17,10 @@ export const LIBRARY_CATEGORY_LABELS: Record<LibraryCategory, string> = {
 };
 
 export interface LibraryWorkout {
+  /** The starter workout's id, or the My workouts id when `custom` is set. */
   id: string;
+  /** One of My workouts: zone and level worked out from its intervals (`customLibraryWorkout`). */
+  custom?: true;
   category: LibraryCategory;
   /** The zone it trains, for levels and the plan. */
   zone: Zone;
@@ -65,7 +68,8 @@ const WORK_MINUTES: Partial<Record<Zone, (level: number) => number>> = {
 /** Seconds of a workout at or above a target; ramps count at their average. */
 function secondsFrom(workout: Workout, floor: number): number {
   return workout.segments.reduce((total, s) => {
-    const target = s.kind === "steady" ? s.target : s.kind === "ramp" ? (s.from + s.to) / 2 : 0;
+    // Openers are warm-up, not work.
+    const target = s.kind === "steady" ? (s.opener ? 0 : s.target) : s.kind === "ramp" ? (s.from + s.to) / 2 : 0;
     return target >= floor - 1e-9 ? total + s.duration : total;
   }, 0);
 }
@@ -313,8 +317,10 @@ export const isTwentyMinuteTest = (workout: Workout) => workout.name === TWENTY_
 function toLibrary(entry: Entry): LibraryWorkout {
   // The engine's own sessions where they exist, so the ramp test still sets FTP and openers match the plan's.
   const built = entry.id === "test-ramp" ? rampTest() : entry.id === "openers-45" ? openers(2700) : null;
-  const workout: Workout = built ? built.workout : { name: entry.name, segments: entry.segments };
   const zone: Zone = built ? built.zone : (entry.zone ?? (entry.category as Zone));
+  // Tests keep their own warm-up; every other workout above endurance opens the legs in it.
+  const style = entry.category === "tests" ? null : openerStyle(zone);
+  const workout: Workout = built ? built.workout : { name: entry.name, segments: alignRamps(withOpeners(entry.segments, style)) };
   const level = built ? built.level : (entry.level ?? levelFor(zone, workout) ?? 1);
   return {
     id: entry.id,
@@ -332,9 +338,98 @@ export const WORKOUT_LIBRARY: LibraryWorkout[] = ENTRIES.map(toLibrary);
 
 export const libraryWorkout = (id: string | null | undefined): LibraryWorkout | null => (id ? (WORKOUT_LIBRARY.find((w) => w.id === id) ?? null) : null);
 
-/** A library workout as a session to ride or schedule. */
+/** A library workout (or one of My workouts) as a session to ride or schedule. */
 export function librarySession(entry: LibraryWorkout): Session {
-  return { zone: entry.zone, level: entry.level, workout: entry.workout, duration: entry.duration, stress: entry.stress, library: entry.id };
+  const base = { zone: entry.zone, level: entry.level, workout: entry.workout, duration: entry.duration, stress: entry.stress };
+  return entry.custom ? { ...base, custom: entry.id } : { ...base, library: entry.id };
+}
+
+/** Where each zone's band of targets starts (fractions of FTP); recovery is everything below endurance. Anaerobic starts above 120% so 30/30s there read as VO2 max. */
+const BANDS: [Zone, number][] = [
+  ["anaerobic", 1.25],
+  ["vo2max", 1.06],
+  ["threshold", 0.95],
+  ["sweetSpot", 0.86],
+  ["tempo", 0.76],
+  ["endurance", 0.55],
+  ["recovery", 0],
+];
+/** Below this share of a mid-level workout's work, efforts don't make an interval workout of it. */
+const MIN_WORK_SHARE = 0.25;
+
+const bandOf = (target: number): Zone => BANDS.find(([, from]) => target >= from - 1e-9)![0];
+
+/**
+ * The zone a workout trains, from its work (time at tempo or above): the band its middle second of
+ * work falls in (so short surges in a sweet spot workout, or the overs of over-unders, don't move it),
+ * provided it holds at least a quarter of a mid-level workout's work in that zone (level 5 in
+ * WORK_MINUTES); else endurance when at least half its time is at endurance pace or above, else
+ * recovery. Free-ride time counts for nothing; a workout that's mostly free ride has no zone (null).
+ */
+export function zoneFor(workout: Workout): Zone | null {
+  const work: { target: number; duration: number }[] = [];
+  let total = 0;
+  let structured = 0;
+  let aerobic = 0;
+  for (const s of workout.segments) {
+    total += s.duration;
+    if (s.kind === "freeRide") continue;
+    structured += s.duration;
+    const target = s.kind === "steady" ? s.target : (s.from + s.to) / 2;
+    if (target >= 0.55 - 1e-9) aerobic += s.duration;
+    if (target >= 0.76 - 1e-9) work.push({ target, duration: s.duration });
+  }
+  if (total <= 0 || structured < total / 2) return null;
+  const workSeconds = work.reduce((sum, w) => sum + w.duration, 0);
+  if (workSeconds > 0) {
+    work.sort((a, b) => a.target - b.target);
+    let seen = 0;
+    const middle = work.find((w) => (seen += w.duration) >= workSeconds / 2)!;
+    const zone = bandOf(middle.target);
+    const typical = WORK_MINUTES[zone]?.(5);
+    if (typical && workSeconds >= MIN_WORK_SHARE * typical * 60) return zone;
+  }
+  return aerobic >= total / 2 ? "endurance" : "recovery";
+}
+
+/** Endurance levels go by length, as the starter library's do: about 3.5 for an hour, 5 for two, 7 for three. */
+const enduranceLevel = (seconds: number) => Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, Math.round((1.5 + seconds / 1920) * 2) / 2));
+
+/** One of My workouts as the plan and coach see it: its zone and level worked out from its intervals. Null when it has no zone. */
+export function customLibraryWorkout(id: string, workout: Workout): LibraryWorkout | null {
+  const zone = zoneFor(workout);
+  if (!zone) return null;
+  const duration = workoutDuration(workout);
+  const level = zone === "recovery" ? 1 : zone === "endurance" ? enduranceLevel(duration) : (levelFor(zone, workout) ?? 1);
+  return {
+    id,
+    custom: true,
+    category: zone,
+    zone,
+    level,
+    description: "One of your workouts.",
+    workout,
+    duration,
+    stress: Math.round(plannedStress(workout) * 10) / 10,
+  };
+}
+
+/** A workout from a favorite-style key (`library:<id>` or `custom:<id>`), with My workouts given. Null when it's gone. */
+export function workoutByKey(key: string, customs: readonly { id: string; workout: Workout }[]): LibraryWorkout | null {
+  if (key.startsWith("library:")) return libraryWorkout(key.slice(8));
+  if (key.startsWith("custom:")) {
+    const found = customs.find((c) => c.id === key.slice(7));
+    return found ? customLibraryWorkout(found.id, found.workout) : null;
+  }
+  return null;
+}
+
+/** The key a library workout or one of My workouts is stored and named by. */
+export const keyOf = (entry: Pick<LibraryWorkout, "id" | "custom">) => (entry.custom ? customKey(entry.id) : libraryKey(entry.id));
+
+/** Favorite workouts the plan and coach can use: starter ones and My workouts, newest favorite first. */
+export function favoriteWorkouts(keys: Iterable<string>, customs: readonly { id: string; workout: Workout }[]): LibraryWorkout[] {
+  return [...keys].flatMap((k) => workoutByKey(k, customs) ?? []);
 }
 
 /** How close to its slot a library workout must run for the plan to use it: within this many seconds under, never over. */
@@ -342,21 +437,23 @@ const FIT_UNDER_SECONDS = 15 * 60;
 /** And how far from the planned level. */
 const FIT_LEVELS = 1;
 
+/** Whether a library workout (or one of My workouts) can stand in for a session: see `libraryFits`. */
+export const fitsSlot = (w: LibraryWorkout, zone: Zone, level: number, seconds: number) =>
+  w.category !== "tests" &&
+  !(w.id === "openers-45" && !w.custom) &&
+  w.zone === zone &&
+  w.duration <= seconds + 1e-9 &&
+  w.duration >= seconds - FIT_UNDER_SECONDS &&
+  Math.abs(w.level - level) <= FIT_LEVELS;
+
 /**
  * Library workouts that could stand in for a session the plan built: same zone (tests and openers
- * never), no longer than the slot and at most 15 minutes shorter, within a level of it.
+ * never), no longer than the slot and at most 15 minutes shorter, within a level of it. `pool` is
+ * starter ids or workouts (favorites, My workouts included); the whole starter library when left out.
  */
-export function libraryFits(zone: Zone, level: number, seconds: number, ids?: Iterable<string>): LibraryWorkout[] {
-  const pool = ids ? [...ids].flatMap((id) => libraryWorkout(id) ?? []) : WORKOUT_LIBRARY;
-  return pool.filter(
-    (w) =>
-      w.category !== "tests" &&
-      w.id !== "openers-45" &&
-      w.zone === zone &&
-      w.duration <= seconds + 1e-9 &&
-      w.duration >= seconds - FIT_UNDER_SECONDS &&
-      Math.abs(w.level - level) <= FIT_LEVELS,
-  );
+export function libraryFits(zone: Zone, level: number, seconds: number, pool?: Iterable<string | LibraryWorkout>): LibraryWorkout[] {
+  const workouts = pool ? [...pool].flatMap((w) => (typeof w === "string" ? (libraryWorkout(w) ?? []) : w)) : WORKOUT_LIBRARY;
+  return workouts.filter((w) => fitsSlot(w, zone, level, seconds));
 }
 
 /** Favorites are stored as keys: a library workout or one of My workouts. */

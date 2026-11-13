@@ -48,7 +48,7 @@ export function seedLevels(curve: PowerCurve | null, ftp: number | null, longest
 /** The first work interval of a workout at this level (from a long slot, so the level isn't cut down). */
 function mainInterval(zone: Zone, level: number): { work: number; target: number } {
   const steps = buildSession(zone, level, 3 * 3600).workout.segments;
-  const work = steps.find((s, i) => i > 0 && s.kind === "steady" && s.target >= 0.75);
+  const work = steps.find((s, i) => i > 0 && s.kind === "steady" && !s.opener && s.target >= 0.75);
   return work && work.kind === "steady" ? { work: work.duration, target: work.target } : { work: 0, target: 0 };
 }
 

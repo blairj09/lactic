@@ -4,6 +4,7 @@ import { ftpIsGuess } from "@/lib/engine/ftp-check";
 import { authEnabled } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { loadPlanDays, loadTrainingState, sessionFor } from "@/lib/training";
+import { firstRideSession } from "@/lib/first-ride";
 import RideScreen from "./ride-screen";
 
 export const metadata = { title: "Ride · My Coach" };
@@ -11,15 +12,34 @@ export const dynamic = "force-dynamic";
 
 const DAY = /^\d{4}-\d\d-\d\d$/;
 
-export default async function RidePage({ searchParams }: { searchParams: Promise<{ day?: string }> }) {
+export default async function RidePage({ searchParams }: { searchParams: Promise<{ day?: string; source?: string; first?: string }> }) {
   if (!authEnabled) return <RideScreen initialFtp={null} canSave={false} levels={STARTING_LEVELS} />;
   const supabase = await createClient();
-  const { day: asked } = await searchParams;
+  const { day: asked, source, first } = await searchParams;
   // Ride now offers a plan day's session first: the one asked for (from Today's check-in), else today's.
   const state = await loadTrainingState(supabase);
   const day = asked && DAY.test(asked) ? asked : state.today;
   const stored = day === state.today ? state.todayStored : ((await loadPlanDays(supabase, day, day))[0] ?? null);
   const session = sessionFor(state, day, stored);
+  // Today's day-one card: an easy first ride, not tied to a plan day.
+  if (first) {
+    const saved = await loadCustomWorkouts(supabase).catch(() => []);
+    return (
+      <RideScreen
+        key="first"
+        initialFtp={state.athlete.ftp}
+        ftpGuess={ftpIsGuess(state.athlete.ftpHistory, state.today)}
+        canSave
+        planned={firstRideSession(state)}
+        plannedLabel="Your first ride"
+        levels={state.levels}
+        saved={saved}
+        favorites={state.favorites}
+        today={state.today}
+        thresholdHr={state.athlete.thresholdHr}
+      />
+    );
+  }
   // My workouts is optional: the page still works before its table exists.
   const saved = await loadCustomWorkouts(supabase).catch(() => []);
   return (
@@ -35,6 +55,8 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
       saved={saved}
       favorites={state.favorites}
       today={state.today}
+      thresholdHr={state.athlete.thresholdHr}
+      initialSource={source === "library" || source === "custom" || source === "erg" ? source : undefined}
     />
   );
 }

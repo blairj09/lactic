@@ -12,6 +12,8 @@ export type Segment =
       allOut?: boolean;
       /** An ERG hold added at the end: the player's − and + move its watts, not the intensity. */
       hold?: boolean;
+      /** A short effort in the warm-up to open the legs: part of the warm-up, not the workout's work. */
+      opener?: boolean;
     }
   | { kind: "ramp"; duration: number; from: number; to: number }
   | { kind: "freeRide"; duration: number };
@@ -27,6 +29,90 @@ export const steady = (duration: number, target: number): SteadySegment => ({ ki
 /** A sprint: ridden all out, with `target` as the planned effort for charts and stress. */
 export const sprint = (duration: number, target: number): SteadySegment => ({ kind: "steady", duration, target, allOut: true });
 export const ramp = (duration: number, from: number, to: number): Segment => ({ kind: "ramp", duration, from, to });
+
+/** A warm-up opener: `seconds` at `target`, part of the warm-up. */
+export const opener = (duration: number, target: number): SteadySegment => ({ kind: "steady", duration, target, opener: true });
+
+/** Which openers a warm-up gets: short, sharp ones before hard days, longer, gentler ones before tempo and sweet spot. */
+export type OpenerStyle = "hard" | "steady";
+
+/** The warm-up's length, with or without openers. */
+export const WARMUP_SECONDS = 600;
+
+const OPENERS: Record<OpenerStyle, { seconds: number; targets: number[] }> = {
+  hard: { seconds: 20, targets: [1.1, 1.2, 1.3] },
+  steady: { seconds: 30, targets: [0.9, 1.0, 1.1] },
+};
+const OPENER_EASY = 0.55;
+const OPENER_RAMP = 360;
+
+/**
+ * A 10-minute warm-up: 6 minutes building from 45 to 70% FTP, then three openers, each a little
+ * harder than the last, with easy riding between them and before the first interval.
+ */
+export function warmupWithOpeners(style: OpenerStyle): Segment[] {
+  const { seconds, targets } = OPENERS[style];
+  const out: Segment[] = [ramp(OPENER_RAMP, 0.45, 0.7)];
+  targets.forEach((target, i) => {
+    out.push(opener(seconds, target));
+    if (i < targets.length - 1) out.push(steady(60 - seconds, OPENER_EASY));
+  });
+  const used = out.reduce((t, s) => t + s.duration, 0);
+  out.push(steady(WARMUP_SECONDS - used, OPENER_EASY));
+  return out;
+}
+
+/**
+ * `segments` with their plain 10-minute warm-up ramp swapped for one with openers. Left alone
+ * without a style, when the workout already has openers, or when it doesn't start with that ramp
+ * (imported, edited and test workouts keep theirs).
+ */
+export function withOpeners(segments: Segment[], style: OpenerStyle | null): Segment[] {
+  const first = segments[0];
+  if (!style || !first || segments.some((s) => s.kind === "steady" && s.opener)) return segments;
+  if (first.kind !== "ramp" || first.duration !== WARMUP_SECONDS || first.from > 0.5 || first.to <= first.from || first.to > RAMP_MEET_MAX) return segments;
+  return [...warmupWithOpeners(style), ...segments.slice(1)];
+}
+
+/** Easy riding tops out here: a warm-up climbs to meet an interval this easy, and steps up into anything harder. */
+export const RAMP_MEET_MAX = 0.8;
+
+const startOf = (s: Segment) => (s.kind === "steady" ? s.target : s.kind === "ramp" ? s.from : null);
+const endOf = (s: Segment) => (s.kind === "steady" ? s.target : s.kind === "ramp" ? s.to : null);
+
+/**
+ * The warm-up ramp ends at the power the next interval starts at, and the cool-down ramp starts at
+ * the power the last interval ends at, so the profile has no step at either end. Only when that
+ * neighbor is easy riding (up to RAMP_MEET_MAX) and on the ramp's side of its other end; a hard
+ * first effort or sprint keeps the step up into it.
+ */
+export function alignRamps(segments: Segment[], ends: { start?: boolean; end?: boolean } = {}): Segment[] {
+  if (segments.length < 2) return segments;
+  const out = [...segments];
+  const first = out[0];
+  const next = out[1];
+  const meet = startOf(next);
+  if (ends.start !== false && first.kind === "ramp" && first.to > first.from && meet !== null && !isAllOut(next) && meet <= RAMP_MEET_MAX && meet > first.from)
+    out[0] = { ...first, to: meet };
+  const end = out.length - 1;
+  const last = out[end];
+  const prev = out[end - 1];
+  const leave = endOf(prev);
+  if (ends.end !== false && last.kind === "ramp" && last.from > last.to && leave !== null && !isAllOut(prev) && leave <= RAMP_MEET_MAX && leave > last.to)
+    out[end] = { ...last, from: leave };
+  return out;
+}
+
+/** Whether the warm-up ramp meets the first interval, and the cool-down ramp the last one. */
+export function rampsJoined(segments: Segment[]): { start: boolean; end: boolean } {
+  const n = segments.length;
+  if (n < 2) return { start: false, end: false };
+  const [first, next, prev, last] = [segments[0], segments[1], segments[n - 2], segments[n - 1]];
+  return {
+    start: first.kind === "ramp" && first.to === startOf(next),
+    end: last.kind === "ramp" && last.from === endOf(prev),
+  };
+}
 
 export function workoutDuration(workout: Workout): number {
   return workout.segments.reduce((total, s) => total + s.duration, 0);

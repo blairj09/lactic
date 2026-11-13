@@ -46,7 +46,7 @@ else
     if gh api "repos/$REPO/actions/runs/$id/artifacts" -q '.artifacts[].name' | grep -qx 'Lactic-macOS-Preview'; then run=$id; break; fi
   done
   [ -n "$run" ] || { echo "No finished Mac build of $branch yet. Check https://github.com/$REPO/actions?query=branch%3A$branch"; exit 1; }
-  echo "Downloading the Mac build from run $run…"
+  echo "Downloading the Mac build from run ${run}…"
   gh run download "$run" -R "$REPO" -n Lactic-macOS-Preview -D "$work/artifact"
   dmg=$(find "$work/artifact" -name '*.dmg' | head -1)
   mv "$dmg" "$work/preview.dmg"

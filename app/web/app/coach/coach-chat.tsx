@@ -75,6 +75,9 @@ export default function CoachChat({
     if ((!message && !files.length) || busy || (withFiles && attach.uploading)) return;
     setError(null);
     setDraft("");
+    // On a phone, drop the keyboard so the reply has the screen. It also clears iOS's gray
+    // predicted word, which otherwise stays painted over the emptied box ("Message your coach").
+    if (window.matchMedia("(pointer: coarse)").matches && document.activeElement instanceof HTMLTextAreaElement) document.activeElement.blur();
     if (withFiles) attach.clear();
     attach.setProblem(null);
     const now = new Date().toISOString();
@@ -214,7 +217,7 @@ export default function CoachChat({
       </div>
 
       <form
-        className="relative shrink-0 border-t border-line px-4 py-3"
+        className="relative shrink-0 border-t border-line px-4 pt-3 pb-[max(0.75rem,var(--drawer-bottom,0px))]"
         onSubmit={(e) => {
           e.preventDefault();
           send(draft);

@@ -8,6 +8,7 @@ import { exertionToday, trimpPerStress, type ExertionToday } from "./engine/reco
 import { addDays } from "./engine/pmc";
 import { feedbackStrain } from "./engine/feedback";
 import type { CheckinRecord, TrainingState } from "./training";
+import type { Session } from "./engine/library";
 
 /** How you feel today: what the check-in on Today asks. */
 export type CheckinAnswers = Pick<CheckinRecord, "feel" | "sick" | "minutes">;
@@ -40,14 +41,14 @@ export function todayOptions(state: TrainingState, answers?: CheckinAnswers): Ch
 
 /**
  * Today's exertion so far against today's target, and where the session still to ride should leave
- * it: the session chosen this morning, else the plan's. Null without daytime heart rate or recovery.
+ * it: the session chosen this morning, else the plan's, or `instead` (one of today's options). Null without daytime heart rate or recovery.
  */
-export function exertionTodayFor(state: TrainingState): ExertionToday | null {
+export function exertionTodayFor(state: TrainingState, instead?: { session: Session | null }): ExertionToday | null {
   const { today, athlete } = state;
   if (!state.exertion || !state.recovery) return null;
   const target = exertionTarget(state.recovery.score?.score ?? null, state.exertion.normal);
   const ridden = state.rides.some((r) => localDate(r.startedAt, athlete.timezone) === today);
-  const session = state.todayStored?.chosen ? state.todayStored.chosen.session : (state.todayPlan?.session ?? null);
+  const session = instead ? instead.session : state.todayStored?.chosen ? state.todayStored.chosen.session : (state.todayPlan?.session ?? null);
   // How each past ride day's stress turned into exertion, from the days in the window.
   const stressByDay = new Map<string, number>();
   for (const r of state.rides) {

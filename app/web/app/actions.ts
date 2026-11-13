@@ -21,6 +21,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { allowedEmail, isAllowedEmail } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { formatWeight, readUnits } from "@/lib/units";
+import { readAdaptations } from "@/lib/ride/adapt";
 import { deleteSecret, placeholder, saveSecret, SECRET_INTERVALS } from "~/platform/secrets";
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string };
@@ -98,6 +99,8 @@ export async function saveAppRide(input: {
   interval?: number[];
   workout?: unknown;
   plannedWorkoutId?: string;
+  /** What adaptive workouts changed mid-ride. */
+  adaptations?: unknown;
 }): Promise<ActionResult & { rideId?: string }> {
   let rideId: string | undefined;
   const result = await attempt(async () => {
@@ -128,6 +131,7 @@ export async function saveAppRide(input: {
           ...chartStream({ ...stream, cadence, target: target ?? undefined }),
           workout,
           intervals: blocks,
+          adaptations: readAdaptations(input.adaptations),
         },
       },
     ]);
@@ -427,7 +431,8 @@ function checkSegments(z: unknown): SegmentImpedance | undefined {
   return Object.fromEntries(SEGMENT_KEYS.map((k) => [k, record[k]])) as unknown as SegmentImpedance;
 }
 
-const SCALE_SOURCES = ["body_pod", "ble_scale", "mi_scale", "qn_scale", "etekcity"];
+// "manual" is a weight typed in for the weekly weigh-in.
+const SCALE_SOURCES = ["body_pod", "ble_scale", "mi_scale", "qn_scale", "etekcity", "manual"];
 
 /**
  * A weigh-in from a smart scale: stores it with body composition and makes it the current weight.

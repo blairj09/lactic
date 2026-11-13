@@ -69,7 +69,9 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
 .badge { font-family: var(--mono); font-size: 13px; letter-spacing: 0.04em; color: var(--accent); background: var(--accent-tint); padding: 6px 10px; border-radius: 6px; }
 h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0.045em; font-weight: 800; font-stretch: 112%; }
 .hero-side { flex: 1 1 100%; min-width: 0; display: flex; flex-wrap: wrap; gap: 18px 40px; align-items: center; justify-content: space-between; }
-.hero-side .lede { flex: 1 1 420px; max-width: 54ch; }
+.hero-side .lede-block { flex: 1 1 420px; max-width: 54ch; }
+.just-ride { margin-top: 12px; font-size: 15px; line-height: 1.5; color: var(--muted, var(--body)); }
+.just-ride strong { color: var(--ink, inherit); font-weight: 600; }
 .nowrap { white-space: nowrap; }
 .lede { font-size: clamp(18px, 1.5vw, 21px); line-height: 1.5; color: var(--body); }
 
@@ -170,6 +172,7 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .feature { background: var(--surface); border: 1px solid #e3e6ec; border-radius: 12px; padding: 22px; display: grid; gap: 8px; align-content: start; }
 .feature h3 { font-size: 19px; }
 .feature p { font-size: 16px; line-height: 1.55; color: var(--body); }
+.feature-tag { display: inline-block; vertical-align: 3px; margin-left: 6px; font: 600 11px/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); background: var(--accent-tint); padding: 4px 6px; border-radius: 5px; }
 
 /* Download */
 .download { background: var(--accent); color: #fff; }
@@ -288,3 +291,9 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .is-phone .phone-only { display: block; }
 .is-phone .phone-note { display: flex; gap: 10px; align-items: flex-start; font-size: 16px; line-height: 1.5; color: var(--ink); background: var(--accent-tint); border-radius: 10px; padding: 14px 16px; max-width: 46ch; }
 .phone-note svg { flex: none; margin-top: 3px; color: var(--accent); }
+.phone-testflight { display: none; }
+.is-phone .phone-testflight { display: inline-flex; }
+.hero-sub { flex-basis: 100%; font-size: 15px; color: var(--muted, var(--body)); margin-top: -4px; }
+/* Hero: the Download button spans the width of the import line under it, so both edges line up. */
+.hero-side .buttons { display: grid; grid-template-columns: minmax(0, max-content); }
+.hero-side .buttons .btn { justify-content: center; }

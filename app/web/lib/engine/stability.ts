@@ -7,6 +7,8 @@
 
 import type { Plan, PlanDay, PlanWeek } from "./plan";
 import { fitnessSeries } from "./pmc";
+import { openerStyle } from "./library";
+import { alignRamps, plannedStress, withOpeners } from "./workout";
 
 /** The rebuilt week may move this share from the kept one, over the days left, before a re-plan is offered. */
 export const DRIFT_LIMIT = 0.15;
@@ -51,7 +53,18 @@ export const driftOffer = (drift: Drift | null) => Boolean(drift && Math.abs(dri
 export function keepWeek(plan: Plan, kept: KeptWeek | null, today: string, start: { fitness: number; fatigue: number }): Plan {
   const first = plan.weeks[0];
   if (!kept || !first || first.start !== kept.week || kept.days.length !== 7) return plan;
-  const week: PlanWeek = { ...first, days: kept.days, stress: Math.round(kept.days.reduce((s, d) => s + d.stress, 0)) };
+  // Kept from before warm-ups met the first interval or had openers: build them the same way now
+  // (workout.ts). A rider's own saved workouts keep theirs.
+  const days = kept.days.map((d) => {
+    if (!d.session || !Array.isArray(d.session.workout?.segments)) return d;
+    const style = d.session.custom ? null : openerStyle(d.session.zone);
+    const opened = withOpeners(d.session.workout.segments, style);
+    const workout = { ...d.session.workout, segments: alignRamps(opened) };
+    if (opened === d.session.workout.segments) return { ...d, session: { ...d.session, workout } };
+    const stress = plannedStress(workout);
+    return { ...d, stress: d.stress + stress - d.session.stress, session: { ...d.session, workout, stress } };
+  });
+  const week: PlanWeek = { ...first, days, stress: Math.round(days.reduce((s, d) => s + d.stress, 0)) };
   const weeks = [week, ...plan.weeks.slice(1)];
   const stress: Record<string, number> = {};
   for (const day of weeks.flatMap((w) => w.days)) if (day.date >= today) stress[day.date] = day.stress;

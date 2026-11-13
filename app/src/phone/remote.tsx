@@ -15,6 +15,7 @@ import { Notice, button } from "@/components/ui";
 import { isRiding } from "@/lib/live-ride";
 import { endAlert, endAlertKey } from "@/lib/ride/end-alert";
 import { sendableArgs, type ControlMessage, type ControlName, type OverlayPayload } from "~/ride/channel";
+import { useKeepAwake } from "~/platform/keep-awake";
 import { showRide } from "./live-activity";
 import { cancelRideEnd, phoneStatus, scheduleRideEnd, send } from "./plugin";
 
@@ -25,7 +26,7 @@ interface Reply {
 const OPEN_EVERY = 1000;
 const CLOSED_EVERY = 5000;
 
-const NAMES: ControlName[] = ["onPlayPause", "onSkip", "onBack", "onIntensity", "onErg", "onErgMode", "onGrade", "onExtend", "onEnd", "onExtendMinutes", "onExtendWatts", "onExtendKind", "onExtendBlock", "onHold"];
+const NAMES: ControlName[] = ["onPlayPause", "onSkip", "onBack", "onIntensity", "onErg", "onErgMode", "onGrade", "onExtend", "onEnd", "onExtendMinutes", "onExtendWatts", "onExtendKind", "onExtendBlock", "onHold", "onAdaptUndo", "onAdaptYes", "onAdaptNo", "onAdaptive"];
 
 /** The ride open on the paired computer, for the phone's Ride tab: it opens the remote instead. */
 export interface AwayRide {
@@ -182,6 +183,8 @@ export function ComputerRide() {
   const data = ride?.data;
   const status = !data ? "" : data.ended ? "Ended" : data.running ? formatTime(data.position) : data.autoPaused ? "Paused" : data.elapsed > 0 ? "Paused" : "Ready";
   useEffect(() => setAway(ride && computer && data ? { computer, workout: data.workout.name, status } : null), [ride, computer, data, status]);
+  // The remote's open (or the Ride tab's showing the computer's ride): the screen stays on until the ride ends.
+  useKeepAwake(!!data && !data.ended && (open || onRideTab));
 
   if (!ride || !computer || !data) return null;
 

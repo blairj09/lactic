@@ -6,12 +6,13 @@ import { estimateFtp } from "@/lib/engine/ftp";
 import { addDays } from "@/lib/engine/pmc";
 import { mergeCurves } from "@/lib/engine/power";
 import { loadBodyMeasurements, weighInOn } from "@/lib/body-data";
-import { loadAthlete, loadStream } from "@/lib/activities";
+import { loadAthlete, loadStream, loadWatts } from "@/lib/activities";
+import { rideShape } from "@/lib/engine/week-glance";
 import { loadTrainingState } from "@/lib/training";
 import { briefInputs, briefStale } from "@/lib/coach/chat";
 import { loadBrief, loadReview } from "@/lib/coach/store";
-import { reviewTime, type WeekReview } from "@/lib/engine/review";
-import { PHASE_LABELS, weekStart } from "@/lib/engine/plan";
+import { reviewTime } from "@/lib/engine/review";
+import { weekStart } from "@/lib/engine/plan";
 import { loadConnection as loadIntervals } from "@/lib/intervals/client";
 import { createClient } from "@/lib/supabase/server";
 import { loadIngestToken } from "@/lib/recovery-data";
@@ -55,22 +56,24 @@ export default async function Today() {
   const ridden = ridesOn(state, today);
   // Past midnight between the two clocks, the date-keyed loads are redone for the state's day.
   const sameDay = briefDay === today;
-  const [brief, reviewMessage, todayStream, raceFollowUp] = await Promise.all([
+  // Each ridden day this week, by its main ride, for the ride's shape in This week.
+  const weekRides = Array.from({ length: 7 }, (_, i) => addDays(monday, i))
+    .filter((d) => d <= today)
+    .flatMap((d) => {
+      const r = ridesOn(state, d);
+      return r ? [[d, r.main.id] as const] : [];
+    });
+  const [brief, reviewMessage, todayStream, raceFollowUp, weekWatts] = await Promise.all([
     sameDay ? earlyBrief : coachEnabled ? optional(loadBrief(supabase, today)) : null,
     sameDay ? earlyReview : coachEnabled && reviewTime(today, monday) ? optional(loadReview(supabase, addDays(monday, -7))) : null,
     ridden ? optional(loadStream(supabase, ridden.main.id)) : null,
     experiments().race_report
       ? optional(getSetting<{ dismissed?: string[] }>(RACE_PROMPTS_SETTING, {}).then((s) => loadRaceFollowUp(supabase, state, s.dismissed ?? [])))
       : null,
+    loadWatts(supabase, weekRides.map(([, id]) => id)),
   ]);
-  const thisWeek = state.plan.weeks.find((w) => w.start === monday);
-  const review = reviewMessage?.meta.review
-    ? {
-        review: reviewMessage.meta.review as WeekReview,
-        message: reviewMessage.content,
-        thisWeek: thisWeek ? `This week: ${PHASE_LABELS[thisWeek.phase].toLowerCase()}${thisWeek.recoveryWeek ? " (recovery week)" : ""}, ${thisWeek.stress} TSS planned.` : null,
-      }
-    : null;
+  const rideShapes = Object.fromEntries(weekRides.flatMap(([d, id]) => (weekWatts.get(id) ? [[d, rideShape(weekWatts.get(id)!)]] : [])));
+  const review = Boolean(reviewMessage?.meta.review);
   const due = (c: { lastSyncedAt: Date | null } | null) => Boolean(c && (!c.lastSyncedAt || Date.now() - c.lastSyncedAt.getTime() > 30 * 60_000));
   const syncDue: "intervals"[] = due(icu) ? ["intervals"] : [];
 
@@ -89,6 +92,7 @@ export default async function Today() {
           healthLinked={Boolean(healthToken?.lastUsedAt) || Boolean(recoverySource?.connected)}
           recoverySource={recoverySource}
           review={review}
+          rideShapes={rideShapes}
           todayStream={todayStream}
           raceFollowUp={raceFollowUp}
           intervalsConnected={Boolean(icu)}

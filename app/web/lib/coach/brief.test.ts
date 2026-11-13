@@ -14,7 +14,7 @@ const brief = (meta: Record<string, unknown>, proposals: StoredMessage["proposal
   createdAt: "2026-10-30T14:00:00Z",
 });
 
-const day = { form: 3, session: "event:art-dye" };
+const day = { form: 3, session: "event:art-dye", signals: [] as string[] };
 const inputs = (i: Partial<BriefInputs>): BriefInputs => ({ recovery: false, weighed: false, checkin: null, ...day, ...i });
 
 describe("briefStale", () => {
@@ -33,6 +33,13 @@ describe("briefStale", () => {
     expect(briefStale(brief({ ...day, session: "rest" }), inputs({}))).toBe(true);
   });
 
+  it("rewrites when the recovery signs change, so a since-corrected sleep debt doesn't linger", () => {
+    expect(briefStale(brief({ recovery: true, ...day, signals: ["sleepDebt"] }), inputs({ recovery: true }))).toBe(true);
+    expect(briefStale(brief({ recovery: true, ...day }), inputs({ recovery: true, signals: ["hrvLow"] }))).toBe(true);
+    const { signals: _, ...older } = day;
+    expect(briefStale(brief({ recovery: true, ...older }), inputs({ recovery: true }))).toBe(true);
+  });
+
   it("keeps a brief whose proposals you've acted on", () => {
     const acted = brief({ recovery: false }, [{ change: { kind: "reset", date: "2026-10-31" }, summary: "", reason: "", status: "applied" }]);
     expect(briefStale(acted, inputs({ recovery: true, weighed: true }))).toBe(false);
@@ -44,5 +51,25 @@ describe("briefStale", () => {
     expect(briefStale(brief({ recovery: true, ...day, checkin: at }), inputs({ recovery: true, checkin: at }))).toBe(false);
     const acted = brief({ ...day }, [{ change: { kind: "reset", date: "2026-10-31" }, summary: "", reason: "", status: "applied" }]);
     expect(briefStale(acted, inputs({ checkin: at }))).toBe(true);
+  });
+
+  it("rewrites when a later recovery score moves the engine's pick, but not once today is chosen", () => {
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "asPlanned", today: "asPlanned" }), inputs({ recovery: true, recommended: "easier" }))).toBe(true);
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "asPlanned", today: "asPlanned" }), inputs({ recovery: true, recommended: "asPlanned" }))).toBe(false);
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "asPlanned" }), inputs({ recovery: true, recommended: null }))).toBe(false);
+    expect(briefStale(brief({ recovery: true, ...day, today: null }), inputs({ recovery: true, recommended: "easier" }))).toBe(false);
+  });
+
+  it("rewrites a brief from before it had to mark one of today's options, once", () => {
+    const now = inputs({ recovery: true, recommended: "easier" });
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "easier" }), now)).toBe(true);
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "easier", today: null }), now)).toBe(false);
+    expect(briefStale(brief({ recovery: true, ...day, recommended: "easier", today: "asPlanned" }), now)).toBe(false);
+  });
+
+  it("rewrites when the recovery score it quoted has moved a lot since", () => {
+    expect(briefStale(brief({ recovery: true, ...day, score: 61 }), inputs({ recovery: true, score: 40 }))).toBe(true);
+    expect(briefStale(brief({ recovery: true, ...day, score: 61 }), inputs({ recovery: true, score: 57 }))).toBe(false);
+    expect(briefStale(brief({ recovery: true, ...day }), inputs({ recovery: true, score: 40 }))).toBe(false);
   });
 });

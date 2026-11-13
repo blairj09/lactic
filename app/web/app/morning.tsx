@@ -2,35 +2,25 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Panel, Result, button } from "@/components/ui";
-import { canReconnectSilently, DEVICES_CHANGED, isPickerCancel, remembered } from "@/lib/ble/devices";
-import { isWebBluetoothAvailable } from "@/lib/ble/sensor-hub";
+import { useEffect, useRef, useState } from "react";
+import { Panel, Result } from "@/components/ui";
 import type { StoredMessage } from "@/lib/coach/store";
 import type { CheckinResult, OptionId } from "@/lib/engine/checkin";
-import type { ScaleProfile } from "@/lib/scale/bodypod";
-import { weighIn, type WeighInUpdate } from "@/lib/scale/scale";
-import { saveWeighIn } from "./actions";
 import { applyProposal, dismissProposal } from "./coach/actions";
-import { streamCoach } from "./coach/events";
+import { briefError, streamCoach } from "./coach/events";
 import { openCoach } from "./coach/open";
 import { Prose } from "./coach/prose";
 import { ProposalCard } from "./coach/proposal-card";
-import { STAGE_TEXT } from "./health/weigh-in";
 import { FeelStep, TodayOptions, type CheckinAnswers } from "./checkin";
-import { formatWeight } from "@/lib/units";
 import { useFeatures } from "@/lib/use-features";
-import { useUnits } from "@/lib/use-units";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
 
 export interface MorningProps {
   day: string;
   /** Whether today's recovery is in, and a short line about it. */
   recovery: { in: boolean; line: string | null; healthLinked?: boolean; source?: RecoverySourceInfo | null };
-  /** Today's latest weigh-in. */
-  weighIn: { weightKg: number; bodyFatPercent: number | null } | null;
-  /** For the scale's body composition; null until height, sex and birth date are in Settings. */
-  profile: ScaleProfile | null;
+  /** Whether there's a weigh-in today, so the brief is rewritten when one lands (the weekly weigh-in is its own card on Today). */
+  weighedToday?: boolean;
   /** Today's brief, and whether it needs writing (again). Null when the coach is off. */
   brief: { message: StoredMessage | null; stale: boolean } | null;
   /** How you feel today and the options it gives; a line about the day instead once it's settled. */
@@ -40,6 +30,13 @@ export interface MorningProps {
   /** One step under another, for a narrow column. */
   stacked?: boolean;
   title?: string;
+  /** False when "How you feel" is asked elsewhere (Today asks it above the workouts, as "Ready to train?"). */
+  askFeel?: boolean;
+  /**
+   * Today splits the morning in two: `recovery` is the top card (no brief), `brief` is the coach's brief
+   * further down (no steps, no options: the workout cards show them). `all` is both, in one card.
+   */
+  part?: "all" | "recovery" | "brief";
 }
 
 export interface TodayChoice {
@@ -52,9 +49,7 @@ export interface TodayChoice {
   coachEnabled: boolean;
 }
 
-type Weigh = { phase: "idle" } | { phase: "running"; update: WeighInUpdate | null } | { phase: "saved"; kg: number } | { phase: "failed"; message: string };
-
-type Skips = { recovery?: boolean; weigh?: boolean };
+type Skips = { recovery?: boolean };
 
 /**
  * The start of the day on Today: last night's recovery, weigh in on the scale (once one is paired), say how you feel, and the coach's brief on today with its pick among today's options and
@@ -63,28 +58,22 @@ type Skips = { recovery?: boolean; weigh?: boolean };
  * skipped, so it's written once from the full picture; how you feel rewrites it when it lands.
  * Riding never waits on any of it.
  */
-export default function Morning({ day, recovery, weighIn: weighed, profile, brief, today, lastNight, stacked = false, title = "Morning" }: MorningProps) {
+export default function Morning({ day, recovery, weighedToday = false, brief, today, lastNight, stacked = false, title = "Morning", askFeel = true, part = "all" }: MorningProps) {
   const router = useRouter();
-  // Bluetooth and remembered devices are only known in the browser.
-  const units = useUnits();
-  // Recovery and the weigh-in are steps only for riders who track them.
+  // Recovery is a step only for riders who track it.
   const tracking = useFeatures();
-  const [device, setDevice] = useState<{ bluetooth: boolean; scale: boolean; silent: boolean } | null>(null);
+  // Skips live in the browser, so the brief waits for them to load.
+  const [mounted, setMounted] = useState(false);
   const [skips, setSkips] = useState<Skips>({});
-  const [weigh, setWeigh] = useState<Weigh>({ phase: "idle" });
-  const autoStarted = useRef({ weigh: false });
 
   useEffect(() => {
-    setDevice({ bluetooth: isWebBluetoothAvailable(), scale: Boolean(remembered("scale")), silent: canReconnectSilently() });
     setSkips(readSkips(day));
+    setMounted(true);
+    // The recovery card and the brief card share skips: a skip in one reaches the other.
+    const changed = () => setSkips(readSkips(day));
+    window.addEventListener(SKIPS_CHANGED, changed);
+    return () => window.removeEventListener(SKIPS_CHANGED, changed);
   }, [day]);
-
-  // Pairing a scale in Settings or on Health brings the weigh-in step back.
-  useEffect(() => {
-    const refresh = () => setDevice((d) => d && { ...d, scale: Boolean(remembered("scale")) });
-    window.addEventListener(DEVICES_CHANGED, refresh);
-    return () => window.removeEventListener(DEVICES_CHANGED, refresh);
-  }, []);
 
   const skip = (...steps: (keyof Skips)[]) => {
     const next = { ...skips };
@@ -95,37 +84,11 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
 
   const recoveryDone = recovery.in;
   // A step is settled once it's done, skipped, or can't happen. Recovery waits for Apple Health once
-  // the shortcut is set up; without it there's nothing to wait for. Without Bluetooth (the phone) the
-  // weigh-in can still arrive from the Mac, so it waits for that or a skip.
+  // the shortcut is set up; without it there's nothing to wait for.
   const fromHealth = Boolean(recovery.healthLinked);
   const recoveryReady = !tracking.recovery || recoveryDone || skips.recovery || !fromHealth;
-  const weighDone = Boolean(weighed) || weigh.phase === "saved";
-  // Weighing in is a step once a scale is paired (in Settings or on Health), or when today's weight is already in.
-  const showWeigh = tracking.weight && (weighDone || Boolean(device?.scale));
-  const weighReady = !showWeigh || weighDone || skips.weigh || (device !== null && device.bluetooth && !profile);
-  const waitingOn = [!recoveryReady && ("recovery" as const), !weighReady && ("weigh" as const)].filter((s) => s !== false);
-  const pending = waitingOn.map((s) => (s === "weigh" ? "weigh-in" : s)).join(" and ");
-
-  const startWeigh = useCallback(
-    async (choose = false) => {
-      if (!profile) return;
-      setWeigh({ phase: "running", update: null });
-      try {
-        const reading = await weighIn(profile, (update) => setWeigh({ phase: "running", update }), { choose });
-        setDevice((d) => d && { ...d, scale: true });
-        setWeigh({ phase: "running", update: { stage: "done", liveKg: reading.weightKg } });
-        const saved = await saveWeighIn(reading);
-        if (!saved.ok) setWeigh({ phase: "failed", message: saved.message });
-        else {
-          setWeigh({ phase: "saved", kg: reading.weightKg });
-          router.refresh();
-        }
-      } catch (e) {
-        setWeigh(isPickerCancel(e) ? { phase: "idle" } : { phase: "failed", message: e instanceof Error ? e.message : String(e) });
-      }
-    },
-    [profile, router],
-  );
+  const waitingOn = [!recoveryReady && ("recovery" as const)].filter((s) => s !== false);
+  const pending = waitingOn.join(" and ");
 
   // Waiting on the recovery source: look again each minute, since nights arrive in the background.
   useEffect(() => {
@@ -134,38 +97,60 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
     return () => clearInterval(id);
   }, [tracking.recovery, fromHealth, recoveryDone, skips.recovery, router]);
 
-  // The scale starts listening on its own, if it reconnects without a click.
-  useEffect(() => {
-    if (!showWeigh || !device || autoStarted.current.weigh || weighDone || skips.weigh || !profile) return;
-    if (!device.bluetooth || !device.scale || !device.silent || weigh.phase !== "idle") return;
-    autoStarted.current.weigh = true;
-    void startWeigh();
-  }, [showWeigh, device, weighDone, skips.weigh, profile, weigh.phase, startWeigh]);
-
-
-  const weighedKg = weighed?.weightKg ?? (weigh.phase === "saved" ? weigh.kg : null);
-  // Once last night is in, the Last night card above shows it, so the step only waits for it.
+  // Once last night is in, the Recovery card shows it, so the step only waits for it.
   const recoveryStep = tracking.recovery && (!recoveryDone || Boolean(lastNight));
-  const stepCount = 1 + Number(recoveryStep) + Number(showWeigh);
+  const stepCount = Number(askFeel) + Number(recoveryStep);
   // Last night in brief is a summary, not a step to do, so it isn't numbered.
   const offset = Number(Boolean(lastNight && recoveryDone));
   const feelStep = stepCount - offset;
-  const weighStep = 1 + Number(recoveryStep) - offset;
+
+  // Nothing to show at the top (recovery isn't tracked and How you feel is asked elsewhere): no empty card.
+  if (part === "recovery" && stepCount === 0) return null;
+
+  // Last night is in: the top of Today is just the recovery summary, no steps around it.
+  if (part === "recovery" && recoveryDone && lastNight) return <Panel title="Recovery">{lastNight}</Panel>;
+
+  if (part === "brief") {
+    if (!brief) return null;
+    return (
+      <Panel
+        title="Coach's brief"
+        meta={
+          <button type="button" onClick={() => openCoach()} className="hover:text-ink">
+            Ask the coach
+          </button>
+        }
+      >
+        <div className="-mt-3">
+          <Brief
+            initial={brief.message}
+            stale={brief.stale}
+            ready={mounted && waitingOn.length === 0}
+            inputs={`${recovery.in}-${weighedToday}-${"settled" in today ? "" : (today.answers?.at ?? "")}`}
+            pending={mounted ? pending : ""}
+            onSkipPending={() => skip(...waitingOn)}
+            today={null}
+          />
+        </div>
+      </Panel>
+    );
+  }
 
   return (
     <Panel
       title={title}
       meta={
-        brief !== null ? (
+        brief !== null && title ? (
           <button type="button" onClick={() => openCoach()} className="hover:text-ink">
             Ask the coach
           </button>
         ) : undefined
       }
     >
+      {stepCount > 0 && (
       <ol className={`grid grid-cols-1 gap-px overflow-hidden rounded-md border border-line bg-line ${stacked ? "" : lastNight && recoveryDone ? LAST_NIGHT_COLUMNS[stepCount] : STEP_COLUMNS[stepCount]}`}>
         {recoveryStep && (
-        <Step n={1} title={lastNight && recoveryDone ? "Last night" : "Recovery"} state={recoveryDone ? (lastNight ? "settled" : "done") : recoveryReady ? (skips.recovery ? "skipped" : "settled") : "active"} plain={Boolean(lastNight && recoveryDone)}>
+        <Step n={1} title="Recovery" state={recoveryDone ? (lastNight ? "settled" : "done") : recoveryReady ? (skips.recovery ? "skipped" : "settled") : "active"} plain={Boolean(lastNight && recoveryDone)}>
           {recoveryDone ? (
             (lastNight ?? <p>{recovery.line ?? "Last night is in."}</p>)
           ) : skips.recovery ? (
@@ -194,51 +179,7 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
         </Step>
         )}
 
-        {showWeigh && (
-        <Step n={weighStep} title="Weigh in" state={weighDone ? "done" : weighReady ? (skips.weigh ? "skipped" : "settled") : "active"}>
-          {weighDone ? (
-            <p>
-              <span className="num text-ink">{formatWeight(weighedKg!, units)}</span>
-              {weighed?.bodyFatPercent != null && <span className="num"> · {weighed.bodyFatPercent.toFixed(1)}% fat</span>}
-            </p>
-          ) : device === null ? null : skips.weigh ? (
-            <p>Skipped for today.</p>
-          ) : !device.bluetooth ? (
-            <p>Weigh in on your smart scale from the Lactic app.</p>
-          ) : !profile ? (
-            <p>
-              Add height, birth date and sex in{" "}
-              <Link href="/settings" className="text-ink underline underline-offset-4">
-                Settings
-              </Link>{" "}
-              to weigh in.
-            </p>
-          ) : weigh.phase === "running" ? (
-            <div aria-live="polite">
-              {weigh.update?.liveKg != null && <p className="num text-2xl font-medium tracking-tight text-ink">{formatWeight(weigh.update.liveKg, units)}</p>}
-              <p>{STAGE_TEXT[weigh.update?.stage ?? "waking"]}</p>
-            </div>
-          ) : weigh.phase === "failed" ? (
-            <Result ok={false}>{weigh.message}</Result>
-          ) : (
-            <p>Tap or step on the scale to wake it, then step on.</p>
-          )}
-          {!weighDone && device?.bluetooth && profile && !skips.weigh && weigh.phase !== "running" && (
-            <Actions>
-              <button className={button.smallPrimary} onClick={() => startWeigh()}>
-                Weigh in
-              </button>
-              <SkipButton onClick={() => skip("weigh")} />
-            </Actions>
-          )}
-          {!weighReady && (weigh.phase === "running" || (device && !device.bluetooth)) && (
-            <Actions>
-              <SkipButton onClick={() => skip("weigh")} />
-            </Actions>
-          )}
-        </Step>
-        )}
-
+        {askFeel && (
         <Step n={feelStep} title="How you feel" state={"settled" in today ? "settled" : today.answers ? "done" : "active"}>
           {"settled" in today ? (
             <p>{today.settled}</p>
@@ -246,15 +187,17 @@ export default function Morning({ day, recovery, weighIn: weighed, profile, brie
             <FeelStep key={today.answers?.at ?? "new"} answers={today.answers} plannedMinutes={today.plannedMinutes} coachEnabled={today.coachEnabled} />
           )}
         </Step>
+        )}
       </ol>
+      )}
 
-      {brief ? (
+      {part === "recovery" ? null : brief ? (
         <Brief
           initial={brief.message}
           stale={brief.stale}
-          ready={device !== null && waitingOn.length === 0}
-          inputs={`${recovery.in}-${Boolean(weighed)}-${"settled" in today ? "" : (today.answers?.at ?? "")}`}
-          pending={device === null ? "" : pending}
+          ready={mounted && waitingOn.length === 0}
+          inputs={`${recovery.in}-${weighedToday}-${"settled" in today ? "" : (today.answers?.at ?? "")}`}
+          pending={mounted ? pending : ""}
           onSkipPending={() => skip(...waitingOn)}
           today={"settled" in today ? null : today}
         />
@@ -305,7 +248,7 @@ const LAST_NIGHT_COLUMNS: Record<number, string> = { 1: "", 2: "lg:grid-cols-[3f
 const Actions = ({ children }: { children: React.ReactNode }) => <div className="flex flex-wrap items-center gap-3 pt-1">{children}</div>;
 
 const SkipButton = ({ onClick, label = "Skip today" }: { onClick: () => void; label?: string }) => (
-  <button className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline" onClick={onClick}>
+  <button type="button" className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline" onClick={onClick}>
     {label}
   </button>
 );
@@ -342,6 +285,24 @@ function Brief({
   const [error, setError] = useState<string | null>(null);
   const requested = useRef<string | null>(null);
   const streaming = status !== null;
+  // Bumped by Try again (or coming back to the app after a failure) to write the brief once more.
+  const [attempt, setAttempt] = useState(0);
+  const retry = () => {
+    requested.current = null;
+    setAttempt((a) => a + 1);
+  };
+
+  // On a phone the connection drops when the app goes to the background mid-brief: try again on return.
+  useEffect(() => {
+    if (!error || /AI budget/.test(error)) return;
+    const visible = () => {
+      if (document.visibilityState !== "visible") return;
+      requested.current = null;
+      setAttempt((a) => a + 1);
+    };
+    document.addEventListener("visibilitychange", visible);
+    return () => document.removeEventListener("visibilitychange", visible);
+  }, [error]);
 
   // A refreshed page brings a newer brief.
   const seen = useRef(initial?.id);
@@ -374,7 +335,7 @@ function Brief({
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setStatus(null));
-  }, [stale, ready, streaming, inputs, initial, router]);
+  }, [stale, ready, streaming, inputs, initial, router, attempt]);
 
   const update = (index: number, status: "applied" | "dismissed") =>
     setMessage((m) => m && { ...m, proposals: m.proposals.map((p, i) => (i === index ? { ...p, status } : p)) });
@@ -406,8 +367,20 @@ function Brief({
           </button>
         </p>
       )}
-      {error && (/AI budget/.test(error) ? <p className="text-sm text-muted">{error}</p> : <Result ok={false}>The coach couldn&apos;t write today&apos;s brief ({error}).</Result>)}
-      {!status && today && <TodayOptionsFor today={today} pick={stale ? null : (message?.meta.today as OptionId | undefined) ?? null} />}
+      {error &&
+        (/AI budget/.test(error) ? (
+          <p className="text-sm text-muted">{error}</p>
+        ) : (
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <Result ok={false}>{briefError(error)}</Result>
+            {!streaming && (
+              <button className="text-sm text-ink underline-offset-4 hover:underline" onClick={retry}>
+                Try again
+              </button>
+            )}
+          </div>
+        ))}
+      {!status && today && <TodayOptionsFor today={today} pick={(message?.meta.today as OptionId | undefined) ?? null} />}
       {!status && message && message.proposals.length > 0 && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {message.proposals.map((p, i) => (
@@ -450,6 +423,7 @@ function TodayOptionsFor({ today, pick, className }: { today: TodayChoice; pick:
 
 // Skipped steps are remembered in this browser for the day.
 const SKIPS = "morning.skips";
+const SKIPS_CHANGED = "morning-skips";
 
 function readSkips(day: string): Skips {
   try {
@@ -464,5 +438,5 @@ function writeSkips(day: string, skips: Skips) {
   try {
     localStorage.setItem(SKIPS, JSON.stringify({ day, skips }));
   } catch {}
+  window.dispatchEvent(new Event(SKIPS_CHANGED));
 }
-

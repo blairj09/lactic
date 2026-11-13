@@ -21,6 +21,10 @@
   var release = null;
   var $ = function (id) { return document.getElementById(id); };
   var url = function (get) { return "/api/release?get=" + get; };
+  // Each download shows in Vercel Web Analytics as a visit to /download/<system>.
+  function count(get) {
+    if (NAMES[get] && typeof window.va === "function") window.va("pageview", { route: "/download/[system]", path: "/download/" + get });
+  }
 
   function show(get) {
     var known = NAMES[get];
@@ -43,6 +47,7 @@
     if (NAMES[os]) button.href = url(os);
     button.addEventListener("click", function (event) {
       if (!NAMES[os]) event.preventDefault();
+      else count(os);
       show(NAMES[os] ? os : null);
       dialog.showModal();
     });
@@ -51,8 +56,9 @@
   if (label && NAMES[os]) label.textContent = "Download for " + NAMES[os][0];
 
   dialog.querySelectorAll("[data-get]").forEach(function (a) {
-    a.addEventListener("click", function () { show(a.getAttribute("data-get")); });
+    a.addEventListener("click", function () { count(a.getAttribute("data-get")); show(a.getAttribute("data-get")); });
   });
+  $("dl-again-link").addEventListener("click", function () { count($("dl-again-link").href.split("get=")[1]); });
   dialog.addEventListener("click", function (event) { if (event.target === dialog) dialog.close(); });
 
   fetch("/api/release").then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {

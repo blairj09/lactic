@@ -20,6 +20,8 @@ import { SPRINT_GRADE, allOutAt, clampGrade, freeRideAt } from "@/lib/ride/sprin
 import { blankWorkout } from "@/lib/engine/workout-edit";
 import type { CustomWorkout } from "@/lib/custom-workouts";
 import { ERG_STEP, addErgChange, clampErg, defaultErg, ergWorkout, type ErgChange } from "@/lib/ride/erg";
+import { UNDO_SECONDS, adaptable, applyFactors, judge, readAt, readRep, sameKind, workReps, type Adaptation, type Change } from "@/lib/ride/adapt";
+import { useExperiments } from "@/lib/use-experiments";
 import Nav from "@/components/nav";
 import { Notice, Page, Panel, Segmented, button, input } from "@/components/ui";
 import { saveAppRide } from "../actions";
@@ -27,7 +29,7 @@ import { deleteCustomWorkout, saveCustomWorkout, setFavorite } from "./actions";
 import { holdCoachShortcut } from "../coach/open";
 import { holdNewDayRefresh } from "@/lib/new-day";
 import RideSurvey from "../ride-survey";
-import { OVERLAY_SIZES, PlayerView, formatTime, type PlayerControls, type PlayerData } from "./player";
+import { OVERLAY_SIZES, PlayerView, formatTime, type AdaptNotice, type PlayerControls, type PlayerData } from "./player";
 import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type RideSource } from "./ride-now";
 import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
@@ -35,6 +37,7 @@ import OverlayPortal from "./overlay-portal";
 import { LiveActivityHost } from "~/phone/live-activity";
 import { RemoteHost } from "~/ride/remote";
 import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
+import { useKeepAwake } from "~/platform/keep-awake";
 import { isDesktop, isPhone } from "~/platform/native";
 import { isDemo } from "~/demo/flag";
 import type { TracePoint } from "./workout-chart";
@@ -111,7 +114,13 @@ function RideOnThisDevice({
   favorites: initialFavorites = [],
   today,
   ftpGuess = false,
+  thresholdHr = null,
+  initialSource,
 }: {
+  /** Where the picker opens (Today's "Something else…" opens the library, My workouts or free ride); else the plan's session first. */
+  initialSource?: RideSource;
+  /** Threshold heart rate from Settings, for adaptive workouts to judge an easy rep. */
+  thresholdHr?: number | null;
   initialFtp: number | null;
   /** FTP is still setup's guess, so a ramp test sets it straight away (with Undo) instead of asking. */
   ftpGuess?: boolean;
@@ -136,7 +145,7 @@ function RideOnThisDevice({
   const [supported, setSupported] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ftp, setFtp] = useState(initialFtp ?? 250);
-  const [source, setSource] = useState<RideSource>(planned ? "planned" : "library");
+  const [source, setSource] = useState<RideSource>(initialSource ?? (planned ? "planned" : "library"));
   const [library, setLibrary] = useState<LibraryChoice>(DEFAULT_LIBRARY);
   /** A .zwo file is being saved into My workouts. */
   const [importing, setImporting] = useState(false);
@@ -222,8 +231,25 @@ function RideOnThisDevice({
   const endPanel = useRef<HTMLDivElement>(null);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
 
+  // Adaptive workouts (an experiment): later reps eased (or, with a yes, made harder) by a factor each.
+  const adaptExperiment = useExperiments().adaptive_workouts;
+  /** This ride's switch, in the ride controls. */
+  const [adaptOn, setAdaptOn] = useState(true);
+  const [factors, setFactors] = useState<ReadonlyMap<number, number>>(() => new Map());
+  /** The change on screen: an ease with Undo until `until` (ride seconds), or a bump to answer before its first rep. */
+  const [adaptShown, setAdaptShown] = useState<{ change: Change; before: ReadonlyMap<number, number>; until: number; log: number } | null>(null);
+  const adaptLog = useRef<Adaptation[]>([]);
+  /** Reps already read, segments paused in, and whether the rider moved intensity since the last read. */
+  const repsRead = useRef(new Set<number>());
+  const pausedIn = useRef(new Set<number>());
+  const steered = useRef(false);
+  const bumpDeclined = useRef(false);
+  const easeUndone = useRef(false);
+
   const erg = source === "erg";
-  const workout = useMemo(() => scaleWorkout(baseWorkout, intensity / 100), [baseWorkout, intensity]);
+  const workout = useMemo(() => scaleWorkout(applyFactors(baseWorkout, factors), intensity / 100), [baseWorkout, factors, intensity]);
+  const reps = useMemo(() => workReps(baseWorkout), [baseWorkout]);
+  const adaptive = adaptExperiment && !erg && !isRampTest(baseWorkout) && !isTwentyMinuteTest(baseWorkout) && adaptable(baseWorkout) && reps.length > 1;
   const duration = workoutDuration(workout);
 
   useEffect(() => setSupported(isWebBluetoothAvailable()), []);
@@ -248,6 +274,58 @@ function RideOnThisDevice({
     }
   }, [hub]);
 
+  /** Logs how a change on screen ended and clears it. */
+  const settleAdapt = (outcome: Adaptation["outcome"]) => {
+    if (!adaptShown) return;
+    adaptLog.current[adaptShown.log] = { ...adaptLog.current[adaptShown.log], outcome };
+    setAdaptShown(null);
+  };
+
+  // Once a second: an ease's Undo runs out, an unanswered bump lapses (keeping the plan), and a
+  // finished rep is read once, a minute into its recovery.
+  const checkAdapt = useRef((_position: number, _now: number) => {});
+  checkAdapt.current = (position, now) => {
+    if (adaptShown) {
+      if (adaptShown.change.kind === "ease" && now >= adaptShown.until) settleAdapt("applied");
+      else if (adaptShown.change.kind === "bump" && position >= adaptShown.until) {
+        bumpDeclined.current = true;
+        settleAdapt("declined");
+      }
+    }
+    if (!adaptive || !adaptOn) return;
+    for (const rep of reps) {
+      if (repsRead.current.has(rep.index)) continue;
+      const at = readAt(baseWorkout, rep);
+      if (position < at) break;
+      repsRead.current.add(rep.index);
+      // Skipped past it, or read long ago: nothing to go on.
+      if (position > at + 30) continue;
+      const ride = { power: samples.current, heartRate: hrSamples.current, cadence: cadenceSamples.current, target: targetSamples.current, interval: intervalSamples.current };
+      const reads = reps.filter((r) => r.index <= rep.index && sameKind(r, rep)).map((r) => readRep(ride, r, pausedIn.current)).filter((r) => r.seconds > 0);
+      if (!reads.length || reads[reads.length - 1].index !== rep.index) continue;
+      const change = judge({
+        reps,
+        rep,
+        reads,
+        position,
+        factors,
+        ergOn: ergOnRef.current,
+        thresholdHr,
+        riderSteered: steered.current,
+        bumpDeclined: bumpDeclined.current,
+        easeUndone: easeUndone.current,
+      });
+      steered.current = false;
+      if (!change) continue;
+      if (adaptShown) settleAdapt(adaptShown.change.kind === "ease" ? "applied" : "declined");
+      const interval = (i: number) => i + 1;
+      const log = adaptLog.current.push({ at: now, kind: change.kind, percent: change.percent, intervals: change.reps.map(interval), reasons: change.reasons, outcome: change.kind === "ease" ? "applied" : "declined" }) - 1;
+      const first = reps.find((r) => r.index === change.reps[0])!;
+      setAdaptShown({ change, before: factors, until: change.kind === "ease" ? now + UNDO_SECONDS : first.start, log });
+      if (change.kind === "ease") setFactors(withFactor(factors, change.reps, change.factor));
+    }
+  };
+
   // The tick reads the latest values through a ref, so the timers below never need restarting.
   const tick = useRef(() => {});
   tick.current = () => {
@@ -269,6 +347,7 @@ function RideOnThisDevice({
       setElapsed(now);
     }
     const position = now + offset.current;
+    checkAdapt.current(position, now);
     const planned = erg ? ergRef.current : targetWattsAt(workout, position, ftp);
     if (!erg && planned === null && position >= duration) {
       clock.current.pause(Date.now());
@@ -328,13 +407,8 @@ function RideOnThisDevice({
   useEffect(() => setLiveRide({ hub, riding: midRide }), [hub, midRide]);
   useEffect(() => () => setLiveRide(null), []);
 
-  // Keep the screen awake while riding.
-  useEffect(() => {
-    if (!running || !("wakeLock" in navigator)) return;
-    let lock: WakeLockSentinel | undefined;
-    navigator.wakeLock.request("screen").then((l) => (lock = l), () => undefined);
-    return () => void lock?.release();
-  }, [running]);
+  // Keep the screen awake mid-ride, and while the trainer's connected (a ride waiting for the first pedal stroke).
+  useKeepAwake(midRide || !!state.connected.trainer);
 
   const openOverlay = () => {
     const { width, height } = OVERLAY_SIZES[overlaySize];
@@ -393,11 +467,20 @@ function RideOnThisDevice({
 
   const pause = () => {
     tick.current();
+    notePause();
     clock.current.pause(Date.now());
     autoPause.current.reset();
     setAutoPaused(false);
     setRunning(false);
   };
+
+  /** Remembers the interval a pause came in, for adaptive workouts to count it as a sign of struggle. */
+  const notePause = () => {
+    const at = intervalAt(workout, elapsedRef.current + offset.current);
+    if (at && elapsedRef.current > 0) pausedIn.current.add(at.index);
+  };
+  const notePauseRef = useRef(notePause);
+  notePauseRef.current = notePause;
 
   const startRef = useRef(start);
   startRef.current = start;
@@ -420,6 +503,7 @@ function RideOnThisDevice({
       const action = autoPause.current.update(clock.current.running, cadenceRpm, powerWatts, Date.now());
       if (action === "pause") {
         tick.current();
+        notePauseRef.current();
         clock.current.pause(Date.now());
         setRunning(false);
         setAutoPaused(true);
@@ -471,6 +555,14 @@ function RideOnThisDevice({
     setRampResult(null);
     setTwentyResult(null);
     setKeptId(null);
+    setFactors(new Map());
+    setAdaptShown(null);
+    adaptLog.current = [];
+    repsRead.current = new Set();
+    pausedIn.current = new Set();
+    steered.current = false;
+    bumpDeclined.current = false;
+    easeUndone.current = false;
   };
 
   /** Loads a workout into the player (only before a ride starts: Ride now is locked after). */
@@ -481,6 +573,7 @@ function RideOnThisDevice({
     setEdited(false);
     setLoads((n) => n + 1);
     setIntensity(100);
+    setAdaptOn(true);
     reset();
   };
 
@@ -525,6 +618,7 @@ function RideOnThisDevice({
     if (edited) return source === "custom" && customId ? customKey(customId) : null;
     if (source === "starter" && starterId) return libraryKey(starterId);
     if (source === "planned" && planned?.library && !planned.edited) return libraryKey(planned.library);
+    if (source === "planned" && planned?.custom && !planned.edited) return customKey(planned.custom);
     if (source === "custom" && customId) return customKey(customId);
     return null;
   };
@@ -585,6 +679,7 @@ function RideOnThisDevice({
       interval: intervalSamples.current,
       workout: erg ? undefined : workout,
       plannedWorkoutId: source === "planned" ? plannedDay : undefined,
+      adaptations: adaptLog.current,
     });
     setSaveState(result.ok ? "saved" : "idle");
     if (result.ok) {
@@ -682,6 +777,25 @@ function RideOnThisDevice({
   /** An ERG hold added at the end is under way: − and + move its watts. */
   const holding = current?.segment.kind === "steady" && !!current.segment.hold;
   const all = erg ? [] : intervals(workout);
+  /** The change on screen in watts: the first changed rep, after and before. */
+  const adaptNotice = (): AdaptNotice | null => {
+    if (!adaptShown || ended) return null;
+    const { change, before, until } = adaptShown;
+    const first = change.reps[0];
+    const seg = baseWorkout.segments[first];
+    if (!seg || seg.kind !== "steady") return null;
+    const watts = (f: number) => Math.round(seg.target * f * (intensity / 100) * ftp);
+    const was = watts(before.get(first) ?? 1);
+    return {
+      kind: change.kind,
+      percent: change.percent,
+      watts: watts(change.factor),
+      was,
+      reps: change.reps.length,
+      reasons: change.reasons,
+      undoIn: change.kind === "ease" ? Math.max(0, until - elapsed) : null,
+    };
+  };
   const recent = samples.current.slice(-3);
   const data: PlayerData = {
     workout: shown,
@@ -715,6 +829,8 @@ function RideOnThisDevice({
     extend: { kind: extendKind, minutes: extensionMinutes(extension), watts: extendWattsShown, block: blockTemplate.name },
     holding,
     powerAverage: running && recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : undefined,
+    adaptive: adaptive && !ended ? { on: adaptOn } : null,
+    adapt: adaptNotice(),
   };
 
   /** Turns ERG on (the target goes back to the trainer at the next tick) or off (a road at the grade). */
@@ -799,15 +915,42 @@ function RideOnThisDevice({
       const back = current ? (all[current.index - 1] ?? current) : all[all.length - 1];
       if (back) jump(back.start);
     },
-    // Targets change at once; the tick sends the new ERG target.
-    onIntensity: (delta) => setIntensity((i) => Math.min(150, Math.max(50, i + delta))),
+    // Targets change at once; the tick sends the new ERG target. The rider's steering, so adaptive keeps its hands off for now.
+    onIntensity: (delta) => {
+      steered.current = true;
+      setIntensity((i) => Math.min(150, Math.max(50, i + delta)));
+    },
+    onAdaptUndo: () => {
+      if (!adaptShown || adaptShown.change.kind !== "ease") return;
+      setFactors(adaptShown.before);
+      easeUndone.current = true;
+      settleAdapt("undone");
+    },
+    onAdaptYes: () => {
+      if (!adaptShown || adaptShown.change.kind !== "bump") return;
+      setFactors(withFactor(adaptShown.before, adaptShown.change.reps, adaptShown.change.factor));
+      settleAdapt("accepted");
+    },
+    onAdaptNo: () => {
+      if (!adaptShown || adaptShown.change.kind !== "bump") return;
+      bumpDeclined.current = true;
+      settleAdapt("declined");
+    },
+    onAdaptive: (on) => {
+      setAdaptOn(on);
+      // Off puts every rep back as planned, and drops a question on screen.
+      if (!on) {
+        if (adaptShown) settleAdapt(adaptShown.change.kind === "ease" ? "undone" : "declined");
+        setFactors(new Map());
+      }
+    },
     onErg: setErg,
     onErgMode: setErgMode,
     onGrade: changeGrade,
   };
   useEffect(() => {
     if (running) tick.current();
-  }, [intensity, ftp, running, baseWorkout]);
+  }, [intensity, ftp, running, baseWorkout, factors]);
 
   return (
     // The ride page is an instrument beside Zwift, so it's dark whatever the system setting.
@@ -897,12 +1040,17 @@ function RideOnThisDevice({
           <PlayerView
             data={data}
             controls={controls}
+            dock={
+              <button className={`${button.secondary} w-full`} onClick={end}>
+                End ride
+              </button>
+            }
             extra={
               <>
                 {/* Ride actions, quieter than the controls: End once a ride is under way, Save again if saving failed, Reset once one started. */}
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                   {elapsed > 0 && !ended && !data.finished && (
-                    <button className={button.secondary} onClick={end}>
+                    <button className={`${button.secondary} max-md:hidden`} onClick={end}>
                       End ride
                     </button>
                   )}
@@ -1077,4 +1225,11 @@ function RideOnThisDevice({
       </Page>
     </div>
   );
+}
+
+/** Factors with `reps` set to `factor`. */
+function withFactor(factors: ReadonlyMap<number, number>, reps: number[], factor: number): ReadonlyMap<number, number> {
+  const next = new Map(factors);
+  for (const r of reps) next.set(r, factor);
+  return next;
 }

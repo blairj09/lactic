@@ -4,7 +4,7 @@
 const DATE = /^\d{4}-\d\d-\d\d$/;
 
 const PAGES: Record<string, string> = {
-  "/": "Today: the morning routine (recovery, weigh-in, how they feel), the morning brief with today's options, and today's session",
+  "/": "Today: the morning routine (recovery, a weekly weigh-in when one is due, how they feel), the morning brief with today's options, and today's session",
   "/plan": "Plan: the training plan by week, phases and the fitness forecast (Calendar tab); the plan's dates and goal, events, time available and breaks (Setup tab)",
   "/ride": "Ride: the workout player that controls the trainer",
   "/progress": "Progress: fitness, fatigue and form, power curve, power profile and power distribution over a date range, VO2 max and fitness age now (Trends tab); every ride as a month calendar or a list with search and filters (Rides tab)",

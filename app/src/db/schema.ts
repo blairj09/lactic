@@ -119,6 +119,8 @@ export const TABLES: Record<string, Table> = {
       created_at: now,
       route: { type: "json" },
       updated_at: now,
+      /** Changes adaptive workouts made mid-ride, and how each ended (web/lib/ride/adapt.ts). */
+      adaptations: { type: "json" },
     },
     primaryKey: ["activity_id"],
     foreignKeys: { activity_id: activity("cascade") },
@@ -476,6 +478,10 @@ export const TABLES: Record<string, Table> = {
       forecast_at: { type: "ts" },
       created_at: now,
       updated_at: now,
+      /** A finish time the rider is aiming for, seconds. */
+      target_seconds: { type: "int" },
+      /** How it's ridden: "solo", "group" or "bunch"; the event kind's usual when null. */
+      pack: { type: "text" },
     },
     primaryKey: ["id"],
     unique: [["goal_id"]],

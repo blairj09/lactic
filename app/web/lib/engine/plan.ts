@@ -5,8 +5,9 @@
 import { buildSession, INTERVAL_ZONES, openers, rampTest, ZONE_LABELS, type Levels, type Session, type Zone, MAX_LEVEL, MIN_LEVEL } from "./library";
 import { addDays, fitnessSeries, type FitnessDay } from "./pmc";
 import { pickTemplate, WORK_TOTAL, type Focus } from "./templates";
+import type { Pack } from "./course/pacing";
 import { courseShape, type CourseDemands } from "./course/shape";
-import { libraryFits, librarySession } from "./workout-library";
+import { libraryFits, librarySession, type LibraryWorkout } from "./workout-library";
 
 export const GOAL_KINDS = ["roadRace", "criterium", "cyclocross", "mountainBike", "track", "timeTrial", "gravel", "granFondo", "hillClimb"] as const;
 export type GoalKind = (typeof GOAL_KINDS)[number];
@@ -77,6 +78,31 @@ export interface Goal {
   startTime?: string | null;
   /** What the event's course asks of you, when a course file is attached (course/shape.ts). */
   course?: CourseDemands | null;
+  /** How it's ridden: solo, in a small group or in a bunch (course/pacing.ts); the kind's usual when not set. */
+  pack?: Pack | null;
+  /** A finish time the rider is aiming for and the FTP it takes on the course (course/target.ts). */
+  timeTarget?: TimeTarget | null;
+}
+
+export interface TimeTarget {
+  seconds: number;
+  /** FTP the target takes. */
+  neededFtp: number;
+  /** FTP now. */
+  ftp: number;
+}
+
+/** "4:05" from seconds. */
+const hm = (seconds: number) => {
+  const m = Math.round(seconds / 60);
+  return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+};
+
+/** When a target time takes more FTP than the rider has, the note on the days that build it; else null. */
+export function targetNote(goal: Goal | null): string | null {
+  const t = goal?.timeTarget;
+  if (!t || t.neededFtp <= t.ftp * 1.01) return null;
+  return `Builds FTP toward your ${hm(t.seconds)} target: it takes about ${t.neededFtp} W, from ${t.ftp} W now.`;
 }
 
 export const goalMinutes = (g: Goal) => g.minutes ?? KIND_DEFAULTS[g.kind].minutes;
@@ -139,7 +165,7 @@ export function phaseFocus(phase: Phase, target: Goal | null): Focus[] {
 /** How a week picks its key workouts: the structures its phase favors, and the rider's favorite library workouts. */
 interface Picking {
   focus: Focus[];
-  favorites: readonly string[];
+  favorites: readonly (string | LibraryWorkout)[];
   /** One key day rides intervals as long as the target event's main climb (course/shape.ts). */
   climb?: { zone: Zone; seconds: number; note: string } | null;
 }
@@ -156,14 +182,19 @@ function climbSession(zone: Zone, level: number, seconds: number, climbSeconds: 
 }
 
 /**
- * A key session in `zone`: one of your favorite library workouts when one fits the slot and level,
- * else a structure that rotates week to week (`slot` spreads a week's key days). Favorites rotate the same way.
+ * A key session in `zone`: one of your favorites (starter or yours) when one fits the slot and level;
+ * else, in interval zones, every other week a starter library workout that fits, and otherwise a
+ * structure that rotates week to week (`slot` spreads a week's key days). Each kind rotates the same way.
  */
 function keySession(zone: Zone, level: number, seconds: number, prefer: Picking, week: string, slot: number): Session {
   const seed = Math.floor(daysBetween("2024-01-01", week) / 7) + slot;
   const favorites = prefer.favorites.length ? libraryFits(zone, level, seconds, prefer.favorites) : [];
-  if (favorites.length) return librarySession(favorites[seed % favorites.length]);
+  if (favorites.length) return { ...librarySession(favorites[seed % favorites.length]), favorite: true };
   if (zone === "endurance" || zone === "recovery") return buildSession(zone, level, seconds);
+  if (seed % 2 === 1) {
+    const library = libraryFits(zone, level, seconds);
+    if (library.length) return librarySession(library[Math.floor(seed / 2) % library.length]);
+  }
   return buildSession(zone, level, seconds, { template: pickTemplate(zone, prefer.focus, seed).id });
 }
 
@@ -331,8 +362,8 @@ export interface PlanInput {
   frame?: PlanFrame | null;
   /** Scheduled time away. */
   breaks?: Break[];
-  /** Starter library workouts the rider favorited (ids): key days use one when it fits. */
-  favorites?: readonly string[];
+  /** Workouts the rider favorited (starter library ids, or workouts including My workouts): key days use one when it fits. */
+  favorites?: readonly (string | LibraryWorkout)[];
 }
 
 export interface Plan {
@@ -353,6 +384,11 @@ const KEY_ZONES: Record<"base" | "build", Zone[]> = {
   base: ["sweetSpot", "tempo"],
   build: ["threshold", "vo2max"],
 };
+
+/** Base key zones when chasing a target time that takes more FTP. */
+const TARGET_BASE_ZONES: Zone[] = ["sweetSpot", "threshold"];
+/** Zones that raise FTP. */
+const FTP_ZONES: Zone[] = ["sweetSpot", "threshold", "vo2max"];
 
 /** Longest planned key session, in minutes; longer days are easier riding. */
 const KEY_CAP_MINUTES: Record<Zone, number> = { recovery: 60, endurance: 300, tempo: 120, sweetSpot: 105, threshold: 90, vo2max: 75, anaerobic: 60 };
@@ -385,6 +421,9 @@ export function buildPlan(input: PlanInput): Plan {
   const { target } = schedule;
   if (schedule.end < today) return { target, frame, weeks: [], forecast: [] };
   const shape = target ? courseShape(target) : null;
+  // A target time that takes more FTP than the rider has: base trains threshold, not tempo, and the
+  // key days that raise FTP say so.
+  const chasing = targetNote(target);
   // Always from this week, so events before a saved plan starts still show on their days.
   const firstWeek = thisWeek;
   const weekCount = Math.min(MAX_WEEKS, daysBetween(firstWeek, weekStart(schedule.end)) / 7 + 1);
@@ -410,10 +449,14 @@ export function buildPlan(input: PlanInput): Plan {
       recoveryWeek = true;
       if (breakNote === "break") lastBreakRecovery = w;
     } else if (recoveryWeek && w - lastBreakRecovery <= 2) recoveryWeek = false;
-    const weekAvail = week.availability;
+    // The week the plan starts in fits its sessions into the days from the start on, so a plan set up
+    // on a Thursday rides that week's Thursday to Sunday instead of losing the days before it.
+    const opening = schedule.firstDay > start && schedule.firstDay <= addDays(start, 6);
+    const weekAvail = opening ? (week.availability.map((m, i) => (addDays(start, i) < schedule.firstDay ? 0 : m)) as Availability) : week.availability;
+    const openShare = opening ? sum(weekAvail) / Math.max(1, sum(week.availability)) : 1;
     const weekGoals = upcoming.filter((g) => g.date >= start && g.date <= addDays(start, 6) && g.date <= schedule.end);
     const late = phase === "specialty" || phase === "taper";
-    const zones = late && target ? (shape?.zones ?? specialtyZones(target)) : KEY_ZONES[phase === "base" ? "base" : "build"];
+    const zones = late && target ? (shape?.zones ?? specialtyZones(target)) : phase === "base" && chasing ? TARGET_BASE_ZONES : KEY_ZONES[phase === "base" ? "base" : "build"];
     const focus = late && shape ? shape.focus : phaseFocus(phase, target);
     const climb = shape?.climb && (phase === "build" || phase === "specialty") ? { ...shape.climb, note: shape.note } : null;
     // Long events need long rides: from build on, the long ride works toward three quarters of the event's time.
@@ -421,7 +464,8 @@ export function buildPlan(input: PlanInput): Plan {
 
     const steadyWeek = 7 * fitness;
     const weekTarget =
-      phase === "taper" || phase === "test" ? 0.55 * steadyWeek : recoveryWeek ? 0.6 * steadyWeek : phase === "specialty" ? 7 * (fitness + 3 * rampRate) : 7 * (fitness + 6 * rampRate);
+      openShare *
+      (phase === "taper" || phase === "test" ? 0.55 * steadyWeek : recoveryWeek ? 0.6 * steadyWeek : phase === "specialty" ? 7 * (fitness + 3 * rampRate) : 7 * (fitness + 6 * rampRate));
 
     const days =
       phase === "taper" && target
@@ -433,6 +477,9 @@ export function buildPlan(input: PlanInput): Plan {
     const weekRule: SafetyRule | undefined =
       phase === "taper" && target ? "eventTaper" : phase === "test" ? "testWeek" : recoveryWeek ? (breakNote === "break" ? "breakWeek" : breakNote === "reentry" ? "reentryWeek" : "recoveryWeek") : undefined;
     if (weekRule) for (const day of days) if (day.session && day.role !== "test") day.rule = weekRule;
+    if (chasing && !weekRule && phase !== "taper" && phase !== "test") {
+      for (const day of days) if (day.role === "key" && day.session && FTP_ZONES.includes(day.session.zone) && !day.course) day.course = chasing;
+    }
     for (const goal of weekGoals) if (goal !== target) applyEvent(days, goal, weekAvail, levels);
     // Days outside a saved plan's dates are left open, apart from the events on them.
     for (const day of days) if ((day.date < schedule.firstDay || day.date > schedule.end) && day.role !== "event") Object.assign(day, { role: "rest", session: null, rule: undefined, course: undefined });
@@ -467,6 +514,8 @@ export function buildPlan(input: PlanInput): Plan {
   return { target, frame, weeks, forecast };
 }
 
+const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
+
 /** Where a plan runs and what phase each week is in. */
 interface Schedule {
   target: Goal | null;
@@ -491,6 +540,14 @@ function unframedSchedule(today: string, upcoming: Goal[], horizonWeeks: number)
 
 /** A saved plan: its own dates, with phases counted from its first week so they stay put as weeks pass. */
 function framedSchedule(frame: PlanFrame, goals: Goal[]): Schedule {
+  const schedule = phasedSchedule(frame, goals);
+  // A plan never opens with a recovery week: counting back from the end can land one on a first
+  // week that starts mid-week, and a new plan's first days should be riding.
+  const firstWeek = schedule.firstWeek;
+  return { ...schedule, weekAt: (m) => (m === firstWeek ? { ...schedule.weekAt(m), recoveryWeek: false } : schedule.weekAt(m)) };
+}
+
+function phasedSchedule(frame: PlanFrame, goals: Goal[]): Schedule {
   const firstWeek = weekStart(frame.start);
   const event = frame.goal === "event" ? (goals.find((g) => g.id === frame.goalId) ?? null) : null;
   const end = event ? event.date : frame.end;
