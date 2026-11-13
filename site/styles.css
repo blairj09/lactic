@@ -289,7 +289,8 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .is-phone .phone-only { display: block; }
 .is-phone .phone-note { display: flex; gap: 10px; align-items: flex-start; font-size: 16px; line-height: 1.5; color: var(--ink); background: var(--accent-tint); border-radius: 10px; padding: 14px 16px; max-width: 46ch; }
 .phone-note svg { flex: none; margin-top: 3px; color: var(--accent); }
-[data-testflight][hidden] { display: none; }
+.phone-testflight { display: none; }
+.is-phone .phone-testflight { display: inline-flex; }
 .hero-sub { flex-basis: 100%; font-size: 15px; color: var(--muted, var(--body)); margin-top: -4px; }
 /* Hero: the Download button spans the width of the import line under it, so both edges line up. */
 .hero-side .buttons { display: grid; grid-template-columns: minmax(0, max-content); }
