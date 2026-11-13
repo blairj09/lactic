@@ -1,0 +1,21 @@
+{
+  "apiVersion": 1,
+  "id": "best-efforts",
+  "name": "Best Efforts",
+  "version": "1.0.0",
+  "description": "Your best 5-minute power so far during a ride, and your best 5 seconds to 60 minutes after it.",
+  "author": "Lactic",
+  "homepage": "https://github.com/blairj09/lactic/tree/modular-ui/plugins/catalog/best-efforts",
+  "main": "main.js",
+  "permissions": { "read": ["live", "rides", "profile"] },
+  "publishes": [
+    { "id": "best_5min_live", "label": "Best 5 min so far", "unit": "W", "kind": "number" },
+    { "id": "best_1min", "label": "Best 1 min", "unit": "W", "kind": "number" },
+    { "id": "best_5min", "label": "Best 5 min", "unit": "W", "kind": "number" },
+    { "id": "best_20min", "label": "Best 20 min", "unit": "W", "kind": "number" }
+  ],
+  "contributes": {
+    "fields": [{ "id": "best-5min", "title": "Best 5 min", "entry": "field" }],
+    "analyses": [{ "id": "ride", "title": "Best efforts", "entry": "analyze" }]
+  }
+}

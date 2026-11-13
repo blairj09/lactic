@@ -7,7 +7,7 @@ on:
     branches: [main, modular-ui]
     # A version tag (v0.2.0) also publishes the three apps as a GitHub release.
     tags: ["v*"]
-    paths: ["app/**", ".github/workflows/app.yml"]
+    paths: ["app/**", "plugins/**", ".github/workflows/app.yml"]
   # Every pull request runs this workflow, so `check` always reports and is safe to require on
   # main. When nothing under app/ changed, `changes` says so and the rest is skipped (a skipped
   # job counts as passing).
@@ -44,7 +44,7 @@ jobs:
         run: |
           if [ "$GITHUB_EVENT_NAME" != pull_request ]; then echo "app=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           files=$(gh api "repos/$GH_REPO/pulls/$PR/files" --paginate --jq '.[].filename')
-          if printf '%s\n' "$files" | grep -qE '^(app/|\.github/workflows/app\.yml$)'; then app=true; else app=false; fi
+          if printf '%s\n' "$files" | grep -qE '^(app/|plugins/|\.github/workflows/app\.yml$)'; then app=true; else app=false; fi
           echo "app=$app" >> "$GITHUB_OUTPUT"
           echo "App changed: $app"
         env:

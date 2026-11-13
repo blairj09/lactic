@@ -1,0 +1,19 @@
+{
+  "apiVersion": 1,
+  "id": "on-target",
+  "name": "On Target",
+  "version": "1.0.0",
+  "description": "How close each workout interval's power is to its target, live and interval by interval after the ride.",
+  "author": "Lactic",
+  "homepage": "https://github.com/blairj09/lactic/tree/modular-ui/plugins/catalog/on-target",
+  "main": "main.js",
+  "permissions": { "read": ["live", "rides"] },
+  "publishes": [
+    { "id": "interval_pct", "label": "This interval vs target", "unit": "%", "kind": "number" },
+    { "id": "hit_share", "label": "Intervals on target", "unit": "%", "kind": "number" }
+  ],
+  "contributes": {
+    "fields": [{ "id": "interval", "title": "On target", "entry": "field" }],
+    "analyses": [{ "id": "ride", "title": "Intervals vs target", "entry": "analyze" }]
+  }
+}

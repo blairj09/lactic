@@ -1,0 +1,17 @@
+{
+  "apiVersion": 1,
+  "id": "form-zones",
+  "name": "Form Zones",
+  "version": "1.0.0",
+  "description": "Places today's form (fitness minus fatigue) in a training zone, from fresh to overreaching, as a card in Plugins.",
+  "author": "Lactic",
+  "homepage": "https://github.com/blairj09/lactic/tree/modular-ui/plugins/catalog/form-zones",
+  "main": "main.js",
+  "permissions": { "read": ["fitness"] },
+  "publishes": [
+    { "id": "zone", "label": "Form zone", "kind": "choice", "choices": ["transition", "fresh", "grey", "optimal", "high-risk"] }
+  ],
+  "contributes": {
+    "widgets": [{ "id": "card", "title": "Form zone", "entry": "card" }]
+  }
+}

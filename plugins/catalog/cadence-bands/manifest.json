@@ -1,0 +1,19 @@
+{
+  "apiVersion": 1,
+  "id": "cadence-bands",
+  "name": "Cadence Bands",
+  "version": "1.0.0",
+  "description": "Your cadence smoothed over 30 seconds with a trend line, and how long you spent in each cadence band after the ride.",
+  "author": "Lactic",
+  "homepage": "https://github.com/blairj09/lactic/tree/modular-ui/plugins/catalog/cadence-bands",
+  "main": "main.js",
+  "permissions": { "read": ["live", "rides"] },
+  "publishes": [
+    { "id": "smooth", "label": "Cadence, 30 s", "unit": "rpm", "kind": "number" },
+    { "id": "coasting", "label": "Time coasting", "unit": "s", "kind": "number" }
+  ],
+  "contributes": {
+    "fields": [{ "id": "smooth", "title": "Cadence 30 s", "entry": "field" }],
+    "analyses": [{ "id": "ride", "title": "Cadence bands", "entry": "analyze" }]
+  }
+}

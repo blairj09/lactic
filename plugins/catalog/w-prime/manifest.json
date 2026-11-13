@@ -1,0 +1,20 @@
+{
+  "apiVersion": 1,
+  "id": "w-prime",
+  "name": "W′ Balance",
+  "version": "1.0.0",
+  "description": "How much of your hard-effort energy (W′) is left, live and over each ride. Uses your FTP as critical power.",
+  "author": "Lactic",
+  "homepage": "https://github.com/blairj09/lactic/tree/modular-ui/plugins/catalog/w-prime",
+  "main": "main.js",
+  "permissions": { "read": ["live", "rides", "profile"] },
+  "publishes": [
+    { "id": "balance", "label": "W′ left", "unit": "J", "kind": "number" },
+    { "id": "percent", "label": "W′ left", "unit": "%", "kind": "number" },
+    { "id": "lowest", "label": "Lowest W′ in the ride", "unit": "%", "kind": "number" }
+  ],
+  "contributes": {
+    "fields": [{ "id": "balance", "title": "W′ balance", "entry": "field" }],
+    "analyses": [{ "id": "ride", "title": "W′ balance", "entry": "analyze" }]
+  }
+}

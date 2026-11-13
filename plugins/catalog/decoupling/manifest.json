@@ -1,0 +1,19 @@
+{
+  "apiVersion": 1,
+  "id": "decoupling",
+  "name": "Aerobic Decoupling",
+  "version": "1.0.0",
+  "description": "How far your heart rate drifts up against your power over a steady ride. Under 5% is a sign of good aerobic fitness.",
+  "author": "Lactic",
+  "homepage": "https://github.com/blairj09/lactic/tree/modular-ui/plugins/catalog/decoupling",
+  "main": "main.js",
+  "permissions": { "read": ["live", "rides"] },
+  "publishes": [
+    { "id": "drift_live", "label": "Drift so far", "unit": "%", "kind": "number" },
+    { "id": "drift", "label": "Decoupling", "unit": "%", "kind": "number" }
+  ],
+  "contributes": {
+    "fields": [{ "id": "drift", "title": "HR drift", "entry": "field" }],
+    "analyses": [{ "id": "ride", "title": "Aerobic decoupling", "entry": "analyze" }]
+  }
+}

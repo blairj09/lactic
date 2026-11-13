@@ -1,0 +1,21 @@
+{
+  "apiVersion": 1,
+  "id": "ride-quality",
+  "name": "Ride Quality",
+  "version": "1.0.0",
+  "description": "How steady you rode (variability index), how efficiently (watts per heartbeat) and how hard (intensity factor).",
+  "author": "Lactic",
+  "homepage": "https://github.com/blairj09/lactic/tree/modular-ui/plugins/catalog/ride-quality",
+  "main": "main.js",
+  "permissions": { "read": ["live", "rides", "profile"] },
+  "publishes": [
+    { "id": "vi_live", "label": "Variability so far", "kind": "number" },
+    { "id": "vi", "label": "Variability index", "kind": "number" },
+    { "id": "ef", "label": "Efficiency factor", "kind": "number" },
+    { "id": "if", "label": "Intensity factor", "kind": "number" }
+  ],
+  "contributes": {
+    "fields": [{ "id": "vi", "title": "Variability", "entry": "field" }],
+    "analyses": [{ "id": "ride", "title": "Ride quality", "entry": "analyze" }]
+  }
+}
