@@ -172,6 +172,22 @@ export default function TodayView({
 
         <ThisWeek state={state} rideShapes={rideShapes} />
 
+        {rides.length === 0 ? (
+          // Before the first ride, one line instead of form, fitness and fatigue at zero and an empty last ride.
+          <section aria-label="Fitness" className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line">
+            <div className="space-y-1 bg-surface p-4 sm:p-5">
+              <p className="text-[15px]">Your fitness, fatigue and form start with your first ride.</p>
+              <p className="text-sm text-muted">
+                Have older rides?{" "}
+                <Link href="/settings#connections" className="text-ink underline underline-offset-4">
+                  Bring them in
+                </Link>{" "}
+                and they start from there.
+              </p>
+            </div>
+            <FtpNudge ftp={athlete.ftp} hasPowerRides={false} />
+          </section>
+        ) : (
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
           {/* Today's form, with the fitness and fatigue it comes from. On a phone, form takes the top row. */}
           <section aria-label="Form" className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3">
@@ -198,6 +214,7 @@ export default function TodayView({
             </section>
           )}
         </div>
+        )}
       </div>
     </>
   );

@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Before your first ride, Today shows one line about where your fitness numbers come from instead of form, fitness and fatigue at zero. The Plan page's warning about your hours limiting the build now only shows if you picked a faster pace than the default, and says it in plain words.
 - Your plan starts the day you set Lactic up: the first week's rides fit into the days left in it. If there's nothing planned that day, Today offers an easy 30-minute first ride to try your trainer.
 - iPhone: during a ride, pause, skip, intensity and End ride stay docked above the tabs, so you never scroll to reach them.
 - Today puts the key things first. Recovery is four quick tiles (HRV, resting HR, breathing, sleep), each with a bar showing your usual range and a dot for last night. Then "Ready to train?" and Indoors or Outside, then today's plan next to the suggested ride, each with its own Start ride. "Something else…" offers today's other options, the library, your own workouts or a free ride. The coach's brief comes after, and it's rewritten if your recovery score changes a lot after it was written.
