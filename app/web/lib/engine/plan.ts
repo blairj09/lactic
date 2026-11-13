@@ -449,7 +449,11 @@ export function buildPlan(input: PlanInput): Plan {
       recoveryWeek = true;
       if (breakNote === "break") lastBreakRecovery = w;
     } else if (recoveryWeek && w - lastBreakRecovery <= 2) recoveryWeek = false;
-    const weekAvail = week.availability;
+    // The week the plan starts in fits its sessions into the days from the start on, so a plan set up
+    // on a Thursday rides that week's Thursday to Sunday instead of losing the days before it.
+    const opening = schedule.firstDay > start && schedule.firstDay <= addDays(start, 6);
+    const weekAvail = opening ? (week.availability.map((m, i) => (addDays(start, i) < schedule.firstDay ? 0 : m)) as Availability) : week.availability;
+    const openShare = opening ? sum(weekAvail) / Math.max(1, sum(week.availability)) : 1;
     const weekGoals = upcoming.filter((g) => g.date >= start && g.date <= addDays(start, 6) && g.date <= schedule.end);
     const late = phase === "specialty" || phase === "taper";
     const zones = late && target ? (shape?.zones ?? specialtyZones(target)) : phase === "base" && chasing ? TARGET_BASE_ZONES : KEY_ZONES[phase === "base" ? "base" : "build"];
@@ -460,7 +464,8 @@ export function buildPlan(input: PlanInput): Plan {
 
     const steadyWeek = 7 * fitness;
     const weekTarget =
-      phase === "taper" || phase === "test" ? 0.55 * steadyWeek : recoveryWeek ? 0.6 * steadyWeek : phase === "specialty" ? 7 * (fitness + 3 * rampRate) : 7 * (fitness + 6 * rampRate);
+      openShare *
+      (phase === "taper" || phase === "test" ? 0.55 * steadyWeek : recoveryWeek ? 0.6 * steadyWeek : phase === "specialty" ? 7 * (fitness + 3 * rampRate) : 7 * (fitness + 6 * rampRate));
 
     const days =
       phase === "taper" && target
@@ -509,6 +514,8 @@ export function buildPlan(input: PlanInput): Plan {
   return { target, frame, weeks, forecast };
 }
 
+const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
+
 /** Where a plan runs and what phase each week is in. */
 interface Schedule {
   target: Goal | null;
@@ -533,6 +540,14 @@ function unframedSchedule(today: string, upcoming: Goal[], horizonWeeks: number)
 
 /** A saved plan: its own dates, with phases counted from its first week so they stay put as weeks pass. */
 function framedSchedule(frame: PlanFrame, goals: Goal[]): Schedule {
+  const schedule = phasedSchedule(frame, goals);
+  // A plan never opens with a recovery week: counting back from the end can land one on a first
+  // week that starts mid-week, and a new plan's first days should be riding.
+  const firstWeek = schedule.firstWeek;
+  return { ...schedule, weekAt: (m) => (m === firstWeek ? { ...schedule.weekAt(m), recoveryWeek: false } : schedule.weekAt(m)) };
+}
+
+function phasedSchedule(frame: PlanFrame, goals: Goal[]): Schedule {
   const firstWeek = weekStart(frame.start);
   const event = frame.goal === "event" ? (goals.find((g) => g.id === frame.goalId) ?? null) : null;
   const end = event ? event.date : frame.end;

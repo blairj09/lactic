@@ -1,7 +1,7 @@
 import { formatDistance, formatElevation, readUnits } from "@/lib/units";
 import Link from "next/link";
 import WorkoutProfile from "@/components/workout-profile";
-import { Dash, Panel, PageHeader, Stat } from "@/components/ui";
+import { Dash, Panel, PageHeader, Stat, button } from "@/components/ui";
 import type { StoredRide, StoredStream } from "@/lib/activities";
 import { weighInOn, type BodyMeasurement } from "@/lib/body-data";
 import { weighInDue } from "@/lib/engine/weigh-in-due";
@@ -29,10 +29,14 @@ import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
 import RaceReportPrompt from "./race-report-prompt";
 import RestDay from "./rest-day";
+import FirstRide from "./first-ride";
+import { firstRideDay } from "@/lib/first-ride";
 import ThisWeek from "./this-week";
 import type { RaceFollowUp } from "@/lib/engine/race/followup";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
 import { ExertionBar, RecoverySummary } from "./last-night";
+import TodayPick from "./today-pick";
+import type { OptionId } from "@/lib/engine/checkin";
 import type { ExertionToday } from "@/lib/engine/recovery-glance";
 import { formatHours } from "@/lib/engine/hours";
 import type { SafetyRule } from "@/lib/engine/plan";
@@ -86,6 +90,21 @@ export default function TodayView({
   const survey = ridden ? null : unansweredRide(state);
   const choice = todayChoice(state, coachEnabled);
   const weekAgo = series.length > 7 ? series[series.length - 8] : undefined;
+  const outside = state.outdoor.some((o) => o.date === today);
+  // The brief's pick wins (it explains it); else the engine's. The plan's Start ride steps back when they differ.
+  const briefPick = (brief?.message?.meta.today as OptionId | undefined) ?? null;
+  const pickDiffers =
+    !("settled" in choice) && (briefPick && choice.options.options.some((o) => o.id === briefPick) ? briefPick : choice.options.recommended) !== choice.plain;
+  const morning: MorningProps = {
+    title: "",
+    askFeel: false,
+    lastNight: recovery?.today ? <RecoverySummary recovery={recovery} variant="tiles" /> : undefined,
+    day: today,
+    recovery: { in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource },
+    weighedToday: Boolean(todaysWeighIn),
+    brief,
+    today: choice,
+  };
 
   return (
     <>
@@ -97,19 +116,10 @@ export default function TodayView({
 
       <RaceSoon state={state} />
 
-      {/* Top to bottom: how you are today (recovery and how you feel), today's workout, how the week and the plan are
-          tracking, then form and the last ride side by side on a computer. */}
+      {/* Top to bottom: recovery, "Ready to train?", today's plan beside the suggested option (stacked on a phone),
+          the coach's brief, how the week and the plan are tracking, then form and the last ride side by side on a computer. */}
       <div className="space-y-4">
-        <Morning
-          title=""
-          askFeel={false}
-          lastNight={recovery?.today ? <RecoverySummary recovery={recovery} variant="wide" /> : undefined}
-          day={today}
-          recovery={{ in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource }}
-          weighedToday={Boolean(todaysWeighIn)}
-          brief={brief}
-          today={choice}
-        />
+        <Morning {...morning} part="recovery" />
 
         {/* Weight isn't part of recovery: a slim card asks once a week, before the week's first ride, when there's no recent weigh-in. */}
         {body && (
@@ -124,15 +134,41 @@ export default function TodayView({
           />
         )}
 
-        <TodayWorkout
-          state={state}
-          ridden={ridden}
-          stream={todayStream}
-          intervalsConnected={intervalsConnected}
-          exertion={exertionTodayFor(state)}
-          className=""
-          ready={"settled" in choice ? null : <ReadyCheck today={choice} />}
-        />
+        {"settled" in choice ? (
+          <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} exertion={exertionTodayFor(state)} className="" />
+        ) : (
+          <>
+            <ReadyCheck today={choice} day={today} outside={outside} intervalsConnected={intervalsConnected} />
+            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
+              <TodayWorkout
+                state={state}
+                ridden={ridden}
+                stream={todayStream}
+                intervalsConnected={intervalsConnected}
+                exertion={exertionTodayFor(state)}
+                className="flex flex-col"
+                start={
+                  outside ? null : (
+                    <Link href={`/ride?day=${today}`} className={pickDiffers ? button.secondary : button.primary}>
+                      Start ride
+                    </Link>
+                  )
+                }
+              />
+              <TodayPick
+                today={choice}
+                pick={briefPick}
+                day={today}
+                outside={outside}
+                ftp={athlete.ftp}
+                exertion={Object.fromEntries(choice.options.options.map((o) => [o.id, exertionTodayFor(state, { session: o.session })]))}
+                eased={Boolean(state.todayPlan?.rule && EASED.has(state.todayPlan.rule))}
+              />
+            </div>
+          </>
+        )}
+
+        <Morning {...morning} part="brief" />
 
         <ThisWeek state={state} rideShapes={rideShapes} />
 
@@ -240,6 +276,7 @@ export function TodayWorkout({
   exertion,
   top,
   ready = null,
+  start,
   className = "self-start lg:col-span-2",
 }: {
   state: TrainingState;
@@ -250,8 +287,10 @@ export function TodayWorkout({
   exertion: ExertionToday | null;
   /** A line at the top of the card (option B's "Ready to ride?"). */
   top?: React.ReactNode;
-  /** "Ready for it?": how you feel, asked right above Start ride (its answer changes today's options). */
+  /** Asked right above Start ride (Today now asks "Ready to train?" above the workout cards instead). */
   ready?: React.ReactNode;
+  /** In place of the Indoors/Outside switch and Start ride, when Today shows the switch above both workout cards. */
+  start?: React.ReactNode;
   className?: string;
 }) {
   const { todayPlan, todayStored, today, rides, athlete } = state;
@@ -261,6 +300,8 @@ export function TodayWorkout({
   const rodeToday = rides.some((r) => localDate(r.startedAt, athlete.timezone) === today);
   const eased = Boolean(todayPlan?.rule && EASED.has(todayPlan.rule));
   const exertionBar = exertion && (exertion.soFar !== null || exertion.target) ? <ExertionBar exertion={exertion} eased={eased} compact /> : null;
+  // The day the plan starts with nothing on it: a short first ride rather than a rest day.
+  const firstRide = !ridden && !chosen && !outside?.workout && todayPlan?.role !== "event" && Boolean(athlete.ftp) && firstRideDay(state, rodeToday);
 
   const title = outside?.workout
     ? outside.workout.name
@@ -272,7 +313,9 @@ export function TodayWorkout({
       ? todayPlan.goal.name
       : planned
         ? planned.workout.name
-        : "Rest day";
+        : firstRide
+          ? "Your first ride"
+          : "Rest day";
 
   let body: React.ReactNode;
   let heading: React.ReactNode = title;
@@ -344,8 +387,10 @@ export function TodayWorkout({
         <WorkoutProfile workout={planned.workout} height={88} details ftp={athlete.ftp} fit />
         {exertionBar}
         {ready}
-        <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />
+        {start !== undefined ? <div className="mt-auto pt-1">{start}</div> : <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />}
       </div>
+    ) : firstRide ? (
+      <FirstRide state={state} />
     ) : (
       <RestDay state={state} />
     );
@@ -398,12 +443,16 @@ function nightValues(today: NonNullable<RecoveryToday["today"]>) {
   ].filter(Boolean);
 }
 
-/** How you feel, asked with the workout: the answer reshapes today's options. */
-function ReadyCheck({ today }: { today: Exclude<MorningProps["today"], { settled: string }> }) {
+/**
+ * "Ready to train?" above both workout cards: how you feel reshapes today's options, and Indoors or
+ * Outside goes for whichever you ride.
+ */
+function ReadyCheck({ today, day, outside, intervalsConnected }: { today: Exclude<MorningProps["today"], { settled: string }>; day: string; outside: boolean; intervalsConnected: boolean }) {
   return (
-    <div className="grid gap-x-5 gap-y-2 rounded-md border border-line p-4 text-sm text-muted sm:grid-cols-[auto_1fr] sm:items-baseline">
-      <p className="font-medium text-ink sm:pt-2">Ready for it?</p>
+    <div className="grid gap-x-5 gap-y-3 rounded-lg border border-line bg-surface p-4 text-sm text-muted sm:p-5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center">
+      <p className="font-medium text-ink">Ready to train?</p>
       <FeelStep key={today.answers?.at ?? "new"} answers={today.answers} plannedMinutes={today.plannedMinutes} coachEnabled={today.coachEnabled} />
+      <RideChoice day={day} outside={outside} connected={intervalsConnected} toggleOnly />
     </div>
   );
 }

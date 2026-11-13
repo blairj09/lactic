@@ -37,7 +37,7 @@ export function intervalLines(workout: Workout | null, intervals: RideInterval[]
   if (!workout || !intervals?.length) return [];
   const work = intervals.filter((iv) => {
     const segment = workout.segments[iv.index];
-    return segment?.kind === "steady" && !segment.hold && segment.target >= WORK_FROM && iv.target !== null;
+    return segment?.kind === "steady" && !segment.hold && !segment.opener && segment.target >= WORK_FROM && iv.target !== null;
   });
   const groups: RideInterval[][] = [];
   for (const iv of work) {

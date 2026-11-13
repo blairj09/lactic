@@ -25,7 +25,7 @@ interface Reply {
 const OPEN_EVERY = 1000;
 const CLOSED_EVERY = 5000;
 
-const NAMES: ControlName[] = ["onPlayPause", "onSkip", "onBack", "onIntensity", "onErg", "onErgMode", "onGrade", "onExtend", "onEnd", "onExtendMinutes", "onExtendWatts", "onExtendKind", "onExtendBlock", "onHold"];
+const NAMES: ControlName[] = ["onPlayPause", "onSkip", "onBack", "onIntensity", "onErg", "onErgMode", "onGrade", "onExtend", "onEnd", "onExtendMinutes", "onExtendWatts", "onExtendKind", "onExtendBlock", "onHold", "onAdaptUndo", "onAdaptYes", "onAdaptNo", "onAdaptive"];
 
 /** The ride open on the paired computer, for the phone's Ride tab: it opens the remote instead. */
 export interface AwayRide {

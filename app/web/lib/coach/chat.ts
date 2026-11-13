@@ -15,6 +15,8 @@ import { ZONE_LABELS } from "../engine/library";
 import type { OptionId } from "../engine/checkin";
 import { attachmentNames, turnsForModel, type Attachment } from "./attachments";
 import { appTools } from "./app-tools";
+import { todayOptions } from "../today-options";
+import { experiments } from "../experiments";
 import { APP_GUIDE } from "./app-guide";
 import { FEEDBACK_TOOLS, forFeatures, MEMORY_TOOLS, PICK_TOOLS, READ_TOOL_NAMES, runTool, status, TODAY_TOOLS, TOOLS, type CoachData, type FeedbackDraft, type MemoryOp } from "./tools";
 
@@ -76,11 +78,16 @@ ${RULES}
 - The brief is 3 to 6 sentences, no list: how recovered and fresh they are, today's weigh-in if there is one (the trend only when it matters for training), today's session and whether it suits them, and how recent training and the weeks ahead look against their goals. If recovery isn't in yet, say so in a few words and don't speculate about it. Weigh-ins are weekly, so don't mention a missing one. Recovery is in when recoveryToday is set, even while there's no score yet; then use its HRV, resting heart rate and sleep. When recoverySignals lists anything (a run of low HRV nights, signs of getting ill, short on sleep), say it plainly: it outweighs a single good score, and the engine's todayOptions already account for it. For sleep, give tonight's aim (sleepTonightHours) and never a weekly sleep debt total: Today doesn't show one. exertionToday is today's load so far against today's target from recovery; mention it when the planned ride would land well outside the target. Quote form, fatigue and fitness exactly as the status gives them: Today shows the same numbers.
 - You choose each key day's workout once a week; whyThisWorkout on a day is your reason. Say in a few words what today's session is for.
 - Then propose changes, only where the data gives a reason:
-  - Today: todayOptions in the status is what today could be (as planned, harder, easier, shorter, endurance, recovery, rest), built by the engine from recovery, form, recent rides and the athlete's check-in. Call suggest_today once with the option that suits them; the athlete chooses under the brief. The engine's recommended option is a sound default: pick another only for a reason in the data or their note, and say why. Don't use propose_day_change for today. When todayOptions is null, today is settled (chosen, ridden, a race, or riding outside): leave it alone.
+  - Today: todayOptions in the status is what today could be (as planned, harder, easier, shorter, endurance, recovery, rest), built by the engine from recovery, form, recent rides and the athlete's check-in. Call suggest_today once with the option that suits them; the athlete sees it marked Suggested under the brief and chooses. The engine's recommended option is a sound default: pick another only for a reason in the data or their note, and say why. Don't use propose_day_change for today. When todayOptions is null, today is settled (chosen, ridden, a race, or riding outside): leave it alone.
+  - The brief's advice for today and your suggest_today must say the same thing. If you suggest asPlanned, tell them to ride it as planned; if you suggest easier, shorter or another option, the brief recommends that option by name (for example "take the level-easier version under this") and says why. Never write "ride it as planned" while suggesting something else, or the reverse.
   - The plan ahead: at most two changes, from what you saw. Sessions that felt too hard or too easy, missed days, several poor nights in a row, or a forecast that's off for an event. Use get_day_options with propose_day_change, propose_swap, get_workouts with propose_workout when a different structure would suit the athlete or their event better, or propose_availability for a lasting change to weekly hours or ramp rate.
   - Often the right answer is no change. Never propose something just to have a proposal.
 - Mention each proposal in the brief in a few words. The athlete accepts or dismisses each one with a button under it.
+- You can't see or change a ride while it's happening, and the athlete doesn't talk to you mid-ride, so never offer to adjust it then ("tell me and we'll drop a rep"). If they may need to back off, say what they can do themselves: choose an easier option under the brief now, or during the ride lower the intensity with the minus button or skip an interval.
 - On a race day (raceToday in the status), the brief is the race plan instead, 4 to 7 sentences: readiness in one line, then pacing and tactics for this kind of race, using their power numbers from get_power and FTP (for cyclocross: the start, the first lap, recovering on the straights, and run-ups; for a time trial or hill climb: target watts and not starting too hard; for long events: holding back early). Don't repeat the warm-up, timeline or fuelling, which the Today page already shows from raceToday. Don't propose changes to today; a change to the days after the race is fine if recovery calls for it.`;
+
+/** Added to the brief when the athlete has the Adaptive workouts experiment on. */
+const ADAPTIVE = `- Adaptive workouts is on: during the ride Lactic itself eases later reps a little when heart rate or cadence show they're struggling, and asks before making them harder. You may say so, as something the app does, not you.`;
 
 const MAX_TURNS = 8;
 /** Earlier messages sent with each new one, at most; older ones are folded into the summary. */
@@ -121,11 +128,13 @@ export function feedbackOffered(history: ChatTurn[]) {
 /** This morning's brief, from the status, the tools and the recent conversation, with any plan changes it proposes. */
 export async function morningBrief(complete: Complete, data: CoachData, history: ChatTurn[], summary = "", hooks: ChatHooks = {}): Promise<ChatReply> {
   const messages: ChatMessage[] = [
-    { role: "system", content: system(BRIEF, data, summary) },
+    { role: "system", content: system(experiments().adaptive_workouts ? `${BRIEF}\n${ADAPTIVE}` : BRIEF, data, summary) },
     ...turnsForModel(history.slice(-6)).map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: "Write today's morning brief." },
   ];
-  return run(complete, data, messages, [...forFeatures(TOOLS, data.features), ...TODAY_TOOLS], hooks);
+  // Today's options show under the brief with the coach's pick marked, so the brief must make one.
+  const mustCall = todayOptions(data.state) ? "suggest_today" : undefined;
+  return run(complete, data, messages, [...forFeatures(TOOLS, data.features), ...TODAY_TOOLS], hooks, MAX_TURNS, mustCall);
 }
 
 const PLAN_WEEK = `You are the cycling coach inside Lactic, a training app for one athlete. Choose the workout for each key day listed below, so every session has a purpose.
@@ -218,6 +227,12 @@ export interface BriefInputs {
   checkin: string | null;
   /** The recovery warning signs (ids, sorted), so a brief written from since-corrected sleep or HRV is written again. */
   signals: string[];
+  /** The coach's pick among today's options; null when it marked none. Missing on briefs from before it was kept. */
+  today?: OptionId | null;
+  /** The engine's pick among today's options, so a brief that advised one is rewritten when a later recovery score moves it. */
+  recommended?: OptionId | null;
+  /** Today's recovery score, so a brief that quoted one is rewritten when a later read of last night moves it a lot. */
+  score?: number | null;
 }
 
 /** What the brief was written from, so Today and the brief can't drift apart. */
@@ -229,11 +244,13 @@ export function briefInputs(state: CoachData["state"], weighed: boolean): BriefI
     : day?.role === "event" && day.goal
       ? `event:${day.goal.id}`
       : (day?.session?.workout.name ?? "rest");
-  return { recovery: Boolean(state.recovery?.today), weighed, form: Math.round(state.form), session, checkin: state.todayStored?.checkin?.at ?? null, signals: (state.recovery?.glance.signals ?? []).map((s) => s.id).sort() };
+  return { recovery: Boolean(state.recovery?.today), weighed, form: Math.round(state.form), session, checkin: state.todayStored?.checkin?.at ?? null, signals: (state.recovery?.glance.signals ?? []).map((s) => s.id).sort(), recommended: todayOptions(state)?.recommended ?? null, score: state.recovery?.score?.score ?? null };
 }
 
 /** Form moves a little with every ride; only a real change is worth a new brief. */
 const FORM_CHANGE = 3;
+/** The recovery score moves a little as more of last night syncs; a change this big makes the brief's number wrong. */
+const SCORE_CHANGE = 10;
 
 /**
  * True when there's no brief for today yet, or something it was written from has changed since:
@@ -244,6 +261,9 @@ export function briefStale(existing: StoredMessage | null, inputs: BriefInputs) 
   if (!existing) return true;
   const meta = existing.meta as Partial<BriefInputs>;
   if ((meta.checkin ?? null) !== inputs.checkin) return true;
+  // Written before the brief had to mark one of today's options (so Today fell back to the engine's,
+  // which could disagree with it): written once more. A brief that marked none has today: null.
+  if (inputs.recommended != null && !("today" in meta)) return true;
   if (existing.proposals.some((p) => p.status !== "pending")) return false;
   return (
     (inputs.recovery && !meta.recovery) ||
@@ -253,17 +273,27 @@ export function briefStale(existing: StoredMessage | null, inputs: BriefInputs) 
     meta.session !== inputs.session ||
     // Briefs from before this was kept count as changed, so they're written once more with today's signs.
     (meta.signals ?? []).join() !== inputs.signals.join() ||
-    !Array.isArray(meta.signals)
+    !Array.isArray(meta.signals) ||
+    // Only while there's still a choice to make, and briefs from before this was kept aren't rewritten for it.
+    (meta.recommended != null && inputs.recommended != null && meta.recommended !== inputs.recommended) ||
+    // A brief that said "recovery is 61" next to a ring that now shows 40. Older briefs aren't rewritten for it.
+    (meta.score != null && inputs.score != null && Math.abs(meta.score - inputs.score) >= SCORE_CHANGE)
   );
 }
 
-async function run(complete: Complete, data: CoachData, messages: ChatMessage[], tools: unknown[], hooks: ChatHooks, maxTurns = MAX_TURNS): Promise<ChatReply> {
+/**
+ * Runs the model with its tools until it answers. `mustCall` names a tool it must call before its
+ * answer counts: when it answers without it, it's asked once to call it and answer again.
+ */
+async function run(complete: Complete, data: CoachData, messages: ChatMessage[], tools: unknown[], hooks: ChatHooks, maxTurns = MAX_TURNS, mustCall?: string): Promise<ChatReply> {
   const proposals: Proposal[] = [];
   const memory: MemoryOp[] = [];
   const picks: WorkoutPick[] = [];
   let today: OptionId | undefined;
   let feedback: FeedbackDraft | undefined;
   const allowed = new Set((tools as { function: { name: string } }[]).map((t) => t.function.name));
+  let required = mustCall === undefined;
+  let asked = false;
 
   for (let turn = 0; turn < maxTurns; turn++) {
     hooks.onTurn?.();
@@ -271,6 +301,11 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
     messages.push({ role: "assistant", content: reply.content ?? null, tool_calls: reply.tool_calls });
     if (!reply.tool_calls?.length) {
       const message = (reply.content ?? "").trim();
+      if (message && !required && !asked && turn < maxTurns - 2) {
+        asked = true;
+        messages.push({ role: "user", content: `You haven't called ${mustCall} yet. Call it with the option your brief recommends, then reply with the brief again, changed if your choice changed it.` });
+        continue;
+      }
       if (message) return { message, proposals, memory, picks, today, ...(feedback ? { feedback } : {}) };
       messages.push({ role: "user", content: "Please answer in a message." });
       continue;
@@ -281,6 +316,7 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
       const isApp = Boolean(app?.tools.some((t) => t.function.name === name));
       hooks.onStatus?.(STATUS[name] ?? (isApp ? app!.status[name] : undefined) ?? "Thinking");
       const args = parseArgs(call.function.arguments);
+      if (name === mustCall) required = true;
       const result = !allowed.has(name) ? { content: `Unknown tool ${name}` } : isApp ? await app!.run(name, args) : runTool(data, name, args);
       if (result.proposal && !proposals.some((p) => JSON.stringify(p.change) === JSON.stringify(result.proposal!.change))) proposals.push(result.proposal);
       if (result.memory) memory.push(result.memory);

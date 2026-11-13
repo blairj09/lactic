@@ -295,6 +295,22 @@
   <p class="dl-links"><a id="dl-notes" href="https://github.com/blairj09/lactic/releases/latest">What&apos;s new</a> · <a href="https://github.com/blairj09/lactic/releases">All releases</a></p>
 </dialog>
 
+<script>
+  // Vercel Web Analytics (cookieless). Download clicks are sent as visits to /download/<system>.
+  // Visiting lactic.fit/?count=off once stops counting this browser (our own testing); ?count=on undoes it.
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  (function () {
+    try {
+      var c = new URLSearchParams(location.search).get("count");
+      if (c === "off") localStorage.setItem("va-disable", "1");
+      if (c === "on") localStorage.removeItem("va-disable");
+    } catch (e) {}
+    window.va("beforeSend", function (event) {
+      try { if (localStorage.getItem("va-disable")) return null; } catch (e) {}
+      return event;
+    });
+  })();
+</script>
 <script src="/download.js"></script>
 <script src="/hero.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>

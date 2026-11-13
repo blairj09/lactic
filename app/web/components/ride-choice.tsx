@@ -17,6 +17,7 @@ export default function RideChoice({
   connected,
   href = "/ride",
   outsideNote,
+  toggleOnly = false,
 }: {
   day: string;
   outside: boolean;
@@ -25,6 +26,8 @@ export default function RideChoice({
   href?: string;
   /** Added to the outside line, e.g. "in place of the plan's workout". */
   outsideNote?: string;
+  /** Just the switch and its outside line: Today's workout cards carry their own Start ride. */
+  toggleOnly?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -83,7 +86,7 @@ export default function RideChoice({
                 : "Connect intervals.icu in Settings to send it to your bike computer."}
             </span>
           </span>
-        ) : (
+        ) : toggleOnly ? null : (
           <Link href={href} className={button.primary}>
             Start ride
           </Link>

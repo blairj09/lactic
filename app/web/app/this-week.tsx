@@ -70,7 +70,7 @@ export default function ThisWeek({ state, rideShapes = {}, className }: { state:
 }
 
 /** Tile height and the shape inside it, phone then desktop. */
-const TILE = { box: "h-13 sm:h-20", graph: 32 };
+const TILE = { box: "h-11 sm:h-16", graph: 26 };
 
 /** One day: its workout's shape and stress inside the tile, ticked once ridden. */
 function DayCell({ day, today, workout, event, shape, ftp }: { day: GlanceDay; today: string; workout: Workout | null; event: string | null; shape: number[] | null; ftp: number | null }) {

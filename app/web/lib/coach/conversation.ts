@@ -96,7 +96,7 @@ export async function brief(supabase: Supabase, hooks: ChatHooks): Promise<Store
     content: reply.message,
     proposals,
     model: coach.model,
-    meta: { ...inputs, ...(reply.today ? { today: reply.today } : {}) },
+    meta: { ...inputs, ...(inputs.recommended != null ? { today: reply.today ?? null } : {}) },
   });
 }
 
