@@ -107,7 +107,13 @@ struct Snapshot: Decodable {
 }
 
 enum Store {
-  static let group = "group.fit.lactic.app"
+  /// group.fit.lactic.app, or group.fit.lactic.modular in the Lactic Modular testing app: the App
+  /// Group of the app this extension is part of (its bundle id without .widget or .watchkitapp).
+  static let group: String = {
+    let parts = (Bundle.main.bundleIdentifier ?? "").split(separator: ".")
+    guard parts.count >= 3, parts[0] == "fit", parts[1] == "lactic" else { return "group.fit.lactic.app" }
+    return "group." + parts[0...2].joined(separator: ".")
+  }()
 
   static var url: URL? {
     FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group)?.appendingPathComponent("widget.json")

@@ -3,7 +3,8 @@
 #   in the app.
 # - LacticWatch: the Apple Watch app (app/src-tauri/ios/watch/App.swift), embedded in the app, with
 # - LacticWatchWidgets: its Smart Stack widget and complications (app/src-tauri/ios/watch/Widgets.swift).
-# All share the App Group the snapshot goes through. ios-project.sh copies the sources into the
+# All share the App Group the snapshot goes through: group.<the app's bundle id>, so
+# group.fit.lactic.app for Lactic and group.fit.lactic.modular for the Lactic Modular testing app. ios-project.sh copies the sources into the
 # generated project, runs this with the project.yml path, then runs xcodegen again.
 require "yaml"
 
@@ -17,7 +18,8 @@ team = app.dig("settings", "base", "DEVELOPMENT_TEAM") ||
   spec.dig("settingGroups", "app", "base", "DEVELOPMENT_TEAM") || "PXC4RTM468"
 bundle_id = spec.dig("settingGroups", "app", "base", "PRODUCT_BUNDLE_IDENTIFIER") || "fit.lactic.app"
 app_plist = app.dig("info", "path")
-GROUP = "group.fit.lactic.app"
+GROUP = "group.#{bundle_id}"
+NAME = bundle_id == "fit.lactic.modular" ? "Lactic Modular" : "Lactic"
 
 # tauri ios build sets the build's version on every Info.plist (agvtool) and in the app's; this
 # copies the app's in case a plist was missed. App Store Connect wants them all equal.
@@ -44,7 +46,7 @@ target = lambda do |name, type:, platform:, os:, id:, info: {}, settings: {}, de
     "info" => {
       "path" => "#{name}/Info.plist",
       "properties" => {
-        "CFBundleDisplayName" => "Lactic",
+        "CFBundleDisplayName" => NAME,
         "CFBundleShortVersionString" => app.dig("info", "properties", "CFBundleShortVersionString").to_s,
         "CFBundleVersion" => app.dig("info", "properties", "CFBundleVersion").to_s,
       }.merge(Marshal.load(Marshal.dump(info))),
