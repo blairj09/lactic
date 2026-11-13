@@ -15,6 +15,13 @@ export interface Shown {
   sub?: string | null;
   tone?: Tone;
   reason?: string;
+  /** From a plugin: Lactic's plugin mark beside the name. */
+  plugin?: boolean;
+}
+
+/** The small purple mark beside a plugin field's name, which the plugin can't draw or hide. */
+export function PluginMark() {
+  return <i aria-label="Plugin" title="From a plugin" className="inline-block size-1.5 shrink-0 rounded-[2px] bg-plugin" />;
 }
 
 export function Big({
@@ -26,6 +33,7 @@ export function Big({
   tone,
   size,
   reason,
+  plugin,
 }: {
   label: string;
   value: number | string | undefined;
@@ -36,11 +44,15 @@ export function Big({
   /** Classes for the number's size, instead of the lead and normal sizes. */
   size?: string;
   reason?: string;
+  plugin?: boolean;
 }) {
   const valueSize = size ?? (lead ? "text-5xl leading-[1.1] sm:text-6xl" : "text-4xl leading-[1.15]");
   return (
     <div className="min-w-0" title={value === undefined ? reason : undefined}>
-      <div className="truncate text-sm text-muted">{label}</div>
+      <div className="flex items-center gap-1.5 text-sm text-muted">
+        {plugin && <PluginMark />}
+        <span className="truncate">{label}</span>
+      </div>
       <div className={`num font-medium tracking-tight ${valueSize} ${tone ? TONE[tone] : ""}`}>
         {value ?? <span className="text-2xl text-faint">–</span>}
         {unit && value !== undefined && <span className="ml-1.5 text-base font-normal tracking-normal text-muted">{unit}</span>}
@@ -88,7 +100,7 @@ export function FieldGrid({
     // both columns), the workout in the middle, the ride so far on the right.
     const big = (i: number, lead: boolean) => {
       const f = at(i);
-      return slot(i, f ? <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} lead={lead} reason={f.reason} /> : null);
+      return slot(i, f ? <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} lead={lead} reason={f.reason} plugin={f.plugin} /> : null);
     };
     return (
       <div className="grid gap-x-8 gap-y-6 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-start">
@@ -134,7 +146,7 @@ export function FieldGrid({
           const f = at(i);
           return (
             <div key={i} className={template === "one" ? "text-center" : undefined}>
-              {slot(i, f ? <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} size={g.size} reason={f.reason} /> : null)}
+              {slot(i, f ? <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} size={g.size} reason={f.reason} plugin={f.plugin} /> : null)}
             </div>
           );
         })}

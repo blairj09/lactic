@@ -27,7 +27,7 @@ import { Notice, Page, Panel, Segmented, button, input } from "@/components/ui";
 import { saveAppRide } from "../actions";
 import { deleteCustomWorkout, phoneRideFields, saveCustomWorkout, saveRideFields, setFavorite } from "./actions";
 import { allFields, pagesOf, standardSets, type RideSets } from "@/lib/ride/field-pages";
-import { showFields } from "@/lib/ride/fields";
+import { liveNumbers, showFields, type FieldInputs } from "@/lib/ride/fields";
 import { MetricRegistry } from "@/lib/sdk/metrics";
 import FieldEditor from "./field-editor";
 import WorkoutChart from "./workout-chart";
@@ -40,6 +40,7 @@ import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
 import { RemoteHost } from "~/ride/remote";
+import { pluginFieldOptions, usePluginFields, usePlugins } from "~/plugins/ride-fields";
 import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
 import { useKeepAwake } from "~/platform/keep-awake";
 import { isDesktop, isPhone } from "~/platform/native";
@@ -195,6 +196,7 @@ function RideOnThisDevice({
   const intervalSamples = useRef<number[]>([]);
   const trace = useRef<TracePoint[]>([]);
   const metrics = useMemo(() => new MetricRegistry(), []);
+  const plugins = usePlugins();
   /** The rider's field pages, the page on screen, and the field editor (only before a ride). */
   const [fieldSets, setFieldSets] = useState<RideSets>(() => rideFields ?? standardSets());
   // A paired iPhone's own pages: their numbers are worked out here too, for its remote (phone/remote.tsx).
@@ -826,22 +828,32 @@ function RideOnThisDevice({
   };
   const recent = samples.current.slice(-3);
   const ridePages = pagesOf(fieldSets, erg ? "free" : "workout");
-  const fieldValues = showFields(
-    phoneSets ? [...allFields(fieldSets), ...allFields(phoneSets)] : allFields(fieldSets),
+  const fieldRefs = phoneSets ? [...allFields(fieldSets), ...allFields(phoneSets)] : allFields(fieldSets);
+  const fieldInputs: FieldInputs = {
+    streams: { power: samples.current, heartRate: hrSamples.current, cadence: cadenceSamples.current, interval: intervalSamples.current },
+    ftp,
+    weightKg,
+    thresholdHr,
+    power: state.powerWatts,
+    heartRate: state.heartRate,
+    cadence: state.cadenceRpm === undefined ? undefined : Math.round(state.cadenceRpm),
+    interval: current?.index ?? null,
+    toGo: erg ? null : Math.max(0, duration - position),
+    elapsed,
+  };
+  // Plugin fields run in their sandbox once a ride second; the ride never waits on them.
+  const pluginValues = usePluginFields(
+    plugins,
+    fieldRefs.flatMap((r) => ("metric" in r ? [r.metric] : [])),
     {
-      streams: { power: samples.current, heartRate: hrSamples.current, cadence: cadenceSamples.current, interval: intervalSamples.current },
-      ftp,
-      weightKg,
-      thresholdHr,
-      power: state.powerWatts,
-      heartRate: state.heartRate,
-      cadence: state.cadenceRpm === undefined ? undefined : Math.round(state.cadenceRpm),
-      interval: current?.index ?? null,
-      toGo: erg ? null : Math.max(0, duration - position),
-      elapsed,
+      ...liveNumbers(fieldInputs),
+      "power.target": erg ? ergWatts : allOut ? null : targetWattsAt(workout, position, ftp),
+      "interval.left": current && !erg ? Math.max(0, current.end - position) : null,
     },
-    metrics,
+    elapsed,
+    running,
   );
+  const fieldValues = { ...showFields(fieldRefs, fieldInputs, metrics), ...pluginValues };
   const data: PlayerData = {
     workout: shown,
     ftp,
@@ -1113,6 +1125,7 @@ function RideOnThisDevice({
               ftp={ftp}
               weightKg={weightKg}
               thresholdHr={thresholdHr}
+              pluginFields={pluginFieldOptions(plugins)}
               saving={savingFields}
               chart={<WorkoutChart workout={shown} ftp={ftp} position={0} trace={[]} to={workoutDuration(shown)} className="h-36 w-full text-ink" />}
               onCancel={() => setEditingFields(false)}
