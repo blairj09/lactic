@@ -39,7 +39,11 @@ import { setFtp } from "@/app/actions";
 import { parseTheme, readTheme, setTheme } from "@/lib/theme";
 import { GUIDE } from "./guide";
 import { APP_GUIDE } from "@/lib/coach/app-guide";
-import { AREAS, SUPPORT_TOOLS, type Area } from "./definitions";
+import { AREAS, PLUGIN_DRAFT_TOOLS, SUPPORT_TOOLS, type Area } from "./definitions";
+import { draftPlugin } from "~/plugins/coach-draft";
+import { PLUGIN_GUIDE } from "~/plugins/coach-guide";
+import { createPluginWorker } from "~/plugins/spawn";
+import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { logEvent, recentEvents, type LogArea } from "./log";
 import { applyLayout, getLayout, listPlugins, pluginMetric, proposeLayoutChange } from "./layout-tools";
 
@@ -57,6 +61,8 @@ const STATUS: Record<string, string> = {
   propose_layout_change: "Drafting a layout change",
   list_plugins: "Looking at your plugins",
   read_plugin_metric: "Reading a plugin",
+  plugin_guide: "Reading up on plugins",
+  draft_plugin: "Writing a plugin",
 };
 
 const out = (value: unknown): ToolResult => ({ content: JSON.stringify(value) });
@@ -292,6 +298,7 @@ async function currentValue(s: AppSetting): Promise<string | null> {
     case "units":
       return readUnits();
     case "layout":
+    case "plugin_draft":
       return null;
     case "tracking":
       return features()[s.feature] ? "tracked" : "not tracked";
@@ -379,6 +386,9 @@ async function apply(setting: AppSetting): Promise<string> {
     case "layout":
       await applyLayout(setting);
       break;
+    case "plugin_draft":
+      // Added only from its own review screen (the card's Review and add), never by Apply.
+      throw new Error("Use Review and add to see this plugin before adding it.");
   }
   const done = describeAppSetting(setting);
   logEvent("coach", "info", `Applied: ${done}`);
@@ -440,6 +450,13 @@ export async function runSupportTool(name: string, args: Record<string, unknown>
         return out(await listPlugins(ctx.via));
       case "read_plugin_metric":
         return out(await pluginMetric(args, ctx.via));
+      case "plugin_guide":
+      case "draft_plugin": {
+        if (!pluginsAllowed || ctx.via !== "chat") throw new Error("Plugins can only be drafted by Lactic Modular's built-in coach");
+        if (name === "plugin_guide") return { content: PLUGIN_GUIDE };
+        if (isRiding()) throw new Error("A ride is under way: draft the plugin after it's saved");
+        return await draftPlugin(args, createPluginWorker);
+      }
       default:
         return { content: `Unknown tool ${name}` };
     }
@@ -448,7 +465,7 @@ export async function runSupportTool(name: string, args: Record<string, unknown>
   }
 }
 
-export const supportTools: AppTools = { tools: SUPPORT_TOOLS, run: runSupportTool, apply, status: STATUS };
+export const supportTools: AppTools = { tools: pluginsAllowed ? [...SUPPORT_TOOLS, ...PLUGIN_DRAFT_TOOLS] : SUPPORT_TOOLS, run: runSupportTool, apply, status: STATUS };
 
 /** Makes the tools available to the coach and the MCP server (once, at boot). */
 export function installSupportTools() {

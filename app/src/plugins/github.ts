@@ -2,7 +2,7 @@
 // release, takes its one .lacticplugin file and hands the text to the same checks as a chosen
 // file. Prereleases and drafts are skipped (GitHub's "latest" never returns them). Nothing installs
 // without the permission or update screen; an update check only says a newer file exists.
-import { CATALOG_ORIGIN } from "./catalog";
+import { CATALOG_ORIGIN, COACH_ORIGIN } from "./catalog";
 import { MAX_PACKAGE_BYTES, PACKAGE_EXTENSION } from "./package";
 
 export interface RepoRef {
@@ -42,6 +42,7 @@ export function sourceChange(from: string | null, to: string | null, keep: strin
 export function sourceLabel(origin: string | null) {
   // listPlugins only keeps this origin on a package Lactic shipped (catalog.ts isCatalogPackage).
   if (origin === CATALOG_ORIGIN) return "Lactic";
+  if (origin === COACH_ORIGIN) return "your coach";
   const repo = parseOrigin(origin);
   return repo ? repoLabel(repo) : "a file";
 }

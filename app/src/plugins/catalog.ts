@@ -9,6 +9,9 @@ import { compareVersions } from "./permissions";
 /** Stored as a plugin's origin when it's added from the catalog. Shown as "Lactic" only for a bundled package. */
 export const CATALOG_ORIGIN = "lactic:catalog";
 
+/** Stored as the origin of a plugin added from a coach draft (coach-draft.ts). Shown as "your coach". */
+export const COACH_ORIGIN = "lactic:coach";
+
 /** Where riders can read the code. */
 export const CATALOG_CODE_URL = "https://github.com/blairj09/lactic/tree/modular-ui/plugins/catalog";
 

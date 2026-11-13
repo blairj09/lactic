@@ -34,7 +34,9 @@ export type AppSetting =
   | { setting: "coach_model"; value: string }
   | { setting: "ai_limit"; value: number | null }
   /** A layout edit (propose_layout_change). `summary` is how it read when proposed; applying works it out again. */
-  | { setting: "layout"; change: LayoutChange; summary: string };
+  | { setting: "layout"; change: LayoutChange; summary: string }
+  /** A plugin the coach drafted (draft_plugin, Lactic Modular): the whole .lacticplugin file, checked again when the rider reviews it. */
+  | { setting: "plugin_draft"; file: string; name: string; version: string; update: boolean; summary: string };
 
 export const APP_SETTINGS = ["power_source", "upload_rides", "units", "tracking", "forget_device", "rename_device", "profile", "coach_voice", "coach_mode", "coach_model", "ai_limit"] as const;
 
@@ -226,6 +228,7 @@ export function describeAppSetting(s: AppSetting): string {
     case "ai_limit":
       return s.value === null ? "Monthly AI limit: none" : `Monthly AI limit: $${s.value}`;
     case "layout":
+    case "plugin_draft":
       return s.summary;
   }
 }
