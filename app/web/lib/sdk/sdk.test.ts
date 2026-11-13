@@ -88,7 +88,7 @@ describe("layouts", () => {
     expect(parseLayout({ v: 1, today: "x", ride: { workout: { pages: [] } } })).toEqual(defaultLayout());
   });
 
-  it("drops unknown and duplicate entries and never hides Ride", () => {
+  it("drops unknown and duplicate entries, plugin cards on Today, and never hides Ride", () => {
     const l = parseLayout({
       v: 1,
       tabs: [{ id: "ride", hidden: true }, { id: "coach" }, { id: "today", hidden: true }, { id: "today" }],
@@ -96,10 +96,7 @@ describe("layouts", () => {
     });
     expect(l.tabs.slice(0, 2)).toEqual([{ id: "ride", hidden: false }, { id: "today", hidden: true }]);
     expect(l.tabs).toHaveLength(5);
-    expect(l.today).toEqual([
-      { widget: "lactic.form", size: "large", hidden: false },
-      { widget: "plugin.climb-lab.readiness", size: "small", hidden: false },
-    ]);
+    expect(l.today).toEqual([{ widget: "lactic.form", size: "large", hidden: false }]);
   });
 
   it("checks ride pages and custom fields, trimming fields to the template", () => {

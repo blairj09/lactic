@@ -6,7 +6,6 @@
 import { BUILTIN_TODAY_WIDGETS } from "@/lib/sdk/builtin-widgets";
 import { applyLayoutChange, checkLayoutChange, describeLayoutChange, type LayoutContext } from "@/lib/sdk/layout-edit";
 import { MetricRegistry } from "@/lib/sdk/metrics";
-import type { WidgetManifest } from "@/lib/sdk/widgets";
 import type { AppSetting } from "@/lib/coach/app-tools";
 import type { Proposal } from "@/lib/coach/changes";
 import type { ToolResult } from "@/lib/coach/tools";
@@ -16,15 +15,9 @@ import { loadLayout, saveLayout } from "@/lib/layout-data";
 import { isRiding } from "@/lib/live-ride";
 import { createClient } from "~/db/supabase-client";
 
-/** Lactic's cards plus the cards of plugins switched on on this computer. */
+/** The cards that can go on Today: Lactic's own only. Plugin cards live in the Plugins area. */
 async function layoutContext(): Promise<LayoutContext> {
-  const plugins = (await pluginSource()?.list().catch(() => [])) ?? [];
-  const pluginWidgets: WidgetManifest[] = plugins
-    .filter((p) => p.enabled)
-    .flatMap((p) =>
-      p.widgets.map((w) => ({ id: w.id, name: w.name, description: "", source: { kind: "plugin", pluginId: p.id, pluginName: p.name }, surfaces: ["today"], sizes: ["medium", "large", "small"], reads: [] }) as WidgetManifest),
-    );
-  return { widgets: [...BUILTIN_TODAY_WIDGETS, ...pluginWidgets], metrics: new MetricRegistry() };
+  return { widgets: [...BUILTIN_TODAY_WIDGETS], metrics: new MetricRegistry() };
 }
 
 export async function getLayout() {

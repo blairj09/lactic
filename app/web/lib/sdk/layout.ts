@@ -6,7 +6,7 @@
 // parseLayout() is strict: a layout restored from a backup, synced from the phone or hand-edited
 // is checked field by field, and anything unknown is dropped (review S7). Plain data, no browser APIs.
 
-import type { CardSize } from "./widgets";
+import { isTodayWidgetId, type CardSize } from "./widgets";
 
 export const LAYOUT_VERSION = 1;
 
@@ -178,13 +178,13 @@ export function parseLayout(input: unknown): Layout {
   }
   for (const id of TAB_IDS) if (!tabs.some((t) => t.id === id)) tabs.push({ id, hidden: false });
 
-  // Today: well-formed widget ids once each. Unknown widgets are kept (a plugin that's switched
-  // off or removed shows a placeholder, review U12); the renderer decides what each one draws.
+  // Today: Lactic's own cards only, well-formed ids once each. Plugin cards never go on Today
+  // (James 2026-11-13), so a saved, synced or proposed plugin.* entry is dropped here.
   const today: CardEntry[] = [];
   if (Array.isArray(o.today)) {
     for (const c of o.today.slice(0, MAX_CARDS)) {
       const e = obj(c);
-      if (!e || typeof e.widget !== "string" || !WIDGET_ID.test(e.widget) || today.some((x) => x.widget === e.widget)) continue;
+      if (!e || typeof e.widget !== "string" || !WIDGET_ID.test(e.widget) || !isTodayWidgetId(e.widget) || today.some((x) => x.widget === e.widget)) continue;
       today.push({ widget: e.widget, size: SIZES.includes(e.size as CardSize) ? (e.size as CardSize) : "large", hidden: e.hidden === true });
     }
   }
