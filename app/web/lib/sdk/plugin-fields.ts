@@ -49,14 +49,23 @@ export interface PluginFieldValue {
   tone?: FieldTone;
 }
 
-/** The first field (or stat) in a checked kit tree, as a ride field; null if the tree has none. */
+/** A ride field is read from the saddle: a short number and a short line, never a paragraph. */
+export const RIDE_FIELD_LIMITS = { value: 12, unit: 8, sub: 40 };
+
+/**
+ * The first field (or stat) in a checked kit tree, as a ride field; null if the tree has none or its
+ * value is too long for a ride field. The line under it is cut to fit.
+ */
 export function fieldFromKit(tree: KitNode): PluginFieldValue | null {
   const queue: KitNode[] = [tree];
   while (queue.length) {
     const n = queue.shift()!;
     if (n.type === "field" || n.type === "stat") {
       const tone = n.tone ? TONES[n.tone] : undefined;
-      return { value: n.value, unit: n.type === "field" ? (n.unit ?? "") : "", ...(n.sub ? { sub: n.sub } : {}), ...(tone ? { tone } : {}) };
+      const unit = n.type === "field" ? (n.unit ?? "") : "";
+      if (n.value.length > RIDE_FIELD_LIMITS.value || unit.length > RIDE_FIELD_LIMITS.unit) return null;
+      const sub = n.sub ? (n.sub.length > RIDE_FIELD_LIMITS.sub ? `${n.sub.slice(0, RIDE_FIELD_LIMITS.sub - 1)}…` : n.sub) : "";
+      return { value: n.value, unit, ...(sub ? { sub } : {}), ...(tone ? { tone } : {}) };
     }
     if (n.type === "stack") queue.push(...n.children);
   }

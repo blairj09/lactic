@@ -24,6 +24,12 @@ describe("a plugin's tree as a ride field", () => {
     expect(fieldFromKit({ type: "stack", children: [{ type: "text", text: "hi" }, { type: "stat", label: "x", value: "12", tone: "muted" }] })).toEqual({ value: "12", unit: "" });
     expect(fieldFromKit({ type: "text", text: "nothing" })).toBeNull();
   });
+
+  it("keeps a ride field short", () => {
+    expect(fieldFromKit({ type: "field", label: "x", value: "STOP PEDALLING NOW" })).toBeNull();
+    expect(fieldFromKit({ type: "field", label: "x", value: "1", unit: "watts per kg" })).toBeNull();
+    expect(fieldFromKit({ type: "field", label: "x", value: "1", sub: "y".repeat(100) })?.sub).toHaveLength(40);
+  });
 });
 
 describe("live numbers for plugin fields", () => {
