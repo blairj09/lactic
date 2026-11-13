@@ -51,6 +51,11 @@ describe("ride fields", () => {
     expect(showField(custom({ metric: "power", window: 15 }), ride(), metrics).value).toBe("267");
     expect(showField(custom({ metric: "power", agg: "ride-avg" }), ride(), metrics).value).toBe("250");
     expect(showField(custom({ metric: "power", agg: "max", window: 5 }), ride(), metrics).value).toBe("300");
+    // Best 15 s so far: the last 15 seconds (5 at 200 W, 10 at 300 W), kept even once you ease off.
+    expect(showField(custom({ metric: "power", agg: "max", window: 15 }), ride(), metrics).value).toBe("267");
+    const eased = ride();
+    eased.streams = { ...eased.streams, power: [...eased.streams.power, ...Array(30).fill(100)], interval: [...eased.streams.interval, ...Array(30).fill(1)] };
+    expect(showField(custom({ metric: "power", agg: "max", window: 15 }), eased, metrics).value).toBe("267");
     expect(showField(custom({ metric: "power", window: 0 }), ride(), metrics).value).toBe("310");
   });
 
@@ -72,6 +77,8 @@ describe("ride fields", () => {
     expect(customLabel({ metric: "power", window: 10, agg: "avg" })).toBe("10s power");
     expect(customLabel({ metric: "power", window: 300, agg: "avg", asPercentOf: "ftp" })).toBe("5 min power, % FTP");
     expect(customLabel({ metric: "heart_rate", window: 0, agg: "lap-avg" })).toBe("Interval avg HR");
+    expect(customLabel({ metric: "power", window: 15, agg: "max" })).toBe("Best 15s power");
+    expect(customLabel({ metric: "power", window: 1200, agg: "max", as: "wkg" })).toBe("Best 20 min power, W/kg");
     expect(customLabel({ metric: "power", window: 0, agg: "last-lap-avg", as: "zone" })).toBe("Last interval power zone");
   });
 

@@ -407,17 +407,25 @@ const OVER: { name: string; agg: CustomAgg; window: number }[] = [
   { name: "Whole ride", agg: "ride-avg", window: 0 },
 ];
 
+/** Best efforts: the highest average over any stretch of this many seconds so far in the ride. */
+const BEST = [5, 15, 30, 60, 300, 1200];
+const span = (s: number) => (s >= 60 && s % 60 === 0 ? `${s / 60} min` : `${s} s`);
+
 type Show = "units" | "ftp" | "wkg" | "zone";
 
 /** Mock 3: a custom field from a measure, a time span and how to show it. */
 function CustomFieldDialog({ inputs, has, onCancel, onAdd }: { inputs: FieldInputs; has: RiderHas; onCancel: () => void; onAdd: (f: FieldRef) => void }) {
   const [measure, setMeasure] = useState<(typeof MEASURES)[number]["id"]>("power");
+  const [kind, setKind] = useState<"avg" | "best">("avg");
   const [over, setOver] = useState(2);
+  /** Seconds for a best effort; any whole number from 1 to 3600 (the layout's limit). */
+  const [best, setBest] = useState(15);
+  const [bestText, setBestText] = useState<string | null>(null);
   const [show, setShow] = useState<Show>("units");
   const [name, setName] = useState<string | null>(null);
-  const span = OVER[over];
+  const chosen = kind === "best" ? { agg: "max" as const, window: best } : OVER[over];
   const shownAs = measure === "power" ? show : "units";
-  const base = { metric: measure, window: span.window, agg: span.agg, ...(shownAs === "ftp" ? { asPercentOf: "ftp" as const } : {}), ...(shownAs === "wkg" || shownAs === "zone" ? { as: shownAs } : {}) };
+  const base = { metric: measure, window: chosen.window, agg: chosen.agg, ...(shownAs === "ftp" ? { asPercentOf: "ftp" as const } : {}), ...(shownAs === "wkg" || shownAs === "zone" ? { as: shownAs } : {}) };
   const auto = customLabel(base);
   const label = (name ?? auto).trim().slice(0, 24) || auto;
   const field: FieldRef = { custom: { ...base, label } };
@@ -443,14 +451,54 @@ function CustomFieldDialog({ inputs, has, onCancel, onAdd }: { inputs: FieldInpu
           </div>
         </div>
         <div className="space-y-2">
-          <div className="text-sm text-muted">Over</div>
-          <div className="flex flex-wrap gap-1.5">
-            {OVER.map((o, i) => (
-              <button type="button" key={o.name} className={chip(over === i)} onClick={() => setOver(i)}>
-                {o.name}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label="Kind of number"
+            options={[
+              { value: "avg", label: "Average" },
+              { value: "best", label: "Best so far" },
+            ]}
+            value={kind}
+            onChange={setKind}
+          />
+          {kind === "avg" ? (
+            <>
+              <div className="pt-1 text-sm text-muted">Over</div>
+              <div className="flex flex-wrap gap-1.5">
+                {OVER.map((o, i) => (
+                  <button type="button" key={o.name} className={chip(over === i)} onClick={() => setOver(i)}>
+                    {o.name}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="pt-1 text-sm text-muted">Your best average over any stretch of</div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {BEST.map((s) => (
+                  <button type="button" key={s} className={chip(best === s && bestText === null)} onClick={() => (setBest(s), setBestText(null))}>
+                    {span(s)}
+                  </button>
+                ))}
+                <label className="flex items-center gap-1.5 text-sm text-muted">
+                  <input
+                    className={`${input} w-20`}
+                    inputMode="numeric"
+                    placeholder="Other"
+                    aria-label="Other duration in seconds"
+                    value={bestText ?? ""}
+                    onChange={(e) => {
+                      const text = e.target.value.replace(/[^0-9]/g, "").slice(0, 4);
+                      setBestText(text);
+                      const n = Number(text);
+                      if (n >= 1 && n <= 3600) setBest(n);
+                    }}
+                  />
+                  seconds
+                </label>
+              </div>
+            </>
+          )}
         </div>
         {measure === "power" && (
           <div className="space-y-2">
