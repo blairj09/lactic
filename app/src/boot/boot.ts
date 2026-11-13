@@ -16,11 +16,14 @@ import { isDemo } from "~/demo/flag";
 import { hideLoader } from "./loader";
 import { applySharedPrefs, installSharedPrefs } from "~/settings/shared-prefs";
 import { installPluginSource } from "~/plugins/source";
+import { setLayoutDevice } from "@/lib/layout-data";
 
 export async function boot() {
   setTheme(readTheme());
   const info = await appInfo().catch(() => null);
   if (info) setOs(info.os);
+  // The iPhone keeps its own Today, tabs and ride fields (web/lib/layout-data.ts).
+  if (info?.mobile) setLayoutDevice("phone");
   if (info?.os === "macos") document.documentElement.dataset.desktop = "macos";
   if (info?.mobile) document.documentElement.dataset.phone = "ios";
   const root = createRoot(document.getElementById("root")!);
