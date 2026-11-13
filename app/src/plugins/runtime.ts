@@ -5,7 +5,7 @@
 //
 // No browser or Node APIs here, so it runs in the worker and in Vitest alike.
 import type { QuickJSContext, QuickJSHandle, QuickJSRuntime, QuickJSWASMModule } from "quickjs-emscripten-core";
-import type { CallInput, Failure, SandboxLimits } from "./protocol";
+import type { CallBudget, CallInput, Failure, SandboxLimits } from "./protocol";
 
 export type LoadOutcome = { ok: true; ms: number } | { ok: false; failure: Failure; ms: number };
 export type CallOutcome = { ok: true; output: string; ms: number } | { ok: false; failure: Failure; ms: number; restarted: boolean };
@@ -26,13 +26,13 @@ const bootstrap = (maxOutput: number) => `(function () {
   }
   defineProperty(globalThis, "lactic", { value: freeze({ apiVersion: 1, register: register }), writable: false, configurable: false, enumerable: false });
   return {
-    call: function (name, inputJson) {
+    call: function (name, inputJson, max) {
       var f = handlers[name];
       if (typeof f !== "function") throw new ReferenceError("no handler " + name);
       var out = f(parse(inputJson));
       var s = stringify(out === undefined ? null : out);
       if (typeof s !== "string") s = "null";
-      if (s.length > MAX) throw new RangeError("output too large");
+      if (s.length > (max || MAX)) throw new RangeError("output too large");
       return s;
     },
     entries: function () { return stringify(keys(handlers)); }
@@ -125,7 +125,7 @@ export class SandboxRuntime {
 
   /** Run one handler with the tick's time budget. A heap or stack failure restarts the engine from the
    *  plugin's source, so the next tick starts clean. */
-  call(entry: string, input: CallInput): CallOutcome {
+  call(entry: string, input: CallInput, budget?: CallBudget): CallOutcome {
     const start = this.now();
     if (!this.api || !this.ctx) return { ok: false, failure: { kind: "not-loaded", message: "plugin is not loaded" }, ms: 0, restarted: false };
     if (!this.entries.includes(entry)) return { ok: false, failure: { kind: "no-entry", message: `no handler ${entry} in the manifest` }, ms: 0, restarted: false };
@@ -133,17 +133,19 @@ export class SandboxRuntime {
     const fn = ctx.getProp(this.api, "call");
     const name = ctx.newString(entry);
     const arg = ctx.newString(JSON.stringify(input));
-    this.deadline = start + this.limits.tickMs;
+    const max = ctx.newNumber(budget?.maxOutputBytes ?? this.limits.maxOutputBytes);
+    this.deadline = start + (budget?.tickMs ?? this.limits.tickMs);
     let result;
     let overBudget = false;
     try {
-      result = ctx.callFunction(fn, ctx.undefined, name, arg);
+      result = ctx.callFunction(fn, ctx.undefined, name, arg, max);
       overBudget = this.now() > this.deadline;
     } finally {
       this.deadline = Infinity;
       fn.dispose();
       name.dispose();
       arg.dispose();
+      max.dispose();
     }
     if (result.error) {
       const failure = this.failure(result.error, overBudget);
@@ -155,6 +157,12 @@ export class SandboxRuntime {
         if (!reboot.ok) this.teardown();
       }
       return { ok: false, failure, ms: this.now() - start, restarted };
+    }
+    if (overBudget) {
+      // Finished, but late: one long native call (a huge BigInt, a giant join) that QuickJS can't
+      // interrupt part-way. Count it as a timeout so a plugin can't overrun every tick and still pass.
+      result.value.dispose();
+      return { ok: false, failure: { kind: "timeout", message: "took too long" }, ms: this.now() - start, restarted: false };
     }
     const output = ctx.typeof(result.value) === "string" ? ctx.getString(result.value) : "null";
     result.value.dispose();

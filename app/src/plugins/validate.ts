@@ -1,7 +1,7 @@
 // Check what a plugin hands back before Lactic touches it, and trim what goes in to what the rider
 // approved. Everything a plugin returns is untrusted: one bad key, one string where a number belongs,
 // or one oversize tree and the whole tick is refused.
-import { MetricRegistry, validateKit, type KitNode } from "@shared/sdk";
+import { hasHiddenText, MetricRegistry, validateKit, type KitNode } from "@shared/sdk";
 import { publishedMetricId, type PluginManifest } from "./manifest";
 
 /** What one tick produced, after checking. Metric keys are full ids ("plugin.<id>.<name>"). */
@@ -16,18 +16,17 @@ export type OutputCheck = { ok: true; output: PluginOutput } | { ok: false; erro
 /** Numbers handed to plugins: the metric's value, or null when there's nothing. Never text. */
 export type PluginInputMetrics = Record<string, number | null>;
 
-// Control characters and invisible direction/format marks that could disguise text.
-const HIDDEN_CHARS = /[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁤⁦-⁩﻿]/;
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
 }
 
-function hasHiddenText(v: unknown, depth = 0): boolean {
+/** Hidden or direction-changing characters anywhere in a value (emoji joiners allowed). */
+export function anyHiddenText(v: unknown, depth = 0): boolean {
   if (depth > 20) return true;
-  if (typeof v === "string") return HIDDEN_CHARS.test(v);
-  if (Array.isArray(v)) return v.some((x) => hasHiddenText(x, depth + 1));
-  if (isPlainObject(v)) return Object.values(v).some((x) => hasHiddenText(x, depth + 1));
+  if (typeof v === "string") return hasHiddenText(v, { emoji: true });
+  if (Array.isArray(v)) return v.some((x) => anyHiddenText(x, depth + 1));
+  if (isPlainObject(v)) return Object.values(v).some((x) => anyHiddenText(x, depth + 1));
   return false;
 }
 
@@ -43,7 +42,7 @@ export function checkOutput(json: string, manifest: PluginManifest, maxBytes: nu
   if (raw === null) return { ok: true, output: {} };
   if (!isPlainObject(raw)) return { ok: false, error: "output must be an object" };
   for (const k of Object.keys(raw)) if (k !== "tree" && k !== "metrics") return { ok: false, error: `output.${k} is not allowed` };
-  if (hasHiddenText(raw)) return { ok: false, error: "output contains hidden characters" };
+  if (anyHiddenText(raw)) return { ok: false, error: "output contains hidden characters" };
 
   const out: PluginOutput = {};
   if (raw.tree !== undefined) {

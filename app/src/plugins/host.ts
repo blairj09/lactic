@@ -5,7 +5,7 @@
 // Ride safety: calls never queue. If the previous tick hasn't answered, the new one returns "busy" and
 // the field shows "–". Trainer control never waits on a plugin.
 import { manifestEntries, type PluginManifest } from "./manifest";
-import { DEFAULT_LIMITS, type FailureKind, type HostToWorker, type SandboxLimits, type WorkerToHost } from "./protocol";
+import { ANALYSIS_BUDGET, DEFAULT_LIMITS, type CallBudget, type FailureKind, type HostToWorker, type RideInput, type SandboxLimits, type WorkerToHost } from "./protocol";
 import { approvedInput, checkOutput, type PluginOutput } from "./validate";
 
 /** The slice of `Worker` the host uses, so tests can pass a fake. */
@@ -39,8 +39,27 @@ export type PluginStatus = "idle" | "loading" | "ready" | "disabled";
 export type TickFailure = FailureKind | "busy" | "not-ready" | "disabled" | "invalid-output" | "killed";
 export type TickResult = { ok: true; output: PluginOutput; ms: number } | { ok: false; reason: TickFailure; message: string };
 
+/**
+ * Lactic's own words for each failure. A plugin's error text (and anything it named in bad output)
+ * never reaches the rider: it could say "Your Lactic licence expired, visit …" (security review).
+ */
+export const FAILURE_WORDS: Record<TickFailure, string> = {
+  timeout: "took too long",
+  memory: "ran out of memory",
+  stack: "recursed too deeply",
+  error: "hit an error",
+  "no-entry": "is missing a part its manifest lists",
+  "not-loaded": "isn't loaded",
+  busy: "was still working",
+  "not-ready": "is starting",
+  disabled: "is switched off",
+  "invalid-output": "sent something Lactic can't use",
+  killed: "stopped responding",
+};
+
 interface Pending {
   seq: number;
+  maxOutputBytes: number;
   timer: ReturnType<typeof setTimeout>;
   resolve: (r: TickResult) => void;
 }
@@ -129,7 +148,7 @@ export class PluginHost {
           resolve(true);
         } else {
           this.kill();
-          this.disable(`couldn't start: ${msg.failure.message}`);
+          this.disable(`couldn't start (${FAILURE_WORDS[msg.failure.kind]})`);
           resolve(false);
         }
       };
@@ -139,6 +158,19 @@ export class PluginHost {
 
   /** Run one handler for this tick. `metrics` is trimmed to approved groups before it leaves Lactic. */
   call(entry: string, metrics: Record<string, number | null | { value: number | null }>, now = Date.now() / 1000): Promise<TickResult> {
+    return this.send(entry, metrics, now);
+  }
+
+  /**
+   * Run a ride analysis on a saved ride, with the bigger analysis budget (2 s, 128 KB). Never call
+   * this during a ride. `ride` must already be cut to the approved groups (ride-input.ts).
+   */
+  analyze(entry: string, ride: RideInput, metrics: Record<string, number | null | { value: number | null }>, now = Date.now() / 1000): Promise<TickResult> {
+    if (!(this.manifest.contributes.analyses ?? []).some((a) => a.entry === entry)) return Promise.resolve({ ok: false, reason: "no-entry", message: `${entry} is not a ride analysis in the manifest` });
+    return this.send(entry, metrics, now, ride, ANALYSIS_BUDGET);
+  }
+
+  private send(entry: string, metrics: Record<string, number | null | { value: number | null }>, now: number, ride?: RideInput, budget?: CallBudget): Promise<TickResult> {
     if (this.status === "disabled") return Promise.resolve({ ok: false, reason: "disabled", message: this.disabledReason ?? "switched off" });
     if (this.status !== "ready" || !this.worker) return Promise.resolve({ ok: false, reason: "not-ready", message: "plugin is starting" });
     if (!this.entries.includes(entry)) return Promise.resolve({ ok: false, reason: "no-entry", message: `no handler ${entry} in the manifest` });
@@ -146,9 +178,10 @@ export class PluginHost {
     const worker = this.worker;
     const seq = ++this.seq;
     return new Promise<TickResult>((resolve) => {
-      const timer = setTimeout(() => this.onStuck(worker, seq), this.limits.tickMs + this.policy.watchdogGraceMs);
-      this.pending = { seq, timer, resolve };
-      worker.postMessage({ type: "call", seq, entry, input: { metrics: approvedInput(this.manifest, metrics), now } });
+      const timer = setTimeout(() => this.onStuck(worker, seq), (budget?.tickMs ?? this.limits.tickMs) + this.policy.watchdogGraceMs);
+      this.pending = { seq, timer, resolve, maxOutputBytes: budget?.maxOutputBytes ?? this.limits.maxOutputBytes };
+      const input = { metrics: approvedInput(this.manifest, metrics), now, ...(ride ? { ride } : {}) };
+      worker.postMessage(budget ? { type: "call", seq, entry, input, budget } : { type: "call", seq, entry, input });
     });
   }
 
@@ -165,17 +198,18 @@ export class PluginHost {
     if (msg.type === "fatal") return this.onWorkerError(worker);
     if (msg.type !== "result") return;
     if (msg.ok) {
-      const checked = checkOutput(msg.output, this.manifest, this.limits.maxOutputBytes);
+      const checked = checkOutput(msg.output, this.manifest, this.pending?.seq === msg.seq ? this.pending.maxOutputBytes : this.limits.maxOutputBytes);
       if (checked.ok) {
         this.overruns = 0;
         this.settle(msg.seq, { ok: true, output: checked.output, ms: msg.ms });
       } else {
-        this.settle(msg.seq, { ok: false, reason: "invalid-output", message: checked.error });
-        this.crashed(`sent something Lactic can't use (${checked.error})`);
+        this.settle(msg.seq, { ok: false, reason: "invalid-output", message: FAILURE_WORDS["invalid-output"] });
+        this.crashed(FAILURE_WORDS["invalid-output"]);
       }
       return;
     }
-    const { kind, message } = msg.failure;
+    const { kind } = msg.failure;
+    const message = FAILURE_WORDS[kind] ?? FAILURE_WORDS.error;
     this.settle(msg.seq, { ok: false, reason: kind, message });
     if (kind === "timeout") {
       this.overruns++;

@@ -34,12 +34,12 @@ export function builtinWidget(id: string): WidgetManifest | undefined {
   return BUILTIN_TODAY_WIDGETS.find((w) => w.id === id);
 }
 
-/** A Today card's manifest, or a stand-in for one Lactic doesn't know (a plugin that's gone, review U12). */
+/** A Today card's manifest, or a stand-in for one this version of Lactic doesn't know (from a newer version, say). Today holds only Lactic's own cards. */
 export function todayCard(id: string): WidgetManifest {
   return (
     builtinWidget(id) ?? {
       id,
-      name: id.startsWith("plugin.") ? "Plugin card" : "Card",
+      name: "Card",
       description: "Not available on this computer",
       source: { kind: "lactic" },
       surfaces: ["today"],

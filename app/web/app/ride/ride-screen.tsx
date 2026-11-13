@@ -25,7 +25,12 @@ import { useExperiments } from "@/lib/use-experiments";
 import Nav from "@/components/nav";
 import { Notice, Page, Panel, Segmented, button, input } from "@/components/ui";
 import { saveAppRide } from "../actions";
-import { deleteCustomWorkout, saveCustomWorkout, setFavorite } from "./actions";
+import { deleteCustomWorkout, saveCustomWorkout, saveRideFields, setFavorite } from "./actions";
+import { allFields, pagesOf, standardSets, type RideSets } from "@/lib/ride/field-pages";
+import { showFields } from "@/lib/ride/fields";
+import { MetricRegistry } from "@/lib/sdk/metrics";
+import FieldEditor from "./field-editor";
+import WorkoutChart from "./workout-chart";
 import { holdCoachShortcut } from "../coach/open";
 import { holdNewDayRefresh } from "@/lib/new-day";
 import RideSurvey from "../ride-survey";
@@ -114,8 +119,14 @@ function RideOnThisDevice({
   today,
   ftpGuess = false,
   thresholdHr = null,
+  weightKg = null,
+  rideFields,
   initialSource,
 }: {
+  /** Weight from Settings, for W/kg fields. */
+  weightKg?: number | null;
+  /** The rider's ride field pages from their layout; Lactic standard when not given. */
+  rideFields?: RideSets;
   /** Where the picker opens (Today's "Something else…" opens the library, My workouts or free ride); else the plan's session first. */
   initialSource?: RideSource;
   /** Threshold heart rate from Settings, for adaptive workouts to judge an easy rep. */
@@ -183,6 +194,14 @@ function RideOnThisDevice({
   const targetSamples = useRef<(number | null)[]>([]);
   const intervalSamples = useRef<number[]>([]);
   const trace = useRef<TracePoint[]>([]);
+  const metrics = useMemo(() => new MetricRegistry(), []);
+  /** The rider's field pages, the page on screen, and the field editor (only before a ride). */
+  const [fieldSets, setFieldSets] = useState<RideSets>(() => rideFields ?? standardSets());
+  const [fieldPage, setFieldPage] = useState(0);
+  const [editingFields, setEditingFields] = useState(false);
+  const [savingFields, setSavingFields] = useState(false);
+  const editingFieldsRef = useRef(false);
+  editingFieldsRef.current = editingFields;
   const startedAt = useRef<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [notice, setNotice] = useState<string | null>(null);
@@ -489,6 +508,11 @@ function RideOnThisDevice({
     const unsubscribe = hub.subscribe(() => {
       const { cadenceRpm, powerWatts, targetWatts, connected } = hub.getState();
       if (!startedAt.current) {
+        // Pedaling doesn't start the ride while the fields are being customized.
+        if (editingFieldsRef.current) {
+          autoStart.current.reset();
+          return setStartIn(null);
+        }
         if (!autoStartOnRef.current || !connected.trainer) return;
         const now = Date.now();
         if (autoStart.current.update(cadenceRpm, powerWatts, now)) startRef.current(true);
@@ -796,6 +820,23 @@ function RideOnThisDevice({
     };
   };
   const recent = samples.current.slice(-3);
+  const ridePages = pagesOf(fieldSets, erg ? "free" : "workout");
+  const fieldValues = showFields(
+    allFields(fieldSets),
+    {
+      streams: { power: samples.current, heartRate: hrSamples.current, cadence: cadenceSamples.current, interval: intervalSamples.current },
+      ftp,
+      weightKg,
+      thresholdHr,
+      power: state.powerWatts,
+      heartRate: state.heartRate,
+      cadence: state.cadenceRpm === undefined ? undefined : Math.round(state.cadenceRpm),
+      interval: current?.index ?? null,
+      toGo: erg ? null : Math.max(0, duration - position),
+      elapsed,
+    },
+    metrics,
+  );
   const data: PlayerData = {
     workout: shown,
     ftp,
@@ -830,6 +871,7 @@ function RideOnThisDevice({
     powerAverage: running && recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : undefined,
     adaptive: adaptive && !ended ? { on: adaptOn } : null,
     adapt: adaptNotice(),
+    fields: { pages: ridePages, overlay: pagesOf(fieldSets, "overlay"), page: fieldPage, values: fieldValues },
   };
 
   /** Turns ERG on (the target goes back to the trainer at the next tick) or off (a road at the grade). */
@@ -879,8 +921,32 @@ function RideOnThisDevice({
     tick.current();
   };
 
+  /** Pages to step through: the ride's or the overlay's, whichever has more (each view wraps to its own). */
+  const pageCount = Math.max(ridePages.length, data.fields.overlay.length);
+  const stepPage = (step: unknown) => {
+    if (step !== 1 && step !== -1) return;
+    setFieldPage((p) => (p + step + pageCount) % pageCount);
+  };
+  // ← and → change page, unless typing somewhere or editing the fields.
+  const stepPageRef = useRef(stepPage);
+  stepPageRef.current = stepPage;
+  useEffect(() => {
+    if (pageCount < 2 || editingFields) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest("input, textarea, select, [contenteditable], [role=slider], [role=radiogroup], [role=dialog]")) return;
+      e.preventDefault();
+      stepPageRef.current(e.key === "ArrowRight" ? 1 : -1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pageCount, editingFields]);
+
   const controls: PlayerControls = {
     canPlay: !!state.connected.trainer,
+    onPage: stepPage,
     onPlayPause: () => (running ? pause() : start()),
     onExtend: extend,
     onEnd: end,
@@ -1036,6 +1102,26 @@ function RideOnThisDevice({
         )}
 
         <div data-tour="ride-player">
+          {editingFields && elapsed === 0 ? (
+            <FieldEditor
+              initial={fieldSets}
+              ftp={ftp}
+              weightKg={weightKg}
+              thresholdHr={thresholdHr}
+              saving={savingFields}
+              chart={<WorkoutChart workout={shown} ftp={ftp} position={0} trace={[]} to={workoutDuration(shown)} className="h-36 w-full text-ink" />}
+              onCancel={() => setEditingFields(false)}
+              onDone={async (ride, keepCopy) => {
+                setSavingFields(true);
+                const result = canSave ? await saveRideFields({ ride, keepCopy }) : { ok: true, message: "" };
+                setSavingFields(false);
+                if (!result.ok) return setError(`Couldn't save the ride fields: ${result.message}`);
+                setFieldSets(ride);
+                setFieldPage(0);
+                setEditingFields(false);
+              }}
+            />
+          ) : (
           <PlayerView
             data={data}
             controls={controls}
@@ -1056,6 +1142,12 @@ function RideOnThisDevice({
                   {ended && canSave && elapsed >= 60 && saveState !== "saved" && (
                     <button className={button.secondary} disabled={saveState !== "idle"} onClick={save}>
                       {saveState === "saving" ? "Saving..." : "Save ride"}
+                    </button>
+                  )}
+                  {/* Fields are only customized before a ride, never mid-ride (review U6). */}
+                  {elapsed === 0 && !running && (
+                    <button className={button.ghost} onClick={() => setEditingFields(true)}>
+                      Customize fields
                     </button>
                   )}
                   {pip.supported && !ended && (
@@ -1079,6 +1171,7 @@ function RideOnThisDevice({
               </>
             }
           />
+          )}
         </div>
 
         {!erg && (

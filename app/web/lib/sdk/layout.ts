@@ -33,10 +33,29 @@ export interface CardEntry {
 /** What a ride field shows: a registered metric, or a custom field built from one (review U3). */
 export type FieldRef =
   | { metric: string }
-  | { custom: { metric: string; /** seconds; 0 = right now */ window: number; agg: "avg" | "max" | "lap-avg" | "ride-avg"; asPercentOf?: "ftp" | "max-hr"; label: string } };
+  | {
+      custom: {
+        metric: string;
+        /** Seconds, for a rolling avg or max; 0 = right now. Ignored by the interval and ride aggregates. */
+        window: number;
+        /** lap-avg: this interval so far; last-lap-avg: the interval before; ride-avg: the whole ride. */
+        agg: CustomAgg;
+        asPercentOf?: "ftp" | "max-hr";
+        /** Power only: per kilogram of body weight, or the power zone, instead of watts. */
+        as?: "wkg" | "zone";
+        label: string;
+      };
+    };
 
-/** Page shapes, as on a head unit (mock 2). The number is how many fields it holds. */
-export const PAGE_TEMPLATES = { one: 1, four: 4, six: 6, "six-chart": 6, eight: 8, ten: 10 } as const;
+export const CUSTOM_AGGS = ["avg", "max", "lap-avg", "last-lap-avg", "ride-avg"] as const;
+export type CustomAgg = (typeof CUSTOM_AGGS)[number];
+
+/**
+ * Page shapes, as on a head unit (mock 2). The number is how many fields it holds. "standard" is
+ * the ride screen as it was before layouts: five big fields for this interval, the workout chart,
+ * and five smaller ones for the ride so far.
+ */
+export const PAGE_TEMPLATES = { standard: 10, one: 1, four: 4, six: 6, "six-chart": 6, eight: 8, ten: 10 } as const;
 export type PageTemplate = keyof typeof PAGE_TEMPLATES;
 
 export interface RidePage {
@@ -66,11 +85,25 @@ export const DEFAULT_TODAY: readonly CardEntry[] = [
   { widget: "lactic.last-ride", size: "medium", hidden: false },
 ];
 
-/** The ride player's fields before layouts (ride/player.tsx): interval, power, target, heart rate, cadence. */
+/**
+ * The ride player's fields before layouts (ride/player.tsx): interval, power, target, heart rate and
+ * cadence, then the ride so far (average power, heart rate and cadence, TSS, time to go).
+ */
 export const DEFAULT_RIDE_PAGE: RidePage = {
   name: "Workout",
-  template: "six-chart",
-  fields: [{ metric: "interval.left" }, { metric: "power.3s" }, { metric: "power.target" }, { metric: "heart_rate" }, { metric: "cadence" }],
+  template: "standard",
+  fields: [
+    { metric: "interval.left" },
+    { metric: "power" },
+    { metric: "power.target" },
+    { metric: "heart_rate" },
+    { metric: "cadence" },
+    { metric: "so_far.power" },
+    { metric: "so_far.heart_rate" },
+    { metric: "so_far.cadence" },
+    { metric: "so_far.tss" },
+    { metric: "workout.to_go" },
+  ],
 };
 
 export function defaultLayout(): Layout {
@@ -83,7 +116,6 @@ export function defaultLayout(): Layout {
 }
 
 const SIZES: readonly CardSize[] = ["small", "medium", "large"];
-const AGGS = ["avg", "max", "lap-avg", "ride-avg"] as const;
 const WIDGET_ID = /^(lactic|plugin)\.[a-z0-9_.-]{1,80}$/;
 const METRIC_ID = /^[a-z0-9_]+(\.[a-z0-9_-]+)*$/;
 const MAX_PAGES = 8;
@@ -100,11 +132,12 @@ export function parseField(v: unknown): FieldRef | null {
   const c = obj(o.custom);
   if (!c || typeof c.metric !== "string" || !METRIC_ID.test(c.metric)) return null;
   const window = typeof c.window === "number" && Number.isInteger(c.window) && c.window >= 0 && c.window <= 3600 ? c.window : null;
-  const agg = AGGS.includes(c.agg as (typeof AGGS)[number]) ? (c.agg as (typeof AGGS)[number]) : null;
+  const agg = CUSTOM_AGGS.includes(c.agg as CustomAgg) ? (c.agg as CustomAgg) : null;
   const label = text(c.label, 24);
   if (window === null || !agg || !label) return null;
   const asPercentOf = c.asPercentOf === "ftp" || c.asPercentOf === "max-hr" ? c.asPercentOf : undefined;
-  return { custom: { metric: c.metric, window, agg, label, ...(asPercentOf ? { asPercentOf } : {}) } };
+  const as = c.as === "wkg" || c.as === "zone" ? c.as : undefined;
+  return { custom: { metric: c.metric, window, agg, label, ...(asPercentOf ? { asPercentOf } : {}), ...(as ? { as } : {}) } };
 }
 
 function parsePages(v: unknown): RidePage[] | null {

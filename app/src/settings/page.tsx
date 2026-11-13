@@ -21,6 +21,8 @@ import { CoachSetupPanel } from "~/setup/coach";
 import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
 import { DataPanel, SimulatorSwitch } from "./panels";
+import { SandboxCheck } from "./sandbox-check";
+import { isModular } from "~/app/beta";
 import { StravaSection } from "./strava-panel";
 import { TakeTour } from "~/tour/take-tour";
 import { FeedbackSetting } from "~/feedback/dialog";
@@ -209,6 +211,13 @@ export default async function SettingsPage() {
             </Section>
           )}
         </div>
+        {(isModular || import.meta.env.DEV) && isDesktop && (
+          <div className="space-y-4 border-t border-line pt-8">
+            <Section title="Plugin sandbox check" description="Lactic Modular only: runs a hostile test plugin through the plugin sandbox in this app and lists every escape it tried. Nothing is installed and your data isn't touched.">
+              <SandboxCheck />
+            </Section>
+          </div>
+        )}
         <div id="data" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
           <Section title="Your data" description={`Everything is in one file on ${thisDevice()}. Back it up or take it anywhere.`}>
             <DataPanel />

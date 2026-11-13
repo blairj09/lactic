@@ -15,9 +15,11 @@ const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "previe
     const errors = [];
     page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
     await page.goto("http://localhost:4599/");
-    await page.waitForFunction(() => window.__smoke, null, { timeout: 60000 });
+    await page.waitForFunction(() => window.__smoke, null, { timeout: 120000 });
     const out = await page.evaluate(() => window.__smoke);
-    for (const [k, v] of Object.entries(out)) console.log(k.padEnd(20), JSON.stringify(v));
+    for (const c of out) console.log(c.pass ? "pass" : "FAIL", c.name.padEnd(58), c.detail);
+    const failed = out.filter((c) => !c.pass).length;
+    console.log(failed ? `${failed} check(s) failed` : "all checks passed");
     if (errors.length) console.log("console errors:", errors);
     await browser.close();
   } finally {

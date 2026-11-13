@@ -125,6 +125,15 @@ describe("plugin runtime: limits", () => {
     rt.dispose();
   });
 
+  it("counts a call that finishes late (one long native step) as a timeout", async () => {
+    const rt = new SandboxRuntime(await quickjs(), { ...DEFAULT_LIMITS, tickMs: 5 });
+    expect(rt.load(`lactic.register({ slow: function () { return { n: String(7n ** 100000n).length }; } })`, ["slow"]).ok).toBe(true);
+    const r = rt.call("slow", input);
+    expect(r).toMatchObject({ ok: false, failure: { kind: "timeout" } });
+    expect(r.ms).toBeGreaterThan(5);
+    rt.dispose();
+  });
+
   it("a plugin can't fake a timeout by throwing 'interrupted'", async () => {
     const rt = await loaded();
     expect(rt.call("fakeTimeout", input)).toMatchObject({ ok: false, failure: { kind: "error" } });

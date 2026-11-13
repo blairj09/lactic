@@ -569,6 +569,86 @@ export const TABLES: Record<string, Table> = {
     primaryKey: ["id"],
     indexes: [["device", "active"]],
   },
+  /**
+   * Installed plugins (src/plugins): the checked manifest and the plugin's code, pinned by its
+   * SHA-256. Whether a plugin runs is decided per device in plugin_grants (review S7), so a row
+   * that arrives by sync or a restored backup runs nowhere until the rider approves it there.
+   */
+  plugins: {
+    columns: {
+      id,
+      plugin_id: { type: "text", notNull: true },
+      name: { type: "text", notNull: true },
+      version: { type: "text", notNull: true },
+      manifest: { type: "json", notNull: true },
+      source: { type: "text", notNull: true },
+      sha256: { type: "text", notNull: true },
+      installed_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    unique: [["plugin_id"]],
+  },
+  /**
+   * The rider's approval of one plugin on one device: which exact code (sha256), which permission
+   * groups, switched on, and whether the coach may see its numbers (off by default). `device` is a
+   * random id kept outside the database (src/plugins/device.ts).
+   */
+  plugin_grants: {
+    columns: {
+      id,
+      plugin_id: { type: "text", notNull: true },
+      device: { type: "text", notNull: true },
+      sha256: { type: "text", notNull: true },
+      read: { type: "json", notNull: true, default: [] },
+      enabled: { type: "bool", notNull: true, default: true },
+      coach_visible: { type: "bool", notNull: true, default: false },
+      /** Plain-words reason when Lactic switched it off (crashes, running late). */
+      switched_off: { type: "text" },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    unique: [["plugin_id", "device"]],
+  },
+  /**
+   * What a plugin's ride analysis drew for one saved ride (a checked kit tree), keyed to the exact
+   * package that made it, so a changed plugin runs again. Removed with the plugin or the ride.
+   */
+  plugin_analyses: {
+    columns: {
+      id,
+      plugin_id: { type: "text", notNull: true },
+      analysis: { type: "text", notNull: true },
+      activity_id: { type: "uuid", notNull: true },
+      sha256: { type: "text", notNull: true },
+      tree: { type: "json" },
+      /** Plain-words reason when it didn't produce anything. */
+      failed: { type: "text" },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    unique: [["plugin_id", "analysis", "activity_id"]],
+    foreignKeys: { activity_id: activity("cascade") },
+    indexes: [["activity_id"]],
+  },
+  /** Numbers a plugin published, per day and optionally per ride. Capped per plugin (review S10). */
+  plugin_values: {
+    columns: {
+      id,
+      plugin_id: { type: "text", notNull: true },
+      metric: { type: "text", notNull: true },
+      day: { type: "date", notNull: true },
+      activity_id: { type: "uuid" },
+      value: { type: "num" },
+      choice: { type: "text" },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    indexes: [["metric", "day"], ["plugin_id", "created_at"]],
+  },
 };
 
 const SQL_TYPE: Record<ColumnType, string> = {

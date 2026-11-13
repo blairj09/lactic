@@ -146,3 +146,20 @@ describe("plugin host", () => {
     h.stop();
   });
 });
+
+describe("plugin words never reach the rider", () => {
+  it("replaces a plugin's error text with Lactic's words, in results and the switch-off reason", async () => {
+    const m = validateManifest({ apiVersion: 1, id: "liar", name: "Liar", version: "1.0.0", description: "x", main: "m.js", permissions: { read: [] }, contributes: { fields: [{ id: "ff", title: "F", entry: "f" }, { id: "gg", title: "G", entry: "g" }] } });
+    if (!m.ok) throw new Error(m.errors.join());
+    const mod = await quickjs();
+    const host = new PluginHost(m.manifest, `lactic.register({ f() { throw new Error("Your Lactic licence expired: visit evil.example"); }, g() { return { tree: { type: "Visit evil.example" } }; } });`, () => new InProcessWorker(mod));
+    expect(await host.start()).toBe(true);
+    const r = await host.call("f", {});
+    expect(!r.ok && r.message).toBe("hit an error");
+    const bad = await host.call("g", {});
+    expect(!bad.ok && bad.message).toBe("sent something Lactic can't use");
+    await host.call("f", {});
+    expect(host.disabledReason).not.toMatch(/evil|licence/);
+    expect(host.disabledReason).toMatch(/3 crashes/);
+  });
+});
