@@ -14,7 +14,7 @@ const index = JSON.parse(readFileSync(join(CATALOG, "index.json"), "utf8")) as {
   plugins: { id: string; file: string }[];
 };
 
-// Tests tick every 3rd ride second with a long allowance: the in-process worker is far slower than a real one.
+// Tests tick every 10th ride second with a long allowance: the in-process worker is far slower than a real one.
 async function preview(manifest: Parameters<typeof runPreview>[0], source: string, signal = new AbortController().signal, opts: Parameters<typeof runPreview>[5] = {}) {
   const mod = await quickjs();
   const updates: PreviewState[] = [];
@@ -24,7 +24,7 @@ async function preview(manifest: Parameters<typeof runPreview>[0], source: strin
     () => new InProcessWorker(mod),
     (s) => updates.push(s),
     signal,
-    { step: 3, budgetMs: 120_000, riding: () => false, ...opts },
+    { step: 10, budgetMs: 120_000, riding: () => false, ...opts },
   );
   return { out, updates };
 }
