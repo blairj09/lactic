@@ -50,8 +50,7 @@ import RideSurvey from "../../ride-survey";
 import CountFor from "./count-for";
 import RideExplorer from "./ride-explorer";
 import { RidePlugins } from "~/plugins/ride-plugins";
-import { isModular } from "~/app/beta";
-import { isDesktop } from "~/platform/native";
+import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { formatDistance, readUnits } from "@/lib/units";
 
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -289,7 +288,7 @@ export default async function RideDetail({
               <IntervalTable intervals={stream.intervals} execution={execution?.method === "blocks" ? execution : null} />
             </Panel>
           )}
-          {(isModular || import.meta.env.DEV) && isDesktop && <RidePlugins rideId={ride.id} />}
+          {pluginsAllowed && <RidePlugins rideId={ride.id} />}
           </>
         }
         aside={

@@ -23,7 +23,7 @@ import { IntervalsConnect } from "~/setup/rides";
 import { DataPanel, SimulatorSwitch } from "./panels";
 import { SandboxCheck } from "./sandbox-check";
 import { PluginsPanel } from "./plugins-panel";
-import { isModular } from "~/app/beta";
+import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { StravaSection } from "./strava-panel";
 import { TakeTour } from "~/tour/take-tour";
 import { FeedbackSetting } from "~/feedback/dialog";
@@ -47,7 +47,7 @@ const SECTIONS = [
   { id: "coach-settings", label: "Coach" },
   { id: "connections", label: "Connections" },
   { id: "gear", label: "Gear" },
-  ...((isModular || import.meta.env.DEV) && isDesktop ? [{ id: "plugins", label: "Plugins" }] : []),
+  ...(pluginsAllowed ? [{ id: "plugins", label: "Plugins" }] : []),
   { id: "data", label: "Your data" },
   { id: "about", label: "About" },
 ];
@@ -213,14 +213,16 @@ export default async function SettingsPage() {
             </Section>
           )}
         </div>
-        {(isModular || import.meta.env.DEV) && isDesktop && (
+        {pluginsAllowed && (
           <div id="plugins" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
             <Section title="Plugins" description="Cards, ride fields and ride analyses by other riders. No internet, no changes, and they read only what you allow. Add ones you trust.">
               <PluginsPanel />
             </Section>
-            <Section title="Plugin sandbox check" description="Runs a hostile test plugin in the sandbox and lists every escape it tried. Nothing is installed.">
-              <SandboxCheck />
-            </Section>
+            {isDesktop && (
+              <Section title="Plugin sandbox check" description="Runs a hostile test plugin in the sandbox and lists every escape it tried. Nothing is installed.">
+                <SandboxCheck />
+              </Section>
+            )}
           </div>
         )}
         <div id="data" className="scroll-mt-16 space-y-4 border-t border-line pt-8">

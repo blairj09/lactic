@@ -8,6 +8,7 @@ import { button } from "@/components/ui";
 import { FIXED_TABS, type Layout, type TabId } from "@/lib/sdk/layout";
 import { hiddenCards, moveTab, setTabHidden, shownCards } from "@/lib/sdk/layout-editor";
 import { TAB_NAMES } from "@/lib/sdk/layout-edit";
+import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import type { SavedLayout } from "@/lib/layout-data";
 import { deleteSavedLayoutAction, resetLayoutAction, restoreLayoutAction, saveLayoutAction } from "@/app/layout-actions";
 
@@ -81,7 +82,7 @@ export function LayoutSetting({ layout: saved, copies, custom }: { layout: Layou
     };
   }, [dragging]);
 
-  const tabs = drag ? moveTab(layout, drag.id, drag.index).tabs : layout.tabs;
+  const tabs = (drag ? moveTab(layout, drag.id, drag.index).tabs : layout.tabs).filter((t) => t.id !== "plugins" || pluginsAllowed);
   const onDown = (id: TabId) => (e: ReactPointerEvent) => {
     if (e.button !== 0) return;
     e.preventDefault();

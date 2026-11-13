@@ -38,7 +38,7 @@ describe("layout edits", () => {
 
   it("moves and hides tabs but keeps Ride and Today", () => {
     const moved = edit(defaultLayout(), { action: "move_tab", tab: "health", after: "today" });
-    expect(moved.tabs.map((t) => t.id)).toEqual(["today", "health", "plan", "ride", "progress"]);
+    expect(moved.tabs.map((t) => t.id)).toEqual(["today", "health", "plan", "ride", "progress", "plugins"]);
     expect(edit(defaultLayout(), { action: "hide_tab", tab: "health" }).tabs.find((t) => t.id === "health")?.hidden).toBe(true);
     expect(() => edit(defaultLayout(), { action: "hide_tab", tab: "ride" })).toThrow(/always shown/);
     expect(() => edit(defaultLayout(), { action: "hide_tab", tab: "today" })).toThrow();

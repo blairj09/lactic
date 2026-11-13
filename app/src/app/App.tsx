@@ -6,6 +6,7 @@ import CoachDrawer from "@/app/coach/coach-drawer";
 import DrawerBoundary from "@/app/coach/drawer-boundary";
 import NewDayRefresh from "@/components/new-day-refresh";
 import { ServerPage } from "./server-page";
+import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { setNavigator } from "~/shims/next-navigation";
 import { refreshCoachMode, useCoachMode, useMcpOn } from "./coach-mode";
 import { getSetting } from "~/settings/store";
@@ -36,6 +37,7 @@ const plan = () => import("@/app/plan/page");
 const progress = () => import("@/app/progress/page");
 const vo2max = () => import("@/app/progress/vo2max/page");
 const health = () => import("@/app/health/page");
+const plugins = () => import("@/app/plugins/page");
 const metric = () => import("@/app/health/[metric]/page");
 const ride = () => import("@/app/ride/page");
 const rideDetail = () => import("@/app/rides/[id]/page");
@@ -119,6 +121,7 @@ function Shell() {
         <Route path="/progress" element={<ServerPage load={progress} />} />
         <Route path="/progress/vo2max" element={<ServerPage load={vo2max} />} />
         <Route path="/health" element={<ServerPage load={health} />} />
+        {pluginsAllowed && <Route path="/plugins" element={<ServerPage load={plugins} />} />}
         <Route path="/health/:metric" element={<ServerPage load={metric} />} />
         <Route path="/ride" element={<ServerPage load={ride} />} />
         <Route path="/rides/:id" element={<ServerPage load={rideDetail} />} />
