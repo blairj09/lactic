@@ -9,14 +9,19 @@ name: iPhone app
 # drafts). With the App Store Connect key (APPLE_API_KEY, APPLE_API_ISSUER and APPLE_API_KEY_P8,
 # shared with the Mac signing), main makes a signed build and uploads it to TestFlight, numbered by
 # the run. To put a branch on TestFlight before it merges: Actions → iPhone app → Run workflow on
-# that branch. Xcode signs it with
+# that branch.
+#
+# The modular-ui branch (pushes, or Run workflow with "Lactic Modular") builds the Lactic Modular
+# testing app instead: bundle id fit.lactic.modular, its own App Group, iCloud container, Bonjour
+# service and TestFlight app, so it never reaches the real Lactic app or its testers. Until that
+# app exists in App Store Connect, the job notes it and skips the build. Xcode signs it with
 # certificates Apple manages, so no iPhone certificate secret is needed, but the key must be
 # allowed to manage them (Admin or App Manager role).
 
 on:
   push:
-    branches: [main]
-    paths: ["app/**", ".github/workflows/ios.yml"]
+    branches: [main, modular-ui]
+    paths: ["app/**", ".github/workflows/ios.yml", ".github/scripts/**"]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -26,6 +31,11 @@ on:
       - ".github/workflows/ios.yml"
       - ".github/scripts/**"
   workflow_dispatch:
+    inputs:
+      modular:
+        description: Lactic Modular (for branches off modular-ui)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -87,7 +97,7 @@ jobs:
         run: |
           dir="$RUNNER_TEMP/wire" && mkdir -p "$dir"
           ios=plugins/lactic-phone/ios
-          swiftc $ios/Sources/Wire.swift $ios/Sources/Direct.swift $ios/WireCheck/main.swift -o "$dir/wire-check"
+          swiftc $ios/Sources/Wire.swift $ios/Sources/Direct.swift $ios/Sources/Identity.swift $ios/WireCheck/main.swift -o "$dir/wire-check"
           "$dir/wire-check" request "$dir"
           LACTIC_SWIFT_WIRE="$dir" cargo test --locked --lib phone::tests::swift_wire -- --exact
           "$dir/wire-check" reply "$dir"
@@ -97,12 +107,13 @@ jobs:
 
   testflight:
     # A signed build on TestFlight. Needs the App Store Connect key, and the app created once in
-    # App Store Connect (bundle id fit.lactic.app).
+    # App Store Connect (bundle id fit.lactic.app, or fit.lactic.modular for Lactic Modular).
     if: github.event_name != 'pull_request'
     # App Store Connect only takes builds made with the iOS 26 SDK (Xcode 26) or later.
     runs-on: macos-26
     env:
       HAS_KEY: ${{ secrets.APPLE_API_KEY_P8 != '' }}
+      MODULAR: ${{ github.ref == 'refs/heads/modular-ui' || inputs.modular == true }}
     steps:
       - uses: maxim-lobanov/setup-xcode@1242409711ff5721add51979e9e11e23ebb7e5a4 # v1
         if: env.HAS_KEY == 'true'
@@ -110,30 +121,65 @@ jobs:
           xcode-version: latest-stable
       - uses: actions/checkout@v5
         if: env.HAS_KEY == 'true'
-      - uses: actions/setup-node@v5
+      - name: Which app
+        # Lactic, or Lactic Modular. `ready` says whether to build: for Lactic Modular, once its
+        # app exists in App Store Connect (until then this notes it and the rest is skipped).
+        id: app
         if: env.HAS_KEY == 'true'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.appstoreconnect/private_keys
+          key_path=~/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY.p8
+          printf '%s\n' "$APPLE_API_KEY_P8" > "$key_path"
+          if [ "$MODULAR" = true ]; then
+            {
+              echo "BUNDLE_ID=fit.lactic.modular"
+              echo "LACTIC_CHANNEL=modular"
+              echo "VITE_LACTIC_CHANNEL=modular"
+              echo "IPA_NAME=Lactic-iOS-Modular"
+            } >> "$GITHUB_ENV"
+            BUNDLE_ID=fit.lactic.modular APPLE_API_KEY_PATH="$key_path" ruby .github/scripts/asc-app.rb
+          else
+            { echo "BUNDLE_ID=fit.lactic.app"; echo "IPA_NAME=Lactic-iOS"; } >> "$GITHUB_ENV"
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v5
+        if: steps.app.outputs.ready == 'true'
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
-        if: env.HAS_KEY == 'true'
+        if: steps.app.outputs.ready == 'true'
         working-directory: app
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-        if: env.HAS_KEY == 'true'
+        if: steps.app.outputs.ready == 'true'
         with:
           targets: aarch64-apple-ios
       - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
-        if: env.HAS_KEY == 'true'
+        if: steps.app.outputs.ready == 'true'
         with:
           workspaces: app/src-tauri
           key: ios-device
+      - name: Lactic Modular's iCloud container and Bonjour service
+        # This checkout's copy only: the Info.plist entries ios/Lactic.entitlements' ids match
+        # (ios-project.sh switches those).
+        if: steps.app.outputs.ready == 'true' && env.MODULAR == 'true'
+        run: |
+          sed -i '' -e 's/iCloud\.fit\.lactic\.app/iCloud.fit.lactic.modular/' -e 's/_lactic\._tcp/_lactic-modular._tcp/' \
+            -e 's|<string>Lactic</string>|<string>Lactic Modular</string>|' src-tauri/Info.ios.plist
+          grep -n 'modular\|Modular' src-tauri/Info.ios.plist
+        working-directory: app
       - name: Xcode project
-        if: env.HAS_KEY == 'true'
+        if: steps.app.outputs.ready == 'true'
         run: ../.github/scripts/ios-project.sh
         working-directory: app
       - name: Signed build
-        if: env.HAS_KEY == 'true'
+        if: steps.app.outputs.ready == 'true'
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
@@ -149,7 +195,9 @@ jobs:
           export PATH="$RUNNER_TEMP/shim:$PATH"
           # TestFlight needs a new build number every upload.
           printf '{"bundle":{"iOS":{"bundleVersion":"%s"}}}' "$GITHUB_RUN_NUMBER" > src-tauri/tauri.ios-build.conf.json
-          npx tauri ios build --export-method app-store-connect --config src-tauri/tauri.ios-build.conf.json
+          config=(--config src-tauri/tauri.ios-build.conf.json)
+          [ "$MODULAR" = true ] && config=(--config src-tauri/tauri.modular.conf.json "${config[@]}")
+          npx tauri ios build --export-method app-store-connect "${config[@]}"
           ipa=$(find src-tauri/gen/apple/build -name '*.ipa' | head -1)
           test -n "$ipa"
           echo "IPA=$ipa" >> "$GITHUB_ENV"
@@ -157,7 +205,7 @@ jobs:
       - name: Signed entitlements
         # What the app and each extension were signed with, and what their profiles allow. Stops
         # the upload if any lacks the App Group the widgets share.
-        if: env.HAS_KEY == 'true'
+        if: steps.app.outputs.ready == 'true'
         run: |
           dir=$(mktemp -d) && unzip -q "$IPA" -d "$dir"
           missing=0
@@ -168,7 +216,7 @@ jobs:
             echo "::notice title=$name signed::$signed"
             echo "::notice title=$name profile::$profile"
             case "$signed" in
-              *group.fit.lactic.app*) ;;
+              *"group.$BUNDLE_ID"*) ;;
               *) echo "::error title=$name::Signed without the App Group the widgets share"; missing=1 ;;
             esac
           done < <(find "$dir/Payload" -maxdepth 6 \( -name '*.app' -o -name '*.appex' \))
@@ -176,22 +224,22 @@ jobs:
         working-directory: app
       - name: What Apple has registered
         # After a signing failure: the team's Lactic App IDs and their capabilities (identifiers only).
-        if: failure() && env.HAS_KEY == 'true'
+        if: failure() && steps.app.outputs.ready == 'true'
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: APPLE_API_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY.p8 ruby ../.github/scripts/asc-bundle-ids.rb
         working-directory: app
       - name: Upload to TestFlight
-        if: env.HAS_KEY == 'true'
+        if: steps.app.outputs.ready == 'true'
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: xcrun altool --upload-app --type ios --file "$IPA" --apiKey "$APPLE_API_KEY" --apiIssuer "$APPLE_API_ISSUER"
         working-directory: app
       - uses: actions/upload-artifact@v4
-        if: env.HAS_KEY == 'true'
+        if: steps.app.outputs.ready == 'true'
         with:
-          name: Lactic-iOS
+          name: ${{ env.IPA_NAME }}
           path: app/${{ env.IPA }}
           if-no-files-found: ignore

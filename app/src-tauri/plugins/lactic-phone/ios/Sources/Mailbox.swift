@@ -6,7 +6,7 @@
 import Foundation
 
 enum Mailbox {
-  static let container = "iCloud.fit.lactic.app"
+  static var container: String { Identity.container }
 
   /// This pairing's folder in iCloud, or nil when iCloud is off (or not signed in). Blocks: never
   /// call it on the main thread.

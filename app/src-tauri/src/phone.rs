@@ -562,10 +562,12 @@ pub mod mailbox {
     /// Requests older than this are dropped unanswered: a newer one has replaced it by then.
     pub const MAX_AGE_MS: i64 = 3 * 24 * 3600 * 1000;
 
-    /// Lactic's iCloud container as this Mac's iCloud Drive keeps it.
+    /// Lactic's iCloud container as this Mac's iCloud Drive keeps it: the iPhone app's
+    /// (iCloud.fit.lactic.app, which Lactic Preview shares), or Lactic Modular's own.
     pub fn root() -> Option<PathBuf> {
         let home = std::env::var_os("HOME")?;
-        Some(PathBuf::from(home).join("Library/Mobile Documents/iCloud~fit~lactic~app/Documents/Link"))
+        let container = if crate::is_modular() { "iCloud~fit~lactic~modular" } else { "iCloud~fit~lactic~app" };
+        Some(PathBuf::from(home).join("Library/Mobile Documents").join(container).join("Documents/Link"))
     }
 
     /// Answers every request waiting in `dir/to-computer` with `respond`, writing each answer to
@@ -663,6 +665,12 @@ mod direct {
     use std::net::{Ipv6Addr, SocketAddr};
 
     pub const SERVICE: &str = "_lactic._tcp";
+    /// Lactic Modular's own, so the iPhone app of one never finds the other's computer.
+    pub const MODULAR_SERVICE: &str = "_lactic-modular._tcp";
+
+    pub fn service() -> &'static str {
+        if crate::is_modular() { MODULAR_SERVICE } else { SERVICE }
+    }
     const SO_RECV_ANYIF: c_int = 0x1104;
     const K_DNS_SERVICE_FLAGS_INCLUDE_P2P: u32 = 0x20000;
 
@@ -722,7 +730,7 @@ mod direct {
     /// connection to mDNSResponder, kept open on its own thread).
     fn advertise(port: u16) {
         std::thread::spawn(move || {
-            let regtype = CString::new(SERVICE).expect("no NUL");
+            let regtype = CString::new(service()).expect("no NUL");
             let mut sd: DNSServiceRef = std::ptr::null_mut();
             // SAFETY: valid out-pointer and C strings; a null name means the computer's name.
             let err = unsafe {

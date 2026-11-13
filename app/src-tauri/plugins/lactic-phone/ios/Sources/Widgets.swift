@@ -9,7 +9,7 @@ import WatchConnectivity
 import WidgetKit
 
 enum WidgetShare {
-  static let group = "group.fit.lactic.app"
+  static var group: String { Identity.group }
   static let file = "widget.json"
 
   static func save(_ json: String) throws {

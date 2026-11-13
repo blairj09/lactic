@@ -8,7 +8,7 @@ import Foundation
 import Network
 
 enum Direct {
-  static let service = "_lactic._tcp"
+  static var service: String { Identity.service }
   /// What Pairing.lastHost holds when the direct link answered last.
   static let tag = "direct"
 
