@@ -5,7 +5,8 @@
 // never live ones, and only before a ride (review U6). Undo steps back one change, Cancel drops the
 // whole edit, Done saves. Free ride and the overlay follow the workout pages until split off (U4).
 
-import { useMemo, useState } from "react";
+import { isPhone } from "~/platform/native";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Segmented, button, input } from "@/components/ui";
 import { remembered } from "@/lib/ble/devices";
 import { addPage, deletePage, follow, follows, movePage, pagesOf, renamePage, setSlot, setTemplate, splitOff, standardSets, swapSlots, type RideSets } from "@/lib/ride/field-pages";
@@ -29,13 +30,16 @@ const GROUPS: { name: string; ids: string[] }[] = [
 const TEMPLATES: { id: PageTemplate; name: string; cells: string }[] = [
   { id: "standard", name: "Standard", cells: "grid-cols-[2fr_3fr_1.3fr] [&>i:nth-child(2)]:bg-[var(--zone-2)]" },
   { id: "one", name: "1", cells: "grid-cols-1" },
+  { id: "two", name: "2", cells: "grid-cols-1" },
   { id: "four", name: "4", cells: "grid-cols-2" },
   { id: "six", name: "6", cells: "grid-cols-3" },
   { id: "six-chart", name: "6 + chart", cells: "grid-cols-3 [&>i:last-child]:col-span-3 [&>i:last-child]:bg-[var(--zone-2)]" },
   { id: "eight", name: "8", cells: "grid-cols-4" },
   { id: "ten", name: "10", cells: "grid-cols-5" },
 ];
-const CELLS: Record<PageTemplate, number> = { standard: 3, one: 1, four: 4, six: 6, "six-chart": 7, eight: 8, ten: 10 };
+/** The iPhone's layouts: big enough to read from the saddle on a small screen (mock 2). */
+const PHONE_TEMPLATES: PageTemplate[] = ["one", "two", "four", "six"];
+const CELLS: Record<PageTemplate, number> = { standard: 3, one: 1, two: 2, four: 4, six: 6, "six-chart": 7, eight: 8, ten: 10 };
 
 const SET_NAMES: Record<FieldSetId, string> = { workout: "Workouts", free: "Free ride", overlay: "Overlay" };
 
@@ -78,6 +82,7 @@ export default function FieldEditor({
   saving,
   onCancel,
   onDone,
+  phone = isPhone(),
 }: {
   initial: RideSets;
   ftp: number;
@@ -89,12 +94,15 @@ export default function FieldEditor({
   onCancel: () => void;
   /** Saves; `keepCopy` when Reset was used, so the layout from before it is kept as a saved copy. */
   onDone: (ride: RideSets, keepCopy: boolean) => void;
+  /** The iPhone's layouts only (1, 2, 4, 6), plus the page's own if it came from the computer. */
+  phone?: boolean;
 }) {
   const [draft, setDraft] = useState<RideSets>(initial);
   const [history, setHistory] = useState<{ ride: RideSets; page: number }[]>([]);
   const [set, setSet] = useState<FieldSetId>("workout");
   const [page, setPage] = useState(0);
-  const [slot, setSlotIndex] = useState<number | null>(0);
+  // On the iPhone nothing is picked until a field is tapped, which opens the picker as a sheet.
+  const [slot, setSlotIndex] = useState<number | null>(phone ? null : 0);
   const [query, setQuery] = useState("");
   const [custom, setCustom] = useState(false);
   const [wasReset, setWasReset] = useState(false);
@@ -130,7 +138,7 @@ export default function FieldEditor({
     change(setSlot(draft, set, pageIndex, selected, field));
     // Move on to the next empty slot, as filling a new page goes field by field.
     const filled = Math.min(selected, current.fields.length) + 1;
-    setSlotIndex(filled < slots ? filled : selected);
+    setSlotIndex(phone ? null : filled < slots ? filled : selected);
   };
 
   // The rider's own custom fields, wherever they are, to reuse on other pages.
@@ -173,23 +181,99 @@ export default function FieldEditor({
     return d.unit === "s" ? "m:ss" : d.unit === "tss" ? "TSS" : id.endsWith("zone") ? "Z1–Z7" : d.unit;
   };
 
+  // On the iPhone the editor replaces the player further down the page: start at its top.
+  const top = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (phone) top.current?.scrollIntoView({ block: "start" });
+  }, [phone]);
+
+  // Layout and the field list: beside the page on a computer, a sheet from the bottom on the iPhone.
+  const picker = (
+    <div className={following ? "pointer-events-none space-y-5 opacity-50" : "space-y-5"}>
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">Layout</h3>
+        <div className="grid grid-cols-4 gap-1.5">
+          {TEMPLATES.filter((t) => !phone || PHONE_TEMPLATES.includes(t.id) || t.id === current.template).map((t) => (
+            <button
+              type="button"
+              key={t.id}
+              aria-pressed={current.template === t.id}
+              onClick={() => change(setTemplate(draft, set, pageIndex, t.id))}
+              className={`rounded-md border p-1.5 text-center text-xs ${current.template === t.id ? "border-accent bg-accent-soft text-ink" : "border-line text-muted hover:text-ink"}`}
+            >
+              <span className={`mb-1 grid h-7 gap-0.5 ${t.cells}`} aria-hidden>
+                {Array.from({ length: CELLS[t.id] }, (_, i) => (
+                  <i key={i} className={`rounded-[2px] ${current.template === t.id ? "bg-[var(--zone-4)]" : "bg-control"}`} />
+                ))}
+              </span>
+              {t.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">{selected === null ? "Pick a field to change" : `Field ${selected + 1} shows`}</h3>
+        <input className={`${input} w-full`} placeholder="Search fields" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search fields" />
+        <div className="max-h-[26rem] space-y-3 overflow-y-auto pr-1">
+          {groups.map((g) => {
+            const items = g.ids.map((id) => metrics.get(id)).filter((d) => d && match(d.label));
+            if (!items.length) return null;
+            return (
+              <div key={g.name}>
+                <div className="px-2 pb-1 text-xs font-semibold tracking-wide text-muted uppercase">{g.name}</div>
+                {items.map((d) => option({ metric: d!.id }, d!.label, unitHint(d!.id)))}
+              </div>
+            );
+          })}
+          {customs.some((c) => "custom" in c && match(c.custom.label)) && (
+            <div>
+              <div className="px-2 pb-1 text-xs font-semibold tracking-wide text-muted uppercase">Your custom fields</div>
+              {customs.map((c) => ("custom" in c && match(c.custom.label) ? option(c, c.custom.label, "Custom") : null))}
+            </div>
+          )}
+        </div>
+        <button type="button" className={`${button.secondary} w-full`} disabled={selected === null} onClick={() => setCustom(true)}>
+          + New custom field
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <section aria-label="Customize ride fields" className="space-y-5">
-      <div className="sticky top-14 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-accent-soft px-4 py-2.5 shadow-[0_0_0_6px_var(--ground)]">
-        <span className="font-semibold">Customizing ride fields</span>
-        <span className="text-sm text-muted">Sample numbers</span>
-        <div className="ml-auto flex items-center gap-2">
-          <button type="button" className={button.ghost} onClick={undo} disabled={!history.length}>
-            ↶ Undo
-          </button>
-          <button type="button" className={button.secondary} onClick={onCancel} disabled={saving}>
+    <section ref={top} aria-label="Customize ride fields" className="space-y-5 scroll-mt-12">
+      {phone ? (
+        <div className="sticky top-12 z-20 -mx-4 flex items-center gap-2 border-b border-line bg-surface px-4 py-2">
+          <button type="button" className="h-9 text-sm text-accent" onClick={onCancel} disabled={saving}>
             Cancel
           </button>
-          <button type="button" className={button.primary} onClick={() => onDone(draft, wasReset)} disabled={saving}>
+          <button type="button" className="h-9 px-2 text-accent disabled:text-faint" onClick={undo} disabled={!history.length} aria-label="Undo">
+            ↶
+          </button>
+          <span className="flex-1 text-center text-sm font-medium">
+            Page {pageIndex + 1} of {pages.length}
+          </span>
+          <button type="button" className={button.smallPrimary} onClick={() => onDone(draft, wasReset)} disabled={saving}>
             {saving ? "Saving…" : "Done"}
           </button>
         </div>
-      </div>
+      ) : (
+        <div className="sticky top-14 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-accent-soft px-4 py-2.5 shadow-[0_0_0_6px_var(--ground)]">
+          <span className="font-semibold">Customizing ride fields</span>
+          <span className="text-sm text-muted">Sample numbers</span>
+          <div className="ml-auto flex items-center gap-2">
+            <button type="button" className={button.ghost} onClick={undo} disabled={!history.length}>
+              ↶ Undo
+            </button>
+            <button type="button" className={button.secondary} onClick={onCancel} disabled={saving}>
+              Cancel
+            </button>
+            <button type="button" className={button.primary} onClick={() => onDone(draft, wasReset)} disabled={saving}>
+              {saving ? "Saving…" : "Done"}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-5 rounded-lg bg-surface p-5 sm:p-6">
@@ -280,13 +364,13 @@ export default function FieldEditor({
               </button>
             )}
           </div>
-          <p className="text-center text-sm text-muted">While riding, ← → or a swipe changes page. Drag a field onto another to swap them.</p>
+          <p className="text-center text-sm text-muted">{phone ? "Tap a field to change it. While riding, swipe to change page." : "While riding, ← → or a swipe changes page. Drag a field onto another to swap them."}</p>
         </div>
 
         <div className="space-y-5 rounded-lg bg-surface p-5">
           <div className="space-y-2">
             <h3 className="text-sm font-semibold">Fields for</h3>
-            <Segmented fill label="Fields for" options={(["workout", "free", "overlay"] as const).map((s) => ({ value: s, label: SET_NAMES[s] }))} value={set} onChange={(s) => (setSet(s), setPage(0), setSlotIndex(0))} />
+            <Segmented fill label="Fields for" options={(phone ? (["workout", "free"] as const) : (["workout", "free", "overlay"] as const)).map((s) => ({ value: s, label: SET_NAMES[s] }))} value={set} onChange={(s) => (setSet(s), setPage(0), setSlotIndex(0))} />
             {set !== "workout" &&
               (following ? (
                 <p className="text-sm text-muted">
@@ -304,57 +388,7 @@ export default function FieldEditor({
                 </p>
               ))}
           </div>
-
-          <div className={following ? "pointer-events-none space-y-5 opacity-50" : "space-y-5"}>
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">Layout</h3>
-              <div className="grid grid-cols-4 gap-1.5">
-                {TEMPLATES.map((t) => (
-                  <button
-                    type="button"
-                    key={t.id}
-                    aria-pressed={current.template === t.id}
-                    onClick={() => change(setTemplate(draft, set, pageIndex, t.id))}
-                    className={`rounded-md border p-1.5 text-center text-xs ${current.template === t.id ? "border-accent bg-accent-soft text-ink" : "border-line text-muted hover:text-ink"}`}
-                  >
-                    <span className={`mb-1 grid h-7 gap-0.5 ${t.cells}`} aria-hidden>
-                      {Array.from({ length: CELLS[t.id] }, (_, i) => (
-                        <i key={i} className={`rounded-[2px] ${current.template === t.id ? "bg-[var(--zone-4)]" : "bg-control"}`} />
-                      ))}
-                    </span>
-                    {t.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">{selected === null ? "Pick a field to change" : `Field ${selected + 1} shows`}</h3>
-              <input className={`${input} w-full`} placeholder="Search fields" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search fields" />
-              <div className="max-h-[26rem] space-y-3 overflow-y-auto pr-1">
-                {groups.map((g) => {
-                  const items = g.ids.map((id) => metrics.get(id)).filter((d) => d && match(d.label));
-                  if (!items.length) return null;
-                  return (
-                    <div key={g.name}>
-                      <div className="px-2 pb-1 text-xs font-semibold tracking-wide text-muted uppercase">{g.name}</div>
-                      {items.map((d) => option({ metric: d!.id }, d!.label, unitHint(d!.id)))}
-                    </div>
-                  );
-                })}
-                {customs.some((c) => "custom" in c && match(c.custom.label)) && (
-                  <div>
-                    <div className="px-2 pb-1 text-xs font-semibold tracking-wide text-muted uppercase">Your custom fields</div>
-                    {customs.map((c) => ("custom" in c && match(c.custom.label) ? option(c, c.custom.label, "Custom") : null))}
-                  </div>
-                )}
-              </div>
-              <button type="button" className={`${button.secondary} w-full`} disabled={selected === null} onClick={() => setCustom(true)}>
-                + New custom field
-              </button>
-            </div>
-          </div>
-
+          {!phone && picker}
           <div className="space-y-1 border-t border-rule pt-3 text-sm text-muted">
             <button
               type="button"
@@ -372,6 +406,21 @@ export default function FieldEditor({
           </div>
         </div>
       </div>
+
+      {phone && selected !== null && !custom && (
+        <div className="fixed inset-0 z-40 flex items-end bg-black/35" onClick={() => setSlotIndex(null)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Field ${selected + 1}`}
+            className="max-h-[70vh] w-full overflow-y-auto rounded-t-2xl bg-surface px-4 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-3 h-1.5 w-9 rounded-full bg-control" />
+            {picker}
+          </div>
+        </div>
+      )}
 
       {custom && (
         <CustomFieldDialog

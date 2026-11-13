@@ -55,7 +55,7 @@ export type CustomAgg = (typeof CUSTOM_AGGS)[number];
  * the ride screen as it was before layouts: five big fields for this interval, the workout chart,
  * and five smaller ones for the ride so far.
  */
-export const PAGE_TEMPLATES = { standard: 10, one: 1, four: 4, six: 6, "six-chart": 6, eight: 8, ten: 10 } as const;
+export const PAGE_TEMPLATES = { standard: 10, one: 1, two: 2, four: 4, six: 6, "six-chart": 6, eight: 8, ten: 10 } as const;
 export type PageTemplate = keyof typeof PAGE_TEMPLATES;
 
 export interface RidePage {
