@@ -15,7 +15,12 @@ export async function pluginHost(p: PluginRecord, createWorker: () => WorkerLike
     return null;
   }
   const have = hosts.get(p.pluginId);
-  if (have && have.sha256 === p.sha256 && have.host.status !== "disabled") return have.host;
+  if (have && have.sha256 === p.sha256) {
+    // Lactic switched it off (crashes, running late, or it couldn't start): it stays off, with no
+    // fresh worker each ride second, until the rider turns it back on (syncRunning drops the entry
+    // once the saved state is off) or a new package arrives.
+    return have.host.status === "disabled" ? null : have.host;
+  }
   stopPlugin(p.pluginId);
   const host = new PluginHost(grantedManifest(p.manifest, p.grant.read), p.source, createWorker, {
     onStatus: (status, reason) => {

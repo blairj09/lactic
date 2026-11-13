@@ -14,6 +14,7 @@ import { customLabel, fieldKey, fieldNeeds, showField, unavailableReason, type F
 import { PAGE_TEMPLATES, type CustomAgg, type FieldRef, type PageTemplate } from "@/lib/sdk/layout";
 import type { FieldSetId } from "@/lib/sdk/layout-edit";
 import { MetricRegistry } from "@/lib/sdk/metrics";
+import { isPluginFieldId, type PluginFieldOption } from "@/lib/sdk/plugin-fields";
 import { FieldGrid, type Shown } from "./field-grid";
 
 const metrics = new MetricRegistry();
@@ -54,8 +55,10 @@ function sampleInputs(ftp: number, weightKg: number | null, thresholdHr: number 
 }
 
 /** What a field shows in the editor. Interval, power and target read like the ride does. */
-function sampleShown(ref: FieldRef, inputs: FieldInputs, ftp: number): Shown {
+function sampleShown(ref: FieldRef, inputs: FieldInputs, ftp: number, plugins: readonly PluginFieldOption[]): Shown {
   if ("metric" in ref) {
+    // A plugin field runs only while riding; here it shows its name and the plugin mark.
+    if (isPluginFieldId(ref.metric)) return { label: plugins.find((p) => p.id === ref.metric)?.title ?? "Plugin field", value: undefined, unit: "", plugin: true };
     if (ref.metric === "interval.left") return { label: "Interval 2 of 7", value: "7:42", unit: "left" };
     if (ref.metric === "power") return { label: "Power", value: Math.round(ftp), unit: "W", sub: "On target", tone: "positive" };
     if (ref.metric === "power.target") return { label: "Target", value: Math.round(ftp * 1.01), unit: "W" };
@@ -83,6 +86,7 @@ export default function FieldEditor({
   onCancel,
   onDone,
   phone = isPhone(),
+  pluginFields = [],
 }: {
   initial: RideSets;
   ftp: number;
@@ -96,6 +100,8 @@ export default function FieldEditor({
   onDone: (ride: RideSets, keepCopy: boolean) => void;
   /** The iPhone's layouts only (1, 2, 4, 6), plus the page's own if it came from the computer. */
   phone?: boolean;
+  /** Fields from the rider's plugins (Lactic Modular on a computer only). */
+  pluginFields?: readonly PluginFieldOption[];
 }) {
   const [draft, setDraft] = useState<RideSets>(initial);
   const [history, setHistory] = useState<{ ride: RideSets; page: number }[]>([]);
@@ -115,7 +121,7 @@ export default function FieldEditor({
   const current = pages[Math.min(page, pages.length - 1)];
   const pageIndex = pages.indexOf(current);
   const slots = PAGE_TEMPLATES[current.template];
-  const shown = Array.from({ length: slots }, (_, i) => (current.fields[i] ? sampleShown(current.fields[i], inputs, ftp) : undefined));
+  const shown = Array.from({ length: slots }, (_, i) => (current.fields[i] ? sampleShown(current.fields[i], inputs, ftp, pluginFields) : undefined));
   const selected = slot !== null && slot < slots ? slot : null;
 
   /** Applies a change, keeping the step before it for Undo. */
@@ -230,6 +236,26 @@ export default function FieldEditor({
             <div>
               <div className="px-2 pb-1 text-xs font-semibold tracking-wide text-muted uppercase">Your custom fields</div>
               {customs.map((c) => ("custom" in c && match(c.custom.label) ? option(c, c.custom.label, "Custom") : null))}
+            </div>
+          )}
+          {pluginFields.some((p) => match(p.title)) && (
+            <div>
+              <div className="px-2 pb-1 text-xs font-semibold tracking-wide text-plugin uppercase">Plugins</div>
+              {pluginFields
+                .filter((p) => match(p.title))
+                .map((p) => (
+                  <button
+                    type="button"
+                    key={p.id}
+                    disabled={!p.on || selected === null || following}
+                    onClick={() => choose({ metric: p.id })}
+                    aria-pressed={selectedKey === p.id}
+                    className={`flex w-full items-baseline justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors enabled:hover:bg-raised disabled:cursor-not-allowed ${p.on ? "" : "text-faint"} ${selectedKey === p.id ? "bg-accent-soft" : ""}`}
+                  >
+                    <span className="min-w-0 truncate">{p.title}</span>
+                    {p.on ? <span className="max-w-[45%] shrink-0 truncate rounded border border-plugin-line bg-plugin-soft px-1.5 text-xs text-plugin">{p.pluginName}</span> : <span className="shrink-0 text-xs">Off</span>}
+                  </button>
+                ))}
             </div>
           )}
         </div>

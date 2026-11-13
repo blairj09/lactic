@@ -10,6 +10,7 @@ import { powerZone } from "../engine/workout";
 import { hrZones } from "../engine/zones";
 import type { CustomAgg, FieldRef } from "../sdk/layout";
 import { formatMetric, type MetricDef, type MetricRegistry } from "../sdk/metrics";
+import type { FieldTone } from "../sdk/plugin-fields";
 
 /** The ride so far, one value per ride second. `interval` is the workout interval's index, -1 for none. */
 export interface RideStreams {
@@ -41,6 +42,11 @@ export interface FieldShown {
   value: string | null;
   unit: string;
   reason?: string;
+  /** A plugin field's line under the number and its colour (lib/sdk/plugin-fields.ts). */
+  sub?: string;
+  tone?: FieldTone;
+  /** From a plugin: drawn with Lactic's plugin mark beside the name. */
+  plugin?: true;
 }
 
 /** What a field needs to show anything, for greying it out in the picker (review U7). */
@@ -270,4 +276,39 @@ export function showFields(refs: Iterable<FieldRef>, inp: FieldInputs, metrics: 
     if (!(key in out)) out[key] = showField(ref, inp, metrics);
   }
   return out;
+}
+
+/**
+ * The live numbers a plugin ride field may read, raw (not formatted), with the rider's profile. The
+ * plugin host passes on only the groups the rider granted that plugin.
+ */
+export function liveNumbers(inp: FieldInputs): Record<string, number | null> {
+  const s = inp.streams;
+  const p3 = s.power.length ? mean(s.power.slice(-3), "power") : (inp.power ?? null);
+  const ftp = inp.ftp > 0 ? inp.ftp : null;
+  const np = normalizedPower([...s.power]);
+  return {
+    power: inp.power ?? null,
+    "power.3s": p3,
+    heart_rate: inp.heartRate ?? null,
+    cadence: inp.cadence ?? null,
+    "ride.elapsed": inp.elapsed,
+    "workout.to_go": inp.toGo,
+    "power.pct_ftp": p3 !== null && ftp ? (p3 / ftp) * 100 : null,
+    "power.wkg": p3 !== null && inp.weightKg ? p3 / inp.weightKg : null,
+    "power.zone": p3 !== null && ftp ? powerZone(p3 / ftp) : null,
+    "heart_rate.zone": inp.heartRate !== undefined && inp.thresholdHr ? hrZone(inp.heartRate, inp.thresholdHr) : null,
+    "interval.avg_power": inp.interval === null ? mean(s.power, "power") : mean(inInterval(inp, s.power, inp.interval), "power"),
+    "interval.avg_hr": inp.interval === null ? mean(s.heartRate, "heart_rate") : mean(inInterval(inp, s.heartRate, inp.interval), "heart_rate"),
+    "so_far.power": mean(s.power, "power"),
+    "so_far.heart_rate": mean(s.heartRate, "heart_rate"),
+    "so_far.cadence": mean(s.cadence, "cadence"),
+    "so_far.np": np,
+    "so_far.tss": rideStress([...s.power], inp.ftp),
+    "so_far.kj": s.power.length ? s.power.reduce((a, b) => a + b, 0) / 1000 : null,
+    "ride.intensity": np !== null && ftp ? (np / ftp) * 100 : null,
+    "profile.ftp": ftp,
+    "profile.weight": inp.weightKg,
+    "profile.wkg": ftp && inp.weightKg ? ftp / inp.weightKg : null,
+  };
 }
