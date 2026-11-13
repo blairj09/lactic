@@ -15,6 +15,8 @@ const COMMANDS: &[&str] = &[
     "cancel_ride_end",
     "keep_awake",
     "save_widget",
+    "ride_activity",
+    "end_ride_activity",
     "web_auth",
     "register_listener",
     "remove_listener",

@@ -36,6 +36,9 @@
       <string>Any</string>
     </dict>
   </dict>
+  <!-- The ride on the lock screen and in the Dynamic Island (plugins/lactic-phone RideActivity.swift). -->
+  <key>NSSupportsLiveActivities</key>
+  <true/>
   <key>UIBackgroundModes</key>
   <array>
     <!-- Keeps the trainer and sensors connected when the screen locks mid-ride. -->
