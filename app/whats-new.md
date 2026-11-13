@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- If the connection drops while the coach writes today's brief, Lactic tries again on its own, and shows Try again instead of "error decoding response body".
 - Rest days on Today have a new illustration: your bike parked for the night under the moon and stars.
 - Before your first ride, Today shows one line about where your fitness numbers come from instead of form, fitness and fatigue at zero. The Plan page's warning about your hours limiting the build now only shows if you picked a faster pace than the default, and says it in plain words.
 - Today: This week's day tiles are shorter, and a ride that made up a session moved from another day now shows its ride shape instead of just its TSS.
