@@ -66,17 +66,36 @@ export function usePluginFields(plugins: readonly PluginRecord[], ids: readonly 
     const metrics = latest.current;
     let live = true;
     const set = (id: string, f: FieldShown) => live && setShown((s) => ({ ...s, [id]: f }));
+    // One sandbox per plugin, and calls never queue: a plugin's fields run one after another this
+    // second, so a plugin with several fields isn't "still working" on its own earlier field.
+    const byPlugin = new Map<string, string[]>();
     for (const id of key.split(",")) {
-      const { p, field } = find(id);
-      if (!p || !field || p.state !== "on") continue;
+      const pid = parsePluginFieldId(id)!.pluginId;
+      byPlugin.set(pid, [...(byPlugin.get(pid) ?? []), id]);
+    }
+    for (const ids of byPlugin.values()) {
       void (async () => {
-        const host = await pluginHost(p, createPluginWorker);
-        if (!host) return set(id, empty(field.title, PLUGIN_FIELD_WORDS.off));
-        const r = await host.call(field.entry, metrics);
-        if (!r.ok) return set(id, empty(field.title, failureWords(r.reason)));
-        const v = r.output.tree ? fieldFromKit(r.output.tree) : null;
-        set(id, v ? { label: field.title, value: v.value, unit: v.unit, ...(v.sub ? { sub: v.sub } : {}), ...(v.tone ? { tone: v.tone } : {}), plugin: true } : empty(field.title, PLUGIN_FIELD_WORDS.nothing));
-      })().catch(() => set(id, empty(field.title, PLUGIN_FIELD_WORDS.failed)));
+        for (const id of ids) {
+          const { p, field } = find(id);
+          if (!p || !field || p.state !== "on" || !live) continue;
+          try {
+            const host = await pluginHost(p, createPluginWorker);
+            if (!host) {
+              set(id, empty(field.title, PLUGIN_FIELD_WORDS.off));
+              continue;
+            }
+            const r = await host.call(field.entry, metrics);
+            if (!r.ok) {
+              set(id, empty(field.title, failureWords(r.reason)));
+              continue;
+            }
+            const v = r.output.tree ? fieldFromKit(r.output.tree) : null;
+            set(id, v ? { label: field.title, value: v.value, unit: v.unit, ...(v.sub ? { sub: v.sub } : {}), ...(v.tone ? { tone: v.tone } : {}), ...(v.chart ? { chart: v.chart } : {}), plugin: true } : empty(field.title, PLUGIN_FIELD_WORDS.nothing));
+          } catch {
+            set(id, empty(field.title, PLUGIN_FIELD_WORDS.failed));
+          }
+        }
+      })();
     }
     return () => {
       live = false;

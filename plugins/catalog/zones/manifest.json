@@ -1,0 +1,19 @@
+{
+  "apiVersion": 1,
+  "id": "zones",
+  "name": "Zones",
+  "version": "0.1.0",
+  "description": "Live ride fields for time in heart rate and power zones, and your power over the last 5 minutes.",
+  "author": "Lactic",
+  "main": "main.js",
+  "permissions": {
+    "read": ["live"]
+  },
+  "contributes": {
+    "fields": [
+      { "id": "hr-zones", "title": "HR zones", "entry": "hrZones" },
+      { "id": "power-zones", "title": "Power zones", "entry": "powerZones" },
+      { "id": "power-trend", "title": "Power, last 5 min", "entry": "powerTrend" }
+    ]
+  }
+}
