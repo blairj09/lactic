@@ -53,6 +53,7 @@ export function Big({
 /** Columns and number size for each grid template. Two columns on a phone. */
 const GRID: Record<Exclude<PageTemplate, "standard">, { cols: string; size: string }> = {
   one: { cols: "grid-cols-1", size: "text-8xl leading-[1.05] sm:text-[10rem]" },
+  two: { cols: "grid-cols-1 sm:grid-cols-2", size: "text-8xl leading-[1.05] sm:text-9xl" },
   four: { cols: "grid-cols-2", size: "text-6xl leading-[1.08] sm:text-7xl" },
   six: { cols: "grid-cols-2 sm:grid-cols-3", size: "text-5xl leading-[1.1] sm:text-6xl" },
   "six-chart": { cols: "grid-cols-2 sm:grid-cols-3", size: "text-5xl leading-[1.1] sm:text-6xl" },

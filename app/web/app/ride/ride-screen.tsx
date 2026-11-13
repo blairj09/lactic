@@ -25,7 +25,7 @@ import { useExperiments } from "@/lib/use-experiments";
 import Nav from "@/components/nav";
 import { Notice, Page, Panel, Segmented, button, input } from "@/components/ui";
 import { saveAppRide } from "../actions";
-import { deleteCustomWorkout, saveCustomWorkout, saveRideFields, setFavorite } from "./actions";
+import { deleteCustomWorkout, phoneRideFields, saveCustomWorkout, saveRideFields, setFavorite } from "./actions";
 import { allFields, pagesOf, standardSets, type RideSets } from "@/lib/ride/field-pages";
 import { showFields } from "@/lib/ride/fields";
 import { MetricRegistry } from "@/lib/sdk/metrics";
@@ -197,6 +197,11 @@ function RideOnThisDevice({
   const metrics = useMemo(() => new MetricRegistry(), []);
   /** The rider's field pages, the page on screen, and the field editor (only before a ride). */
   const [fieldSets, setFieldSets] = useState<RideSets>(() => rideFields ?? standardSets());
+  // A paired iPhone's own pages: their numbers are worked out here too, for its remote (phone/remote.tsx).
+  const [phoneSets, setPhoneSets] = useState<RideSets | null>(null);
+  useEffect(() => {
+    if (isDesktop && !isPhone()) void phoneRideFields().then(setPhoneSets);
+  }, []);
   const [fieldPage, setFieldPage] = useState(0);
   const [editingFields, setEditingFields] = useState(false);
   const [savingFields, setSavingFields] = useState(false);
@@ -822,7 +827,7 @@ function RideOnThisDevice({
   const recent = samples.current.slice(-3);
   const ridePages = pagesOf(fieldSets, erg ? "free" : "workout");
   const fieldValues = showFields(
-    allFields(fieldSets),
+    phoneSets ? [...allFields(fieldSets), ...allFields(phoneSets)] : allFields(fieldSets),
     {
       streams: { power: samples.current, heartRate: hrSamples.current, cadence: cadenceSamples.current, interval: intervalSamples.current },
       ftp,

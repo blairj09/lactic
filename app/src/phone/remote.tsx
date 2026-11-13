@@ -10,7 +10,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useLocation } from "react-router";
-import { RemoteView, formatTime, type PlayerControls } from "@/app/ride/player";
+import { RemoteView, fieldsOf, formatTime, type PlayerControls } from "@/app/ride/player";
+import { loadLayout } from "@/lib/layout-data";
+import { pagesOf, type RideSets } from "@/lib/ride/field-pages";
+import { createClient as createDb } from "~/db/supabase-client";
 import { Notice, button } from "@/components/ui";
 import { isRiding } from "@/lib/live-ride";
 import { endAlert, endAlertKey } from "@/lib/ride/end-alert";
@@ -177,7 +180,19 @@ export function ComputerRide() {
     [ask],
   );
 
-  const data = ride?.data;
+  // The phone's own ride pages (its layout, the computer's until changed here): the computer works
+  // out their numbers too. Swiping changes the page here only.
+  const [mine, setMine] = useState<RideSets | null>(null);
+  const [page, setPage] = useState(0);
+  useEffect(() => {
+    if (open) void loadLayout(createDb() as never).then((l) => setMine(l.ride), () => {});
+  }, [open]);
+  const sent = ride?.data;
+  const data = useMemo(() => {
+    if (!sent || !mine) return sent;
+    const pages = pagesOf(mine, sent.erg ? "free" : "workout");
+    return pages.length ? { ...sent, fields: { ...fieldsOf(sent), pages, page } } : sent;
+  }, [sent, mine, page]);
   const status = !data ? "" : data.ended ? "Ended" : data.running ? formatTime(data.position) : data.autoPaused ? "Paused" : data.elapsed > 0 ? "Paused" : "Ready";
   useEffect(() => setAway(ride && computer && data ? { computer, workout: data.workout.name, status } : null), [ride, computer, data, status]);
   // The remote's open (or the Ride tab's showing the computer's ride): the screen stays on until the ride ends.
@@ -212,7 +227,7 @@ export function ComputerRide() {
       </div>
       <RemoteView
         data={data}
-        controls={{ ...controls, canPlay: ride.canPlay }}
+        controls={{ ...controls, canPlay: ride.canPlay, ...(mine && { onPage: (step: 1 | -1) => setPage((p) => p + step) }) }}
         notice={lost && <Notice tone="warning">Can't reach {computer}. Check that Lactic is open there and Wi-Fi is on for both.</Notice>}
         extra={
           data.elapsed > 0 && !data.ended && !data.finished ? (

@@ -1,6 +1,7 @@
-// Lactic's home and lock screen widgets on the iPhone. Three to pick from in the widget gallery:
-// Today (recovery and the ride together, like the Today tab), Recovery (last night only) and Ride
-// (today's workout, tomorrow and the week). The app words everything (web/lib/widget-snapshot.ts) and
+// Lactic's home and lock screen widgets on the iPhone. Four to pick from in the widget gallery:
+// Today (recovery and the ride together, like the Today tab), Recovery (last night only), Ride
+// (today's workout, tomorrow and the week) and Fields (the numbers the rider picks, Fields.swift).
+// The app words everything (web/lib/widget-snapshot.ts) and
 // writes it to the App Group after each Health read and sync (plugins/lactic-phone/ios/Sources/Widgets.swift);
 // this only lays it out, with the snapshot, timeline and ring from Shared.swift. Built as an app
 // extension added to the generated Xcode project by .github/scripts/ios-project.sh.
@@ -642,5 +643,6 @@ struct LacticWidgets: WidgetBundle {
     TodayWidget()
     RecoveryWidget()
     RideWidget()
+    FieldsWidget()
   }
 }

@@ -1,8 +1,9 @@
 "use server";
 
+import type { RideSets } from "@/lib/ride/field-pages";
 import { revalidatePath } from "next/cache";
 import { readWorkout } from "@/lib/engine/workout-edit";
-import { loadLayout, saveLayout } from "@/lib/layout-data";
+import { layoutDevice, loadLayout, saveLayout } from "@/lib/layout-data";
 import { parseLayout } from "@/lib/sdk/layout";
 import { createClient } from "@/lib/supabase/server";
 
@@ -63,6 +64,18 @@ export async function setFavorite(key: string, favorite: boolean): Promise<{ ok:
 }
 
 /**
+ * The paired iPhone's ride pages, so this computer works out their numbers too and the phone's
+ * remote shows its own pages (the computer's until the phone changes them).
+ */
+export async function phoneRideFields(): Promise<RideSets | null> {
+  try {
+    return (await loadLayout(await createClient(), "phone")).ride;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Saves the ride field pages (the field editor's Done). Only the ride part of the layout changes,
  * so Today and the tabs stay as the rider left them. `keepCopy` (after Reset) first saves the
  * layout as it was under a new, inactive name, so it isn't lost.
@@ -73,7 +86,7 @@ export async function saveRideFields(input: { ride: unknown; keepCopy?: boolean 
     const current = await loadLayout(supabase);
     const ride = parseLayout({ ...current, ride: input.ride }).ride;
     if (input.keepCopy) {
-      const { error } = await supabase.from("layouts").insert({ device: "desktop", name: `Before reset, ${new Date().toISOString().slice(0, 10)}`, layout: current, active: false, updated_at: new Date().toISOString() });
+      const { error } = await supabase.from("layouts").insert({ device: layoutDevice(), name: `Before reset, ${new Date().toISOString().slice(0, 10)}`, layout: current, active: false, updated_at: new Date().toISOString() });
       if (error) throw new Error(error.message);
     }
     await saveLayout(supabase, { ...current, ride });
