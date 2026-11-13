@@ -15,6 +15,8 @@ permissions = [
   "allow-cancel-ride-end",
   "allow-keep-awake",
   "allow-save-widget",
+  "allow-ride-activity",
+  "allow-end-ride-activity",
   "allow-web-auth",
   "allow-register-listener",
   "allow-remove-listener",
