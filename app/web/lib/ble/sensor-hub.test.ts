@@ -250,3 +250,72 @@ describe("SensorHub with a trainer", () => {
     expect(trainer.writes.at(-1)).toEqual([0x05, 200, 0]);
   });
 });
+
+describe("SensorHub hands off (head unit)", () => {
+  it("reads the trainer but never writes to its control point", async () => {
+    const { writes, bikeData } = fakeTrainer();
+    const hub = new SensorHub();
+    hub.setHandsOff(true);
+    await hub.connect("trainer");
+
+    await hub.setTargetPower(200);
+    await hub.setSimulationGrade(4);
+    await settle();
+    bikeData.emit([0x44, 0x00, 0xb2, 0x0c, 0xb4, 0x00, 0xfa, 0x00]);
+
+    expect(writes).toEqual([]);
+    expect(hub.getState()).toMatchObject({ handsOff: true, powerWatts: 250, cadenceRpm: 90, trainerStatus: "Reading only" });
+    expect(hub.getState().targetWatts).toBeUndefined();
+  });
+
+  it("drops a write already queued when hands off comes on", async () => {
+    const { writes } = fakeTrainer();
+    const hub = new SensorHub();
+    await hub.connect("trainer");
+    const queued = hub.setTargetPower(200);
+    hub.setHandsOff(true);
+    await queued;
+    await settle();
+    expect(writes).toEqual([]);
+  });
+
+  it("puts nothing back on the trainer after a drop", async () => {
+    const { writes, device } = fakeTrainer();
+    const hub = new SensorHub();
+    await hub.connect("trainer");
+    await hub.setSimulationGrade(3);
+    await settle();
+    const before = writes.length;
+    hub.setHandsOff(true);
+
+    device.drop();
+    await settle();
+    await settle();
+
+    expect(device.connects).toBe(2);
+    expect(writes.length).toBe(before);
+  });
+
+  it("takes power from the power meter when there's no trainer", async () => {
+    const listeners: (() => void)[] = [];
+    const measurement = {
+      uuid: GATT.characteristic.cyclingPowerMeasurement,
+      value: undefined as DataView | undefined,
+      addEventListener: (_: string, l: () => void) => listeners.push(l),
+      startNotifications: async () => measurement,
+    };
+    const pedals = {
+      id: "pedals-1",
+      name: "PEDALS",
+      addEventListener: () => undefined,
+      gatt: { connect: async () => ({ getPrimaryService: async () => ({ getCharacteristic: async () => measurement }) }), disconnect: vi.fn() },
+    };
+    vi.stubGlobal("navigator", { bluetooth: { requestDevice: vi.fn(async () => pedals) } });
+    const hub = new SensorHub();
+    hub.setHandsOff(true);
+    await hub.connect("powerMeter");
+    measurement.value = new DataView(Uint8Array.from([0x00, 0x00, 180, 0x00]).buffer);
+    listeners.forEach((l) => l());
+    expect(hub.getState()).toMatchObject({ powerSource: "trainer", powerWatts: 180 });
+  });
+});

@@ -44,6 +44,7 @@ describe("ride field pages", () => {
   });
 
   it("lists every field across the sets", () => {
-    expect(allFields(standardSets())).toHaveLength(30);
+    // Workout, free ride and overlay share the standard 10; the head unit has its own 8.
+    expect(allFields(standardSets())).toHaveLength(38);
   });
 });

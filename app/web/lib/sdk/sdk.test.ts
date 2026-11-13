@@ -14,6 +14,7 @@ import {
   moveTab,
   nudgeCard,
   parseLayout,
+  DEFAULT_HEAD_UNIT_PAGE,
   pluginMetricId,
   removeCard,
   ridePages,
@@ -107,6 +108,20 @@ describe("layouts", () => {
     l.plugins.screens = [{ name: "Climbing", cards: [{ widget: "plugin.climb.form", size: "large", hidden: false }] }, { name: "Main", cards: [] }];
     l.plugins.placed = ["plugin.climb.form"];
     expect(parseLayout(JSON.stringify(l))).toEqual(l);
+  });
+
+  it("gives a layout saved before head units the head unit page, and keeps the rider's own", () => {
+    const old = defaultLayout() as unknown as { ride: Record<string, unknown> };
+    delete old.ride.headUnit;
+    const parsed = parseLayout(JSON.stringify(old));
+    expect(parsed.ride.headUnit).toEqual({ pages: [DEFAULT_HEAD_UNIT_PAGE] });
+    expect(parsed.ride.free).toBe("follow");
+
+    const mine = defaultLayout();
+    mine.ride.headUnit = { pages: [{ name: "Climb", template: "two", fields: [{ metric: "power.3s" }, { metric: "heart_rate" }] }] };
+    expect(parseLayout(JSON.stringify(mine)).ride.headUnit).toEqual(mine.ride.headUnit);
+    mine.ride.headUnit = "follow";
+    expect(parseLayout(JSON.stringify(mine)).ride.headUnit).toBe("follow");
   });
 
   it("falls back to the default for anything it can't read", () => {
