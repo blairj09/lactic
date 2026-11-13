@@ -17,6 +17,8 @@ export interface PluginRecord {
   source: string;
   sha256: string;
   installedAt: string;
+  /** "github:owner/repo" when added from GitHub. */
+  origin: string | null;
   /** This device's approval, if any. */
   grant: Grant | null;
   state: PluginState;
@@ -63,7 +65,7 @@ async function packageHash(manifest: PluginManifest, source: string): Promise<st
 /** Every installed plugin with this device's approval. Rows whose manifest no longer checks out are left out. */
 export async function listPlugins(): Promise<PluginRecord[]> {
   const device = deviceId();
-  const rows = await sql().select(`SELECT plugin_id, manifest, source, installed_at FROM plugins ORDER BY installed_at`);
+  const rows = await sql().select(`SELECT plugin_id, manifest, source, origin, installed_at FROM plugins ORDER BY installed_at`);
   const grants = await sql().select(`SELECT * FROM plugin_grants WHERE device = ?`, [device]);
   const out: PluginRecord[] = [];
   for (const r of rows) {
@@ -72,7 +74,7 @@ export async function listPlugins(): Promise<PluginRecord[]> {
     const grant = toGrant(grants.find((g) => g.plugin_id === r.plugin_id));
     const source = String(r.source);
     const sha256 = await packageHash(checked.manifest, source);
-    out.push({ pluginId: String(r.plugin_id), manifest: checked.manifest, source, sha256, installedAt: String(r.installed_at), grant, state: pluginState(sha256, grant) });
+    out.push({ pluginId: String(r.plugin_id), manifest: checked.manifest, source, sha256, installedAt: String(r.installed_at), origin: typeof r.origin === "string" && r.origin ? r.origin : null, grant, state: pluginState(sha256, grant) });
   }
   return out;
 }
@@ -102,23 +104,24 @@ async function saveGrant(pluginId: string, g: Grant) {
   );
 }
 
-async function savePackage(pkg: PluginPackage) {
+/** `origin` is where this exact file came from (null for a chosen file), so the source line never claims a repo the code didn't come from. */
+async function savePackage(pkg: PluginPackage, origin: string | null) {
   const now = new Date().toISOString();
   const m = pkg.manifest;
   await sql().execute(
-    `INSERT INTO plugins (id, plugin_id, name, version, manifest, source, sha256, installed_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO plugins (id, plugin_id, name, version, manifest, source, sha256, origin, installed_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (plugin_id) DO UPDATE SET name = excluded.name, version = excluded.version, manifest = excluded.manifest,
-       source = excluded.source, sha256 = excluded.sha256, updated_at = excluded.updated_at`,
-    [crypto.randomUUID(), m.id, m.name, m.version, JSON.stringify(m), pkg.source, pkg.sha256, now, now],
+       source = excluded.source, sha256 = excluded.sha256, origin = excluded.origin, updated_at = excluded.updated_at`,
+    [crypto.randomUUID(), m.id, m.name, m.version, JSON.stringify(m), pkg.source, pkg.sha256, origin, now, now],
   );
   notify();
 }
 
 /** Add a new plugin, approved and switched on for this device with the rider's choices. */
-export async function installPlugin(pkg: PluginPackage, choices: InstallChoices = {}) {
+export async function installPlugin(pkg: PluginPackage, choices: InstallChoices = {}, origin: string | null = null) {
   if (await getPlugin(pkg.manifest.id)) throw new Error(`${pkg.manifest.name} is already added; add it as an update instead`);
-  await savePackage(pkg);
+  await savePackage(pkg, origin);
   await saveGrant(pkg.manifest.id, { sha256: pkg.sha256, read: grantedGroups(pkg.manifest, choices), enabled: true, coachVisible: choices.coachVisible === true, switchedOff: null });
   notify();
 }
@@ -128,10 +131,10 @@ export async function installPlugin(pkg: PluginPackage, choices: InstallChoices 
  * this version are approved by that tap (the screen marks them); location still needs its own tick.
  * With no approval on this device yet, the screen shows the full permission list instead.
  */
-export async function updatePlugin(pkg: PluginPackage, choices: InstallChoices = {}) {
+export async function updatePlugin(pkg: PluginPackage, choices: InstallChoices = {}, origin: string | null = null) {
   const current = await getPlugin(pkg.manifest.id);
   if (!current) throw new Error("That plugin isn't added");
-  await savePackage(pkg);
+  await savePackage(pkg, origin);
   await saveGrant(pkg.manifest.id, updatedGrant(current.grant, pkg.manifest, pkg.sha256, choices));
   notify();
 }

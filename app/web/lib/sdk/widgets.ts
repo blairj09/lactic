@@ -8,7 +8,15 @@ export type Surface =
   /** A field on a ride page (and the overlay over Zwift, which uses the same fields). */
   | "ride"
   /** A field in the iPhone's home and lock screen widgets (drawn natively from a snapshot). */
-  | "phone-widget";
+  | "phone-widget"
+  /** The Plugins area, the only place a plugin's cards go (James 2026-11-13: never on Today). */
+  | "plugins";
+
+/** Surfaces a plugin's widgets may use. Today, Plan and Health are Lactic's own. */
+export const PLUGIN_SURFACES: readonly Surface[] = ["ride", "plugins"];
+
+/** Only Lactic's own cards go on Today, so it looks the same for everyone. */
+export const isTodayWidgetId = (id: string) => id.startsWith("lactic.");
 
 /**
  * Card sizes in Today's ordered column (review U1): Large takes the full width; two Medium cards

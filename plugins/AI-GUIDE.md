@@ -29,7 +29,7 @@ Types are in `sdk/src/index.ts`. Read it before writing code.
 | Kind | Where it shows | Input | Budget |
 |---|---|---|---|
 | `fields` | Ride screen field | `input.metrics` (live numbers this second, plus profile) | 20 ms |
-| `widgets` | A card on Today | `input.metrics` (day numbers) | 20 ms |
+| `widgets` | A card in the Plugins area (never on Today) | `input.metrics` (day numbers) | 20 ms |
 | `analyses` | A section on a saved ride's page | `input.ride` (whole ride) + `input.metrics` | 2 s, 128 KB |
 
 Field and widget handlers keep state between calls in ordinary variables (the starter counts seconds this way). An analysis gets the whole ride at once: `ride.watts[i]` is the power at second `i * ride.stepSeconds`.

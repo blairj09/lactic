@@ -7,7 +7,7 @@
 
 import { PAGE_TEMPLATES, parseField, TAB_IDS, type CardEntry, type FieldRef, type Layout, type PageTemplate, type RidePage, type TabId } from "./layout";
 import type { MetricRegistry } from "./metrics";
-import type { CardSize, WidgetManifest } from "./widgets";
+import { isTodayWidgetId, type CardSize, type WidgetManifest } from "./widgets";
 
 /** Which ride field set an edit is for. Free ride and the overlay follow the workout set until changed. */
 export type FieldSetId = "workout" | "free" | "overlay";
@@ -153,7 +153,7 @@ export function applyLayoutChange(input: Layout, change: LayoutChange, ctx: Layo
     return c;
   };
   const known = (id: string) => {
-    const w = ctx.widgets.find((x) => x.id === id);
+    const w = ctx.widgets.find((x) => x.id === id && isTodayWidgetId(x.id) && x.source.kind === "lactic");
     if (!w) throw new Error(`There's no card "${id}"; get_layout lists the cards that can go on Today`);
     return w;
   };

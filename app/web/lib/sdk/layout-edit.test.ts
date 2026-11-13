@@ -29,6 +29,9 @@ describe("layout edits", () => {
 
   it("refuses cards that don't exist and sizes a card doesn't come in", () => {
     expect(() => edit(defaultLayout(), { action: "add_card", widget: "plugin.evil.card" })).toThrow(/no card/);
+    // Even a real, switched-on plugin's card can't go on Today (James 2026-11-13).
+    const withPlugin = { ...ctx, widgets: [...ctx.widgets, { id: "plugin.wprime.week", name: "W′ this week", source: { kind: "plugin" as const, pluginId: "wprime", pluginName: "W′" }, sizes: ["large" as const] }] };
+    expect(() => applyLayoutChange(defaultLayout(), checkLayoutChange({ action: "add_card", widget: "plugin.wprime.week" }), withPlugin)).toThrow(/no card/);
     const small = { ...ctx, widgets: [{ ...BUILTIN_TODAY_WIDGETS[0], sizes: ["large" as const] }] };
     expect(() => applyLayoutChange(defaultLayout(), checkLayoutChange({ action: "resize_card", widget: "lactic.recovery", size: "small" }), small)).toThrow(/comes in Large/);
   });

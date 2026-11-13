@@ -28,6 +28,10 @@
   --on-primary: #ffffff;
   --accent: #2b55d6;
   --accent-soft: #e3e9fb;
+  /* Third-party plugin content: a frame and tag the plugin can't draw over (review S8). */
+  --plugin: #7a3fd1;
+  --plugin-soft: #f1eafc;
+  --plugin-line: #d6c3f3;
   --positive: #247b50;
   --negative: #b8232a;
   --warning: #8f3f0c;
@@ -80,6 +84,12 @@
     --on-primary: #000000;
     --accent: #4f7dff;
     --accent-soft: #141c33;
+  --plugin: #b48cf2;
+  --plugin-soft: #221a33;
+  --plugin-line: #44336a;
+    --plugin: #b48cf2;
+    --plugin-soft: #221a33;
+    --plugin-line: #44336a;
     --positive: #3fc07a;
     --negative: #ec5f74;
     --warning: #e5a93b;
@@ -162,6 +172,9 @@
   --color-on-primary: var(--on-primary);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-plugin: var(--plugin);
+  --color-plugin-soft: var(--plugin-soft);
+  --color-plugin-line: var(--plugin-line);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
   --color-warning: var(--warning);
