@@ -1,7 +1,8 @@
 // Lactic's window: the web app's screens, routed in the window, with the coach drawer beside them.
 
-import { useEffect, useState } from "react";
-import { HashRouter, Navigate, Route, Routes, useNavigate } from "react-router";
+import { useCallback, useEffect, useState } from "react";
+import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
+import { HEAD_UNIT_EVENT, useHeadUnitWatch } from "~/ride/head-unit-auto";
 import CoachDrawer from "@/app/coach/coach-drawer";
 import DrawerBoundary from "@/app/coach/drawer-boundary";
 import NewDayRefresh from "@/components/new-day-refresh";
@@ -50,6 +51,18 @@ const overlay = () => import("~/ride/overlay-window");
 function NavigatorBridge() {
   const navigate = useNavigate();
   useEffect(() => setNavigator((to, opts) => navigate(to, opts)), [navigate]);
+  return null;
+}
+
+/** Head unit with Zwift: when Zwift, Rouvy or MyWhoosh opens, the Ride page gets the head unit ready. */
+function HeadUnitWatcher() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const go = useCallback(() => {
+    if (pathname === "/ride") window.dispatchEvent(new CustomEvent(HEAD_UNIT_EVENT));
+    else navigate("/ride?source=headUnit");
+  }, [navigate, pathname]);
+  useHeadUnitWatch(go);
   return null;
 }
 
@@ -108,6 +121,7 @@ function Shell() {
   return (
     <>
       <NavigatorBridge />
+      {onboarded && <HeadUnitWatcher />}
       <Routes>
         <Route path="/overlay" element={<Lazy load={overlay} />} />
         <Route path="/welcome/*" element={<Lazy load={onboarding} />} />
