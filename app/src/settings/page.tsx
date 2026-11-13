@@ -22,6 +22,8 @@ import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
 import { DataPanel, SimulatorSwitch } from "./panels";
 import { SandboxCheck } from "./sandbox-check";
+import HeadUnitAuto from "~/ride/head-unit-switch";
+import { canWatchApps } from "~/ride/head-unit-auto";
 import { PluginsPanel } from "./plugins-panel";
 import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { StravaSection } from "./strava-panel";
@@ -207,6 +209,13 @@ export default async function SettingsPage() {
           <Section title="Bluetooth" description="Pair once and your gear reconnects on its own.">
             <BluetoothDevices />
           </Section>
+          {canWatchApps() && (
+            <Section id="head-unit" title="Head unit" description="Your fields over Zwift, Rouvy or any app. Pick Head unit on the Ride page.">
+              <div className="sm:col-span-2">
+                <HeadUnitAuto className="" />
+              </div>
+            </Section>
+          )}
           {import.meta.env.DEV && (
             <Section title="Simulated gear" description="Development builds only: a virtual trainer, heart rate strap, power meter and scale for testing without a bike.">
               <SimulatorSwitch />
