@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- With the AI app coach turned off, Claude and other AI apps that still list Lactic no longer show a "Couldn't start" error; they see one tool that says how to turn the coach on.
 - On iPhone, your ride shows on the lock screen and in the Dynamic Island: the interval under way with its countdown, power against target, heart rate, cadence, what's next and time left. It shows for rides on the iPhone and, while Lactic is open on it, for a ride on your computer too.
 - If the connection drops while the coach writes today's brief, Lactic tries again on its own, and shows Try again instead of "error decoding response body".
 - iPhone: the coach chat stays fitted to the screen after you type, with its title clear of the clock, no gap under the message box, and the keyboard steps aside when you send.
