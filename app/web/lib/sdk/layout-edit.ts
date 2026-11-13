@@ -9,9 +9,12 @@ import { PAGE_TEMPLATES, parseField, TAB_IDS, type CardEntry, type FieldRef, typ
 import type { MetricRegistry } from "./metrics";
 import { isTodayWidgetId, type CardSize, type WidgetManifest } from "./widgets";
 
-/** Which ride field set an edit is for. Free ride and the overlay follow the workout set until changed. */
-export type FieldSetId = "workout" | "free" | "overlay";
-export const FIELD_SETS: readonly FieldSetId[] = ["workout", "free", "overlay"];
+/**
+ * Which ride field set an edit is for. Free ride and the overlay follow the workout set until
+ * changed; the head unit (over another app, no workout) has its own pages from the start.
+ */
+export type FieldSetId = "workout" | "free" | "overlay" | "headUnit";
+export const FIELD_SETS: readonly FieldSetId[] = ["workout", "free", "overlay", "headUnit"];
 
 export type LayoutChange =
   /** Put a card on Today (or show a hidden one), after `after` or at the end. */
@@ -245,7 +248,7 @@ export function applyLayoutChange(input: Layout, change: LayoutChange, ctx: Layo
   }
 }
 
-const SET_NAMES: Record<FieldSetId, string> = { workout: "Ride fields", free: "Free ride fields", overlay: "Overlay fields" };
+const SET_NAMES: Record<FieldSetId, string> = { workout: "Ride fields", free: "Free ride fields", overlay: "Overlay fields", headUnit: "Head unit fields" };
 
 /** The edit in words, for the Apply card. */
 export function describeLayoutChange(layout: Layout, change: LayoutChange, ctx: LayoutContext): string {

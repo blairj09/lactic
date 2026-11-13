@@ -61,7 +61,7 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
       thresholdHr={state.athlete.thresholdHr}
       weightKg={state.athlete.weightKg}
       rideFields={layout.ride}
-      initialSource={source === "library" || source === "custom" || source === "erg" ? source : undefined}
+      initialSource={source === "library" || source === "custom" || source === "erg" || source === "headUnit" ? source : undefined}
     />
   );
 }

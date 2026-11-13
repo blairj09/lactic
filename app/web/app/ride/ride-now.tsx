@@ -11,14 +11,17 @@ import { Panel, Segmented, button, input } from "@/components/ui";
 import Select from "@/components/select";
 import { formatTime } from "./player";
 
-/** What the player is set up to ride: the plan's session, a generated workout, a starter library workout, one of My workouts, or free ERG. */
-export type RideSource = "planned" | "library" | "starter" | "custom" | "erg";
+/**
+ * What the player is set up to ride: the plan's session, a generated workout, a starter library
+ * workout, one of My workouts, free ERG, or a head unit ride (another app drives the trainer).
+ */
+export type RideSource = "planned" | "library" | "starter" | "custom" | "erg" | "headUnit";
 
 /** My workouts' shelves: the starter library, your saved workouts, and favorites from both. */
 type Shelf = "library" | "saved" | "favorites";
 
-/** The three ways to pick a ride: the day's session, a workout (library or your own), or a free ride. */
-type Mode = "planned" | "pick" | "erg";
+/** The ways to pick a ride: the day's session, a workout (library or your own), a free ride, or a head unit over another app. */
+type Mode = "planned" | "pick" | "erg" | "headUnit";
 
 export type LibraryKind = Zone | "rampTest";
 
@@ -136,11 +139,12 @@ export default function RideNow({
   /** Imports a workout file (.zwo, .erg or .mrc) into My workouts and loads it. */
   onFile: (file: File) => void;
 }) {
-  const mode: Mode = source === "planned" ? "planned" : source === "erg" ? "erg" : "pick";
+  const mode: Mode = source === "planned" ? "planned" : source === "erg" ? "erg" : source === "headUnit" ? "headUnit" : "pick";
   const modes: { value: Mode; label: string }[] = [
     ...(planned ? [{ value: "planned" as const, label: plannedLabel }] : []),
     { value: "pick", label: "Pick a workout" },
     { value: "erg", label: "Free ride" },
+    { value: "headUnit", label: "Head unit" },
   ];
   const session = librarySession(library, levels);
   const leveled = library.kind !== "rampTest" && library.kind !== "recovery";
@@ -175,7 +179,7 @@ export default function RideNow({
           label="What to ride"
           options={modes}
           value={mode}
-          onChange={(m) => onSource(m === "planned" ? "planned" : m === "erg" ? "erg" : "library")}
+          onChange={(m) => onSource(m === "planned" ? "planned" : m === "erg" ? "erg" : m === "headUnit" ? "headUnit" : "library")}
         />
 
         {source === "planned" && planned && (
@@ -262,6 +266,13 @@ export default function RideNow({
 
         {source === "erg" && (
           <p className="text-sm text-muted">One ERG target you change as you go. The ride runs until you pause and save it.</p>
+        )}
+
+        {source === "headUnit" && (
+          <div>
+            <p className="text-[15px] font-medium text-ink">Your fields over Zwift, Rouvy or any app</p>
+            <p className="text-sm text-muted">Lactic reads your sensors and leaves the trainer to the other app.</p>
+          </div>
         )}
       </div>
     </Panel>

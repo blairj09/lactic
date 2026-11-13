@@ -78,7 +78,8 @@ export interface Layout {
   v: number;
   tabs: TabEntry[];
   today: CardEntry[];
-  ride: { workout: { pages: RidePage[] }; free: FieldSet; overlay: FieldSet };
+  /** Head unit: the pages a head unit ride shows on the Ride page and the overlay; its own from the start. */
+  ride: { workout: { pages: RidePage[] }; free: FieldSet; overlay: FieldSet; headUnit: FieldSet };
   /**
    * The Plugins tab: its screens, and every plugin card ever placed, so a card the rider took off
    * every screen doesn't come back. Only plugin cards; plugins never go on Today.
@@ -121,12 +122,31 @@ export const DEFAULT_RIDE_PAGE: RidePage = {
   ],
 };
 
+/**
+ * A head unit ride's page (over Zwift, Rouvy or any app): no workout, so no target or interval, just
+ * the ride as it goes.
+ */
+export const DEFAULT_HEAD_UNIT_PAGE: RidePage = {
+  name: "Head unit",
+  template: "eight",
+  fields: [
+    { metric: "ride.elapsed" },
+    { metric: "power" },
+    { metric: "power.3s" },
+    { metric: "heart_rate" },
+    { metric: "cadence" },
+    { metric: "so_far.power" },
+    { metric: "so_far.np" },
+    { metric: "so_far.kj" },
+  ],
+};
+
 export function defaultLayout(): Layout {
   return {
     v: LAYOUT_VERSION,
     tabs: TAB_IDS.map((id) => ({ id, hidden: false })),
     today: DEFAULT_TODAY.map((c) => ({ ...c })),
-    ride: { workout: { pages: [structuredClone(DEFAULT_RIDE_PAGE)] }, free: "follow", overlay: "follow" },
+    ride: { workout: { pages: [structuredClone(DEFAULT_RIDE_PAGE)] }, free: "follow", overlay: "follow", headUnit: { pages: [structuredClone(DEFAULT_HEAD_UNIT_PAGE)] } },
     plugins: { screens: [{ name: "Main", cards: [] }], placed: [] },
   };
 }
@@ -170,10 +190,10 @@ function parsePages(v: unknown): RidePage[] | null {
   return pages.length ? pages : null;
 }
 
-function parseSet(v: unknown): FieldSet {
+function parseSet(v: unknown, fallback: FieldSet = "follow"): FieldSet {
   if (v === "follow") return "follow";
   const pages = parsePages(obj(v)?.pages);
-  return pages ? { pages } : "follow";
+  return pages ? { pages } : fallback;
 }
 
 /**
@@ -236,6 +256,8 @@ export function parseLayout(input: unknown): Layout {
       workout: { pages: parsePages(obj(ride?.workout)?.pages) ?? base.ride.workout.pages },
       free: parseSet(ride?.free),
       overlay: parseSet(ride?.overlay),
+      // Layouts saved before head units have none: they get the head unit page.
+      headUnit: parseSet(ride?.headUnit, base.ride.headUnit),
     },
     plugins: { screens: screens.length ? screens : base.plugins.screens, placed },
   };
@@ -250,7 +272,7 @@ function safeJson(s: string): unknown {
 }
 
 /** The pages a ride shows: a set that follows uses the workout pages (review U4). */
-export function ridePages(layout: Layout, kind: "workout" | "free" | "overlay"): RidePage[] {
+export function ridePages(layout: Layout, kind: "workout" | "free" | "overlay" | "headUnit"): RidePage[] {
   const set = kind === "workout" ? layout.ride.workout : layout.ride[kind];
   return set === "follow" ? layout.ride.workout.pages : set.pages;
 }

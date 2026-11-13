@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic Modular: Head unit on the Ride page. Ride Zwift, Rouvy or any app and Lactic shows your own fields on the overlay, plugins included, and records the ride, without ever touching your trainer. If the trainer only takes one app, Lactic uses your power meter or heart rate instead. Head unit rides aren't posted to Strava automatically, since the other app usually does.
 - With the AI app coach turned off, Claude and other AI apps that still list Lactic no longer show a "Couldn't start" error; they see one tool that says how to turn the coach on.
 - iPhone: the coach chat stays fitted to the screen after you type, with its title clear of the clock, no gap under the message box, and the keyboard steps aside when you send.
 - Lactic Modular: Settings → Plugins → Browse lists Lactic's own plugins, such as W′ Balance, Best Efforts, Matches, Fuel Reminder and Zones. Add one in two taps. Each is open source, so you can read the code to learn how it works.

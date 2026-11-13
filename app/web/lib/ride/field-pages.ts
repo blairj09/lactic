@@ -107,5 +107,5 @@ export const standardSets = (): RideSets => defaultLayout().ride;
 
 /** Every field in every set, for working out values once a second. */
 export function allFields(ride: RideSets): FieldRef[] {
-  return (["workout", "free", "overlay"] as const).flatMap((s) => pagesOf(ride, s).flatMap((p) => p.fields));
+  return (["workout", "free", "overlay", "headUnit"] as const).flatMap((s) => pagesOf(ride, s).flatMap((p) => p.fields));
 }

@@ -65,6 +65,11 @@ export interface SensorState {
   trainerStatus: string;
   /** Most recent R-R intervals in ms, newest last. */
   rrIntervalsMs: number[];
+  /**
+   * Head unit: another app (Zwift, Rouvy) drives the trainer, so Lactic only reads it. No control
+   * request, ERG target or grade ever goes to the trainer while this is on.
+   */
+  handsOff: boolean;
 }
 
 const RR_BUFFER = 600;
@@ -93,6 +98,7 @@ export class SensorHub {
     trainerStatus: "No trainer",
     rrIntervalsMs: [],
     powerSource: "trainer",
+    handsOff: false,
   };
   private listeners = new Set<() => void>();
   private devices: Partial<Record<SensorKind, BluetoothDevice>> = {};
@@ -129,9 +135,25 @@ export class SensorHub {
     this.listeners.forEach((l) => l());
   }
 
-  /** The power meter is the source and connected; otherwise the trainer stands in. */
+  /**
+   * The power meter is the source and connected; otherwise the trainer stands in. With no trainer
+   * (it's busy with another app, say) a connected power meter gives the power whatever the pick.
+   */
   private get usePowerMeter() {
-    return this.state.powerSource === "powerMeter" && this.state.connected.powerMeter !== undefined;
+    const { connected, powerSource } = this.state;
+    return connected.powerMeter !== undefined && (powerSource === "powerMeter" || connected.trainer === undefined);
+  }
+
+  /**
+   * Hands off the trainer (head unit), or back on. On, nothing more is written to the trainer's
+   * control point: targets and grades are dropped, even the ones a reconnect would put back.
+   */
+  setHandsOff(on: boolean) {
+    if (on === this.state.handsOff) return;
+    this.grade = undefined;
+    this.sentWatts = undefined;
+    const trainerStatus = !this.state.connected.trainer ? this.state.trainerStatus : on ? "Reading only" : "Trainer connected";
+    this.update({ handsOff: on, targetWatts: undefined, matchRatio: undefined, trainerStatus });
   }
 
   /**
@@ -275,8 +297,9 @@ export class SensorHub {
     this.setLink(kind, { status: "idle" });
   }
 
-  /** ERG mode. Requests control of the trainer first if we don't have it yet. */
+  /** ERG mode. Requests control of the trainer first if we don't have it yet. Does nothing hands off. */
   setTargetPower(watts: number): Promise<void> {
+    if (this.state.handsOff) return Promise.resolve();
     this.grade = undefined;
     this.update({ targetWatts: watts, matchRatio: this.usePowerMeter ? this.match.ratio : undefined });
     return this.enqueue(async (control) => {
@@ -289,7 +312,9 @@ export class SensorHub {
     });
   }
 
+  /** The trainer rides like a road at this grade. Does nothing hands off. */
   setSimulationGrade(gradePercent: number): Promise<void> {
+    if (this.state.handsOff) return Promise.resolve();
     this.update({ targetWatts: undefined, matchRatio: undefined });
     this.sentWatts = undefined;
     this.grade = gradePercent;
@@ -308,6 +333,8 @@ export class SensorHub {
 
   private enqueue(work: (control: BluetoothRemoteGATTCharacteristic) => Promise<void>): Promise<void> {
     const run = this.writes.then(async () => {
+      // Checked again when the write runs: hands off may have come on while it was queued.
+      if (this.state.handsOff) return;
       if (!this.control) throw new Error("No trainer connected");
       await work(this.control);
     });
@@ -343,7 +370,7 @@ export class SensorHub {
       }
     });
     this.hasControl = false;
-    this.update({ trainerStatus: "Trainer connected" });
+    this.update({ trainerStatus: this.state.handsOff ? "Reading only" : "Trainer connected" });
   }
 
   private async notify(service: BluetoothRemoteGATTService, uuid: number, handler: (value: DataView) => void) {
@@ -382,6 +409,8 @@ export class SensorHub {
       this.control = undefined;
       this.hasControl = false;
       this.sentWatts = undefined;
+      // Its last reading isn't live any more; with the power meter in use, its numbers stay.
+      this.update({ trainerWatts: undefined, ...(this.state.connected.powerMeter ? {} : { powerWatts: undefined, cadenceRpm: undefined }) });
     }
     if (kind === "powerMeter") {
       this.lastPower = undefined;
