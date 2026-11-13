@@ -6,6 +6,8 @@
 // raw Bluetooth writes, trainer control. While a ride is under way, only check_app runs.
 
 import { features } from "@/lib/features";
+import { loadLayout } from "@/lib/layout-data";
+import { layoutSummary } from "@/lib/sdk/layout-editor";
 import { saveFeatures } from "~/settings/features";
 import { readUnits, setUnits } from "@/lib/units";
 import { appTools, checkAppSetting, COACH_MODE_LABELS, describeAppSetting, formatProfile, GEAR_LABELS, registerAppTools, type AppSetting, type AppTools, type GearKey } from "@/lib/coach/app-tools";
@@ -173,6 +175,10 @@ export async function checkApp(area: Area | "all" = "all") {
   report.riding = isRiding();
   // Riders choose whether to track recovery and weight; what's off is hidden on purpose, not broken.
   report.tracking = { ...features(), note: "Off means hidden by the rider's choice (Settings → What you track), not a fault." };
+  // The rider's tab order and Today cards (review U10), since a customized layout changes what they see.
+  report.layout = await loadLayout(createClient() as never)
+    .then((l) => ({ ...layoutSummary(l), note: "Hidden tabs and cards were taken off by the rider (Settings → Layout, Customize Today), not missing." }))
+    .catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
   report.activityLog = recentEvents({ area: area === "all" ? undefined : (area as LogArea), limit: area === "all" ? 40 : 30 }).map((e) => `${e.at} ${e.area} ${e.level}: ${e.message}`);
   report.guide = Object.fromEntries(areas.map((a) => [a, GUIDE[a] ?? []]));
   if (area === "all") report.howLacticWorks = APP_GUIDE;

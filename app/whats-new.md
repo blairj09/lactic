@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Make Today yours: "Customize Today" at the bottom of Today lets you drag cards into any order, make them small, medium or large, and take off the ones you don't want (they wait in "Add a card"). Undo, Cancel and Reset are always there. Reorder or hide tabs in Settings → Layout.
 - Lactic Modular: choose your ride screen's numbers, like on a bike computer. Before a ride, press Customize fields to pick a layout (the usual screen, or 1, 4, 6 with the chart, 8 or 10 big numbers), tap a field to choose what it shows, and add pages you flip through with ← → or a swipe while riding. Make your own fields with no code, like 10-second power, % of FTP, this interval's average, or your best 15-second (or any length) power so far in the ride. Free rides, the overlay over Zwift and the iPhone follow the same pages unless you set them up separately.
 - Lactic Modular: ask the coach where something is and it answers from your own layout. Ask it to move a Today card, hide a tab or add a ride field and it offers the change with an Apply button; it adds rather than swaps unless you ask. Plugins you share with the coach show it numbers only, and it never installs or recommends plugins.
 - Your plan starts the day you set Lactic up: the first week's rides fit into the days left in it. If there's nothing planned that day, Today offers an easy 30-minute first ride to try your trainer.
