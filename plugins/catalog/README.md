@@ -19,7 +19,7 @@ None of them read health data or where you ride, and none appear on Today.
 
 ## Add one
 
-Open the plugin's folder, download its `.lacticplugin` file from [`dist/`](dist/), then in Lactic Modular choose Settings → Plugins → Add a plugin and pick the file. Lactic shows what it reads before anything runs.
+In Lactic Modular, choose Settings → Plugins → Browse… and pick one. The catalog ships inside the app, so nothing is downloaded, and Lactic shows what a plugin reads before anything runs.
 
 ## Learn from one
 
@@ -28,7 +28,8 @@ Start with [Ride Quality](ride-quality/src/plugin.ts) (a few lines on top of Lac
 ## How the catalog works
 
 - Each folder has `manifest.json`, `src/plugin.ts` and a README. The folder name is the plugin's `id`.
-- `dist/` holds the built files and [`index.json`](index.json) lists each with its checksum (SHA-256 of the file). Both are generated: in `app/`, run `npm run plugins:catalog`.
+- `dist/` holds the built files and [`index.json`](index.json) lists each current version with its checksum (SHA-256 of the file). Both are generated: in `app/`, run `npm run plugins:catalog`. Older versions stay in `dist/` as shipped.
+- The app bundles `dist/` and `index.json` (`app/src/plugins/catalog.ts`). It shows a plugin as "from Lactic" only when its exact code matches a bundled file, never because of anything in its manifest.
 - Each plugin has its own version, separate from Lactic's. Any change to its code or manifest needs a new version; the build refuses to change a file under an old one, so a rider who added 1.0.0 always has the same code as anyone else with 1.0.0.
 - `app/src/plugins/catalog.test.ts` checks the built files match their sources and runs every plugin through a simulated 40-minute ride, and with no data at all, in the real sandbox. A plugin that throws, runs over its 20 ms, or publishes a number its manifest doesn't declare fails CI.
 - New plugins and changes go through the same security review as Lactic's plugin sandbox: no internet, numbers only, nothing shared with the coach unless the rider turns it on.

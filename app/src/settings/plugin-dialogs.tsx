@@ -6,6 +6,8 @@ import { button, input, Notice, Result } from "@/components/ui";
 import type { MetricGroup } from "@shared/sdk";
 import type { PluginManifest } from "~/plugins/manifest";
 import { GROUP_WORDS, OPT_IN_GROUPS, type InstallChoices, type UpdateChanges } from "~/plugins/permissions";
+import { CATALOG_CODE_URL, CATALOG_ORIGIN, catalogEntries, catalogState, catalogText, type CatalogEntry } from "~/plugins/catalog";
+import { openExternal } from "~/platform/native";
 import { GitHubError, fetchFromGitHub, originOf, parseRepoLink, sourceChange, sourceLabel } from "~/plugins/github";
 
 export { sourceChange, sourceLabel };
@@ -112,6 +114,8 @@ export function PermissionDialog({
   const [error, setError] = useState<string | null>(null);
   const reads = manifest.permissions.read.filter((g) => !OPT_IN_GROUPS.includes(g));
   const list = adds(manifest);
+  // One of Lactic's own plugins: only set for a bundled package (catalog.ts; store.ts checks the hash).
+  const ours = origin === CATALOG_ORIGIN;
 
   async function go() {
     setBusy(true);
@@ -130,7 +134,7 @@ export function PermissionDialog({
       <Head manifest={manifest} origin={origin} />
       {warning && <Notice>{warning}</Notice>}
       <blockquote className="border-l-2 border-plugin-line pl-3">
-        <span className="block text-xs text-faint">The author says</span>
+        <span className="block text-xs text-faint">{ours ? "What it does" : "The author says"}</span>
         {manifest.description}
       </blockquote>
       {list.length > 0 && (
@@ -158,7 +162,7 @@ export function PermissionDialog({
       {manifest.permissions.read.includes("location") && <Checkbox checked={location} onChange={setLocation} label="Also let it see where you ride" hint="GPS routes can show where you live. It works without them." />}
       {manifest.publishes.length > 0 && <Checkbox checked={coach} onChange={setCoach} label="Let your coach see its numbers" hint="Numbers only. You can change this later." />}
       <p className="text-muted">{CANT}</p>
-      <p className="text-xs text-faint">Lactic doesn't check plugins. Approved on this computer only.</p>
+      <p className="text-xs text-faint">{ours ? "Approved on this computer only." : "Lactic doesn't check plugins. Approved on this computer only."}</p>
       {error && <Result ok={false}>{error}</Result>}
       <div className="flex justify-end gap-2">
         <button type="button" className={button.secondary} disabled={busy} onClick={onClose}>
@@ -323,6 +327,67 @@ export function GitHubDialog({ onFound, onClose }: { onFound: (text: string, ori
           </button>
         </div>
       </form>
+    </Dialog>
+  );
+}
+
+function catalogWhere(e: CatalogEntry) {
+  return [e.adds.fields.length && "Ride field", e.adds.analyses.length && "Ride page", e.adds.widgets.length && "Plugins tab"].filter(Boolean).join(" · ");
+}
+
+/** The first sentence of a catalog plugin's description, for the list. */
+const firstSentence = (text: string) => text.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text;
+
+/** Lactic's own plugins, bundled with the app. Picking one hands its text to the usual add or update screen. */
+export function BrowseDialog({ installed, onPick, onClose }: { installed: Map<string, string>; onPick: (text: string) => Promise<void>; onClose: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function pick(entry: CatalogEntry) {
+    setBusy(entry.id);
+    setError(null);
+    try {
+      await onPick(await catalogText(entry));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Dialog title="Lactic plugins" labelId="plugin-browse-title" onClose={onClose} busy={busy !== null}>
+      <p className="-mt-2 text-muted">Made by Lactic and open source. Read the code to learn how they work.</p>
+      <ul className="-mx-5 divide-y divide-line border-y border-line sm:-mx-6">
+        {catalogEntries().map((e) => {
+          const state = catalogState(e, installed.get(e.id) ?? null);
+          return (
+            <li key={e.id} className="flex items-center gap-3 px-5 py-3 sm:px-6">
+              <PluginIcon name={e.name} />
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{e.name}</p>
+                <p className="text-muted">{firstSentence(e.description)}</p>
+                <p className="text-xs text-muted">{catalogWhere(e)}</p>
+              </div>
+              {state === "added" ? (
+                <span className="flex-none text-positive">✓ Added</span>
+              ) : (
+                <button type="button" className={state === "update" ? button.smallPrimary : button.small} disabled={busy !== null} onClick={() => void pick(e)}>
+                  {busy === e.id ? "Opening…" : state === "update" ? `Update to ${e.version}` : "Add"}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {error && <Result ok={false}>{error}</Result>}
+      <div className="flex items-center justify-between gap-2">
+        <button type="button" className="text-muted underline" onClick={() => void openExternal(CATALOG_CODE_URL)}>
+          See the code on GitHub
+        </button>
+        <button type="button" className={button.secondary} disabled={busy !== null} onClick={onClose}>
+          Close
+        </button>
+      </div>
     </Dialog>
   );
 }

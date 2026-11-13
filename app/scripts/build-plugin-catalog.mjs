@@ -5,10 +5,12 @@
 // to fail if the committed files don't match the sources (CI runs the same check in Vitest).
 //
 // A plugin's built file can only change with a new version: rebuilding different code under a
-// version that's already in dist/ stops with "bump the version".
+// version that's already in dist/ stops with "bump the version". Older versions' files stay in
+// dist/ untouched: the app ships them all, so it can still tell a rider's older catalog plugin is
+// Lactic's own (app/src/plugins/catalog.ts). index.json lists only the current versions.
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -81,7 +83,13 @@ export function compare(built, root = CATALOG) {
     else if (readFileSync(path, "utf8") !== text) problems.push(`${file} doesn't match its source; bump the plugin's version and run npm run plugins:catalog`);
   }
   const dist = join(root, "dist");
-  for (const name of existsSync(dist) ? readdirSync(dist) : []) if (!(`dist/${name}` in built.files)) problems.push(`dist/${name} isn't built from any plugin; run npm run plugins:catalog`);
+  const ids = new Set(built.index.plugins.map((p) => p.id));
+  for (const name of existsSync(dist) ? readdirSync(dist) : []) {
+    if (`dist/${name}` in built.files) continue;
+    // An older version of a plugin still in the catalog is kept as it was shipped.
+    const m = name.match(/^([a-z0-9-]+)-(\d+\.\d+\.\d+)\.lacticplugin$/);
+    if (!m || !ids.has(m[1])) problems.push(`dist/${name} isn't a version of any plugin in the catalog`);
+  }
   const index = join(root, "index.json");
   if (!existsSync(index) || readFileSync(index, "utf8") !== indexText(built.index)) problems.push("index.json is out of date; run npm run plugins:catalog");
   return problems;
@@ -104,7 +112,6 @@ async function main() {
       process.exit(1);
     }
   }
-  for (const name of readdirSync(dist)) if (!(`dist/${name}` in built.files)) rmSync(join(dist, name));
   for (const [file, text] of Object.entries(built.files)) writeFileSync(join(CATALOG, file), text);
   writeFileSync(join(CATALOG, "index.json"), indexText(built.index));
   console.log(`plugins:catalog: built ${built.index.plugins.length} plugins`);
