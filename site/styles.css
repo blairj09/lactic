@@ -69,7 +69,9 @@ a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-
 .badge { font-family: var(--mono); font-size: 13px; letter-spacing: 0.04em; color: var(--accent); background: var(--accent-tint); padding: 6px 10px; border-radius: 6px; }
 h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0.045em; font-weight: 800; font-stretch: 112%; }
 .hero-side { flex: 1 1 100%; min-width: 0; display: flex; flex-wrap: wrap; gap: 18px 40px; align-items: center; justify-content: space-between; }
-.hero-side .lede { flex: 1 1 420px; max-width: 54ch; }
+.hero-side .lede-block { flex: 1 1 420px; max-width: 54ch; }
+.just-ride { margin-top: 12px; font-size: 15px; line-height: 1.5; color: var(--muted, var(--body)); }
+.just-ride strong { color: var(--ink, inherit); font-weight: 600; }
 .nowrap { white-space: nowrap; }
 .lede { font-size: clamp(18px, 1.5vw, 21px); line-height: 1.5; color: var(--body); }
 
