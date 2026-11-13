@@ -5,6 +5,7 @@
 // Failures come back in Lactic's own words.
 import { fieldFromKit, PLUGIN_FIELD_WORDS, type PluginFieldValue } from "@/lib/sdk/plugin-fields";
 import type { KitNode } from "@shared/sdk";
+import { isRiding } from "@/lib/live-ride";
 import { FAILURE_WORDS, PluginHost, type TickResult, type WorkerLike } from "./host";
 import type { PluginManifest } from "./manifest";
 import { FIELDS_UNTIL, SAMPLE_DAY, sampleLiveNumbers, sampleRide, sampleRideInput } from "./preview-sample";
@@ -29,9 +30,21 @@ export interface PreviewState {
   at: number;
   of: number;
   done: boolean;
-  /** Set when the plugin couldn't run at all. */
+  /** Set when the plugin couldn't run at all, or a ride started. */
   failed?: string;
+  /** The preview ran out of time: what's shown is as far as it got. */
+  cut?: boolean;
+  /** Parts past the caps, not previewed. */
+  more: number;
 }
+
+/**
+ * A preview runs code the rider hasn't approved yet, so it gets a fixed allowance: at most this many
+ * of each kind of part, and this long in all (wall clock) before it stops and shows what it has.
+ */
+export const PREVIEW_LIMITS = { fields: 6, analyses: 3, cards: 3, ms: 12_000 };
+
+export const PREVIEW_WORDS = { cut: "Preview cut short", riding: "No preview during a ride.", skipped: "wasn't previewed" } as const;
 
 /** Ride seconds between preview ticks. One, like a real ride: plugins keep their own per-tick history ("last 5 minutes" = 300 ticks). */
 export const PREVIEW_STEP = 1;
@@ -40,18 +53,19 @@ const words = (r: Extract<TickResult, { ok: false }>) => (Object.hasOwn(FAILURE_
 
 /** The parts a preview will draw, before anything has run. */
 export function previewParts(m: PluginManifest): PreviewPart[] {
+  const L = PREVIEW_LIMITS;
   return [
-    ...m.contributes.fields.map((c) => ({
+    ...m.contributes.fields.slice(0, L.fields).map((c) => ({
       kind: "field" as const,
       id: c.id,
       title: c.title,
     })),
-    ...(m.contributes.analyses ?? []).map((c) => ({
+    ...(m.contributes.analyses ?? []).slice(0, L.analyses).map((c) => ({
       kind: "analysis" as const,
       id: c.id,
       title: c.title,
     })),
-    ...m.contributes.widgets.map((c) => ({
+    ...m.contributes.widgets.slice(0, L.cards).map((c) => ({
       kind: "card" as const,
       id: c.id,
       title: c.title,
@@ -59,10 +73,14 @@ export function previewParts(m: PluginManifest): PreviewPart[] {
   ];
 }
 
+/** How many of a manifest's parts the caps leave out. */
+export const previewMore = (m: PluginManifest) => m.contributes.fields.length + (m.contributes.analyses ?? []).length + m.contributes.widgets.length - previewParts(m).length;
+
 /**
  * Run a plugin on the sample ride: its ride fields tick through the ride (reporting as they go),
  * then its ride analyses run on the finished ride and its cards on the sample day. `onUpdate` gets
- * each new state; `signal` stops it (the worker is ended either way). Never stores anything.
+ * each new state; `signal` stops it (the worker is ended either way). Never stores anything. It
+ * stops after PREVIEW_LIMITS.ms, and gives up at once if a ride is under way or starts.
  */
 export async function runPreview(
   manifest: PluginManifest,
@@ -70,12 +88,20 @@ export async function runPreview(
   createWorker: () => WorkerLike,
   onUpdate: (s: PreviewState) => void,
   signal: AbortSignal,
-  { step = PREVIEW_STEP, every = 30, startedAt = Date.UTC(2026, 0, 4, 8) / 1000 }: { step?: number; every?: number; startedAt?: number } = {},
+  {
+    step = PREVIEW_STEP,
+    every = 30,
+    startedAt = Date.UTC(2026, 0, 4, 8) / 1000,
+    budgetMs = PREVIEW_LIMITS.ms,
+    riding = isRiding,
+    clock = () => Date.now(),
+  }: { step?: number; every?: number; startedAt?: number; budgetMs?: number; riding?: () => boolean; clock?: () => number } = {},
 ): Promise<PreviewState> {
   const ride = sampleRide();
   const parts = previewParts(manifest);
   const until = Math.min(ride.seconds, FIELDS_UNTIL);
-  const state: PreviewState = { parts, at: 0, of: until, done: false };
+  const state: PreviewState = { parts, at: 0, of: until, done: false, more: previewMore(manifest) };
+  const deadline = clock() + budgetMs;
   const emit = () => !signal.aborted && onUpdate({ ...state, parts: parts.map((p) => ({ ...p })) });
   // No location for previews: the sample ride has no route, so the manifest is cut to the rest.
   const shown: PluginManifest = {
@@ -89,7 +115,16 @@ export async function runPreview(
   });
   const stop = () => host.stop("preview closed");
   signal.addEventListener("abort", stop);
+  // A ride is under way: say so and stop, so the ride's main thread never shares time with a preview.
+  const rideStarted = () => {
+    if (!riding()) return false;
+    state.failed = PREVIEW_WORDS.riding;
+    state.done = true;
+    emit();
+    return true;
+  };
   try {
+    if (rideStarted()) return state;
     if (!(await host.start())) {
       state.failed = `It ${host.disabledReason ?? FAILURE_WORDS["not-loaded"]}.`;
       state.done = true;
@@ -102,6 +137,11 @@ export async function runPreview(
 
     if (fields.length) {
       for (let t = 0; t < until && !signal.aborted; t += step) {
+        if (rideStarted()) return state;
+        if (clock() > deadline) {
+          state.cut = true;
+          break;
+        }
         const metrics = sampleLiveNumbers(t);
         for (const p of fields) {
           if (p.failed) continue;
@@ -120,9 +160,15 @@ export async function runPreview(
       for (const p of fields) if (!p.field && !p.failed) p.failed = PLUGIN_FIELD_WORDS.nothing;
     }
     if (signal.aborted) return state;
-    state.at = until;
+    if (!state.cut) state.at = until;
     for (const p of parts.filter((x) => x.kind !== "field")) {
       if (signal.aborted) break;
+      if (rideStarted()) return state;
+      if (clock() > deadline) {
+        state.cut = true;
+        p.failed = PREVIEW_WORDS.skipped;
+        continue;
+      }
       const r =
         p.kind === "analysis" ? await host.analyze(entry(p), sampleRideInput(startedAt), SAMPLE_DAY, startedAt + ride.seconds) : await host.call(entry(p), SAMPLE_DAY, startedAt + ride.seconds);
       if (r.ok && r.output.tree) p.tree = r.output.tree;
