@@ -6,7 +6,7 @@ import { GROUP_WORDS, type InstallChoices } from "~/plugins/permissions";
 import { approvePlugin, installPlugin, listPlugins, preparePackage, removePlugin, setCoachVisible, setPluginEnabled, updatePlugin, type PluginRecord, type Prepared } from "~/plugins/store";
 import { checkForUpdates, type Offer } from "~/plugins/updates";
 import { PACKAGE_EXTENSION } from "~/plugins/package";
-import { GitHubDialog, PermissionDialog, PluginIcon, RefusedDialog, sourceLabel, UpdateDialog } from "./plugin-dialogs";
+import { GitHubDialog, PermissionDialog, PluginIcon, RefusedDialog, sourceChange, sourceLabel, UpdateDialog } from "./plugin-dialogs";
 
 type Open =
   | { kind: "github" }
@@ -183,7 +183,8 @@ export function PluginsPanel() {
         (open.prepared.current.grant ? (
           <UpdateDialog
             manifest={open.prepared.pkg.manifest}
-            origin={open.origin ?? open.prepared.current.origin}
+            origin={open.origin}
+            previousOrigin={open.prepared.current.origin}
             changes={open.prepared.changes}
             coachVisible={open.prepared.current.grant.coachVisible}
             onClose={close}
@@ -195,8 +196,9 @@ export function PluginsPanel() {
         ) : (
           <PermissionDialog
             manifest={open.prepared.pkg.manifest}
-            origin={open.origin ?? open.prepared.current.origin}
+            origin={open.origin}
             mode="approve"
+            warning={sourceChange(open.prepared.current.origin, open.origin, open.prepared.current.manifest.version)}
             onClose={close}
             onConfirm={async (choices) => {
               await updatePlugin(open.prepared.pkg, choices, open.origin);

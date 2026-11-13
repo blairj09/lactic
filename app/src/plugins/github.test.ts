@@ -5,7 +5,7 @@ import { setSql, sql } from "~/db/sql";
 import { migrate } from "~/db/migrate";
 import { setDeviceIdForTests } from "./device";
 import { packagePlugin, parsePackage } from "./package";
-import { fetchFromGitHub, GitHubError, latestPluginFile, originOf, parseOrigin, parseRepoLink, type Fetch } from "./github";
+import { fetchFromGitHub, GitHubError, latestPluginFile, originOf, parseOrigin, parseRepoLink, sourceChange, type Fetch } from "./github";
 import { installPlugin, listPlugins, updatePlugin } from "./store";
 import { checkForUpdates, forgetUpdateChecks } from "./updates";
 
@@ -127,11 +127,30 @@ describe("update offers", () => {
     expect(older.calls).toHaveLength(2); // one check: the release, then the file
   });
 
-  it("keeps the GitHub origin when updated from a file", async () => {
+  it("stores where each file really came from: a file update clears the GitHub source, another repo replaces it", async () => {
     await install("0.4.0", originOf(REPO));
     const r = await parsePackage(packagePlugin(manifest("0.5.0"), CODE));
     if (!r.ok) throw new Error("bad");
     await updatePlugin(r.pkg);
-    expect((await listPlugins())[0].origin).toBe(originOf(REPO));
+    expect((await listPlugins())[0].origin).toBeNull();
+    const other = originOf({ owner: "someone-else", repo: "wprime-tools" });
+    const r2 = await parsePackage(packagePlugin(manifest("0.6.0"), CODE));
+    if (!r2.ok) throw new Error("bad");
+    await updatePlugin(r2.pkg, {}, other);
+    expect((await listPlugins())[0].origin).toBe(other);
+  });
+});
+
+describe("a change of source is always called out", () => {
+  const A = originOf(REPO);
+  const B = originOf({ owner: "someone-else", repo: "wprime-tools" });
+  it("warns for repo to repo, file to GitHub and GitHub to file", () => {
+    expect(sourceChange(A, B, "0.4.0")).toBe("This comes from github.com/someone-else/wprime-tools, not github.com/riderlabs/wprime-tools where you added it. If you didn't expect that, keep 0.4.0.");
+    expect(sourceChange(null, A, "0.4.0")).toMatch(/comes from github.com\/riderlabs\/wprime-tools, not a file/);
+    expect(sourceChange(A, null, "0.4.0")).toMatch(/comes from a file, not github.com\/riderlabs\/wprime-tools/);
+  });
+  it("says nothing when it's the same place", () => {
+    expect(sourceChange(A, A, "0.4.0")).toBeNull();
+    expect(sourceChange(null, null, "0.4.0")).toBeNull();
   });
 });

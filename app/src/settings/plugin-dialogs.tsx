@@ -6,12 +6,9 @@ import { button, input, Notice, Result } from "@/components/ui";
 import type { MetricGroup } from "@shared/sdk";
 import type { PluginManifest } from "~/plugins/manifest";
 import { GROUP_WORDS, OPT_IN_GROUPS, type InstallChoices, type UpdateChanges } from "~/plugins/permissions";
-import { GitHubError, fetchFromGitHub, originOf, parseOrigin, parseRepoLink, repoLabel } from "~/plugins/github";
+import { GitHubError, fetchFromGitHub, originOf, parseRepoLink, sourceChange, sourceLabel } from "~/plugins/github";
 
-export function sourceLabel(origin: string | null) {
-  const repo = parseOrigin(origin);
-  return repo ? repoLabel(repo) : "a file";
-}
+export { sourceChange, sourceLabel };
 
 export function initials(name: string) {
   const words = name.replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(Boolean);
@@ -98,12 +95,14 @@ export function PermissionDialog({
   manifest,
   origin,
   mode,
+  warning,
   onConfirm,
   onClose,
 }: {
   manifest: PluginManifest;
   origin: string | null;
   mode: "add" | "approve";
+  warning?: string | null;
   onConfirm: (choices: InstallChoices) => Promise<void>;
   onClose: () => void;
 }) {
@@ -129,6 +128,7 @@ export function PermissionDialog({
   return (
     <Dialog title={mode === "add" ? `Add “${manifest.name}”?` : `Turn on “${manifest.name}” here?`} labelId="plugin-permission-title" onClose={onClose} busy={busy}>
       <Head manifest={manifest} origin={origin} />
+      {warning && <Notice>{warning}</Notice>}
       <blockquote className="border-l-2 border-plugin-line pl-3">
         <span className="block text-xs text-faint">The author says</span>
         {manifest.description}
@@ -176,13 +176,17 @@ export function PermissionDialog({
 export function UpdateDialog({
   manifest,
   origin,
+  previousOrigin,
   changes,
   coachVisible,
   onConfirm,
   onClose,
 }: {
   manifest: PluginManifest;
+  /** Where this file came from (null for a chosen file). */
   origin: string | null;
+  /** Where the installed version came from. */
+  previousOrigin: string | null;
   changes: UpdateChanges;
   coachVisible: boolean;
   onConfirm: (choices: InstallChoices) => Promise<void>;
@@ -210,12 +214,13 @@ export function UpdateDialog({
 
   return (
     <Dialog title={`Update ${manifest.name} to ${changes.to}?`} labelId="plugin-update-title" onClose={onClose} busy={busy}>
-      <Head manifest={manifest} origin={origin} line={`You have ${changes.from} · from ${sourceLabel(origin)}`} />
+      <Head manifest={manifest} origin={origin} line={`You have ${changes.from} from ${sourceLabel(previousOrigin)} · this one is from ${sourceLabel(origin)}`} />
       {changes.author && (
         <Notice>
           The author changed from {changes.author.from} to {changes.author.to}. If you didn't expect that, keep {changes.from}.
         </Notice>
       )}
+      {sourceChange(previousOrigin, origin, changes.from) && <Notice>{sourceChange(previousOrigin, origin, changes.from)}</Notice>}
       {changes.direction === "older" && <Notice>This is an older version than yours.</Notice>}
       <div className="space-y-1">
         <p className="font-medium">What changes</p>

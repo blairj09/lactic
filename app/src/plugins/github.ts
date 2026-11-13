@@ -32,6 +32,18 @@ export function parseOrigin(origin: string | null | undefined): RepoRef | null {
 
 export const repoLabel = (r: RepoRef) => `github.com/${r.owner}/${r.repo}`;
 
+/** Words for a package coming from somewhere other than where the rider added it, or null when it's the same place. */
+export function sourceChange(from: string | null, to: string | null, keep: string): string | null {
+  if (from === to) return null;
+  return `This comes from ${sourceLabel(to)}, not ${sourceLabel(from)} where you added it. If you didn't expect that, keep ${keep}.`;
+}
+
+export function sourceLabel(origin: string | null) {
+  const repo = parseOrigin(origin);
+  return repo ? repoLabel(repo) : "a file";
+}
+
+
 /** Accepts a github.com link (any page of the repository) or owner/repo. */
 export function parseRepoLink(text: string): RepoRef | null {
   let t = text.trim();

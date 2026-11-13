@@ -104,6 +104,7 @@ async function saveGrant(pluginId: string, g: Grant) {
   );
 }
 
+/** `origin` is where this exact file came from (null for a chosen file), so the source line never claims a repo the code didn't come from. */
 async function savePackage(pkg: PluginPackage, origin: string | null) {
   const now = new Date().toISOString();
   const m = pkg.manifest;
@@ -111,7 +112,7 @@ async function savePackage(pkg: PluginPackage, origin: string | null) {
     `INSERT INTO plugins (id, plugin_id, name, version, manifest, source, sha256, origin, installed_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (plugin_id) DO UPDATE SET name = excluded.name, version = excluded.version, manifest = excluded.manifest,
-       source = excluded.source, sha256 = excluded.sha256, origin = COALESCE(excluded.origin, plugins.origin), updated_at = excluded.updated_at`,
+       source = excluded.source, sha256 = excluded.sha256, origin = excluded.origin, updated_at = excluded.updated_at`,
     [crypto.randomUUID(), m.id, m.name, m.version, JSON.stringify(m), pkg.source, pkg.sha256, origin, now, now],
   );
   notify();
