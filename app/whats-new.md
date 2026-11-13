@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic Modular: see a plugin before you add it. The add screen shows its ride fields, ride page section and cards drawn from a made-up sample ride, never your own data.
 - iPhone: the coach chat stays fitted to the screen after you type, with its title clear of the clock, no gap under the message box, and the keyboard steps aside when you send.
 - Lactic Modular: Settings → Plugins → Browse lists Lactic's own plugins, such as W′ Balance, Best Efforts, Matches, Fuel Reminder and Zones. Add one in two taps. Each is open source, so you can read the code to learn how it works.
 - Lactic Modular on iPhone: hold any Today card to rearrange Today. Drag cards, tap "–" to take one off, tap its size to change it, and add cards back from the bottom. The iPhone starts with your computer's layout and keeps its own after you change it.
