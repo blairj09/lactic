@@ -611,6 +611,28 @@ export const TABLES: Record<string, Table> = {
     primaryKey: ["id"],
     unique: [["plugin_id", "device"]],
   },
+  /**
+   * What a plugin's ride analysis drew for one saved ride (a checked kit tree), keyed to the exact
+   * package that made it, so a changed plugin runs again. Removed with the plugin or the ride.
+   */
+  plugin_analyses: {
+    columns: {
+      id,
+      plugin_id: { type: "text", notNull: true },
+      analysis: { type: "text", notNull: true },
+      activity_id: { type: "uuid", notNull: true },
+      sha256: { type: "text", notNull: true },
+      tree: { type: "json" },
+      /** Plain-words reason when it didn't produce anything. */
+      failed: { type: "text" },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    unique: [["plugin_id", "analysis", "activity_id"]],
+    foreignKeys: { activity_id: activity("cascade") },
+    indexes: [["activity_id"]],
+  },
   /** Numbers a plugin published, per day and optionally per ride. Capped per plugin (review S10). */
   plugin_values: {
     columns: {

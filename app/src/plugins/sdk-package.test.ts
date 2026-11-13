@@ -53,6 +53,10 @@ describe("starter plugin", () => {
     const r = await host.call("field", { "power.3s": 230, "profile.ftp": 250 }, 1003);
     expect(r.ok && r.output.metrics).toEqual({ "plugin.sweet-spot.seconds": 3, "plugin.sweet-spot.zone": "sweet-spot" });
     expect(r.ok && (r.output.tree as KitNode & { type: "field" }).value).toBe("0:03");
+    const ride = { startedAt: 0, durationSeconds: 120, distanceMeters: null, stepSeconds: 1, watts: new Array(120).fill(230), heartRate: null, cadence: null, target: null, intervals: [{ index: 0, kind: "steady" as const, planned: 120, ridden: 120, target: 230, power: 230, heartRate: null, cadence: null }], route: null };
+    const analysis = await host.analyze("analyze", ride, { "profile.ftp": 250 });
+    expect(analysis.ok && analysis.output.metrics).toEqual({ "plugin.sweet-spot.ride_minutes": 120 });
+    expect(analysis.ok && JSON.stringify(analysis.output.tree)).toContain('"type":"profile"');
     const card = await host.call("card", { "profile.ftp": 250 });
     expect(card.ok && JSON.stringify(card.output.tree)).toContain("220–235 W");
     host.stop();

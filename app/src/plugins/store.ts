@@ -171,6 +171,7 @@ export async function markSwitchedOff(pluginId: string, reason: string) {
 export async function removePlugin(pluginId: string) {
   await sql().batch([
     { sql: `DELETE FROM plugin_values WHERE plugin_id = ?`, params: [pluginId] },
+    { sql: `DELETE FROM plugin_analyses WHERE plugin_id = ?`, params: [pluginId] },
     { sql: `DELETE FROM plugin_grants WHERE plugin_id = ?`, params: [pluginId] },
     { sql: `DELETE FROM plugins WHERE plugin_id = ?`, params: [pluginId] },
   ]);

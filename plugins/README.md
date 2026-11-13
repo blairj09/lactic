@@ -4,8 +4,15 @@ Plugins add cards to Today and fields to the ride screen in **Lactic Modular**, 
 
 - `sdk/` is `@lactic/sdk`: TypeScript types for the plugin API, the kit, metric ids and the manifest, `definePlugin()`, and `lactic-pack`, which turns a manifest and a built bundle into a `.lacticplugin` file.
 - `starter/` is a small working plugin (Sweet Spot) to copy from.
+- `AI-GUIDE.md`: give it to an AI assistant along with these folders to have it write a plugin for you.
 
 ## What a plugin can do
+
+There are three kinds of contribution:
+
+- **widgets**: cards on Today.
+- **fields**: ride screen fields.
+- **analyses**: these run once on a saved ride (never during one) and draw on that ride's page. They get the whole ride as `input.ride`: power, heart rate, cadence and target samples, the intervals as ridden, and the GPS track only if the rider ticked "where you ride". They need `"rides"` in `permissions.read`. They have 2 seconds and can return up to 128 KB, and can use the `table` and `profile` kit pieces.
 
 A plugin is plain JavaScript that runs in a sandbox (QuickJS compiled to WebAssembly, in a worker). It has no internet, no storage, no timers, no DOM and no access to the app. It gets the metrics the rider approved, as numbers, and returns two things:
 
