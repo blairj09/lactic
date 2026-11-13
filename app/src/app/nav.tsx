@@ -13,6 +13,7 @@ import { hasHealth } from "@/lib/features";
 import { useFeatures } from "@/lib/use-features";
 import { useTabs } from "@/lib/use-tabs";
 import type { TabId } from "@/lib/sdk/layout";
+import { usePluginTab } from "~/plugins/use-plugin-tab";
 
 const LINKS: Record<TabId, { href: string; label: string }> = {
   today: { href: "/", label: "Today" },
@@ -20,6 +21,7 @@ const LINKS: Record<TabId, { href: string; label: string }> = {
   ride: { href: "/ride", label: "Ride" },
   progress: { href: "/progress", label: "Progress" },
   health: { href: "/health", label: "Health" },
+  plugins: { href: "/plugins", label: "Plugins" },
 };
 
 export default function Nav({ current }: { current: string }) {
@@ -29,8 +31,10 @@ export default function Nav({ current }: { current: string }) {
   // In the rider's order (Settings → Layout), Ride between Plan and Progress by default, in the bar and
   // the phone's tab bar alike. Hidden tabs stay out; Health also has nothing to show when the rider
   // tracks neither recovery nor weight.
+  // Plugins shows only in Lactic Modular once a plugin has a card.
+  const pluginTab = usePluginTab();
   const tabs = useTabs()
-    .filter((t) => !t.hidden && (t.id !== "health" || hasHealth(tracking)))
+    .filter((t) => !t.hidden && (t.id !== "health" || hasHealth(tracking)) && (t.id !== "plugins" || pluginTab))
     .map((t) => LINKS[t.id]);
   const coach = mode === "builtin" || mode === "external";
   return (
@@ -117,6 +121,14 @@ function TabIcon({ href }: { href: string }) {
     "/ride": <path d="M3 20V15h3v-4h3V7h3v13ZM12 15h9v5h-9" />,
     "/progress": <path d="M4 19h16M6 16l4-5 3 3 5-7" />,
     "/health": <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />,
+    "/plugins": (
+      <>
+        <rect x="4" y="4" width="7" height="7" rx="1.5" />
+        <rect x="13" y="4" width="7" height="7" rx="1.5" />
+        <rect x="4" y="13" width="7" height="7" rx="1.5" />
+        <rect x="13" y="13" width="7" height="7" rx="1.5" />
+      </>
+    ),
   };
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

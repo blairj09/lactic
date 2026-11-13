@@ -14,7 +14,8 @@ export const LAYOUT_VERSION = 1;
  * Lactic's tabs. Today (home, where the logo goes) and Ride (how a ride starts) can be moved but
  * not hidden; Settings isn't a tab on a computer and always stays.
  */
-export const TAB_IDS = ["today", "plan", "ride", "progress", "health"] as const;
+/** "plugins" shows only in Lactic Modular once a plugin has a card (src/plugins/use-plugin-tab.ts). */
+export const TAB_IDS = ["today", "plan", "ride", "progress", "health", "plugins"] as const;
 export type TabId = (typeof TAB_IDS)[number];
 export const FIXED_TABS: readonly TabId[] = ["today", "ride"];
 
@@ -67,12 +68,26 @@ export interface RidePage {
 /** A set of ride pages, or "follow" to use the workout set (review U4: one set by default). */
 export type FieldSet = { pages: RidePage[] } | "follow";
 
+/** One screen of the Plugins tab: a name and its plugin cards, in order (like a ride page). */
+export interface PluginScreen {
+  name: string;
+  cards: CardEntry[];
+}
+
 export interface Layout {
   v: number;
   tabs: TabEntry[];
   today: CardEntry[];
   ride: { workout: { pages: RidePage[] }; free: FieldSet; overlay: FieldSet };
+  /**
+   * The Plugins tab: its screens, and every plugin card ever placed, so a card the rider took off
+   * every screen doesn't come back. Only plugin cards; plugins never go on Today.
+   */
+  plugins: { screens: PluginScreen[]; placed: string[] };
 }
+
+export const MAX_PLUGIN_SCREENS = 8;
+const PLUGIN_CARD_ID = /^plugin\.[a-z0-9_.-]{1,80}$/;
 
 /** Today as it was laid out before layouts (today.tsx): recovery, weigh-in nudge, workout, brief, week, then form and last ride side by side. */
 export const DEFAULT_TODAY: readonly CardEntry[] = [
@@ -112,6 +127,7 @@ export function defaultLayout(): Layout {
     tabs: TAB_IDS.map((id) => ({ id, hidden: false })),
     today: DEFAULT_TODAY.map((c) => ({ ...c })),
     ride: { workout: { pages: [structuredClone(DEFAULT_RIDE_PAGE)] }, free: "follow", overlay: "follow" },
+    plugins: { screens: [{ name: "Main", cards: [] }], placed: [] },
   };
 }
 
@@ -192,6 +208,25 @@ export function parseLayout(input: unknown): Layout {
     }
   }
 
+  // Plugins tab: named screens of plugin cards only, each card once per screen.
+  const p = obj(o.plugins);
+  const screens: PluginScreen[] = [];
+  if (Array.isArray(p?.screens)) {
+    for (const sc of p.screens.slice(0, MAX_PLUGIN_SCREENS)) {
+      const e = obj(sc);
+      const name = text(e?.name, 24);
+      if (!e || !name || !Array.isArray(e.cards)) continue;
+      const cards: CardEntry[] = [];
+      for (const c of e.cards.slice(0, MAX_CARDS)) {
+        const ce = obj(c);
+        if (!ce || typeof ce.widget !== "string" || !PLUGIN_CARD_ID.test(ce.widget) || cards.some((x) => x.widget === ce.widget)) continue;
+        cards.push({ widget: ce.widget, size: SIZES.includes(ce.size as CardSize) ? (ce.size as CardSize) : "medium", hidden: false });
+      }
+      screens.push({ name, cards });
+    }
+  }
+  const placed = Array.isArray(p?.placed) ? [...new Set(p.placed.filter((w): w is string => typeof w === "string" && PLUGIN_CARD_ID.test(w)))].slice(0, 500) : [];
+
   const ride = obj(o.ride);
   return {
     v: LAYOUT_VERSION,
@@ -202,6 +237,7 @@ export function parseLayout(input: unknown): Layout {
       free: parseSet(ride?.free),
       overlay: parseSet(ride?.overlay),
     },
+    plugins: { screens: screens.length ? screens : base.plugins.screens, placed },
   };
 }
 

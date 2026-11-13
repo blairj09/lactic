@@ -40,7 +40,7 @@ export interface LayoutContext {
   metrics: MetricRegistry;
 }
 
-export const TAB_NAMES: Record<TabId, string> = { today: "Today", plan: "Plan", ride: "Ride", progress: "Progress", health: "Health" };
+export const TAB_NAMES: Record<TabId, string> = { today: "Today", plan: "Plan", ride: "Ride", progress: "Progress", health: "Health", plugins: "Plugins" };
 const SIZE_NAMES: Record<CardSize, string> = { small: "Small", medium: "Medium", large: "Large" };
 const SIZES: readonly CardSize[] = ["small", "medium", "large"];
 const MAX_PAGES = 8;
