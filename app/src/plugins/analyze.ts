@@ -7,7 +7,8 @@ import { createClient } from "~/db/supabase-client";
 import { loadAthlete, loadRide, loadStream } from "@/lib/activities";
 import { localDate } from "@/lib/engine/activity";
 import { validateKit, type KitNode } from "@shared/sdk";
-import type { WorkerLike } from "./host";
+import { FAILURE_WORDS, type TickFailure, type WorkerLike } from "./host";
+import { anyHiddenText } from "./validate";
 import { rideInput } from "./ride-input";
 import { pluginHost } from "./running";
 import { listPlugins, recordValues, type PluginRecord } from "./store";
@@ -19,9 +20,13 @@ export interface AnalysisResult {
   analysis: string;
   title: string;
   tree: KitNode | null;
-  /** Why there's nothing to show. */
+  /** Why there's nothing to show, in Lactic's own words. */
   failed: string | null;
 }
+
+/** What's stored in `failed`: a failure kind or "empty", never the plugin's words. Read back through this list. */
+const FAILED_WORDS: Record<string, string> = { ...FAILURE_WORDS, timeout: "took longer than 2 seconds", empty: "had nothing to show" };
+const failedWords = (code: unknown) => (typeof code === "string" && Object.hasOwn(FAILED_WORDS, code) ? FAILED_WORDS[code] : FAILED_WORDS.empty);
 
 /** Plugins that are on here, have analyses, and were granted rides. */
 function analyzers(all: PluginRecord[]): PluginRecord[] {
@@ -42,13 +47,14 @@ export async function rideAnalyses(activityId: string): Promise<AnalysisResult[]
       let tree: KitNode | null = null;
       if (typeof r.tree === "string") {
         try {
-          const kit = validateKit(JSON.parse(r.tree), { fromPlugin: true });
-          tree = kit.ok ? kit.node : null;
+          const raw = JSON.parse(r.tree);
+          const kit = anyHiddenText(raw) ? null : validateKit(raw, { fromPlugin: true });
+          tree = kit?.ok ? kit.node : null;
         } catch {
           tree = null;
         }
       }
-      out.push({ pluginId: p.pluginId, pluginName: p.manifest.name, version: p.manifest.version, analysis: a.id, title: a.title, tree, failed: r.failed ? String(r.failed) : tree ? null : "nothing to show" });
+      out.push({ pluginId: p.pluginId, pluginName: p.manifest.name, version: p.manifest.version, analysis: a.id, title: a.title, tree, failed: tree ? null : failedWords(r.failed) });
     }
   }
   return out;
@@ -101,9 +107,9 @@ export async function analyzeRide(activityId: string, createWorker: () => Worker
       }
       ran++;
       if (r.ok) {
-        await save(p, a.id, activityId, r.output.tree ?? null, r.output.tree ? null : "nothing to show");
+        await save(p, a.id, activityId, r.output.tree ?? null, r.output.tree ? null : "empty");
         if (r.output.metrics) await recordValues(p.pluginId, r.output.metrics, { day, activityId });
-      } else await save(p, a.id, activityId, null, r.reason === "timeout" ? "took longer than 2 seconds" : r.message.slice(0, 200));
+      } else await save(p, a.id, activityId, null, r.reason satisfies TickFailure);
     }
   }
   return ran;

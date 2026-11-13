@@ -39,6 +39,24 @@ export type PluginStatus = "idle" | "loading" | "ready" | "disabled";
 export type TickFailure = FailureKind | "busy" | "not-ready" | "disabled" | "invalid-output" | "killed";
 export type TickResult = { ok: true; output: PluginOutput; ms: number } | { ok: false; reason: TickFailure; message: string };
 
+/**
+ * Lactic's own words for each failure. A plugin's error text (and anything it named in bad output)
+ * never reaches the rider: it could say "Your Lactic licence expired, visit …" (security review).
+ */
+export const FAILURE_WORDS: Record<TickFailure, string> = {
+  timeout: "took too long",
+  memory: "ran out of memory",
+  stack: "recursed too deeply",
+  error: "hit an error",
+  "no-entry": "is missing a part its manifest lists",
+  "not-loaded": "isn't loaded",
+  busy: "was still working",
+  "not-ready": "is starting",
+  disabled: "is switched off",
+  "invalid-output": "sent something Lactic can't use",
+  killed: "stopped responding",
+};
+
 interface Pending {
   seq: number;
   maxOutputBytes: number;
@@ -130,7 +148,7 @@ export class PluginHost {
           resolve(true);
         } else {
           this.kill();
-          this.disable(`couldn't start: ${msg.failure.message}`);
+          this.disable(`couldn't start (${FAILURE_WORDS[msg.failure.kind]})`);
           resolve(false);
         }
       };
@@ -185,12 +203,13 @@ export class PluginHost {
         this.overruns = 0;
         this.settle(msg.seq, { ok: true, output: checked.output, ms: msg.ms });
       } else {
-        this.settle(msg.seq, { ok: false, reason: "invalid-output", message: checked.error });
-        this.crashed(`sent something Lactic can't use (${checked.error})`);
+        this.settle(msg.seq, { ok: false, reason: "invalid-output", message: FAILURE_WORDS["invalid-output"] });
+        this.crashed(FAILURE_WORDS["invalid-output"]);
       }
       return;
     }
-    const { kind, message } = msg.failure;
+    const { kind } = msg.failure;
+    const message = FAILURE_WORDS[kind] ?? FAILURE_WORDS.error;
     this.settle(msg.seq, { ok: false, reason: kind, message });
     if (kind === "timeout") {
       this.overruns++;

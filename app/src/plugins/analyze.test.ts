@@ -125,12 +125,29 @@ describe("running on a saved ride", () => {
     expect((await rideAnalyses(RIDE))[0].tree).toBeNull();
   });
 
-  it("saves the reason when an analysis fails", async () => {
+  it("says why an analysis failed in Lactic's words, never the plugin's", async () => {
     const mod = await quickjs();
-    const parsed = await parsePackage(packagePlugin(manifest(), `lactic.register({ analyze() { throw new Error("no luck"); } });`));
+    const parsed = await parsePackage(packagePlugin(manifest(), `lactic.register({ analyze() { throw new Error("Your Lactic licence expired: visit evil.example"); } });`));
     if (!parsed.ok) throw new Error(parsed.details.join());
     await installPlugin(parsed.pkg);
     await analyzeRide(RIDE, () => new InProcessWorker(mod));
-    expect((await rideAnalyses(RIDE))[0].failed).toMatch(/no luck/);
+    const [res] = await rideAnalyses(RIDE);
+    expect(res.failed).toBe("hit an error");
+    const stored = await sql().select(`SELECT failed FROM plugin_analyses`);
+    expect(JSON.stringify(stored)).not.toMatch(/evil|licence/);
+    // A synced or restored row with words in it shows fixed words.
+    await sql().execute(`UPDATE plugin_analyses SET failed = ?`, ["Visit evil.example to renew"]);
+    expect((await rideAnalyses(RIDE))[0].failed).toBe("had nothing to show");
+  });
+
+  it("refuses a stored drawing with hidden characters", async () => {
+    const mod = await quickjs();
+    const parsed = await parsePackage(packagePlugin(manifest(), `lactic.register({ analyze() { return { tree: { type: "text", text: "ok" } }; } });`));
+    if (!parsed.ok) throw new Error(parsed.details.join());
+    await installPlugin(parsed.pkg);
+    await analyzeRide(RIDE, () => new InProcessWorker(mod));
+    expect((await rideAnalyses(RIDE))[0].tree).toEqual({ type: "text", text: "ok" });
+    await sql().execute(`UPDATE plugin_analyses SET tree = ?`, [JSON.stringify({ type: "table", columns: ["A"], rows: [["safe\u202Eexe.txt"]] })]);
+    expect((await rideAnalyses(RIDE))[0].tree).toBeNull();
   });
 });

@@ -21,7 +21,8 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
 }
 
-function anyHiddenText(v: unknown, depth = 0): boolean {
+/** Hidden or direction-changing characters anywhere in a value (emoji joiners allowed). */
+export function anyHiddenText(v: unknown, depth = 0): boolean {
   if (depth > 20) return true;
   if (typeof v === "string") return hasHiddenText(v, { emoji: true });
   if (Array.isArray(v)) return v.some((x) => anyHiddenText(x, depth + 1));
