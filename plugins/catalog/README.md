@@ -4,15 +4,15 @@ Official plugins for **Lactic Modular**: add them as they are, or read them to l
 
 | Plugin | Adds | Reads | Version |
 | --- | --- | --- | --- |
-| [Best Efforts](best-efforts/) | ride field, ride page | live, rides, profile | 1.0.0 |
-| [Cadence Bands](cadence-bands/) | ride field, ride page | live, rides | 1.0.0 |
-| [Aerobic Decoupling](decoupling/) | ride field, ride page | live, rides | 1.0.0 |
-| [Form Zones](form-zones/) | Plugins tab | fitness | 1.0.0 |
-| [Fuel Reminder](fuel/) | ride field | live | 1.0.0 |
-| [Matches](matches/) | ride field, ride page | live, rides, profile | 1.0.0 |
-| [On Target](on-target/) | ride field, ride page | live, rides | 1.0.0 |
-| [Ride Quality](ride-quality/) | ride field, ride page | live, rides, profile | 1.0.0 |
-| [W′ Balance](w-prime/) | ride field, ride page | live, rides, profile | 1.0.0 |
+| [Best Efforts](best-efforts/) | ride field, ride page | live, rides, profile | 1.0.1 |
+| [Cadence Bands](cadence-bands/) | ride field, ride page | live, rides | 1.0.1 |
+| [Aerobic Decoupling](decoupling/) | ride field, ride page | live, rides | 1.0.1 |
+| [Form Zones](form-zones/) | Plugins tab | fitness | 1.0.1 |
+| [Fuel Reminder](fuel/) | ride field | live | 1.0.1 |
+| [Matches](matches/) | ride field, ride page | live, rides, profile | 1.0.1 |
+| [On Target](on-target/) | ride field, ride page | live, rides | 1.0.1 |
+| [Ride Quality](ride-quality/) | ride field, ride page | live, rides, profile | 1.0.1 |
+| [W′ Balance](w-prime/) | ride field, ride page | live, rides, profile | 1.0.1 |
 
 None of them read health data or where you ride, and none appear on Today.
 

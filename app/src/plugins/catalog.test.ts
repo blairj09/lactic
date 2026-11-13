@@ -118,6 +118,10 @@ describe("plugin catalog", () => {
     expect(compare(built)).toEqual([]);
   });
 
+  it("has no author that could pass for Lactic", () => {
+    for (const p of built.index.plugins) expect(JSON.parse(readFileSync(join(CATALOG, p.id, "manifest.json"), "utf8")).author).toBeUndefined();
+  });
+
   it("has between 8 and 12 plugins, each with a README", () => {
     expect(built.index.plugins.length).toBeGreaterThanOrEqual(8);
     expect(built.index.plugins.length).toBeLessThanOrEqual(12);
@@ -126,7 +130,8 @@ describe("plugin catalog", () => {
   });
 
   for (const entry of built.index.plugins) {
-    it(`${entry.id} runs through a ride, with and without data`, async () => {
+    // Concurrent: each plugin has its own host, and most of the time is waiting on message hops.
+    it.concurrent(`${entry.id} runs through a ride, with and without data`, async () => {
       const { pkg, host } = await load(entry.id);
       const c = pkg.manifest.contributes;
       // Nothing yet: no ride, no profile.
