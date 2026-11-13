@@ -11,22 +11,27 @@ import { FeedbackButton } from "~/feedback/dialog";
 import { isDemo } from "~/demo/flag";
 import { hasHealth } from "@/lib/features";
 import { useFeatures } from "@/lib/use-features";
+import { useTabs } from "@/lib/use-tabs";
+import type { TabId } from "@/lib/sdk/layout";
 
-const LINKS = [
-  { href: "/", label: "Today" },
-  { href: "/plan", label: "Plan" },
-  { href: "/progress", label: "Progress" },
-  { href: "/health", label: "Health" },
-];
+const LINKS: Record<TabId, { href: string; label: string }> = {
+  today: { href: "/", label: "Today" },
+  plan: { href: "/plan", label: "Plan" },
+  ride: { href: "/ride", label: "Ride" },
+  progress: { href: "/progress", label: "Progress" },
+  health: { href: "/health", label: "Health" },
+};
 
 export default function Nav({ current }: { current: string }) {
   const mode = useCoachMode();
   const mcp = useMcpOn();
   const tracking = useFeatures();
-  // Health has nothing to show when the rider tracks neither recovery nor weight.
-  const links = LINKS.filter((l) => l.href !== "/health" || hasHealth(tracking));
-  // Ride sits between Plan and Progress, in the bar and in the phone's tab bar alike.
-  const tabs = [...links.slice(0, 2), { href: "/ride", label: "Ride" }, ...links.slice(2)];
+  // In the rider's order (Settings → Layout), Ride between Plan and Progress by default, in the bar and
+  // the phone's tab bar alike. Hidden tabs stay out; Health also has nothing to show when the rider
+  // tracks neither recovery nor weight.
+  const tabs = useTabs()
+    .filter((t) => !t.hidden && (t.id !== "health" || hasHealth(tracking)))
+    .map((t) => LINKS[t.id]);
   const coach = mode === "builtin" || mode === "external";
   return (
     <>

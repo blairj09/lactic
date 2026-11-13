@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { cardRows, defaultLayout, formatMetric, isMetricId, LACTIC_METRICS, MetricRegistry, parseLayout, pluginMetricId, ridePages, validateKit, withNewCards } from "./index";
+import {
+  addCard,
+  cardRows,
+  defaultLayout,
+  formatMetric,
+  hiddenCards,
+  isMetricId,
+  LACTIC_METRICS,
+  layoutChanges,
+  layoutSummary,
+  MetricRegistry,
+  moveCard,
+  moveTab,
+  nudgeCard,
+  parseLayout,
+  pluginMetricId,
+  removeCard,
+  ridePages,
+  rowColumns,
+  sameLayout,
+  setTabHidden,
+  shownCards,
+  sizeCard,
+  validateKit,
+  withNewCards,
+} from "./index";
 
 describe("metric registry", () => {
   it("has well-formed, unique ids", () => {
@@ -88,13 +113,13 @@ describe("layouts", () => {
     expect(parseLayout({ v: 1, today: "x", ride: { workout: { pages: [] } } })).toEqual(defaultLayout());
   });
 
-  it("drops unknown and duplicate entries, plugin cards on Today, and never hides Ride", () => {
+  it("drops unknown and duplicate entries, plugin cards on Today, and never hides Today or Ride", () => {
     const l = parseLayout({
       v: 1,
       tabs: [{ id: "ride", hidden: true }, { id: "coach" }, { id: "today", hidden: true }, { id: "today" }],
       today: [{ widget: "lactic.form", size: "huge" }, { widget: "lactic.form" }, { widget: "<script>" }, { widget: "plugin.climb-lab.readiness", size: "small", extra: 1 }],
     });
-    expect(l.tabs.slice(0, 2)).toEqual([{ id: "ride", hidden: false }, { id: "today", hidden: true }]);
+    expect(l.tabs.slice(0, 2)).toEqual([{ id: "ride", hidden: false }, { id: "today", hidden: false }]);
     expect(l.tabs).toHaveLength(5);
     expect(l.today).toEqual([{ widget: "lactic.form", size: "large", hidden: false }]);
   });
@@ -174,5 +199,55 @@ describe("Today's card rows", () => {
       () => true,
     );
     expect(rows.map((r) => r.widgets)).toEqual([["lactic.form", "lactic.recovery"], ["lactic.brief"], ["lactic.last-ride"]]);
+  });
+});
+
+describe("layout edits", () => {
+  it("moves shown cards without disturbing hidden ones", () => {
+    let l = removeCard(defaultLayout(), "lactic.weigh-in");
+    l = moveCard(l, "lactic.brief", 3); // below This week
+    expect(l.today.map((c) => c.widget)).toEqual(["lactic.recovery", "lactic.weigh-in", "lactic.workout", "lactic.this-week", "lactic.brief", "lactic.form", "lactic.last-ride"]);
+    expect(nudgeCard(l, "lactic.recovery", -1)).toBe(l);
+    expect(shownCards(nudgeCard(l, "lactic.recovery", 1))[1].widget).toBe("lactic.recovery");
+  });
+
+  it("only sizes a card to sizes it supports", () => {
+    const l = defaultLayout();
+    expect(sizeCard(l, "lactic.workout", "small")).toBe(l);
+    expect(sizeCard(l, "lactic.form", "small").today.find((c) => c.widget === "lactic.form")?.size).toBe("small");
+  });
+
+  it("adds a hidden card back at the bottom", () => {
+    const l = addCard(removeCard(defaultLayout(), "lactic.recovery"), "lactic.recovery");
+    expect(l.today.at(-1)).toEqual({ widget: "lactic.recovery", size: "large", hidden: false });
+    expect(hiddenCards(l)).toEqual([]);
+  });
+
+  it("moves tabs and never hides Today or Ride", () => {
+    let l = moveTab(defaultLayout(), "ride", 1);
+    expect(l.tabs.map((t) => t.id)).toEqual(["today", "ride", "plan", "progress", "health"]);
+    expect(setTabHidden(l, "today", true)).toBe(l);
+    expect(setTabHidden(l, "ride", true)).toBe(l);
+    l = setTabHidden(l, "health", true);
+    expect(l.tabs.at(-1)).toEqual({ id: "health", hidden: true });
+  });
+
+  it("describes changes for a saved copy's name and summarizes for feedback", () => {
+    const base = defaultLayout();
+    let l = setTabHidden(base, "health", true);
+    l = moveCard(l, "lactic.brief", 4);
+    l = sizeCard(removeCard(l, "lactic.last-ride"), "lactic.form", "large");
+    expect(layoutChanges(l, base)).toEqual(["Health tab hidden", "Form made large", "Last ride removed", "cards moved"]);
+    expect(layoutChanges(base, base)).toEqual([]);
+    expect(sameLayout(base, defaultLayout())).toBe(true);
+    expect(layoutSummary(l).tabs.at(-1)).toBe("health (hidden)");
+  });
+
+  it("spreads a short row of Medium or Small cards across the width", () => {
+    expect(rowColumns({ size: "medium", widgets: ["a"] })).toBe(1);
+    expect(rowColumns({ size: "medium", widgets: ["a", "b"] })).toBe(2);
+    expect(rowColumns({ size: "small", widgets: ["a", "b"] })).toBe(2);
+    expect(rowColumns({ size: "small", widgets: ["a", "b", "c"] })).toBe(3);
+    expect(rowColumns({ size: "large", widgets: ["a"] })).toBe(1);
   });
 });
