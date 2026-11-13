@@ -8,6 +8,7 @@ import type { PluginManifest } from "~/plugins/manifest";
 import { GROUP_WORDS, OPT_IN_GROUPS, type InstallChoices, type UpdateChanges } from "~/plugins/permissions";
 import { CATALOG_CODE_URL, CATALOG_ORIGIN, catalogEntries, catalogState, catalogText, type CatalogEntry } from "~/plugins/catalog";
 import { openExternal } from "~/platform/native";
+import { PluginPreview } from "./plugin-preview";
 import { GitHubError, fetchFromGitHub, originOf, parseRepoLink, sourceChange, sourceLabel } from "~/plugins/github";
 
 export { sourceChange, sourceLabel };
@@ -21,7 +22,7 @@ export function PluginIcon({ name }: { name: string }) {
   return <span className="flex size-9 flex-none items-center justify-center rounded-md bg-plugin-soft text-xs font-semibold text-plugin">{initials(name)}</span>;
 }
 
-function Dialog({ title, labelId, onClose, busy, children }: { title: React.ReactNode; labelId: string; onClose: () => void; busy?: boolean; children: React.ReactNode }) {
+function Dialog({ title, labelId, onClose, busy, wide, children }: { title: React.ReactNode; labelId: string; onClose: () => void; busy?: boolean; wide?: boolean; children: React.ReactNode }) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     panel.current?.focus();
@@ -34,7 +35,7 @@ function Dialog({ title, labelId, onClose, busy, children }: { title: React.Reac
       className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/50 px-2 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-16 sm:pb-16"
       onClick={(e) => e.target === e.currentTarget && !busy && onClose()}
     >
-      <div ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={labelId} className="relative w-full max-w-lg space-y-4 rounded-xl border border-line bg-ground p-5 text-sm shadow-2xl outline-none sm:p-6">
+      <div ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={labelId} className={`relative w-full ${wide ? "max-w-2xl" : "max-w-lg"} space-y-4 rounded-xl border border-line bg-ground p-5 text-sm shadow-2xl outline-none sm:p-6`}>
         <h2 id={labelId} className="text-lg font-semibold">
           {title}
         </h2>
@@ -95,6 +96,7 @@ function Head({ manifest, origin, line }: { manifest: PluginManifest; origin: st
 /** Add a new plugin, or approve one on this computer (it came by sync or a backup, or changed). */
 export function PermissionDialog({
   manifest,
+  source,
   origin,
   mode,
   warning,
@@ -102,6 +104,8 @@ export function PermissionDialog({
   onClose,
 }: {
   manifest: PluginManifest;
+  /** The plugin's code, for a preview on the sample ride. Left out, the screen lists what it adds. */
+  source?: string;
   origin: string | null;
   mode: "add" | "approve";
   warning?: string | null;
@@ -130,14 +134,16 @@ export function PermissionDialog({
   }
 
   return (
-    <Dialog title={mode === "add" ? `Add “${manifest.name}”?` : `Turn on “${manifest.name}” here?`} labelId="plugin-permission-title" onClose={onClose} busy={busy}>
+    <Dialog title={mode === "add" ? `Add “${manifest.name}”?` : `Turn on “${manifest.name}” here?`} labelId="plugin-permission-title" onClose={onClose} busy={busy} wide={Boolean(source && list.length)}>
       <Head manifest={manifest} origin={origin} />
       {warning && <Notice>{warning}</Notice>}
       <blockquote className="border-l-2 border-plugin-line pl-3">
         <span className="block text-xs text-faint">{ours ? "What it does" : "The author says"}</span>
         {manifest.description}
       </blockquote>
-      {list.length > 0 && (
+      {source && list.length > 0 ? (
+        <PluginPreview manifest={manifest} source={source} />
+      ) : list.length > 0 && (
         <div className="space-y-1">
           <p className="font-medium">Adds</p>
           <ul className="space-y-0.5 text-muted">
