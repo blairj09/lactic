@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- If the connection drops while the coach writes today's brief, Lactic tries again on its own, and shows Try again instead of "error decoding response body".
 - Lactic Modular: Settings → Plugins → Browse lists Lactic's own plugins, such as W′ Balance, Best Efforts, Matches, Fuel Reminder and Zones. Add one in two taps. Each is open source, so you can read the code to learn how it works.
 - Lactic Modular on iPhone: hold any Today card to rearrange Today. Drag cards, tap "–" to take one off, tap its size to change it, and add cards back from the bottom. The iPhone starts with your computer's layout and keeps its own after you change it.
 - Lactic Modular on iPhone: set up ride fields on the phone. Tap a field to pick what it shows, choose 1, 2, 4 or 6 big numbers a page, and swipe between pages. When the phone is the remote for a ride on your computer, it shows its own pages.
