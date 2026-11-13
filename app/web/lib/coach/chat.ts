@@ -18,6 +18,7 @@ import { appTools } from "./app-tools";
 import { todayOptions } from "../today-options";
 import { experiments } from "../experiments";
 import { APP_GUIDE } from "./app-guide";
+import { PLUGIN_DRAFT_GUIDE } from "./plugin-draft";
 import { FEEDBACK_TOOLS, forFeatures, MEMORY_TOOLS, PICK_TOOLS, READ_TOOL_NAMES, runTool, status, TODAY_TOOLS, TOOLS, type CoachData, type FeedbackDraft, type MemoryOp } from "./tools";
 
 export interface ChatTurn {
@@ -111,8 +112,10 @@ function system(instructions: string, data: CoachData, summary: string, page?: s
 
 /** Answers the latest user message in `history`. `page` describes the page they're on (page-context.ts). */
 export async function coachChat(complete: Complete, data: CoachData, history: ChatTurn[], summary = "", hooks: ChatHooks = {}, page?: string | null): Promise<ChatReply> {
+  // Lactic Modular's shell offers draft_plugin; only then is the coach told about drafting plugins.
+  const drafts = Boolean(appTools()?.tools.some((t) => t.function.name === "draft_plugin"));
   const messages: ChatMessage[] = [
-    { role: "system", content: system(CHAT, data, summary, page) },
+    { role: "system", content: system(drafts ? `${CHAT}\n${PLUGIN_DRAFT_GUIDE}` : CHAT, data, summary, page) },
     ...turnsForModel(history.slice(-HISTORY_MESSAGES)).map((m) => ({ role: m.role, content: m.content })),
   ];
   // Feedback is offered once a conversation: after that the tool isn't there to call.
