@@ -151,6 +151,8 @@ export function validateManifest(raw: unknown): ManifestResult {
   const version = c.str(top.version, "manifest.version", 32, SEMVER_RE);
   const description = c.str(top.description, "manifest.description", 200);
   const author = top.author === undefined ? undefined : c.str(top.author, "manifest.author", 60);
+  // "by Lactic" on the permission screen must never come from a plugin's own manifest.
+  if (author && looksLikeLactic(author)) c.fail("manifest.author", "can't look like Lactic's own name");
   let homepage: string | undefined;
   if (top.homepage !== undefined) {
     homepage = c.str(top.homepage, "manifest.homepage", 200);

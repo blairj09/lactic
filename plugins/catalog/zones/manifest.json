@@ -4,7 +4,7 @@
   "name": "Zones",
   "version": "0.1.0",
   "description": "Live ride fields for time in heart rate and power zones, and your power over the last 5 minutes.",
-  "author": "Lactic",
+  "homepage": "https://github.com/blairj09/lactic/tree/modular-ui/plugins/catalog/zones",
   "main": "main.js",
   "permissions": {
     "read": ["live"]

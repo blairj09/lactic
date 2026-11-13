@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",
+    "plugins:catalog": "node scripts/build-plugin-catalog.mjs",
     "lint": "eslint src evals",
     "eval:coach": "vite-node evals/cli.ts --",
     "tauri": "tauri",

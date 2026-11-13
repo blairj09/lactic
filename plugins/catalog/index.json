@@ -1,0 +1,232 @@
+{
+  "catalog": 1,
+  "plugins": [
+    {
+      "id": "best-efforts",
+      "name": "Best Efforts",
+      "version": "1.0.1",
+      "description": "Your best 5-minute power so far during a ride, and your best 5 seconds to 60 minutes after it.",
+      "reads": [
+        "live",
+        "rides",
+        "profile"
+      ],
+      "adds": {
+        "fields": [
+          "Best 5 min"
+        ],
+        "analyses": [
+          "Best efforts"
+        ],
+        "widgets": []
+      },
+      "source": "best-efforts/src/plugin.ts",
+      "file": "dist/best-efforts-1.0.1.lacticplugin",
+      "bytes": 4077,
+      "sha256": "024755fab1e9206d0e40fad0e31ae5af8770b61480de932d4bef6d183ade98e7"
+    },
+    {
+      "id": "cadence-bands",
+      "name": "Cadence Bands",
+      "version": "1.0.1",
+      "description": "Your cadence smoothed over 30 seconds with a trend line, and how long you spent in each cadence band after the ride.",
+      "reads": [
+        "live",
+        "rides"
+      ],
+      "adds": {
+        "fields": [
+          "Cadence 30 s"
+        ],
+        "analyses": [
+          "Cadence bands"
+        ],
+        "widgets": []
+      },
+      "source": "cadence-bands/src/plugin.ts",
+      "file": "dist/cadence-bands-1.0.1.lacticplugin",
+      "bytes": 3813,
+      "sha256": "705b434ce087a18fca64855d61e4e0347e9f991be61ac0d8b8405477b7b5fed6"
+    },
+    {
+      "id": "decoupling",
+      "name": "Aerobic Decoupling",
+      "version": "1.0.1",
+      "description": "How far your heart rate drifts up against your power over a steady ride. Under 5% is a sign of good aerobic fitness.",
+      "reads": [
+        "live",
+        "rides"
+      ],
+      "adds": {
+        "fields": [
+          "HR drift"
+        ],
+        "analyses": [
+          "Aerobic decoupling"
+        ],
+        "widgets": []
+      },
+      "source": "decoupling/src/plugin.ts",
+      "file": "dist/decoupling-1.0.1.lacticplugin",
+      "bytes": 4388,
+      "sha256": "17a3e6ab572083be0355357ee792c1c5130022c2040fae0cb7b598831220fbe9"
+    },
+    {
+      "id": "form-zones",
+      "name": "Form Zones",
+      "version": "1.0.1",
+      "description": "Places today's form (fitness minus fatigue) in a training zone, from fresh to overreaching, as a card in Plugins.",
+      "reads": [
+        "fitness"
+      ],
+      "adds": {
+        "fields": [],
+        "analyses": [],
+        "widgets": [
+          "Form zone"
+        ]
+      },
+      "source": "form-zones/src/plugin.ts",
+      "file": "dist/form-zones-1.0.1.lacticplugin",
+      "bytes": 2326,
+      "sha256": "4869a1fff24e40f599f22edd6e5f2f5bdedfa150072ff7f2d7e43fa6d9cb5880"
+    },
+    {
+      "id": "fuel",
+      "name": "Fuel Reminder",
+      "version": "1.0.1",
+      "description": "Reminds you to eat every 20 minutes on longer rides, with a carb amount that goes up when you ride harder.",
+      "reads": [
+        "live"
+      ],
+      "adds": {
+        "fields": [
+          "Fuel"
+        ],
+        "analyses": [],
+        "widgets": []
+      },
+      "source": "fuel/src/plugin.ts",
+      "file": "dist/fuel-1.0.1.lacticplugin",
+      "bytes": 2291,
+      "sha256": "cc8e4cb5268eface83613e166878c6c17c8a55ab448bfd6d58bc85006211251e"
+    },
+    {
+      "id": "matches",
+      "name": "Matches",
+      "version": "1.0.1",
+      "description": "Counts the hard efforts above threshold you make in a ride (\"matches burned\") and lists each one after.",
+      "reads": [
+        "live",
+        "rides",
+        "profile"
+      ],
+      "adds": {
+        "fields": [
+          "Matches"
+        ],
+        "analyses": [
+          "Matches burned"
+        ],
+        "widgets": []
+      },
+      "source": "matches/src/plugin.ts",
+      "file": "dist/matches-1.0.1.lacticplugin",
+      "bytes": 5768,
+      "sha256": "74b2be5557ee1b3ee00237947fd46cf572f822ffc265008b2ff63c9d57503f2d"
+    },
+    {
+      "id": "on-target",
+      "name": "On Target",
+      "version": "1.0.1",
+      "description": "How close each workout interval's power is to its target, live and interval by interval after the ride.",
+      "reads": [
+        "live",
+        "rides"
+      ],
+      "adds": {
+        "fields": [
+          "On target"
+        ],
+        "analyses": [
+          "Intervals vs target"
+        ],
+        "widgets": []
+      },
+      "source": "on-target/src/plugin.ts",
+      "file": "dist/on-target-1.0.1.lacticplugin",
+      "bytes": 3374,
+      "sha256": "c3370341c538116efc5f44890e7d9dd6161da794fb2a78d653c9d16fdc693127"
+    },
+    {
+      "id": "ride-quality",
+      "name": "Ride Quality",
+      "version": "1.0.1",
+      "description": "How steady you rode (variability index), how efficiently (watts per heartbeat) and how hard (intensity factor).",
+      "reads": [
+        "live",
+        "rides",
+        "profile"
+      ],
+      "adds": {
+        "fields": [
+          "Variability"
+        ],
+        "analyses": [
+          "Ride quality"
+        ],
+        "widgets": []
+      },
+      "source": "ride-quality/src/plugin.ts",
+      "file": "dist/ride-quality-1.0.1.lacticplugin",
+      "bytes": 3368,
+      "sha256": "0a5dcc7a5eac50ee198da3dca1312ff088755135d30d31ee52d4e9e3fbf273ba"
+    },
+    {
+      "id": "w-prime",
+      "name": "W′ Balance",
+      "version": "1.0.1",
+      "description": "How much of your hard-effort energy (W′) is left, live and over each ride. Uses your FTP as critical power.",
+      "reads": [
+        "live",
+        "rides",
+        "profile"
+      ],
+      "adds": {
+        "fields": [
+          "W′ balance"
+        ],
+        "analyses": [
+          "W′ balance"
+        ],
+        "widgets": []
+      },
+      "source": "w-prime/src/plugin.ts",
+      "file": "dist/w-prime-1.0.1.lacticplugin",
+      "bytes": 4622,
+      "sha256": "c8134a96134f285be21684235f19d89967a7cda0178afc5ba884683fffcae6f2"
+    },
+    {
+      "id": "zones",
+      "name": "Zones",
+      "version": "0.1.0",
+      "description": "Live ride fields for time in heart rate and power zones, and your power over the last 5 minutes.",
+      "reads": [
+        "live"
+      ],
+      "adds": {
+        "fields": [
+          "HR zones",
+          "Power zones",
+          "Power, last 5 min"
+        ],
+        "analyses": [],
+        "widgets": []
+      },
+      "source": "zones/src/plugin.ts",
+      "file": "dist/zones-0.1.0.lacticplugin",
+      "bytes": 2844,
+      "sha256": "54c4f5be76f18bba3ba8a373af711cec24567911b88bfe2e268b707f4fecda96"
+    }
+  ]
+}

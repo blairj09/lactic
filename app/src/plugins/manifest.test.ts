@@ -47,6 +47,8 @@ describe("plugin manifest", () => {
     for (const n of ["W′ Tools", "Climb Estimator", "Lap Timer", "Tactical"]) expect(looksLikeLactic(n)).toBe(false);
     expect(errorsFor({ name: "Lactic Official" }).length).toBeGreaterThan(0);
     expect(errorsFor({ id: "lactic-official" }).length).toBeGreaterThan(0);
+    for (const author of ["Lactic", "Lactic Official", "Lаctic team"]) expect(errorsFor({ author }).length).toBeGreaterThan(0);
+    expect(errorsFor({ author: "riderlabs" })).toEqual([]);
   });
 
   it("limits text and refuses hidden characters", () => {
