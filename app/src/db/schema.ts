@@ -583,6 +583,8 @@ export const TABLES: Record<string, Table> = {
       manifest: { type: "json", notNull: true },
       source: { type: "text", notNull: true },
       sha256: { type: "text", notNull: true },
+      /** Where it came from, for update checks: "github:owner/repo", or null for a chosen file. */
+      origin: { type: "text" },
       installed_at: now,
       updated_at: now,
     },

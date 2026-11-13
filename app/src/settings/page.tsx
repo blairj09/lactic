@@ -22,6 +22,7 @@ import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
 import { DataPanel, SimulatorSwitch } from "./panels";
 import { SandboxCheck } from "./sandbox-check";
+import { PluginsPanel } from "./plugins-panel";
 import { isModular } from "~/app/beta";
 import { StravaSection } from "./strava-panel";
 import { TakeTour } from "~/tour/take-tour";
@@ -42,6 +43,7 @@ const SECTIONS = [
   { id: "coach-settings", label: "Coach" },
   { id: "connections", label: "Connections" },
   { id: "gear", label: "Gear" },
+  ...((isModular || import.meta.env.DEV) && isDesktop ? [{ id: "plugins", label: "Plugins" }] : []),
   { id: "data", label: "Your data" },
   { id: "about", label: "About" },
 ];
@@ -197,8 +199,11 @@ export default async function SettingsPage() {
           )}
         </div>
         {(isModular || import.meta.env.DEV) && isDesktop && (
-          <div className="space-y-4 border-t border-line pt-8">
-            <Section title="Plugin sandbox check" description="Lactic Modular only: runs a hostile test plugin through the plugin sandbox in this app and lists every escape it tried. Nothing is installed and your data isn't touched.">
+          <div id="plugins" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
+            <Section title="Plugins" description="Cards, ride fields and ride analyses by other riders. No internet, no changes, and they read only what you allow. Add ones you trust.">
+              <PluginsPanel />
+            </Section>
+            <Section title="Plugin sandbox check" description="Runs a hostile test plugin in the sandbox and lists every escape it tried. Nothing is installed.">
               <SandboxCheck />
             </Section>
           </div>
