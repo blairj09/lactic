@@ -35,17 +35,20 @@ export function usePipWindow() {
     if (api.window) return api.window;
     const win = await api.requestWindow({ width, height });
     copyStyles(win.document);
-    // The font is set up as a class on <html>; the theme choice (data-theme) follows the page's.
+    // The font is set up as a class on <html>; the theme and contrast (data-theme, data-contrast) follow the page's.
     const html = win.document.documentElement;
     html.className = document.documentElement.className;
     const syncTheme = () => {
       const theme = document.documentElement.dataset.theme;
       if (theme) html.dataset.theme = theme;
       else delete html.dataset.theme;
+      const contrast = document.documentElement.dataset.contrast;
+      if (contrast) html.dataset.contrast = contrast;
+      else delete html.dataset.contrast;
     };
     syncTheme();
     const watch = new MutationObserver(syncTheme);
-    watch.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-contrast"] });
     win.document.title = "My Coach";
     win.addEventListener(
       "pagehide",

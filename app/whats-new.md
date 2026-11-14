@@ -8,6 +8,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 - Lactic Modular: every workout in the library shows its shape. Tap one for its page, with each interval's target. Plan has a new Workouts section to browse them, ride one now or add it to a day. In the Ride library, "Back to today's plan" takes you back to the day's workout.
 - Lactic Modular: setup is now two quick steps, FTP and weight then your trainer, and you're riding. Your week and goal, past rides, sleep and weight, and the coach wait on Today under "Finish setting up".
+- High contrast: Settings → Appearance → Contrast. Darker text, clear borders and stronger zone colors, rides and the overlay included. System turns it on with your Mac or iPhone's Increase contrast. Input and toggle borders are a little darker for everyone.
 - Lactic Modular: Plugins is now always a tab, and the one place for plugins. Cards shows your plugin cards, Added is where you switch plugins on or off, update them and see each one's details, and Browse lists Lactic's own. Plugins moved out of Settings.
 - Lactic Modular: Open overlay is now a button next to End ride on every ride, workouts, free rides and head unit alike. To open it by itself, tick "Open when a ride starts" under Ride → Setup → Overlay.
 - Lactic Modular: see a plugin before you add it. The add screen shows its ride fields, ride page section and cards drawn from a made-up sample ride, never your own data.
