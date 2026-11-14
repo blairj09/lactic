@@ -23,24 +23,53 @@ export interface DraftOutcome {
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
 /** "adds 1 ride field, 1 ride page section · reads live ride, profile" */
-export function draftSummary(m: { permissions: { read: string[] }; contributes: { fields: unknown[]; widgets: unknown[]; analyses?: unknown[] } }): string {
+export function draftSummary(m: {
+  permissions: { read: string[] };
+  contributes: { fields: unknown[]; widgets: unknown[]; analyses?: unknown[] };
+}): string {
   const c = m.contributes;
-  const adds = [c.fields.length && plural(c.fields.length, "ride field"), c.analyses?.length && plural(c.analyses.length, "ride page section"), c.widgets.length && plural(c.widgets.length, "Plugins tab card")].filter(Boolean);
-  const reads = m.permissions.read.map((g) => (g in GROUP_WORDS ? GROUP_WORDS[g as keyof typeof GROUP_WORDS].name.split(",")[0].toLowerCase() : g));
-  return [adds.length && `adds ${adds.join(", ")}`, reads.length ? `reads ${reads.join(", ")}` : "reads nothing of yours"].filter(Boolean).join(" · ");
+  const adds = [
+    c.fields.length && plural(c.fields.length, "ride field"),
+    c.analyses?.length && plural(c.analyses.length, "ride page section"),
+    c.widgets.length && plural(c.widgets.length, "Plugins tab card"),
+  ].filter(Boolean);
+  const reads = m.permissions.read.map((g) =>
+    g in GROUP_WORDS
+      ? GROUP_WORDS[g as keyof typeof GROUP_WORDS].name
+          .split(",")[0]
+          .toLowerCase()
+      : g,
+  );
+  return [
+    adds.length && `adds ${adds.join(", ")}`,
+    reads.length ? `reads ${reads.join(", ")}` : "reads nothing of yours",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** What the sample run showed, for the coach, or the failures it has to fix. */
 function report(state: PreviewState): { ok: boolean; lines: string[] } {
-  if (state.failed) return { ok: false, lines: [`The plugin didn't start: ${state.failed}`] };
+  if (state.failed)
+    return { ok: false, lines: [`The plugin didn't start: ${state.failed}`] };
   const lines: string[] = [];
   let ok = true;
   for (const p of state.parts) {
-    const where = p.kind === "field" ? "ride field" : p.kind === "analysis" ? "ride page section" : "card";
+    const where =
+      p.kind === "field"
+        ? "ride field"
+        : p.kind === "analysis"
+          ? "ride page section"
+          : "card";
     if (p.failed) {
       ok = false;
-      lines.push(`${where} "${p.id}": ${p.failed}${p.kind === "field" ? " (a ride field needs a field or stat node with a short value and unit, see plugin_guide)" : ""}`);
-    } else if (p.field) lines.push(`${where} "${p.id}" at the end of the sample ride: ${[p.field.value, p.field.unit, p.field.sub && `(${p.field.sub})`].filter(Boolean).join(" ")}`);
+      lines.push(
+        `${where} "${p.id}": ${p.failed}${p.kind === "field" ? " (a ride field needs a field or stat node with a short value and unit, see plugin_guide)" : ""}`,
+      );
+    } else if (p.field)
+      lines.push(
+        `${where} "${p.id}" at the end of the sample ride: ${[p.field.value, p.field.unit, p.field.sub && `(${p.field.sub})`].filter(Boolean).join(" ")}`,
+      );
     else lines.push(`${where} "${p.id}" drew ${p.tree?.type ?? "nothing"}`);
   }
   return { ok, lines };
@@ -50,24 +79,55 @@ function report(state: PreviewState): { ok: boolean; lines: string[] } {
  * draft_plugin: check the coach's draft and run it once on the sample ride. Throws a reason the coach
  * can act on; a draft that runs comes back as an add (or update) card for the rider.
  */
-export async function draftPlugin(args: Record<string, unknown>, createWorker: () => WorkerLike, signal: AbortSignal = new AbortController().signal): Promise<DraftOutcome> {
+export async function draftPlugin(
+  args: Record<string, unknown>,
+  createWorker: () => WorkerLike,
+  signal: AbortSignal = new AbortController().signal,
+): Promise<DraftOutcome> {
   const draft = checkDraftArgs(args);
   const file = packagePlugin(draft.manifest, draft.code);
   const parsed = await parsePackage(file);
-  if (!parsed.ok) throw new Error(`Lactic refused the plugin: ${parsed.details.join("; ")}`);
+  if (!parsed.ok)
+    throw new Error(`Lactic refused the plugin: ${parsed.details.join("; ")}`);
   const m = parsed.pkg.manifest;
 
-  if (catalogEntries().some((e) => e.id === m.id)) throw new Error(`"${m.id}" is one of Lactic's own plugins: choose another id`);
+  if (catalogEntries().some((e) => e.id === m.id))
+    throw new Error(
+      `"${m.id}" is one of Lactic's own plugins: choose another id`,
+    );
   const current = await getPlugin(m.id);
-  if (current && current.origin !== COACH_ORIGIN) throw new Error(`The rider already has a plugin with the id "${m.id}" that you didn't write: choose another id`);
-  if (current && compareVersions(m.version, current.manifest.version) <= 0) throw new Error(`"${m.id}" is at ${current.manifest.version} already: give the change a higher version`);
+  if (current && current.origin !== COACH_ORIGIN)
+    throw new Error(
+      `The rider already has a plugin with the id "${m.id}" that you didn't write: choose another id`,
+    );
+  if (current && compareVersions(m.version, current.manifest.version) <= 0)
+    throw new Error(
+      `"${m.id}" is at ${current.manifest.version} already: give the change a higher version`,
+    );
 
-  const ran = report(await runPreview(m, parsed.pkg.source, createWorker, () => {}, signal, { every: 1e9 }));
-  if (!ran.ok) throw new Error(`On the sample ride: ${ran.lines.join("; ")}. Fix it and call draft_plugin again.`);
+  const ran = report(
+    await runPreview(m, parsed.pkg.source, createWorker, () => {}, signal, {
+      every: 1e9,
+    }),
+  );
+  if (!ran.ok)
+    throw new Error(
+      `On the sample ride: ${ran.lines.join("; ")}. Fix it and call draft_plugin again.`,
+    );
 
   const summary = `${current ? `Update ${m.name} to ${m.version}` : m.name}: ${draftSummary(m)}`;
   const proposal: Proposal = {
-    change: { kind: "app", setting: { setting: "plugin_draft", file, name: m.name, version: m.version, update: Boolean(current), summary } },
+    change: {
+      kind: "app",
+      setting: {
+        setting: "plugin_draft",
+        file,
+        name: m.name,
+        version: m.version,
+        update: Boolean(current),
+        summary,
+      },
+    },
     summary,
     reason: draft.reason,
     status: "pending",

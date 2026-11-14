@@ -6,7 +6,9 @@ import sdk from "../../../plugins/sdk/src/index.ts?raw";
 import { RIDE_FIELD_LIMITS } from "@/lib/sdk/plugin-fields";
 
 /** The SDK's kit, metrics and handler types, without the definePlugin helper the coach doesn't need. */
-const types = sdk.slice(0, sdk.indexOf("/** Register the plugin's handlers.")).trim();
+const types = sdk
+  .slice(0, sdk.indexOf("/** Register the plugin's handlers."))
+  .trim();
 
 /** The guide's worked example, also run by the tests so it never stops working. */
 export const EXAMPLE_MANIFEST = {
@@ -15,8 +17,12 @@ export const EXAMPLE_MANIFEST = {
   version: "0.1.0",
   description: "A ride field with your time above FTP this ride.",
   permissions: { read: ["live", "profile"] },
-  publishes: [{ id: "seconds", label: "Time above FTP", unit: "s", kind: "number" }],
-  contributes: { fields: [{ id: "above-ftp", title: "Above FTP", entry: "field" }] },
+  publishes: [
+    { id: "seconds", label: "Time above FTP", unit: "s", kind: "number" },
+  ],
+  contributes: {
+    fields: [{ id: "above-ftp", title: "Above FTP", entry: "field" }],
+  },
 };
 
 export const EXAMPLE_CODE = `var seconds = 0;

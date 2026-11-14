@@ -24,16 +24,36 @@ export function checkDraftArgs(args: Record<string, unknown>): DraftArgs {
       throw new Error("manifest is the manifest as a JSON object");
     }
   }
-  if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) throw new Error("manifest is the manifest as a JSON object");
+  if (
+    typeof manifest !== "object" ||
+    manifest === null ||
+    Array.isArray(manifest)
+  )
+    throw new Error("manifest is the manifest as a JSON object");
   const code = args.code;
-  if (typeof code !== "string" || !code.trim()) throw new Error("code is the plugin's JavaScript, as one plain script");
-  if (code.length > MAX_DRAFT_CODE) throw new Error(`code is over ${MAX_DRAFT_CODE / 1024} KB: keep the plugin small`);
+  if (typeof code !== "string" || !code.trim())
+    throw new Error("code is the plugin's JavaScript, as one plain script");
+  if (code.length > MAX_DRAFT_CODE)
+    throw new Error(
+      `code is over ${MAX_DRAFT_CODE / 1024} KB: keep the plugin small`,
+    );
   // The coach isn't an author or a website: the add screen says "written by your coach" instead.
-  const { author: _author, homepage: _homepage, ...rest } = manifest as Record<string, unknown>;
+  const {
+    author: _author,
+    homepage: _homepage,
+    ...rest
+  } = manifest as Record<string, unknown>;
   return {
-    manifest: { apiVersion: 1, main: "main.js", publishes: [], ...rest, contributes: normalContributes(rest.contributes) },
+    manifest: {
+      apiVersion: 1,
+      main: "main.js",
+      publishes: [],
+      ...rest,
+      contributes: normalContributes(rest.contributes),
+    },
     code,
-    reason: typeof args.reason === "string" ? args.reason.trim().slice(0, 300) : "",
+    reason:
+      typeof args.reason === "string" ? args.reason.trim().slice(0, 300) : "",
   };
 }
 

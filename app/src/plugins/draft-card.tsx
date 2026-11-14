@@ -6,35 +6,68 @@ import { useEffect, useState } from "react";
 import type { Proposal } from "@/lib/coach/changes";
 import type { AppSetting } from "@/lib/coach/app-tools";
 import { button } from "@/components/ui";
-import { CodeView, PermissionDialog, PluginIcon, UpdateDialog } from "~/settings/plugin-dialogs";
+import {
+  CodeView,
+  PermissionDialog,
+  PluginIcon,
+  UpdateDialog,
+} from "~/settings/plugin-dialogs";
 import { PluginPreview } from "~/settings/plugin-preview";
 import { COACH_ORIGIN } from "./catalog";
-import { installPlugin, preparePackage, updatePlugin, type Prepared } from "./store";
+import {
+  installPlugin,
+  preparePackage,
+  updatePlugin,
+  type Prepared,
+} from "./store";
 
 export type DraftSetting = Extract<AppSetting, { setting: "plugin_draft" }>;
 
 /** The draft in a proposal, if it is one. */
 export function pluginDraft(p: Proposal): DraftSetting | null {
-  return p.change.kind === "app" && p.change.setting.setting === "plugin_draft" ? p.change.setting : null;
+  return p.change.kind === "app" && p.change.setting.setting === "plugin_draft"
+    ? p.change.setting
+    : null;
 }
 
 /** What the card can do with the draft, worked out from the plugins added now. */
-type Ready = { kind: "add"; prepared: Extract<Prepared, { kind: "new" }> } | { kind: "update"; prepared: Extract<Prepared, { kind: "update" }> } | { kind: "blocked"; reason: string };
+type Ready =
+  | { kind: "add"; prepared: Extract<Prepared, { kind: "new" }> }
+  | { kind: "update"; prepared: Extract<Prepared, { kind: "update" }> }
+  | { kind: "blocked"; reason: string };
 
 function readiness(prepared: Prepared): Ready {
   if (prepared.kind === "new") return { kind: "add", prepared };
   if (prepared.kind === "update") {
-    if (prepared.current.origin !== COACH_ORIGIN) return { kind: "blocked", reason: "You already have a plugin with this id that your coach didn't write." };
-    if (prepared.changes.direction !== "newer") return { kind: "blocked", reason: `You have ${prepared.current.manifest.version} already.` };
+    if (prepared.current.origin !== COACH_ORIGIN)
+      return {
+        kind: "blocked",
+        reason:
+          "You already have a plugin with this id that your coach didn't write.",
+      };
+    if (prepared.changes.direction !== "newer")
+      return {
+        kind: "blocked",
+        reason: `You have ${prepared.current.manifest.version} already.`,
+      };
     return { kind: "update", prepared };
   }
-  if (prepared.kind === "same") return { kind: "blocked", reason: "Already added." };
+  if (prepared.kind === "same")
+    return { kind: "blocked", reason: "Already added." };
   return { kind: "blocked", reason: prepared.reason };
 }
 
 const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-export function PluginDraftCard({ proposal, onAdded, onDismiss }: { proposal: Proposal; onAdded: () => Promise<void>; onDismiss: () => Promise<void> }) {
+export function PluginDraftCard({
+  proposal,
+  onAdded,
+  onDismiss,
+}: {
+  proposal: Proposal;
+  onAdded: () => Promise<void>;
+  onDismiss: () => Promise<void>;
+}) {
   const draft = pluginDraft(proposal)!;
   const pending = proposal.status === "pending";
   const [ready, setReady] = useState<Ready | null>(null);
@@ -52,7 +85,16 @@ export function PluginDraftCard({ proposal, onAdded, onDismiss }: { proposal: Pr
   }, [draft.file, pending]);
 
   const pkg = ready && ready.kind !== "blocked" ? ready.prepared.pkg : null;
-  const status = proposal.status === "applied" ? (draft.update ? "Updated" : "Added") : proposal.status === "dismissed" ? "Dismissed" : ready?.kind === "blocked" ? ready.reason : "Drafted by your coach · not added";
+  const status =
+    proposal.status === "applied"
+      ? draft.update
+        ? "Updated"
+        : "Added"
+      : proposal.status === "dismissed"
+        ? "Dismissed"
+        : ready?.kind === "blocked"
+          ? ready.reason
+          : "Drafted by your coach · not added";
 
   async function added() {
     setReviewing(false);
@@ -69,23 +111,46 @@ export function PluginDraftCard({ proposal, onAdded, onDismiss }: { proposal: Pr
       <div className="flex items-center gap-3">
         <PluginIcon name={draft.name} />
         <div className="min-w-0">
-          <p className="font-medium">{draft.update ? `Update ${draft.name} to ${draft.version}` : draft.name}</p>
+          <p className="font-medium">
+            {draft.update
+              ? `Update ${draft.name} to ${draft.version}`
+              : draft.name}
+          </p>
           <p className="text-xs text-muted">{status}</p>
         </div>
       </div>
-      {pending && pkg && <PluginPreview manifest={pkg.manifest} source={pkg.source} />}
-      <p className="text-muted">{capital(draft.summary.slice(draft.summary.indexOf(": ") + 2))}</p>
+      {pending && pkg && (
+        <PluginPreview manifest={pkg.manifest} source={pkg.source} />
+      )}
+      <p className="text-muted">
+        {capital(draft.summary.slice(draft.summary.indexOf(": ") + 2))}
+      </p>
       {proposal.reason && <p className="text-muted">{proposal.reason}</p>}
       {pending && (
         <div className="flex items-center gap-2">
-          <button type="button" className={button.smallPrimary} disabled={busy || !pkg} onClick={() => setReviewing(true)}>
+          <button
+            type="button"
+            className={button.smallPrimary}
+            disabled={busy || !pkg}
+            onClick={() => setReviewing(true)}
+          >
             {draft.update ? "Review update" : "Review and add"}
           </button>
-          <button type="button" className={button.small} disabled={busy} onClick={() => void onDismiss()}>
+          <button
+            type="button"
+            className={button.small}
+            disabled={busy}
+            onClick={() => void onDismiss()}
+          >
             Dismiss
           </button>
           {pkg && (
-            <button type="button" className="ml-auto text-xs text-muted underline" aria-expanded={code} onClick={() => setCode(!code)}>
+            <button
+              type="button"
+              className="ml-auto text-xs text-muted underline"
+              aria-expanded={code}
+              onClick={() => setCode(!code)}
+            >
               {code ? "Hide code" : "Code"}
             </button>
           )}
