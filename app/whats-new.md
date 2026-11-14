@@ -7,10 +7,12 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - iPhone: when Apple Health hasn't been asked about something Lactic reads ("Authorization not determined"), Lactic shows Apple's permission sheet again, and Settings shows Connect Apple Health instead of the error.
+- Phones: tap the tab you're on to go back to the top of its page (or back to its main page first).
 - iPhone: if Lactic on this iPhone hasn't been given access to Apple Health yet, Today asks you to connect it instead of waiting for last night.
 - Settings → iPhone is now Settings → Phone.
 - Lactic Modular on iPhone: pull down on any page to refresh it. Lactic reads Apple Health and syncs with your computer while the logo builds.
 - iPhone: Apple Health no longer gets stuck and stops bringing in new nights until you quit the app. "Read Health now" in Settings says what went wrong if a read fails.
+- Phone: your coach and intervals.icu API keys now come across from your computer even when a first sync stops partway, and Settings → Phone says why if they don't.
 - Lactic Modular: every workout in the library shows its shape. Tap one for its page, with each interval's target. Plan has a new Workouts section to browse them, ride one now or add it to a day. In the Ride library, "Back to today's plan" takes you back to the day's workout.
 - Lactic Modular: setup is now two quick steps, FTP and weight then your trainer, and you're riding. Your week and goal, past rides, sleep and weight, and the coach wait on Today under "Finish setting up".
 - High contrast: Settings → Appearance → Contrast. Darker text, clear borders and stronger zone colors, rides and the overlay included. System turns it on with your Mac or iPhone's Increase contrast. Input and toggle borders are a little darker for everyone.
