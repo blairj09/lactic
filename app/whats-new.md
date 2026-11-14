@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic Modular: Plugins is now always a tab, and the one place for plugins. Cards shows your plugin cards, Added is where you switch plugins on or off, update them and see each one's details, and Browse lists Lactic's own. Plugins moved out of Settings.
 - Lactic Modular: Open overlay is now a button next to End ride on every ride, workouts, free rides and head unit alike. To open it by itself, tick "Open when a ride starts" under Ride → Setup → Overlay.
 - Lactic Modular: see a plugin before you add it. The add screen shows its ride fields, ride page section and cards drawn from a made-up sample ride, never your own data.
 - Lactic Modular: Head unit says which app controls your trainer, like "Zwift controls the trainer", when Zwift, Rouvy or MyWhoosh is open.

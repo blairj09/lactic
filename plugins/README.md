@@ -34,4 +34,4 @@ npm install
 npm run build         # dist/sweet-spot-0.1.0.lacticplugin
 ```
 
-In Lactic Modular, go to Settings → Plugins → Add a plugin… and pick the file. To update a plugin, add the newer file. Lactic shows what changed and asks first.
+In Lactic Modular, go to Plugins → Add plugin → From a file… and pick the file. To update a plugin, add the newer file. Lactic shows what changed and asks first.

@@ -8,7 +8,7 @@ The rest of this file is written for the assistant.
 
 ## What you are building
 
-A Lactic plugin is **one TypeScript file** bundled into a plain script and packed into a `.lacticplugin` file with a `manifest.json`. Start by copying `starter/` and editing `manifest.json` and `src/plugin.ts`. Build with `npm install && npm run build`. The rider adds `dist/<id>-<version>.lacticplugin` in Lactic Modular under Settings → Plugins → Add from a file.
+A Lactic plugin is **one TypeScript file** bundled into a plain script and packed into a `.lacticplugin` file with a `manifest.json`. Start by copying `starter/` and editing `manifest.json` and `src/plugin.ts`. Build with `npm install && npm run build`. The rider adds `dist/<id>-<version>.lacticplugin` in Lactic Modular under Plugins → Add plugin → From a file.
 
 Types are in `sdk/src/index.ts`. Read it before writing code. For worked examples of fields, ride analyses and widgets, read the plugins in `catalog/` (each `src/plugin.ts`).
 

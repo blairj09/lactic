@@ -19,7 +19,7 @@ None of them read health data or where you ride, and none appear on Today.
 
 ## Add one
 
-In Lactic Modular, choose Settings → Plugins → Browse… and pick one. The catalog ships inside the app, so nothing is downloaded, and Lactic shows what a plugin reads before anything runs.
+In Lactic Modular, open the Plugins tab, choose Browse and pick one. The catalog ships inside the app, so nothing is downloaded, and Lactic shows what a plugin reads before anything runs.
 
 ## Learn from one
 

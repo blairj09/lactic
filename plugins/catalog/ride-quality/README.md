@@ -7,6 +7,6 @@ Variability index (how steady), efficiency factor (watts per heartbeat) and inte
 - **How it works:** Divides Lactic's own normalized power by average power, heart rate and FTP.
 - **Good example of:** Building on engine numbers instead of re-deriving them.
 
-The code, with the sport science explained, is in [`src/plugin.ts`](src/plugin.ts). To add it, download [`ride-quality-1.0.1.lacticplugin`](../dist/ride-quality-1.0.1.lacticplugin) and choose Settings → Plugins → Add a plugin in Lactic Modular.
+The code, with the sport science explained, is in [`src/plugin.ts`](src/plugin.ts). To add it, download [`ride-quality-1.0.1.lacticplugin`](../dist/ride-quality-1.0.1.lacticplugin) and choose Plugins → Add plugin → From a file in Lactic Modular.
 
 To make your own version, copy `plugins/starter`, replace its `manifest.json` and `src/plugin.ts` with these, change the `id` and `name`, and build with `npm run build`.

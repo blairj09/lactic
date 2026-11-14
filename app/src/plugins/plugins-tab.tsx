@@ -1,7 +1,6 @@
-// The Plugins tab (Lactic Modular): plugin cards on screens the rider names and switches between,
-// like ride pages. Customize uses the same moves as Today's editor. Plugin cards never go on Today.
+// The Plugins tab's Cards view (Lactic Modular): plugin cards on screens the rider names and switches
+// between, like ride pages. Customize uses the same moves as Today's editor. Plugin cards never go on Today.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { button, input } from "@/components/ui";
 import { cardRows, type Layout } from "@/lib/sdk/layout";
 import { addCard, addScreen, deleteScreen, moveCard, moveScreen, placeNewCards, removeCard, renameScreen, resizeCard } from "@/lib/sdk/plugin-screens";
@@ -14,7 +13,6 @@ import { createPluginWorker } from "./spawn";
 import { listPlugins } from "./store";
 
 const COLS: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-1 sm:grid-cols-2", 3: "grid-cols-2 sm:grid-cols-3" };
-const SETTINGS = "/settings?section=plugins";
 
 async function save(layout: Layout) {
   await saveLayout(createClient() as never, layout);
@@ -68,10 +66,7 @@ function Card({ info, day, onRemove }: { info: CardInfo | undefined; day: Awaite
     return (
       <PluginFrame name={info.pluginName} label="off" dashed>
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
-          Off on this computer.
-          <Link href={SETTINGS} className={button.small}>
-            Plugin settings
-          </Link>
+          Off on this computer. Switch it on in Added.
         </div>
       </PluginFrame>
     );
@@ -219,7 +214,7 @@ function Editor({ layout, cards, start, onDone, onCancel }: { layout: Layout; ca
   );
 }
 
-export function PluginsTab({ initial }: { initial: Layout }) {
+export function CardsView({ initial, onBrowse }: { initial: Layout; onBrowse: () => void }) {
   const [layout, setLayout] = useState(initial);
   const [cards, setCards] = useState<CardInfo[] | null>(null);
   const [at, setAt] = useState(0);
@@ -281,18 +276,22 @@ export function PluginsTab({ initial }: { initial: Layout }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
         {screens.length > 1 && <Chips names={screens.map((s) => s.name)} current={screens.indexOf(current)} onPick={setAt} />}
-        <span className="ml-auto flex items-center gap-1">
-          <button type="button" className={button.ghost} onClick={() => setEditing(true)} disabled={!cards}>
-            Customize
-          </button>
-          <Link href={SETTINGS} className={`${button.ghost} ml-3`}>
-            Manage plugins
-          </Link>
-        </span>
+        <button type="button" className={`${button.ghost} ml-auto`} onClick={() => setEditing(true)} disabled={!cards}>
+          Customize
+        </button>
       </div>
       {error && <p className="text-sm text-negative">{error}</p>}
       {cards && current.cards.length === 0 ? (
-        <p className="text-sm text-muted">{cards.some((c) => c.on) ? "No cards on this screen. Add some with Customize." : "No plugin cards yet. Add plugins in Settings → Plugins."}</p>
+        cards.some((c) => c.on) ? (
+          <p className="text-sm text-muted">No cards on this screen. Add some with Customize.</p>
+        ) : (
+          <p className="text-sm text-muted">
+            No plugin cards yet.{" "}
+            <button type="button" className="underline" onClick={onBrowse}>
+              Browse plugins with cards
+            </button>
+          </p>
+        )
       ) : (
         <div className="space-y-4">
           {rows.map((row, r) => (

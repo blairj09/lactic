@@ -57,7 +57,7 @@ function Checkbox({ checked, onChange, label, hint }: { checked: boolean; onChan
   );
 }
 
-function ReadLine({ group, mark }: { group: MetricGroup; mark?: "new" }) {
+export function ReadLine({ group, mark }: { group: MetricGroup; mark?: "new" }) {
   const w = GROUP_WORDS[group];
   return (
     <li className="flex gap-2">
@@ -74,7 +74,7 @@ function ReadLine({ group, mark }: { group: MetricGroup; mark?: "new" }) {
 
 const NewTag = () => <span className="h-5 flex-none rounded bg-plugin-soft px-1.5 text-xs font-semibold text-plugin">NEW</span>;
 
-function adds(m: PluginManifest): string[] {
+export function adds(m: PluginManifest): string[] {
   return [
     ...m.contributes.fields.map((c) => `Ride field: ${c.title}`),
     ...m.contributes.widgets.map((c) => `Card: ${c.title}`),
@@ -82,7 +82,7 @@ function adds(m: PluginManifest): string[] {
   ];
 }
 
-const CANT = "It can't go online, change your rides, plan or settings, control your trainer, or see your coach chats.";
+export const CANT = "It can't go online, change your rides, plan or settings, control your trainer, or see your coach chats.";
 
 function Head({ manifest, origin, line }: { manifest: PluginManifest; origin: string | null; line?: string }) {
   return (
@@ -338,14 +338,21 @@ export function GitHubDialog({ onFound, onClose }: { onFound: (text: string, ori
 }
 
 function catalogWhere(e: CatalogEntry) {
-  return [e.adds.fields.length && "Ride field", e.adds.analyses.length && "Ride page", e.adds.widgets.length && "Plugins tab"].filter(Boolean).join(" · ");
+  return [e.adds.fields.length && "Ride field", e.adds.analyses.length && "Ride page", e.adds.widgets.length && "Card"].filter(Boolean).join(" · ");
 }
 
 /** The first sentence of a catalog plugin's description, for the list. */
 const firstSentence = (text: string) => text.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text;
 
-/** Lactic's own plugins, bundled with the app. Picking one hands its text to the usual add or update screen. */
-export function BrowseDialog({ installed, onPick, onClose }: { installed: Map<string, string>; onPick: (text: string) => Promise<void>; onClose: () => void }) {
+/** Lactic's own plugins, bundled with the app, listed on the Plugins tab's Browse view. Picking one hands
+ * its text to the usual add or update screen. */
+export function BrowseList({
+  installed,
+  onPick,
+}: {
+  installed: Map<string, string>;
+  onPick: (text: string) => Promise<void>;
+}) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -356,18 +363,18 @@ export function BrowseDialog({ installed, onPick, onClose }: { installed: Map<st
       await onPick(await catalogText(entry));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    } finally {
       setBusy(null);
     }
   }
 
   return (
-    <Dialog title="Lactic plugins" labelId="plugin-browse-title" onClose={onClose} busy={busy !== null}>
-      <p className="-mt-2 text-muted">Made by Lactic and open source. Read the code to learn how they work.</p>
-      <ul className="-mx-5 divide-y divide-line border-y border-line sm:-mx-6">
+    <div className="space-y-3 text-sm">
+      <ul className="divide-y divide-line border-y border-line">
         {catalogEntries().map((e) => {
           const state = catalogState(e, installed.get(e.id) ?? null);
           return (
-            <li key={e.id} className="flex items-center gap-3 px-5 py-3 sm:px-6">
+            <li key={e.id} className="flex items-center gap-3 py-3">
               <PluginIcon name={e.name} />
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{e.name}</p>
@@ -377,8 +384,19 @@ export function BrowseDialog({ installed, onPick, onClose }: { installed: Map<st
               {state === "added" ? (
                 <span className="flex-none text-positive">✓ Added</span>
               ) : (
-                <button type="button" className={state === "update" ? button.smallPrimary : button.small} disabled={busy !== null} onClick={() => void pick(e)}>
-                  {busy === e.id ? "Opening…" : state === "update" ? `Update to ${e.version}` : "Add"}
+                <button
+                  type="button"
+                  className={
+                    state === "update" ? button.smallPrimary : button.small
+                  }
+                  disabled={busy !== null}
+                  onClick={() => void pick(e)}
+                >
+                  {busy === e.id
+                    ? "Opening…"
+                    : state === "update"
+                      ? `Update to ${e.version}`
+                      : "Add"}
                 </button>
               )}
             </li>
@@ -386,14 +404,13 @@ export function BrowseDialog({ installed, onPick, onClose }: { installed: Map<st
         })}
       </ul>
       {error && <Result ok={false}>{error}</Result>}
-      <div className="flex items-center justify-between gap-2">
-        <button type="button" className="text-muted underline" onClick={() => void openExternal(CATALOG_CODE_URL)}>
-          See the code on GitHub
-        </button>
-        <button type="button" className={button.secondary} disabled={busy !== null} onClick={onClose}>
-          Close
-        </button>
-      </div>
-    </Dialog>
+      <button
+        type="button"
+        className="text-muted underline"
+        onClick={() => void openExternal(CATALOG_CODE_URL)}
+      >
+        See the code on GitHub
+      </button>
+    </div>
   );
 }

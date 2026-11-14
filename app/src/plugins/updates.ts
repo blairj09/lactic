@@ -1,4 +1,4 @@
-// Checking GitHub for newer releases of plugins added from GitHub, when Settings → Plugins opens,
+// Checking GitHub for newer releases of plugins added from GitHub, when the Plugins tab opens,
 // and this build of Lactic for newer versions of its own catalog plugins (no network for those).
 // Only ever an offer: the update screen still has to be tapped. GitHub is checked at most once an hour.
 import { CATALOG_ORIGIN, catalogEntries, catalogState, catalogText } from "./catalog";
