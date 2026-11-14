@@ -40,6 +40,8 @@ pub struct Mcp {
     pending: Mutex<HashMap<u64, oneshot::Sender<Result<Value, Value>>>>,
     next: AtomicU64,
     enabled: AtomicBool,
+    /// The main window has said whether the external coach is on (it does as it starts).
+    known: AtomicBool,
     app: Mutex<Option<AppHandle>>,
     /// The AI app that last connected (its clientInfo), so Lactic can say who the coach is.
     client: Mutex<Option<String>>,
@@ -47,7 +49,7 @@ pub struct Mcp {
 
 impl Default for Mcp {
     fn default() -> Self {
-        Mcp { info: Mutex::new(None), pending: Mutex::new(HashMap::new()), next: AtomicU64::new(1), enabled: AtomicBool::new(false), app: Mutex::new(None), client: Mutex::new(None) }
+        Mcp { info: Mutex::new(None), pending: Mutex::new(HashMap::new()), next: AtomicU64::new(1), enabled: AtomicBool::new(false), known: AtomicBool::new(false), app: Mutex::new(None), client: Mutex::new(None) }
     }
 }
 
@@ -158,8 +160,8 @@ async fn answer(mcp: &Mcp, m: Value) -> Option<Value> {
             if matches!(method, "prompts/list") {
                 return Some(rpc_result(&id, json!({ "prompts": [] })));
             }
-            if !mcp.enabled.load(Ordering::Relaxed) {
-                return Some(rpc_error(&id, -32001, "The external coach is turned off. In Lactic, open Settings → Coach and choose \"An AI app you already use\", or let AI apps connect alongside the built-in coach."));
+            if !coach_on(mcp).await {
+                return Some(rpc_result(&id, turned_off(method)));
             }
             match forward(mcp, method, params).await {
                 Ok(v) => rpc_result(&id, v),
@@ -168,6 +170,36 @@ async fn answer(mcp: &Mcp, m: Value) -> Option<Value> {
         }
         _ => rpc_error(&id, -32601, "Method not found"),
     })
+}
+
+const OFF_TOOL: &str = "lactic_status";
+const OFF_TEXT: &str = "Lactic's coach tools are turned off, so there's no training data to read here. To use them, open Lactic, go to Settings → Coach and choose \"An AI app you already use\", or let AI apps connect alongside the built-in coach. To stop seeing Lactic here, remove it from this app's connectors.";
+
+/// Whether the external coach is on. Right after Lactic opens (an AI app can open it), the main
+/// window hasn't said yet, so wait a little for it rather than answer "off" by mistake.
+async fn coach_on(mcp: &Mcp) -> bool {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+    while !mcp.known.load(Ordering::Relaxed) && tokio::time::Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    mcp.enabled.load(Ordering::Relaxed)
+}
+
+/// With the external coach off, Lactic still answers like a healthy server, so AI apps that keep
+/// Lactic in their list (Claude Desktop) don't show an error: one tool that says how to turn the
+/// coach on. AI apps list tools again from time to time, so turning it on needs no restart.
+fn turned_off(method: &str) -> Value {
+    if method == "tools/list" {
+        json!({ "tools": [{
+            "name": OFF_TOOL,
+            "title": "Lactic status",
+            "description": "Lactic's coach tools are turned off. Call this to tell the rider how to turn them on.",
+            "inputSchema": { "type": "object", "properties": {} },
+            "annotations": { "readOnlyHint": true }
+        }] })
+    } else {
+        json!({ "content": [{ "type": "text", "text": OFF_TEXT }] })
+    }
 }
 
 async fn forward(mcp: &Mcp, method: &str, params: Value) -> Result<Value, Value> {
@@ -200,6 +232,41 @@ pub async fn mcp_respond(mcp: State<'_, Arc<Mcp>>, request_id: u64, result: Opti
 #[tauri::command]
 pub fn mcp_set_enabled(mcp: State<'_, Arc<Mcp>>, enabled: bool) {
     mcp.enabled.store(enabled, Ordering::Relaxed);
+    mcp.known.store(true, Ordering::Relaxed);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn off() -> Mcp {
+        let mcp = Mcp::default();
+        mcp.known.store(true, Ordering::Relaxed);
+        mcp
+    }
+
+    #[tokio::test]
+    async fn coach_off_lists_a_status_tool_not_an_error() {
+        let r = answer(&off(), json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" })).await.unwrap();
+        assert!(r.get("error").is_none());
+        assert_eq!(r["result"]["tools"][0]["name"], OFF_TOOL);
+    }
+
+    #[tokio::test]
+    async fn coach_off_tool_call_says_how_to_turn_it_on() {
+        let r = answer(&off(), json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": { "name": "get_fitness" } })).await.unwrap();
+        assert!(r.get("error").is_none());
+        assert!(r["result"]["content"][0]["text"].as_str().unwrap().contains("Settings → Coach"));
+    }
+
+    #[tokio::test]
+    async fn initialize_and_ping_work_with_the_coach_off() {
+        let mcp = off();
+        let r = answer(&mcp, json!({ "jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {} })).await.unwrap();
+        assert_eq!(r["result"]["serverInfo"]["name"], "lactic");
+        let r = answer(&mcp, json!({ "jsonrpc": "2.0", "id": 3, "method": "ping" })).await.unwrap();
+        assert!(r.get("error").is_none());
+    }
 }
 
 #[derive(Serialize)]

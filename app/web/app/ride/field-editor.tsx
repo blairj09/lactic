@@ -42,7 +42,7 @@ const TEMPLATES: { id: PageTemplate; name: string; cells: string }[] = [
 const PHONE_TEMPLATES: PageTemplate[] = ["one", "two", "four", "six"];
 const CELLS: Record<PageTemplate, number> = { standard: 3, one: 1, two: 2, four: 4, six: 6, "six-chart": 7, eight: 8, ten: 10 };
 
-const SET_NAMES: Record<FieldSetId, string> = { workout: "Workouts", free: "Free ride", overlay: "Overlay" };
+const SET_NAMES: Record<FieldSetId, string> = { workout: "Workouts", free: "Free ride", overlay: "Overlay", headUnit: "Head unit" };
 
 /** Sample numbers for the editor: half an hour ridden, in the second interval, at about FTP. */
 function sampleInputs(ftp: number, weightKg: number | null, thresholdHr: number | null): FieldInputs {
@@ -87,8 +87,11 @@ export default function FieldEditor({
   onDone,
   phone = isPhone(),
   pluginFields = [],
+  initialSet = "workout",
 }: {
   initial: RideSets;
+  /** The set it opens on: the one the ride picked would use. */
+  initialSet?: FieldSetId;
   ftp: number;
   weightKg: number | null;
   thresholdHr: number | null;
@@ -105,7 +108,7 @@ export default function FieldEditor({
 }) {
   const [draft, setDraft] = useState<RideSets>(initial);
   const [history, setHistory] = useState<{ ride: RideSets; page: number }[]>([]);
-  const [set, setSet] = useState<FieldSetId>("workout");
+  const [set, setSet] = useState<FieldSetId>(initialSet);
   const [page, setPage] = useState(0);
   // On the iPhone nothing is picked until a field is tapped, which opens the picker as a sheet.
   const [slot, setSlotIndex] = useState<number | null>(phone ? null : 0);
@@ -150,7 +153,7 @@ export default function FieldEditor({
   // The rider's own custom fields, wherever they are, to reuse on other pages.
   const customs = useMemo(() => {
     const seen = new Map<string, FieldRef>();
-    for (const s of ["workout", "free", "overlay"] as const) for (const p of pagesOf(draft, s)) for (const f of p.fields) if ("custom" in f) seen.set(fieldKey(f), f);
+    for (const s of ["workout", "free", "overlay", "headUnit"] as const) for (const p of pagesOf(draft, s)) for (const f of p.fields) if ("custom" in f) seen.set(fieldKey(f), f);
     return [...seen.values()];
   }, [draft]);
 
@@ -396,13 +399,13 @@ export default function FieldEditor({
         <div className="space-y-5 rounded-lg bg-surface p-5">
           <div className="space-y-2">
             <h3 className="text-sm font-semibold">Fields for</h3>
-            <Segmented fill label="Fields for" options={(phone ? (["workout", "free"] as const) : (["workout", "free", "overlay"] as const)).map((s) => ({ value: s, label: SET_NAMES[s] }))} value={set} onChange={(s) => (setSet(s), setPage(0), setSlotIndex(0))} />
+            <Segmented fill label="Fields for" options={(phone ? (["workout", "free"] as const) : (["workout", "free", "overlay", "headUnit"] as const)).map((s) => ({ value: s, label: SET_NAMES[s] }))} value={set} onChange={(s) => (setSet(s), setPage(0), setSlotIndex(0))} />
             {set !== "workout" &&
               (following ? (
                 <p className="text-sm text-muted">
                   {SET_NAMES[set]} uses your workout pages.{" "}
                   <button type="button" className="text-ink underline underline-offset-2" onClick={() => change(splitOff(draft, set), 0)}>
-                    Set up {set === "free" ? "free ride" : "the overlay"} separately
+                    Set up {set === "free" ? "free ride" : set === "headUnit" ? "the head unit" : "the overlay"} separately
                   </button>
                 </p>
               ) : (
