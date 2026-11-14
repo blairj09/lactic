@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- iPhone: if Lactic on this iPhone hasn't been given access to Apple Health yet, Today asks you to connect it instead of waiting for last night.
 - Settings → iPhone is now Settings → Phone.
 - Lactic Modular on iPhone: pull down on any page to refresh it. Lactic reads Apple Health and syncs with your computer while the logo builds.
 - iPhone: Apple Health no longer gets stuck and stops bringing in new nights until you quit the app. "Read Health now" in Settings says what went wrong if a read fails.
