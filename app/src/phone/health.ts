@@ -39,46 +39,93 @@ export async function connectHealth(): Promise<boolean> {
   return granted;
 }
 
-let running: Promise<string | null> | null = null;
+/**
+ * How long a call to Swift may take before Lactic gives up on it and tries again next time. A call
+ * that never answers (the app was put away part-way through one, say) used to hold the read open
+ * for good, so every later read joined it and Health stopped coming in until the app was quit.
+ */
+const READ_MS = 45_000;
+const FIRST_READ_MS = 120_000;
+const SAVE_MS = 90_000;
+const CLEANUP_MS = 120_000;
+/** The whole read and import: past this, the next ask starts afresh. */
+const RUN_MS = 3 * 60_000;
 
-/** Imports Health (60 days the first time, then the last 3) and writes new rides to Health. */
+/** `p`, or an error once `ms` pass without an answer. */
+export function within<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what} didn't answer in ${Math.round(ms / 1000)} s`)), ms);
+  });
+  return Promise.race([p, late]).finally(() => clearTimeout(timer));
+}
+
+let running: Promise<string | null> | null = null;
+let lastError: string | null = null;
+
+/** Why the last Health read failed, or null when it worked. */
+export const healthError = () => lastError;
+
+/**
+ * Imports Health (60 days the first time, then the last 3), then writes new rides to
+ * Health without waiting on them. Resolves with the latest night, or null when there was nothing
+ * or the read failed (healthError says why).
+ */
 export function syncPhoneHealth(): Promise<string | null> {
-  running ??= (async () => {
-    try {
-      const status = await phoneStatus();
-      if (!status.healthAvailable || !status.healthAsked) return null;
-      const first = !(await getSetting<boolean>(IMPORTED, false)) || !(await getSetting<boolean>(REREAD, false));
-      const bodies = [await readHealth(first ? 60 : 3)];
-      const pending = await takePending();
-      bodies.push(...pending.map((p) => p.body));
-      let latest: string | null = null;
-      let nights = 0;
-      let days = 0;
-      for (const body of bodies) {
-        const r = await ingestHealth(body);
-        nights = Math.max(nights, r.nights);
-        days = Math.max(days, r.days);
-        latest = r.latest ?? latest;
-      }
-      if (pending.length) await ackPending(pending.map((p) => p.id));
-      await setSetting(IMPORTED, true);
-      await setSetting(REREAD, true);
-      const at = new Date().toISOString();
-      await setSetting("health.lastImport", { at, nights, days, latest, failed: [], from: "iphone" });
-      // Synced: the computer's Sleep and recovery card shows this as the source and its status.
-      const was = await getSetting<IphoneHealth | null>(IPHONE_SETTING, null);
-      await setSetting(IPHONE_SETTING, { at, nights, days, latest: latest ?? was?.latest ?? null } satisfies IphoneHealth);
-      revalidatePath("/");
-      await writeRides();
+  if (running) return running;
+  const run = within(importHealth(), RUN_MS, "Reading Apple Health")
+    .then((latest) => {
+      lastError = null;
+      void writeRides().catch(() => {});
       return latest;
-    } catch (e) {
-      logEvent("health", "error", `Apple Health: ${e instanceof Error ? e.message : String(e)}`);
+    })
+    .catch((e: unknown) => {
+      lastError = e instanceof Error ? e.message : String(e);
+      logEvent("health", "error", `Apple Health: ${lastError}`);
       return null;
-    } finally {
-      running = null;
+    })
+    .finally(() => {
+      if (running === run) running = null;
+    });
+  running = run;
+  return run;
+}
+
+async function importHealth(): Promise<string | null> {
+  const status = await within(phoneStatus(), READ_MS, "The iPhone app");
+  if (!status.healthAvailable || !status.healthAsked) return null;
+  const first = !(await getSetting<boolean>(IMPORTED, false)) || !(await getSetting<boolean>(REREAD, false));
+  const fresh = await within(readHealth(first ? 60 : 3), first ? FIRST_READ_MS : READ_MS, "Apple Health");
+  let latest: string | null = null;
+  let nights = 0;
+  let days = 0;
+  const add = (r: { nights: number; days: number; latest: string | null }) => {
+    nights = Math.max(nights, r.nights);
+    days = Math.max(days, r.days);
+    latest = r.latest ?? latest;
+  };
+  // Reads a background wake kept for the app. One that can't be imported is dropped (the fresh
+  // read covers the same days), so it can't stop every read after it.
+  const pending = await within(takePending(), READ_MS, "The iPhone app").catch(() => []);
+  for (const p of pending) {
+    try {
+      add(await ingestHealth(p.body));
+    } catch (e) {
+      logEvent("health", "error", `Dropped a background Health read: ${e instanceof Error ? e.message : String(e)}`);
     }
-  })();
-  return running;
+  }
+  if (pending.length) await within(ackPending(pending.map((p) => p.id)), READ_MS, "The iPhone app").catch(() => {});
+  // The fresh read last: it's the newest, so its latest night wins.
+  add(await ingestHealth(fresh));
+  await setSetting(IMPORTED, true);
+  await setSetting(REREAD, true);
+  const at = new Date().toISOString();
+  await setSetting("health.lastImport", { at, nights, days, latest, failed: [], from: "iphone" });
+  // Synced: the computer's Sleep and recovery card shows this as the source and its status.
+  const was = await getSetting<IphoneHealth | null>(IPHONE_SETTING, null);
+  await setSetting(IPHONE_SETTING, { at, nights, days, latest: latest ?? was?.latest ?? null } satisfies IphoneHealth);
+  revalidatePath("/");
+  return latest;
 }
 
 interface ActivityRow {
@@ -130,7 +177,7 @@ export function writeRides(): Promise<number> {
 async function removeOldDuplicates(): Promise<void> {
   if (await getSetting<boolean>(DEDUPED, false)) return;
   try {
-    const { removed } = await removeDuplicateWorkouts();
+    const { removed } = await within(removeDuplicateWorkouts(), CLEANUP_MS, "Removing duplicate rides");
     if (removed) logEvent("health", "info", `Removed ${removed} duplicate ${removed === 1 ? "ride" : "rides"} from Apple Health`);
     await setSetting(DEDUPED, true);
   } catch (e) {
@@ -167,7 +214,7 @@ async function writeNewRides(): Promise<number> {
     });
     try {
       if (workout) {
-        const r = await saveWorkout(workout);
+        const r = await within(saveWorkout(workout), SAVE_MS, "Saving a ride to Health");
         if (r.saved) saved++;
         else logEvent("health", "info", `Ride ${a.name ?? a.id} not written to Health: ${r.reason}`);
       }
