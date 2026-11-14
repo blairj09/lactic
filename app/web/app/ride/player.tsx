@@ -35,6 +35,8 @@ export interface PlayerData {
   erg: { watts: number } | null;
   /** Head unit: another app drives the trainer; no targets, ERG, grade or intensity here. */
   headUnit: boolean;
+  /** Head unit: the training app seen open on the computer (Zwift, Rouvy, MyWhoosh), if any. */
+  trainerApp?: string | null;
   /** Paused because you stopped pedaling; pedaling again resumes it. */
   autoPaused: boolean;
   /** ERG holds the target; off, the trainer rides like a road at `grade` and targets are a guide. */
@@ -339,6 +341,9 @@ export const fieldsOf = (data: PlayerData): RideFields =>
 export const pageShown = (page: RidePage, data: PlayerData, short = false): (Shown | undefined)[] =>
   Array.from({ length: PAGE_TEMPLATES[page.template] }, (_, i) => (page.fields[i] ? shownField(page.fields[i], data, short) : undefined));
 
+/** Head unit: who has the trainer, by name when a known training app is open. */
+const trainerOwner = (data: PlayerData) => `${data.trainerApp ?? "Another app"} controls the trainer`;
+
 /** The page on screen, wrapped to the set's page count (the overlay's set may have fewer pages). */
 export const pageOf = (pages: RidePage[], page: number): RidePage => pages[((page % pages.length) + pages.length) % pages.length];
 
@@ -362,7 +367,7 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
             : erg
               ? "Holds the target until you move it"
               : data.headUnit
-                ? "Hands off the trainer"
+                ? trainerOwner(data)
                 : `${formatTime(data.position)} of ${formatTime(data.duration)}`}
           {!erg && !data.ended && data.intensity !== 100 && ` · ${data.intensity}% intensity`}
           {!data.ended &&
@@ -406,7 +411,7 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
         ) : data.ended ? (
           <div />
         ) : data.headUnit ? (
-          <p className="text-[15px] text-muted">Zwift or your other app drives the trainer. Lactic reads your sensors and records the ride.</p>
+          <p className="text-[15px] text-muted">Lactic reads your sensors and records the ride.</p>
         ) : (
           <UpNext data={data} />
         )}
@@ -948,7 +953,7 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
               {data.erg ? (
                 ftp > 0 && `${Math.round((data.erg.watts / ftp) * 100)}% FTP · zone ${powerZone(data.erg.watts / ftp)}`
               ) : data.headUnit ? (
-                "Hands off the trainer"
+                trainerOwner(data)
               ) : next ? (
                 <span className="inline-flex items-center gap-[0.4em]">
                   <ZoneDot zone={zoneOf(next)} />
@@ -1105,7 +1110,7 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
 
       {data.headUnit ? (
         <Group label="Trainer">
-          <span className={`inline-flex ${D_H} ${D_TEXT} items-center rounded-md bg-raised px-[0.7em] text-muted`}>Hands off</span>
+          <span className={`inline-flex ${D_H} ${D_TEXT} items-center rounded-md bg-raised px-[0.7em] text-muted`}>{data.trainerApp ?? "Other app"}</span>
         </Group>
       ) : (
       <Group label={data.erg ? "ERG target" : data.holding ? "Hold" : "Intensity"}>
