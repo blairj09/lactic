@@ -53,7 +53,7 @@ async function healthConnectedHere(): Promise<boolean> {
   if (!isPhone()) return true;
   const { phoneStatus } = await import("~/phone/plugin");
   const status = await phoneStatus().catch(() => null);
-  return Boolean(status?.healthAvailable && status.healthAsked);
+  return Boolean(status?.healthAvailable && status.healthAsked && !status.healthToAsk);
 }
 
 // Today names the rider's recovery source from this.

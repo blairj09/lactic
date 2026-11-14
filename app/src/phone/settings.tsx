@@ -376,6 +376,8 @@ export function PhoneHealth() {
     const error = healthError();
     setResult(error ? { ok: false, message: error } : { ok: true, message: latest ? `Latest ${latest}.` : "Nothing new from Health." });
     setBusy(false);
+    // A read can show iOS still has to ask about some types: the button becomes Connect.
+    refresh();
   }
 
   return (
@@ -385,7 +387,7 @@ export function PhoneHealth() {
           ? "Lactic reads sleep, HRV, resting heart rate, breathing, heart rate, steps and VO2 max from Health Connect, and checks for new nights every 15 minutes or so. Samsung Health doesn't share HRV."
           : "Lactic reads sleep, HRV, resting heart rate, breathing, wrist temperature, heart rate, steps and VO2 max straight from Health, and picks up new nights on its own. No Shortcut needed."}
       </p>
-      {status.healthAsked ? (
+      {status.healthAsked && !status.healthToAsk ? (
         <button type="button" className={button.secondary} disabled={busy} onClick={() => void readNow()}>
           {busy ? "Reading…" : "Read Health now"}
         </button>
