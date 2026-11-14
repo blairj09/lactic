@@ -6,6 +6,7 @@ import { plannedStress, workoutDuration } from "@/lib/engine/workout";
 import { customKey, libraryKey, LIBRARY_CATEGORIES, LIBRARY_CATEGORY_LABELS, WORKOUT_LIBRARY, libraryWorkout, type LibraryCategory, type LibraryWorkout } from "@/lib/engine/workout-library";
 import type { CustomWorkout } from "@/lib/custom-workouts";
 import FavoriteButton from "@/components/favorite-button";
+import { WorkoutRow, WorkoutSheet } from "@/components/workout-list";
 import { useState } from "react";
 import { Panel, Segmented, button, input } from "@/components/ui";
 import Select from "@/components/select";
@@ -113,6 +114,7 @@ export default function RideNow({
   onNew,
   onDelete,
   onFile,
+  ftp,
 }: {
   source: RideSource;
   planned: Session | null;
@@ -139,6 +141,8 @@ export default function RideNow({
   onDelete: (saved: CustomWorkout) => void;
   /** Imports a workout file (.zwo, .erg or .mrc) into My workouts and loads it. */
   onFile: (file: File) => void;
+  /** Watts for the workout sheet's targets. */
+  ftp?: number;
 }) {
   const mode: Mode = source === "planned" ? "planned" : source === "erg" ? "erg" : source === "headUnit" ? "headUnit" : "pick";
   const modes: { value: Mode; label: string }[] = [
@@ -243,9 +247,17 @@ export default function RideNow({
         )}
 
         {shelfOpen && (
-          <button type="button" className={`${button.ghost} -mt-1`} onClick={() => onSource("library")}>
-            Back to building a workout
-          </button>
+          <div className="-mt-1 flex flex-wrap gap-x-5">
+            {/* The switcher above scrolls away in a long list, so the way back to the plan stays in reach. */}
+            {planned && (
+              <button type="button" className={button.ghost} onClick={() => onSource("planned")}>
+                ‹ Back to {plannedLabel.charAt(0).toLowerCase() + plannedLabel.slice(1)}
+              </button>
+            )}
+            <button type="button" className={button.ghost} onClick={() => onSource("library")}>
+              Back to building a workout
+            </button>
+          </div>
         )}
 
         {shelfOpen && (
@@ -262,6 +274,7 @@ export default function RideNow({
             onNew={onNew}
             onDelete={onDelete}
             onFile={onFile}
+            ftp={ftp}
           />
         )}
 
@@ -304,6 +317,7 @@ function MyWorkouts({
   onNew,
   onDelete,
   onFile,
+  ftp,
 }: {
   saved: CustomWorkout[];
   customId: string | null;
@@ -317,6 +331,8 @@ function MyWorkouts({
   onNew: () => void;
   onDelete: (saved: CustomWorkout) => void;
   onFile: (file: File) => void;
+  /** Watts for the workout sheet's targets. */
+  ftp?: number;
 }) {
   const [shelf, setShelf] = useState<Shelf>(saved.length && !starterId ? "saved" : "library");
   const [category, setCategory] = useState<LibraryCategory | "all">(() => libraryWorkout(starterId)?.category ?? "all");
@@ -329,43 +345,81 @@ function MyWorkouts({
   const heart = (key: string, name: string) =>
     canSave ? <FavoriteButton on={favorites.has(key)} name={name} onToggle={() => onFavorite(key, !favorites.has(key))} /> : null;
 
+  /** The workout open in its sheet: a starter library one or one of yours. */
+  const [open, setOpen] = useState<{ library: LibraryWorkout } | { saved: CustomWorkout } | null>(null);
+
+  const libraryLine = (w: LibraryWorkout) => `${category === "all" || shelf === "favorites" ? `${LIBRARY_CATEGORY_LABELS[w.category]} · ` : ""}${workoutLine(w.duration, w.stress, shownLevel(w))}`;
+  const savedLine = (s: CustomWorkout) => workoutLine(workoutDuration(s.workout), plannedStress(s.workout));
+
   const libraryRow = (w: LibraryWorkout) => (
-    <li key={w.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2.5">
-      <div className="min-w-0 flex-1">
-        <p className={`text-[15px] ${w.id === starterId ? "font-medium" : ""}`}>{w.workout.name}</p>
-        <p className="num text-sm text-muted">
-          {LIBRARY_CATEGORY_LABELS[w.category]} · {workoutLine(w.duration, w.stress, shownLevel(w))}
-        </p>
-        <p className="text-sm text-muted">{w.description}</p>
-      </div>
-      <span className="flex items-center gap-2">
-        {heart(libraryKey(w.id), w.workout.name)}
-        <button className={button.small} disabled={w.id === starterId} onClick={() => onStarter(w)}>
-          {w.id === starterId ? "Loaded" : "Load"}
-        </button>
-      </span>
-    </li>
+    <WorkoutRow
+      key={w.id}
+      name={w.workout.name}
+      line={libraryLine(w)}
+      workout={w.workout}
+      current={w.id === starterId}
+      onOpen={() => setOpen({ library: w })}
+      actions={
+        <>
+          {heart(libraryKey(w.id), w.workout.name)}
+          <button className={button.small} disabled={w.id === starterId} onClick={() => onStarter(w)}>
+            {w.id === starterId ? "Loaded" : "Load"}
+          </button>
+        </>
+      }
+    />
   );
 
   const savedRow = (s: CustomWorkout, removable: boolean) => (
-    <li key={s.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2.5">
-      <div className="min-w-0">
-        <p className={`truncate text-[15px] ${s.id === customId ? "font-medium" : ""}`}>{s.workout.name}</p>
-        <p className="num text-sm text-muted">{workoutLine(workoutDuration(s.workout), plannedStress(s.workout))}</p>
-      </div>
-      <span className="flex items-center gap-2">
-        {heart(customKey(s.id), s.workout.name)}
-        <button className={button.small} disabled={s.id === customId} onClick={() => onCustom(s)}>
-          {s.id === customId ? "Loaded" : "Load"}
-        </button>
-        {removable && (
-          <button className={button.ghost} onClick={() => onDelete(s)} aria-label={`Delete ${s.workout.name}`}>
-            Delete
+    <WorkoutRow
+      key={s.id}
+      name={s.workout.name}
+      line={savedLine(s)}
+      workout={s.workout}
+      current={s.id === customId}
+      onOpen={() => setOpen({ saved: s })}
+      actions={
+        <>
+          {heart(customKey(s.id), s.workout.name)}
+          <button className={button.small} disabled={s.id === customId} onClick={() => onCustom(s)}>
+            {s.id === customId ? "Loaded" : "Load"}
           </button>
-        )}
-      </span>
-    </li>
+          {removable && (
+            <button className={button.ghost} onClick={() => onDelete(s)} aria-label={`Delete ${s.workout.name}`}>
+              Delete
+            </button>
+          )}
+        </>
+      }
+    />
   );
+
+  const sheet = (() => {
+    if (!open) return null;
+    const close = () => setOpen(null);
+    if ("library" in open) {
+      const w = open.library;
+      const loaded = w.id === starterId;
+      return (
+        <WorkoutSheet name={w.workout.name} line={`${LIBRARY_CATEGORY_LABELS[w.category]} · ${workoutLine(w.duration, w.stress, shownLevel(w))}`} workout={w.workout} description={w.description} ftp={ftp} onClose={close}>
+          <button className={button.primary} disabled={loaded} onClick={() => (onStarter(w), close())}>
+            {loaded ? "Loaded" : "Load"}
+          </button>
+          {heart(libraryKey(w.id), w.workout.name)}
+        </WorkoutSheet>
+      );
+    }
+    const s = open.saved;
+    const loaded = s.id === customId;
+    return (
+      <WorkoutSheet name={s.workout.name} line={savedLine(s)} workout={s.workout} ftp={ftp} onClose={close}>
+        <button className={button.primary} disabled={loaded} onClick={() => (onCustom(s), close())}>
+          {loaded ? "Loaded" : "Load"}
+        </button>
+        {heart(customKey(s.id), s.workout.name)}
+      </WorkoutSheet>
+    );
+  })();
 
   const shown = category === "all" ? WORKOUT_LIBRARY : WORKOUT_LIBRARY.filter((w) => w.category === category);
   // Favorites in the order you added them, newest first.
@@ -380,6 +434,7 @@ function MyWorkouts({
 
   return (
     <div className="space-y-4">
+      {sheet}
       <Segmented label="My workouts" options={shelves} value={shelf} onChange={setShelf} />
 
       {shelf === "library" && (
@@ -391,7 +446,7 @@ function MyWorkouts({
               </option>
             ))}
           </Select>
-          <ul className="max-h-[28rem] divide-y divide-rule overflow-y-auto border-y border-rule">{shown.map(libraryRow)}</ul>
+          <ul className="max-h-[32rem] divide-y divide-rule overflow-y-auto border-y border-rule">{shown.map(libraryRow)}</ul>
         </div>
       )}
 

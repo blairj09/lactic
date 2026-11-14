@@ -13,10 +13,10 @@ export const dynamic = "force-dynamic";
 
 const DAY = /^\d{4}-\d\d-\d\d$/;
 
-export default async function RidePage({ searchParams }: { searchParams: Promise<{ day?: string; source?: string; first?: string }> }) {
+export default async function RidePage({ searchParams }: { searchParams: Promise<{ day?: string; source?: string; first?: string; workout?: string }> }) {
   if (!authEnabled) return <RideScreen initialFtp={null} canSave={false} levels={STARTING_LEVELS} />;
   const supabase = await createClient();
-  const { day: asked, source, first } = await searchParams;
+  const { day: asked, source, first, workout } = await searchParams;
   // Ride now offers a plan day's session first: the one asked for (from Today's check-in), else today's.
   const [state, layout] = await Promise.all([loadTrainingState(supabase), loadLayout(supabase)]);
   const day = asked && DAY.test(asked) ? asked : state.today;
@@ -47,7 +47,7 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
   const saved = await loadCustomWorkouts(supabase).catch(() => []);
   return (
     <RideScreen
-      key={day}
+      key={`${day}:${workout ?? ""}`}
       initialFtp={state.athlete.ftp}
       ftpGuess={ftpIsGuess(state.athlete.ftpHistory, state.today)}
       canSave
@@ -62,6 +62,7 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
       weightKg={state.athlete.weightKg}
       rideFields={layout.ride}
       initialSource={source === "library" || source === "custom" || source === "erg" || source === "headUnit" ? source : undefined}
+      initialWorkout={workout}
     />
   );
 }

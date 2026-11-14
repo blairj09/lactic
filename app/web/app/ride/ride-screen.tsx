@@ -131,7 +131,10 @@ function RideOnThisDevice({
   weightKg = null,
   rideFields,
   initialSource,
+  initialWorkout,
 }: {
+  /** A workout to load first, by key (`library:<id>` or `custom:<id>`): Ride now from a workout's page. */
+  initialWorkout?: string;
   /** Weight from Settings, for W/kg fields. */
   weightKg?: number | null;
   /** The rider's ride field pages from their layout; Lactic standard when not given. */
@@ -164,17 +167,29 @@ function RideOnThisDevice({
   const [supported, setSupported] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ftp, setFtp] = useState(initialFtp ?? 250);
-  const [source, setSource] = useState<RideSource>(initialSource ?? (planned ? "planned" : "library"));
+  // Ride now from a workout's page opens with that workout loaded.
+  const [opening] = useState(() => {
+    if (initialWorkout?.startsWith("library:")) {
+      const entry = libraryWorkout(initialWorkout.slice(8));
+      return entry ? { source: "starter" as const, workout: entry.workout, starterId: entry.id, customId: null } : null;
+    }
+    if (initialWorkout?.startsWith("custom:")) {
+      const entry = saved.find((s) => s.id === initialWorkout.slice(7));
+      return entry ? { source: "custom" as const, workout: entry.workout, starterId: null, customId: entry.id } : null;
+    }
+    return null;
+  });
+  const [source, setSource] = useState<RideSource>(opening?.source ?? initialSource ?? (planned ? "planned" : "library"));
   const [library, setLibrary] = useState<LibraryChoice>(DEFAULT_LIBRARY);
   /** A .zwo file is being saved into My workouts. */
   const [importing, setImporting] = useState(false);
   /** Overlay, power source and FTP: set once, so they start collapsed. */
   const [setupOpen, setSetupOpen] = useState(false);
-  const [baseWorkout, setBaseWorkout] = useState<Workout>(() => planned?.workout ?? librarySession(DEFAULT_LIBRARY, levels).workout);
+  const [baseWorkout, setBaseWorkout] = useState<Workout>(() => opening?.workout ?? planned?.workout ?? librarySession(DEFAULT_LIBRARY, levels).workout);
   /** The My workouts entry loaded (or just saved), so Save updates it. */
-  const [customId, setCustomId] = useState<string | null>(null);
+  const [customId, setCustomId] = useState<string | null>(opening?.customId ?? null);
   /** The starter library workout loaded. */
-  const [starterId, setStarterId] = useState<string | null>(null);
+  const [starterId, setStarterId] = useState<string | null>(opening?.starterId ?? null);
   /** A ridden workout saved to My workouts to favorite it. */
   const [keptId, setKeptId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<ReadonlySet<string>>(() => new Set(initialFavorites));
@@ -1090,6 +1105,7 @@ function RideOnThisDevice({
         {elapsed === 0 && (
           <div data-tour="ride-pick">
             <RideNow
+              ftp={ftp}
               source={source}
               planned={planned}
               plannedLabel={plannedLabel}
