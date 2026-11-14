@@ -63,6 +63,7 @@ export default function FitImport() {
         accept=".fit,.gpx,.tcx,.gz,.zip"
         disabled={busy}
         className={fileInput}
+        aria-label="Ride files to import"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
           e.target.value = "";
