@@ -6,6 +6,7 @@ import type { MetricGroup } from "@shared/sdk";
 import { validateManifest, type PluginManifest } from "./manifest";
 import { deviceId } from "./device";
 import { stableId } from "./ids";
+import { isPhone } from "~/platform/native";
 import { CATALOG_ORIGIN, isCatalogPackage } from "./catalog";
 import { parsePackage, sha256Hex, type PluginPackage } from "./package";
 import { grantedGroups, pluginState, updateChanges, updatedGrant, type Grant, type InstallChoices, type PluginState, type UpdateChanges } from "./permissions";
@@ -113,6 +114,8 @@ async function saveGrant(pluginId: string, g: Grant) {
 /** `origin` is where this exact file came from (null for a chosen file), so the source line never claims a repo the code didn't come from. */
 async function savePackage(pkg: PluginPackage, origin: string | null) {
   if (origin === CATALOG_ORIGIN && !(await isCatalogPackage(pkg.sha256))) throw new Error("That isn't one of Lactic's plugins.");
+  // The phone adds and updates only Lactic's own plugins; others come from the paired computer by sync.
+  if (isPhone() && origin !== CATALOG_ORIGIN) throw new Error("On iPhone, add plugins from GitHub or a file on your computer.");
   const now = new Date().toISOString();
   const m = pkg.manifest;
   await sql().execute(
