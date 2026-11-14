@@ -14,10 +14,10 @@ export const LAYOUT_VERSION = 1;
  * Lactic's tabs. Today (home, where the logo goes) and Ride (how a ride starts) can be moved but
  * not hidden; Settings isn't a tab on a computer and always stays.
  */
-/** "plugins" shows only in Lactic Modular once a plugin has a card (src/plugins/use-plugin-tab.ts). */
+/** "plugins" shows only in Lactic Modular on a computer, and always there (src/plugins/use-plugin-tab.ts). */
 export const TAB_IDS = ["today", "plan", "ride", "progress", "health", "plugins"] as const;
 export type TabId = (typeof TAB_IDS)[number];
-export const FIXED_TABS: readonly TabId[] = ["today", "ride"];
+export const FIXED_TABS: readonly TabId[] = ["today", "ride", "plugins"];
 
 export interface TabEntry {
   id: TabId;

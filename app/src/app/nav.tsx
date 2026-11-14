@@ -13,7 +13,7 @@ import { hasHealth } from "@/lib/features";
 import { useFeatures } from "@/lib/use-features";
 import { useTabs } from "@/lib/use-tabs";
 import type { TabId } from "@/lib/sdk/layout";
-import { usePluginTab } from "~/plugins/use-plugin-tab";
+import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 
 const LINKS: Record<TabId, { href: string; label: string }> = {
   today: { href: "/", label: "Today" },
@@ -31,10 +31,9 @@ export default function Nav({ current }: { current: string }) {
   // In the rider's order (Settings → Layout), Ride between Plan and Progress by default, in the bar and
   // the phone's tab bar alike. Hidden tabs stay out; Health also has nothing to show when the rider
   // tracks neither recovery nor weight.
-  // Plugins shows only in Lactic Modular once a plugin has a card.
-  const pluginTab = usePluginTab();
+  // Plugins is always there in Lactic Modular on a computer: it's where plugins are added and managed.
   const tabs = useTabs()
-    .filter((t) => !t.hidden && (t.id !== "health" || hasHealth(tracking)) && (t.id !== "plugins" || pluginTab))
+    .filter((t) => !t.hidden && (t.id !== "health" || hasHealth(tracking)) && (t.id !== "plugins" || pluginsAllowed))
     .map((t) => LINKS[t.id]);
   const coach = mode === "builtin" || mode === "external";
   return (

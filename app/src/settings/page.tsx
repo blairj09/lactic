@@ -21,11 +21,8 @@ import { CoachSetupPanel } from "~/setup/coach";
 import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
 import { DataPanel, SimulatorSwitch } from "./panels";
-import { SandboxCheck } from "./sandbox-check";
 import HeadUnitAuto from "~/ride/head-unit-switch";
 import { canWatchApps } from "~/ride/head-unit-auto";
-import { PluginsPanel } from "./plugins-panel";
-import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { StravaSection } from "./strava-panel";
 import { TakeTour } from "~/tour/take-tour";
 import { FeedbackSetting } from "~/feedback/dialog";
@@ -49,7 +46,6 @@ const SECTIONS = [
   { id: "coach-settings", label: "Coach" },
   { id: "connections", label: "Connections" },
   { id: "gear", label: "Gear" },
-  ...(pluginsAllowed ? [{ id: "plugins", label: "Plugins" }] : []),
   { id: "data", label: "Your data" },
   { id: "about", label: "About" },
 ];
@@ -222,18 +218,6 @@ export default async function SettingsPage() {
             </Section>
           )}
         </div>
-        {pluginsAllowed && (
-          <div id="plugins" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-            <Section title="Plugins" description="Cards, ride fields and ride analyses, from Lactic or other riders. No internet, no changes, and they read only what you allow. Add ones you trust.">
-              <PluginsPanel />
-            </Section>
-            {isDesktop && (
-              <Section title="Plugin sandbox check" description="Runs a hostile test plugin in the sandbox and lists every escape it tried. Nothing is installed.">
-                <SandboxCheck />
-              </Section>
-            )}
-          </div>
-        )}
         <div id="data" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
           <Section title="Your data" description={`Everything is in one file on ${thisDevice()}. Back it up or take it anywhere.`}>
             <DataPanel />
