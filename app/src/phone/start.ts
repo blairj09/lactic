@@ -2,12 +2,15 @@
 // with the computer, and Apple Health both ways. A phone used without a computer runs intervals.icu
 // itself; once paired, the computer does that.
 
+import { setPullRefreshWork } from "@/lib/pull-refresh";
 import { syncPhoneHealth } from "./health";
 import { startLink, syncWithComputer } from "./link";
 import { onHealthWake, phoneStatus } from "./plugin";
 import { updateWidget } from "./widget";
 
 const INTERVALS_EVERY_MS = 20 * 60_000;
+/** While the app is open, Health is read again this often, in case a wake or a return to the app was missed. */
+const HEALTH_EVERY_MS = 15 * 60_000;
 
 async function intervalsIfAlone() {
   if ((await phoneStatus()).paired) return;
@@ -26,6 +29,15 @@ export function startPhone(): () => void {
       .then(() => syncWithComputer())
       .finally(() => updateWidget());
   both();
+  const healthTimer = setInterval(() => {
+    if (document.visibilityState === "visible") both();
+  }, HEALTH_EVERY_MS);
+  // Pulling down a page reads Health and syncs now, then the page refetches.
+  const stopPull = setPullRefreshWork(() =>
+    syncPhoneHealth()
+      .then(() => syncWithComputer())
+      .finally(() => updateWidget()),
+  );
   const onVisible = () => {
     if (document.visibilityState === "visible") both();
     // Leaving the app: the widgets get whatever was done in it (a check-in, a ride).
@@ -49,6 +61,8 @@ export function startPhone(): () => void {
   return () => {
     clearTimeout(firstAlone);
     clearInterval(aloneTimer);
+    clearInterval(healthTimer);
+    stopPull();
     clearTimeout(widgetTimer);
     stopLink();
     document.removeEventListener("visibilitychange", onVisible);

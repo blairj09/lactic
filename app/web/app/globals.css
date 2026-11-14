@@ -329,6 +329,26 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Pull to refresh on the phone (components/pull-to-refresh.tsx): the mark's bars grow from their
+   feet as you pull, then build one after another, like the start-up loader, until the refresh is done. */
+.lactic-pull-mark rect {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.lactic-pull-building rect {
+  animation: lactic-pull-build 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
+}
+.lactic-pull-building rect:nth-child(2) { animation-delay: 0.08s; }
+.lactic-pull-building rect:nth-child(3) { animation-delay: 0.16s; }
+.lactic-pull-building rect:nth-child(4) { animation-delay: 0.24s; }
+.lactic-pull-building rect:nth-child(5) { animation-delay: 0.32s; }
+@keyframes lactic-pull-build {
+  0% { transform: scaleY(0); opacity: 1; }
+  18% { transform: scaleY(1); }
+  80% { transform: scaleY(1); opacity: 1; }
+  100% { transform: scaleY(1); opacity: 0; }
+}
+
 /* Reduced motion (the system setting): no slides, spins or smooth scrolls, changes land at once. */
 @media (prefers-reduced-motion: reduce) {
   *,

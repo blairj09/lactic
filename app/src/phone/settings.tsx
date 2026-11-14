@@ -6,7 +6,7 @@ import { renderSVG } from "uqr";
 import { button, Pill, Result } from "@/components/ui";
 import { invoke, listen, os } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
-import { connectHealth, syncPhoneHealth, WRITE_RIDES } from "./health";
+import { connectHealth, healthError, syncPhoneHealth, WRITE_RIDES } from "./health";
 import { updateWidget, WIDGET_STATUS, type WidgetStatus } from "./widget";
 import { onLinkState, resetLink, syncWithComputer, type LinkState } from "./link";
 import { pair, phoneStatus, readable, send, unpair, type PhoneStatus } from "./plugin";
@@ -368,7 +368,8 @@ export function PhoneHealth() {
   async function readNow() {
     setBusy(true);
     const latest = await syncPhoneHealth();
-    setResult({ ok: true, message: latest ? `Latest ${latest}.` : "Nothing new from Health." });
+    const error = healthError();
+    setResult(error ? { ok: false, message: error } : { ok: true, message: latest ? `Latest ${latest}.` : "Nothing new from Health." });
     setBusy(false);
   }
 
