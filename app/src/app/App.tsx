@@ -6,6 +6,7 @@ import { HEAD_UNIT_EVENT, useHeadUnitWatch } from "~/ride/head-unit-auto";
 import CoachDrawer from "@/app/coach/coach-drawer";
 import DrawerBoundary from "@/app/coach/drawer-boundary";
 import NewDayRefresh from "@/components/new-day-refresh";
+import PullToRefresh from "@/components/pull-to-refresh";
 import { ServerPage } from "./server-page";
 import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { setNavigator } from "~/shims/next-navigation";
@@ -148,6 +149,7 @@ function Shell() {
         )}
       </Routes>
       <NewDayRefresh />
+      {onboarded && <PullToRefresh />}
       <BluetoothPicker />
       {!isPhone() && <UpdatePrompt />}
       {onboarded && isPhone() && <ComputerRide />}
