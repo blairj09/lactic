@@ -2,7 +2,7 @@
 // same API on the Rust core (and the simulator), and the web app's SensorHub, devices.ts and
 // scale.ts run unchanged. requestDevice opens Lactic's own picker in place of Chrome's.
 
-import { combined, fullUuid, hasNativeBluetooth, nativeBackend, noBackend, type Advert, type BleBackend, type ServiceInfo } from "./backend";
+import { combined, fullUuid, hasNativeBluetooth, noBackend, systemBackend, type Advert, type BleBackend, type ServiceInfo } from "./backend";
 import { simBackend } from "./sim";
 import { getSetting } from "~/settings/store";
 import { logEvent } from "~/support/log";
@@ -247,7 +247,7 @@ async function loadSim() {
 
 export function ble(): BleBackend {
   if (!backend) {
-    backend = combined(hasNativeBluetooth ? nativeBackend() : noBackend(), simBackend(), simEnabled);
+    backend = combined(hasNativeBluetooth ? systemBackend() : noBackend(), simBackend(), simEnabled);
     backend.onAdvert((ad) => {
       const prev = seen.get(ad.id);
       seen.set(ad.id, {

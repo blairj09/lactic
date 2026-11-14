@@ -9,6 +9,7 @@ import { createClient } from "~/db/supabase-client";
 import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { logEvent } from "~/support/log";
+import { phoneHealthName } from "~/platform/native";
 import { ackPending, authorizeHealth, phoneStatus, readHealth, removeDuplicateWorkouts, saveWorkout, takePending } from "./plugin";
 
 // Device-local settings ("phone." never syncs).
@@ -81,7 +82,7 @@ export function syncPhoneHealth(): Promise<string | null> {
     })
     .catch((e: unknown) => {
       lastError = e instanceof Error ? e.message : String(e);
-      logEvent("health", "error", `Apple Health: ${lastError}`);
+      logEvent("health", "error", `${phoneHealthName()}: ${lastError}`);
       return null;
     })
     .finally(() => {

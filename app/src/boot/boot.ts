@@ -27,7 +27,7 @@ export async function boot() {
   // The iPhone keeps its own Today, tabs and ride fields (web/lib/layout-data.ts).
   if (info?.mobile) setLayoutDevice("phone");
   if (info?.os === "macos") document.documentElement.dataset.desktop = "macos";
-  if (info?.mobile) document.documentElement.dataset.phone = "ios";
+  if (info?.mobile) document.documentElement.dataset.phone = info.os === "android" ? "android" : "ios";
   const root = createRoot(document.getElementById("root")!);
   try {
     await start(root);
