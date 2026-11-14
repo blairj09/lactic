@@ -137,37 +137,38 @@ export function ProfileForm({
       ? Number(v.weight) / LB
       : Number(v.weight)
     : null;
+  // Converts what's typed so far, so switching units never changes the rider's numbers.
+  const switchUnits = (u: ProfileValues["units"]) => {
+    const w = Number(v.weight);
+    const h = Number(v.height);
+    onChange({
+      ...v,
+      units: u,
+      weight:
+        v.weight && u !== v.units
+          ? String(Math.round((u === "imperial" ? w * LB : w / LB) * 10) / 10)
+          : v.weight,
+      height:
+        v.height && u !== v.units
+          ? String(Math.round(u === "imperial" ? h / IN : h * IN))
+          : v.height,
+    });
+  };
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Segmented
-          label="Units"
-          value={v.units}
-          onChange={(u) => {
-            const w = Number(v.weight);
-            const h = Number(v.height);
-            onChange({
-              ...v,
-              units: u,
-              weight:
-                v.weight && u !== v.units
-                  ? String(
-                      Math.round((u === "imperial" ? w * LB : w / LB) * 10) /
-                        10,
-                    )
-                  : v.weight,
-              height:
-                v.height && u !== v.units
-                  ? String(Math.round(u === "imperial" ? h / IN : h * IN))
-                  : v.height,
-            });
-          }}
-          options={[
-            { value: "metric", label: "kg · cm" },
-            { value: "imperial", label: "lb · in" },
-          ]}
-        />
-      </div>
+      {!short && (
+        <div className="flex justify-end">
+          <Segmented
+            label="Units"
+            value={v.units}
+            onChange={switchUnits}
+            options={[
+              { value: "metric", label: "kg · cm" },
+              { value: "imperial", label: "lb · in" },
+            ]}
+          />
+        </div>
+      )}
       <div className="grid gap-5 sm:grid-cols-2">
         <Field
           label="FTP"
@@ -202,19 +203,35 @@ export function ProfileForm({
           </div>
         </Field>
         <Field label="Weight">
-          <div className="relative w-36">
-            <input
-              className={`${input} w-full pr-9`}
-              inputMode="decimal"
-              value={v.weight}
-              onChange={(e) =>
-                set("weight", e.target.value.replace(/[^\d.]/g, ""))
-              }
-              placeholder={v.units === "imperial" ? "160" : "72"}
-            />
-            <span className="pointer-events-none absolute top-2 right-3 text-sm text-muted">
-              {v.units === "imperial" ? "lb" : "kg"}
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="relative w-36">
+              <input
+                className={`${input} w-full pr-9`}
+                inputMode="decimal"
+                value={v.weight}
+                onChange={(e) =>
+                  set("weight", e.target.value.replace(/[^\d.]/g, ""))
+                }
+                placeholder={v.units === "imperial" ? "160" : "72"}
+              />
+              <span className="pointer-events-none absolute top-2 right-3 text-sm text-muted">
+                {v.units === "imperial" ? "lb" : "kg"}
+              </span>
+            </div>
+            {/* The first run's only units choice, right where it matters (also sets distances). */}
+            {short && (
+              <div className="w-28">
+                <Segmented
+                  label="Units"
+                  value={v.units}
+                  onChange={switchUnits}
+                  options={[
+                    { value: "metric", label: "kg" },
+                    { value: "imperial", label: "lb" },
+                  ]}
+                />
+              </div>
+            )}
           </div>
         </Field>
         {!short && (
