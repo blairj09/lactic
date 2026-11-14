@@ -22,3 +22,16 @@ export function TakeTour() {
     </div>
   );
 }
+
+/** The tour as a quiet link, for Today's "Finish setting up". */
+export function TakeTourLink() {
+  return (
+    <button
+      type="button"
+      className="underline underline-offset-4 hover:text-ink"
+      onClick={() => startTour(FIRST_STOP)}
+    >
+      Take the tour
+    </button>
+  );
+}
