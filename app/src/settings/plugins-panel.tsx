@@ -176,6 +176,7 @@ export function PluginsPanel() {
       {open?.kind === "add" && (
         <PermissionDialog
           manifest={open.prepared.pkg.manifest}
+          source={open.prepared.pkg.source}
           origin={open.origin}
           mode="add"
           onClose={close}
