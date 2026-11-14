@@ -70,3 +70,23 @@ export function useHeadUnitWatch(go: () => void) {
     };
   }, [on]);
 }
+
+/** Head unit: the training app open on the computer now (Zwift, Rouvy, MyWhoosh), looked for while `on`. */
+export function useTrainingApp(on: boolean): string | null {
+  const [app, setApp] = useState<string | null>(null);
+  useEffect(() => {
+    if (!on || !canWatchApps()) return setApp(null);
+    let stopped = false;
+    const look = async () => {
+      const open = await invoke<string | null>("training_app_open").catch(() => null);
+      if (!stopped) setApp(open);
+    };
+    void look();
+    const id = window.setInterval(() => void look(), LOOK_EVERY_MS);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, [on]);
+  return app;
+}
