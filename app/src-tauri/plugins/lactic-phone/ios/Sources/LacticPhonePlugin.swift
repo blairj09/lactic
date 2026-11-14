@@ -498,14 +498,31 @@ enum Health {
     saveLock.lock()
     let last = lastSave
     saveLock.unlock()
-    _ = await last?.result
+    await waitAtMost(120, for: last)
+  }
+
+  /// Waits for `task`, but no longer than `seconds`: one save that never finishes must not hold
+  /// every save after it.
+  static func waitAtMost(_ seconds: Double, for task: Task<Saved, Error>?) async {
+    guard let task else { return }
+    let once = FirstOnly()
+    await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+      Task {
+        _ = await task.result
+        if once.claim() { cont.resume() }
+      }
+      Task {
+        try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+        if once.claim() { cont.resume() }
+      }
+    }
   }
 
   static func saveInTurn(_ w: WorkoutArgs) async throws -> Saved {
     saveLock.lock()
     let before = lastSave
     let task = Task { () throws -> Saved in
-      _ = await before?.result
+      await waitAtMost(120, for: before)
       return try await save(w)
     }
     lastSave = task
@@ -589,6 +606,19 @@ enum Health {
     try await builder.endCollection(at: end)
     _ = try await builder.finishWorkout()
     return Saved(saved: true, reason: nil)
+  }
+}
+
+/// True for the first caller only.
+final class FirstOnly: @unchecked Sendable {
+  private let lock = NSLock()
+  private var done = false
+  func claim() -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    if done { return false }
+    done = true
+    return true
   }
 }
 
