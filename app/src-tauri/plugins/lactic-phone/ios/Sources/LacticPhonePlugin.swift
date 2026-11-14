@@ -505,7 +505,7 @@ enum Health {
   /// every save after it.
   static func waitAtMost(_ seconds: Double, for task: Task<Saved, Error>?) async {
     guard let task else { return }
-    let once = Once()
+    let once = FirstOnly()
     await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
       Task {
         _ = await task.result
@@ -610,7 +610,7 @@ enum Health {
 }
 
 /// True for the first caller only.
-final class Once: @unchecked Sendable {
+final class FirstOnly: @unchecked Sendable {
   private let lock = NSLock()
   private var done = false
   func claim() -> Bool {
