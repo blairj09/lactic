@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic Modular: Open overlay is now a button next to End ride on every ride, workouts, free rides and head unit alike. To open it by itself, tick "Open when a ride starts" under Ride → Setup → Overlay.
 - Lactic Modular: Head unit says which app controls your trainer, like "Zwift controls the trainer", when Zwift, Rouvy or MyWhoosh is open.
 - Lactic Modular: Head unit can start with Zwift. Tick "Start with Zwift, Rouvy or MyWhoosh" under Head unit (or in Settings → Head unit) and Lactic stays in the menu bar; when one of those apps opens, the Ride page gets the head unit ready and pedaling starts it.
 - Lactic Modular: Head unit on the Ride page. Ride Zwift, Rouvy or any app and Lactic shows your own fields on the overlay, plugins included, and records the ride, without ever touching your trainer. If the trainer only takes one app, Lactic uses your power meter or heart rate instead. Head unit rides aren't posted to Strava automatically, since the other app usually does.

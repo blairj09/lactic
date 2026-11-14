@@ -1203,15 +1203,16 @@ function RideOnThisDevice({
                       {saveState === "saving" ? "Saving..." : "Save ride"}
                     </button>
                   )}
+                  {pip.supported && !ended && (
+                    <button className={`${button.secondary} ${pip.pip ? "bg-raised" : ""}`} aria-pressed={!!pip.pip} onClick={() => (pip.pip ? pip.close() : openOverlay())}>
+                      <OverlayIcon />
+                      {pip.pip ? "Close overlay" : "Open overlay"}
+                    </button>
+                  )}
                   {/* Fields are only customized before a ride, never mid-ride (review U6). */}
                   {elapsed === 0 && !running && (
                     <button className={button.ghost} onClick={() => setEditingFields(true)}>
                       Customize fields
-                    </button>
-                  )}
-                  {pip.supported && !ended && (
-                    <button className={button.ghost} onClick={() => (pip.pip ? pip.close() : openOverlay())}>
-                      {pip.pip ? "Close overlay" : "Open overlay"}
                     </button>
                   )}
                   {elapsed > 0 && (
@@ -1296,12 +1297,12 @@ function RideOnThisDevice({
                     {pip.supported ? (
                       <>
                         <p className="text-sm text-muted">
-                          A small window with the interval, targets and what&apos;s next that stays on top of whatever else you have open: Zwift, a video, a browser. Drag it bigger, or use its shrink and enlarge buttons.{" "}
+                          Stays on top of Zwift, a video or anything else. Drag to resize.{" "}
                           {FULL_SCREEN_NOTE[pip.fullScreen]}
                         </p>
                         <label className="flex items-center gap-2 text-sm">
                           <input type="checkbox" checked={overlayOnStart} onChange={(e) => toggleOverlayOnStart(e.target.checked)} className="size-4 accent-[var(--ink)]" />
-                          Open it when I start
+                          Open when a ride starts
                         </label>
                         {overlayOnStart && autoStartOn && pip.needsClick && (
                           <p className="text-sm text-muted">Chrome only opens it from a click, so it opens when you click Start; if pedaling starts the ride, open it with Open overlay.</p>
@@ -1382,4 +1383,14 @@ function withFactor(factors: ReadonlyMap<number, number>, reps: number[], factor
   const next = new Map(factors);
   for (const r of reps) next.set(r, factor);
   return next;
+}
+
+/** A window with a small one in its corner: the overlay. */
+function OverlayIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden className="size-4" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
+      <rect x="8" y="8" width="5" height="4" rx="0.5" fill="currentColor" />
+    </svg>
+  );
 }
