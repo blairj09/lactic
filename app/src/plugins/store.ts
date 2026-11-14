@@ -5,6 +5,7 @@ import { sql, type Row } from "~/db/sql";
 import type { MetricGroup } from "@shared/sdk";
 import { validateManifest, type PluginManifest } from "./manifest";
 import { deviceId } from "./device";
+import { stableId } from "./ids";
 import { CATALOG_ORIGIN, isCatalogPackage } from "./catalog";
 import { parsePackage, sha256Hex, type PluginPackage } from "./package";
 import { grantedGroups, pluginState, updateChanges, updatedGrant, type Grant, type InstallChoices, type PluginState, type UpdateChanges } from "./permissions";
@@ -105,7 +106,7 @@ async function saveGrant(pluginId: string, g: Grant) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (plugin_id, device) DO UPDATE SET sha256 = excluded.sha256, read = excluded.read, enabled = excluded.enabled,
        coach_visible = excluded.coach_visible, switched_off = excluded.switched_off, updated_at = excluded.updated_at`,
-    [crypto.randomUUID(), pluginId, deviceId(), g.sha256, JSON.stringify(g.read), g.enabled ? 1 : 0, g.coachVisible ? 1 : 0, g.switchedOff ?? null, now, now],
+    [await stableId("grant", pluginId, deviceId()), pluginId, deviceId(), g.sha256, JSON.stringify(g.read), g.enabled ? 1 : 0, g.coachVisible ? 1 : 0, g.switchedOff ?? null, now, now],
   );
 }
 
@@ -119,7 +120,7 @@ async function savePackage(pkg: PluginPackage, origin: string | null) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (plugin_id) DO UPDATE SET name = excluded.name, version = excluded.version, manifest = excluded.manifest,
        source = excluded.source, sha256 = excluded.sha256, origin = excluded.origin, updated_at = excluded.updated_at`,
-    [crypto.randomUUID(), m.id, m.name, m.version, JSON.stringify(m), pkg.source, pkg.sha256, origin, now, now],
+    [await stableId("plugin", m.id), m.id, m.name, m.version, JSON.stringify(m), pkg.source, pkg.sha256, origin, now, now],
   );
   notify();
 }
@@ -206,7 +207,7 @@ export async function recordValues(pluginId: string, values: Record<string, numb
     if (at.activityId) statements.push({ sql: `DELETE FROM plugin_values WHERE metric = ? AND activity_id = ?`, params: [metric, at.activityId] });
     statements.push({
       sql: `INSERT INTO plugin_values (id, plugin_id, metric, day, activity_id, value, choice, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      params: [crypto.randomUUID(), pluginId, metric, at.day, at.activityId ?? null, num, choice, now, now],
+      params: [at.activityId ? await stableId("value", metric, at.activityId) : crypto.randomUUID(), pluginId, metric, at.day, at.activityId ?? null, num, choice, now, now],
     });
   }
   if (!statements.length) return 0;

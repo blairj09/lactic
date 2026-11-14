@@ -31,7 +31,7 @@ export default function Nav({ current }: { current: string }) {
   // In the rider's order (Settings → Layout), Ride between Plan and Progress by default, in the bar and
   // the phone's tab bar alike. Hidden tabs stay out; Health also has nothing to show when the rider
   // tracks neither recovery nor weight.
-  // Plugins is always there in Lactic Modular on a computer: it's where plugins are added and managed.
+  // Plugins is always there in Lactic Modular (computer and iPhone): it's where plugins are added and managed.
   const tabs = useTabs()
     .filter((t) => !t.hidden && (t.id !== "health" || hasHealth(tracking)) && (t.id !== "plugins" || pluginsAllowed))
     .map((t) => LINKS[t.id]);
@@ -66,11 +66,7 @@ export default function Nav({ current }: { current: string }) {
           {mode === "external" && <ExternalCoachButton />}
           {coach && <span aria-hidden className="mx-1 hidden h-5 w-px bg-line md:block" />}
           {/* The website demo has no feedback to send. */}
-          {!isDemo && (
-            <span className="hidden md:contents">
-              <FeedbackButton />
-            </span>
-          )}
+          {!isDemo && <FeedbackButton className="hidden md:inline-flex" />}
           <Link
             href="/settings"
             aria-label="Settings"

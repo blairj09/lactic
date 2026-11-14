@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic Modular on iPhone: plugins. A Plugins tab like the computer's: add Lactic's own from Browse, and plugins you added on your Mac show up off until you turn them on for the phone. Their ride fields work when the phone runs the ride, and their sections show on ride pages. Adding from a GitHub link stays on the Mac.
+- Lactic Modular: "Report a problem" on each plugin's page opens feedback with the plugin filled in.
 - Lactic Modular on iPhone: pull down on any page to refresh it. Lactic reads Apple Health and syncs with your computer while the logo builds.
 - iPhone: Apple Health no longer gets stuck and stops bringing in new nights until you quit the app. "Read Health now" in Settings says what went wrong if a read fails.
 - Lactic Modular: every workout in the library shows its shape. Tap one for its page, with each interval's target. Plan has a new Workouts section to browse them, ride one now or add it to a day. In the Ride library, "Back to today's plan" takes you back to the day's workout.
