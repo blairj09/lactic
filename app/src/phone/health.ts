@@ -56,6 +56,8 @@ const READ_MS = 45_000;
 const FIRST_READ_MS = 120_000;
 const SAVE_MS = 90_000;
 const CLEANUP_MS = 120_000;
+/** Time to answer Apple's Health permission sheet. */
+const ASK_MS = 120_000;
 /** The whole read and import: past this, the next ask starts afresh. */
 const RUN_MS = 3 * 60_000;
 
@@ -91,6 +93,8 @@ export function syncPhoneHealth(): Promise<string | null> {
     })
     .catch((e: unknown) => {
       lastError = e instanceof Error ? e.message : String(e);
+      // HealthKit's words for a type iOS hasn't asked the rider about yet.
+      if (/not determined/i.test(lastError)) lastError = "Lactic needs your OK to read Health. Tap Connect Apple Health.";
       logEvent("health", "error", `Apple Health: ${lastError}`);
       return null;
     })
@@ -104,9 +108,10 @@ export function syncPhoneHealth(): Promise<string | null> {
 async function importHealth(): Promise<string | null> {
   const status = await within(phoneStatus(), READ_MS, "The iPhone app");
   if (!status.healthAvailable || !status.healthAsked) return null;
-  // Connected before Lactic read and wrote weight: Apple's sheet asks for just the new types, once.
-  if ((await getSetting<number>(ASKED_TYPES, 1)) < HEALTH_TYPES) {
-    await authorizeHealth().catch(() => {});
+  // iOS hasn't asked about some types yet (added since the rider answered, or the sheet never
+  // showed): Apple's sheet asks for just those. Only with the app on screen, where it can show.
+  if (status.healthToAsk && typeof document !== "undefined" && document.visibilityState === "visible") {
+    await within(authorizeHealth(), ASK_MS, "Apple Health's permission sheet").catch(() => {});
     await setSetting(ASKED_TYPES, HEALTH_TYPES);
   }
   const first = !(await getSetting<boolean>(IMPORTED, false)) || !(await getSetting<boolean>(REREAD, false));

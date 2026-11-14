@@ -28,6 +28,8 @@ export interface PhoneStatus {
   healthAvailable: boolean;
   /** The rider has seen the Health permission sheet (iOS never says what they allowed). */
   healthAsked: boolean;
+  /** iOS hasn't asked about some of the Health types Lactic uses yet: reading them fails until it does. */
+  healthToAsk?: boolean;
   /** Health reads from background wakes waiting to be imported here. */
   pending: number;
   paired: { computer: string; deviceId: string; lastSentAt: number | null } | null;

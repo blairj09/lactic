@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- iPhone: when Apple Health hasn't been asked about something Lactic reads ("Authorization not determined"), Lactic shows Apple's permission sheet again, and Settings shows Connect Apple Health instead of the error.
 - iPhone: Apple Health no longer gets stuck and stops bringing in new nights until you quit the app. "Read Health now" in Settings says what went wrong if a read fails.
 - Weigh-ins from other scales in Apple Health now come into Lactic on iPhone and keep your profile weight current, and weigh-ins from your Body Pod or typed into Lactic are saved to Apple Health when "Save rides and weigh-ins to Health" is on.
 - Pairing an iPhone you've been using on its own with a computer that already has a plan now also brings across the events, breaks, race reports and check-ins you added on the phone. The computer's plan for the days ahead stays as it is.
