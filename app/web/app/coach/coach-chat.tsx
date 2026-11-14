@@ -5,14 +5,20 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { Proposal } from "@/lib/coach/changes";
 import type { StoredMessage } from "@/lib/coach/store";
-import { applyProposal, dismissProposal } from "./actions";
+import { applyProposal, dismissProposal, markDraftAdded } from "./actions";
+import { PluginDraftCard, pluginDraft } from "~/plugins/draft-card";
 import { ProposalCard } from "./proposal-card";
 import { FeedbackCard } from "./feedback-card";
 import { streamCoach } from "./events";
 import { Prose } from "./prose";
 import { AutoTextarea } from "@/components/auto-textarea";
 import { ACCEPT } from "@/lib/coach/attachments";
-import { MessageAttachments, PendingFiles, useAttachments, useDropFiles } from "./attachments";
+import {
+  MessageAttachments,
+  PendingFiles,
+  useAttachments,
+  useDropFiles,
+} from "./attachments";
 
 const SUGGESTIONS = [
   "How's my fitness trending, and am I on track for my event?",
@@ -52,7 +58,8 @@ export default function CoachChat({
   const attach = useAttachments();
   const drop = useDropFiles((files) => void attach.add(files));
   const busy = status !== null;
-  const canSend = !busy && !attach.uploading && Boolean(draft.trim() || attach.ready.length);
+  const canSend =
+    !busy && !attach.uploading && Boolean(draft.trim() || attach.ready.length);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });
@@ -72,12 +79,17 @@ export default function CoachChat({
   async function send(text: string, withFiles = true) {
     const message = text.trim();
     const files = withFiles ? attach.ready : [];
-    if ((!message && !files.length) || busy || (withFiles && attach.uploading)) return;
+    if ((!message && !files.length) || busy || (withFiles && attach.uploading))
+      return;
     setError(null);
     setDraft("");
     // On a phone, drop the keyboard so the reply has the screen. It also clears iOS's gray
     // predicted word, which otherwise stays painted over the emptied box ("Message your coach").
-    if (window.matchMedia("(pointer: coarse)").matches && document.activeElement instanceof HTMLTextAreaElement) document.activeElement.blur();
+    if (
+      window.matchMedia("(pointer: coarse)").matches &&
+      document.activeElement instanceof HTMLTextAreaElement
+    )
+      document.activeElement.blur();
     if (withFiles) attach.clear();
     attach.setProblem(null);
     const now = new Date().toISOString();
@@ -130,13 +142,19 @@ export default function CoachChat({
     }
   }
 
-  const updateProposal = (id: string, index: number, change: Partial<Proposal>) =>
+  const updateProposal = (
+    id: string,
+    index: number,
+    change: Partial<Proposal>,
+  ) =>
     setMessages((all) =>
       all.map((m) =>
         m.id === id
           ? {
               ...m,
-              proposals: m.proposals.map((p, i) => (i === index ? { ...p, ...change } : p)),
+              proposals: m.proposals.map((p, i) =>
+                i === index ? { ...p, ...change } : p,
+              ),
             }
           : m,
       ),
@@ -155,8 +173,12 @@ export default function CoachChat({
         {messages.length === 0 && (
           <div className="space-y-3">
             <p className="text-sm text-muted">
-              Ask about your rides, plan, fitness, recovery or events. The coach can propose plan changes for you to apply.{" "}
-              <Link href="/settings#coach-settings" className="underline underline-offset-4 hover:text-ink">
+              Ask about your rides, plan, fitness, recovery or events. The coach
+              can propose plan changes for you to apply.{" "}
+              <Link
+                href="/settings#coach-settings"
+                className="underline underline-offset-4 hover:text-ink"
+              >
                 What it remembers
               </Link>
             </p>
@@ -176,31 +198,59 @@ export default function CoachChat({
         {messages.map((m, i) =>
           m.role === "user" ? (
             <div key={m.id} className="ml-auto max-w-[85%] space-y-1">
-              {m.kind === "checkin" && messages[i - 1]?.kind !== "checkin" && <Label message={m} />}
-              {m.attachments?.length ? <MessageAttachments attachments={m.attachments} /> : null}
-              {m.content && <div className="rounded-2xl bg-raised px-4 py-2.5 text-[15px] whitespace-pre-wrap">{m.content}</div>}
+              {m.kind === "checkin" && messages[i - 1]?.kind !== "checkin" && (
+                <Label message={m} />
+              )}
+              {m.attachments?.length ? (
+                <MessageAttachments attachments={m.attachments} />
+              ) : null}
+              {m.content && (
+                <div className="rounded-2xl bg-raised px-4 py-2.5 text-[15px] whitespace-pre-wrap">
+                  {m.content}
+                </div>
+              )}
             </div>
           ) : (
             <div key={m.id} className="max-w-[95%] space-y-3">
-              {m.kind !== "chat" && messages[i - 1]?.kind !== m.kind && <Label message={m} />}
+              {m.kind !== "chat" && messages[i - 1]?.kind !== m.kind && (
+                <Label message={m} />
+              )}
               <Prose text={m.content} />
-              {m.proposals.map((p, i) => (
-                <ProposalCard
-                  key={i}
-                  proposal={p}
-                  onApply={async () => {
-                    const result = await applyProposal(m.id, i);
-                    if (!result.ok) return setError(result.message);
-                    updateProposal(m.id, i, { status: "applied" });
-                    router.refresh();
-                  }}
-                  onDismiss={async () => {
-                    const result = await dismissProposal(m.id, i);
-                    if (!result.ok) return setError(result.message);
-                    updateProposal(m.id, i, { status: "dismissed" });
-                  }}
-                />
-              ))}
+              {m.proposals.map((p, i) =>
+                pluginDraft(p) ? (
+                  <PluginDraftCard
+                    key={i}
+                    proposal={p}
+                    onAdded={async () => {
+                      const result = await markDraftAdded(m.id, i);
+                      if (!result.ok) return setError(result.message);
+                      updateProposal(m.id, i, { status: "applied" });
+                      router.refresh();
+                    }}
+                    onDismiss={async () => {
+                      const result = await dismissProposal(m.id, i);
+                      if (!result.ok) return setError(result.message);
+                      updateProposal(m.id, i, { status: "dismissed" });
+                    }}
+                  />
+                ) : (
+                  <ProposalCard
+                    key={i}
+                    proposal={p}
+                    onApply={async () => {
+                      const result = await applyProposal(m.id, i);
+                      if (!result.ok) return setError(result.message);
+                      updateProposal(m.id, i, { status: "applied" });
+                      router.refresh();
+                    }}
+                    onDismiss={async () => {
+                      const result = await dismissProposal(m.id, i);
+                      if (!result.ok) return setError(result.message);
+                      updateProposal(m.id, i, { status: "dismissed" });
+                    }}
+                  />
+                ),
+              )}
               <FeedbackCard meta={m.meta} />
             </div>
           ),
@@ -210,7 +260,9 @@ export default function CoachChat({
             <Prose text={partial} />
           </div>
         ) : (
-          status && <p className="animate-pulse text-sm text-muted">{status}...</p>
+          status && (
+            <p className="animate-pulse text-sm text-muted">{status}...</p>
+          )
         )}
         {error && <p className="text-sm text-negative">{error}</p>}
         <div ref={bottom} />
@@ -224,7 +276,9 @@ export default function CoachChat({
         }}
       >
         <PendingFiles files={attach.files} onRemove={attach.remove} />
-        {attach.problem && <p className="mb-2 text-sm text-negative">{attach.problem}</p>}
+        {attach.problem && (
+          <p className="mb-2 text-sm text-negative">{attach.problem}</p>
+        )}
         <input
           ref={picker}
           type="file"
@@ -248,7 +302,11 @@ export default function CoachChat({
               void attach.add(files);
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              if (
+                e.key === "Enter" &&
+                !e.shiftKey &&
+                !e.nativeEvent.isComposing
+              ) {
                 e.preventDefault();
                 send(draft);
               }
@@ -266,7 +324,17 @@ export default function CoachChat({
             onClick={() => picker.current?.click()}
             className="absolute bottom-2 left-1.5 grid size-8 place-items-center rounded-full text-muted transition-colors hover:bg-raised hover:text-ink"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
               <path d="m21.4 11.1-8.9 8.9a5.5 5.5 0 0 1-7.8-7.8l8.9-8.9a3.7 3.7 0 0 1 5.2 5.2l-8.9 8.9a1.8 1.8 0 0 1-2.6-2.6l8.2-8.2" />
             </svg>
           </button>
@@ -276,7 +344,17 @@ export default function CoachChat({
             className="absolute right-2 bottom-2 grid size-8 place-items-center rounded-full bg-primary text-on-primary transition-opacity hover:opacity-85 disabled:opacity-30"
             disabled={!canSend}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
               <path d="M12 19V5" />
               <path d="m5 12 7-7 7 7" />
             </svg>

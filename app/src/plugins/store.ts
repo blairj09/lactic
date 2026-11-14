@@ -124,6 +124,13 @@ async function savePackage(pkg: PluginPackage, origin: string | null) {
   notify();
 }
 
+/** True when this exact .lacticplugin file is the added version of its plugin (a coach draft the rider added). */
+export async function draftIsAdded(file: string): Promise<boolean> {
+  const parsed = await parsePackage(file);
+  if (!parsed.ok) return false;
+  return (await getPlugin(parsed.pkg.manifest.id))?.sha256 === parsed.pkg.sha256;
+}
+
 /** Add a new plugin, approved and switched on for this device with the rider's choices. */
 export async function installPlugin(pkg: PluginPackage, choices: InstallChoices = {}, origin: string | null = null) {
   if (await getPlugin(pkg.manifest.id)) throw new Error(`${pkg.manifest.name} is already added; add it as an update instead`);

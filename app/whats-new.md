@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic Modular: ask the coach for a ride field or ride page section Lactic doesn't have, and it writes a small plugin for it. You see it running on a sample ride, and its code, before you add it.
 - Lactic Modular on iPhone: pull down on any page to refresh it. Lactic reads Apple Health and syncs with your computer while the logo builds.
 - iPhone: Apple Health no longer gets stuck and stops bringing in new nights until you quit the app. "Read Health now" in Settings says what went wrong if a read fails.
 - Lactic Modular: every workout in the library shows its shape. Tap one for its page, with each interval's target. Plan has a new Workouts section to browse them, ride one now or add it to a day. In the Ride library, "Back to today's plan" takes you back to the day's workout.
