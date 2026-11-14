@@ -140,7 +140,7 @@ export const button = {
 
 /** Inputs and selects: one height, a 1px control border, the surface fill. */
 export const input =
-  "h-9 rounded-md border border-control bg-surface px-3 text-sm text-ink placeholder:text-faint focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ink disabled:opacity-50";
+  "h-9 rounded-md border border-control bg-surface px-3 text-sm text-ink placeholder:text-faint focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ink [&[type=date]:focus]:outline-2 [&[type=date]:focus]:outline-ink disabled:opacity-50";
 
 /** A native file picker whose button matches the secondary button. */
 export const fileInput =

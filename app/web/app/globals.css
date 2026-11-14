@@ -329,6 +329,18 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Reduced motion (the system setting): no slides, spins or smooth scrolls, changes land at once. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Every figure: digits that line up and don't jitter as they update. */
 .num {
   font-variant-numeric: tabular-nums;
