@@ -41,3 +41,27 @@ echo "--- $manifest"
 cat "$manifest"
 echo "--- $gradle"
 cat "$gradle"
+
+# Play builds: sign release builds with the upload key when CI has it (android.yml's aab job sets
+# ANDROID_KEYSTORE_PATH and the passwords from GitHub secrets). Play re-signs with the app key.
+if [ -n "${ANDROID_KEYSTORE_PATH:-}" ]; then
+  cat >> "$gradle" <<'GRADLE'
+
+android {
+    signingConfigs {
+        create("upload") {
+            storeFile = file(System.getenv("ANDROID_KEYSTORE_PATH"))
+            storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+            keyPassword = System.getenv("ANDROID_KEY_PASSWORD")?.takeIf { it.isNotEmpty() } ?: System.getenv("ANDROID_KEYSTORE_PASSWORD")
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("upload")
+        }
+    }
+}
+GRADLE
+  echo "Release builds signed with the upload key."
+fi
