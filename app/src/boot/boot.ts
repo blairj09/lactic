@@ -3,7 +3,7 @@
 
 import { createRoot } from "react-dom/client";
 import { createElement } from "react";
-import { readTheme, setTheme } from "@shared/theme";
+import { applyContrast, readTheme, setTheme, watchAppearance } from "@shared/theme";
 import { setSql } from "~/db/sql";
 import { migrate } from "~/db/migrate";
 import { isDesktop, appInfo, invoke, setOs } from "~/platform/native";
@@ -20,6 +20,8 @@ import { setLayoutDevice } from "@/lib/layout-data";
 
 export async function boot() {
   setTheme(readTheme());
+  applyContrast();
+  watchAppearance();
   const info = await appInfo().catch(() => null);
   if (info) setOs(info.os);
   // The iPhone keeps its own Today, tabs and ride fields (web/lib/layout-data.ts).

@@ -13,7 +13,7 @@ import CoachPersona from "@/app/settings/coach-persona";
 import FitImport from "@/app/settings/fit-import";
 import IntervalsPanel from "@/app/settings/intervals-panel";
 import SettingsForm, { Section } from "@/app/settings/settings-form";
-import ThemeSetting from "@/app/settings/theme-setting";
+import ThemeSetting, { ContrastSetting } from "@/app/settings/theme-setting";
 import UnitsSetting from "@/app/settings/units-setting";
 import { coachSetup } from "~/ai/settings";
 import { createClient } from "~/db/supabase-client";
@@ -100,8 +100,9 @@ export default async function SettingsPage() {
           }}
         />
         <div className="space-y-4 border-t border-line pt-8">
-          <Section id="appearance" title="Appearance" description="Light or dark, and metric or imperial units.">
+          <Section id="appearance" title="Appearance" description="Light or dark, contrast, and metric or imperial units.">
             <ThemeSetting />
+            <ContrastSetting />
             <UnitsSetting />
           </Section>
           <Section id="layout" title="Layout" description="The order of your tabs and the cards on Today.">

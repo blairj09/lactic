@@ -157,6 +157,143 @@
   color: var(--ink);
 }
 
+/*
+ * High contrast: Settings → Appearance → Contrast, or the system's Increase contrast when that's
+ * left on System (src/lib/theme.ts resolves it to html[data-contrast="more"] before paint).
+ * Darker text and lines, panels set apart by a visible border, zones with bigger steps.
+ */
+:root[data-contrast="more"] {
+  --ground: #ffffff;
+  --surface: #ffffff;
+  --raised: #eceef1;
+  --active: #dfe2e7;
+  --line: #6b7079;
+  --rule: #9aa0a8;
+  --control: #4a4f57;
+  --ink: #000000;
+  --muted: #26292f;
+  --faint: #363a41;
+  --primary: #000000;
+  --on-primary: #ffffff;
+  --accent: #1a3fb8;
+  --accent-soft: #dce4fb;
+  --plugin: #5a1fb0;
+  --plugin-soft: #ede3fc;
+  --plugin-line: #7a4fcf;
+  --positive: #0d5c33;
+  --negative: #960c14;
+  --warning: #6a2c00;
+  --pill-positive-bg: #cdeedb;
+  --pill-negative-bg: #f8dcda;
+  --pill-warning-bg: #fae6c8;
+  --grid: #b4b8bf;
+  --series-1: var(--accent);
+  --series-2: #5d626b;
+  --series-3: #000000;
+  --zone-1: #9aa3b5;
+  --zone-2: #7790d8;
+  --zone-3: #5677d6;
+  --zone-4: #3a5ccc;
+  --zone-5: #2546b3;
+  --zone-6: #18338f;
+  --zone-7: #0a1a55;
+  --zone-free: #b9bcc3;
+  --trace: #000000;
+  --trace-hr: #960c14;
+  --trace-cadence: #6a2c00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-contrast="more"]:not([data-theme="light"]) {
+  --ground: #000000;
+  --surface: #000000;
+  --raised: #151515;
+  --active: #2a2a2a;
+  --line: #8c8c8c;
+  --rule: #5e5e5e;
+  --control: #b4b4b4;
+  --ink: #ffffff;
+  --muted: #ebebeb;
+  --faint: #d4d4d4;
+  --primary: #ffffff;
+  --on-primary: #000000;
+  --accent: #82a3ff;
+  --accent-soft: #17244d;
+  --plugin: #cdb0ff;
+  --plugin-soft: #261a3d;
+  --plugin-line: #9a7ae0;
+  --positive: #63e6a0;
+  --negative: #ff8597;
+  --warning: #ffcb62;
+  --pill-positive-bg: #0f3320;
+  --pill-negative-bg: #3d141c;
+  --pill-warning-bg: #3a2c0c;
+  --grid: #4d4d4d;
+  --series-1: var(--accent);
+  --series-2: #c2c2c2;
+  --series-3: #ffffff;
+  --zone-1: #59617a;
+  --zone-2: #4363c0;
+  --zone-3: #5a7ff0;
+  --zone-4: #7f9dff;
+  --zone-5: #a6bcff;
+  --zone-6: #cbd8ff;
+  --zone-7: #f0f4ff;
+  --zone-free: #4f4f4f;
+  --trace: #ffffff;
+  --trace-hr: #ff8597;
+  --trace-cadence: #ffcb62;
+  }
+}
+
+/* High contrast: surfaces drawn without a border (the ride panel, dialogs) still get an edge. */
+:root[data-contrast="more"] .bg-surface:not([class*="border"]):not(:focus-visible) {
+  outline: 1px solid var(--line);
+  outline-offset: -1px;
+}
+
+:root[data-contrast="more"][data-theme="dark"],
+:root[data-contrast="more"] .theme-dark {
+  --ground: #000000;
+  --surface: #000000;
+  --raised: #151515;
+  --active: #2a2a2a;
+  --line: #8c8c8c;
+  --rule: #5e5e5e;
+  --control: #b4b4b4;
+  --ink: #ffffff;
+  --muted: #ebebeb;
+  --faint: #d4d4d4;
+  --primary: #ffffff;
+  --on-primary: #000000;
+  --accent: #82a3ff;
+  --accent-soft: #17244d;
+  --plugin: #cdb0ff;
+  --plugin-soft: #261a3d;
+  --plugin-line: #9a7ae0;
+  --positive: #63e6a0;
+  --negative: #ff8597;
+  --warning: #ffcb62;
+  --pill-positive-bg: #0f3320;
+  --pill-negative-bg: #3d141c;
+  --pill-warning-bg: #3a2c0c;
+  --grid: #4d4d4d;
+  --series-1: var(--accent);
+  --series-2: #c2c2c2;
+  --series-3: #ffffff;
+  --zone-1: #59617a;
+  --zone-2: #4363c0;
+  --zone-3: #5a7ff0;
+  --zone-4: #7f9dff;
+  --zone-5: #a6bcff;
+  --zone-6: #cbd8ff;
+  --zone-7: #f0f4ff;
+  --zone-free: #4f4f4f;
+  --trace: #ffffff;
+  --trace-hr: #ff8597;
+  --trace-cadence: #ffcb62;
+}
+
 @theme inline {
   --color-ground: var(--ground);
   --color-surface: var(--surface);
