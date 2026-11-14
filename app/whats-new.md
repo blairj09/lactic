@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Phones: tap the tab you're on to go back to the top of its page (or back to its main page first).
 - iPhone: if Lactic on this iPhone hasn't been given access to Apple Health yet, Today asks you to connect it instead of waiting for last night.
 - Settings → iPhone is now Settings → Phone.
 - Lactic Modular on iPhone: pull down on any page to refresh it. Lactic reads Apple Health and syncs with your computer while the logo builds.
