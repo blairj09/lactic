@@ -73,8 +73,8 @@ await check("Health Connect is there", "plugin:lactic-phone|status", {}, (v) => 
 await check("ride into Health Connect", "plugin:lactic-phone|save_workout", workout, (v) => v.saved === true, { hard: false });
 await check("same ride again is skipped", "plugin:lactic-phone|save_workout", workout, (v) => v.saved === false && v.reason === "already saved", { hard: false });
 await check("read Health Connect", "plugin:lactic-phone|read_health", { days: 3 }, (v) => v.hrvKind === "rmssd" && v.source === "healthconnect", { hard: false });
-await check("secrets survive (file on Android)", "secret_set", { name: "ci", value: "abcd1234" }, () => true);
-await check("secret status", "secret_status", { name: "ci" }, (v) => v === "…1234");
+await check("secrets survive (file on Android)", "secret_set", { name: "intervals", value: "abcd1234" }, () => true);
+await check("secret status", "secret_status", { name: "intervals" }, (v) => v === "…1234");
 await check("database", "db_select", { sql: "select count(*) as n from app_settings", params: [] }, (v) => Array.isArray(v), { hard: false });
 await check("unpair", "plugin:lactic-phone|unpair", {}, () => true);
 
