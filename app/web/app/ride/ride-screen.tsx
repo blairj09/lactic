@@ -43,7 +43,7 @@ import { RemoteHost } from "~/ride/remote";
 import { pluginFieldOptions, usePluginFields, usePlugins } from "~/plugins/ride-fields";
 import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
 import { useKeepAwake } from "~/platform/keep-awake";
-import { HEAD_UNIT_EVENT } from "~/ride/head-unit-auto";
+import { HEAD_UNIT_EVENT, useTrainingApp } from "~/ride/head-unit-auto";
 import { isDesktop, isPhone } from "~/platform/native";
 import { isDemo } from "~/demo/flag";
 import type { TracePoint } from "./workout-chart";
@@ -294,6 +294,7 @@ function RideOnThisDevice({
   useEffect(() => setSupported(isWebBluetoothAvailable()), []);
   // Hands off the trainer for a head unit ride, so nothing Lactic does can fight the other app.
   useEffect(() => hub.setHandsOff(headUnit), [hub, headUnit]);
+  const trainerApp = useTrainingApp(headUnit);
   useEffect(() => {
     // On unless turned off: clicking Start opens the overlay on top of other windows.
     setOverlayOnStart(readPref(OVERLAY_PREF) !== "0");
@@ -909,6 +910,7 @@ function RideOnThisDevice({
     intensity,
     erg: erg ? { watts: ergWatts } : null,
     headUnit,
+    trainerApp,
     autoPaused,
     // Free ERG is ERG by definition.
     ergOn: !headUnit && (erg || ergOn),
