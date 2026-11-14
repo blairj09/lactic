@@ -9,8 +9,16 @@ import { rowColumns } from "@/lib/sdk/layout-editor";
 // Rows of Medium or Small cards by how many columns they take (rowColumns): a lone Medium card
 // takes the full width instead of leaving half the row empty. Phones stack Mediums and pair Smalls.
 const ROW_GRID = {
-  medium: { 1: "grid grid-cols-1 items-start gap-4", 2: "grid grid-cols-1 items-start gap-4 lg:grid-cols-2", 3: "" },
-  small: { 1: "grid grid-cols-1 items-start gap-4", 2: "grid grid-cols-2 items-start gap-4", 3: "grid grid-cols-2 items-start gap-4 lg:grid-cols-3" },
+  medium: {
+    1: "grid grid-cols-1 items-start gap-4",
+    2: "grid grid-cols-1 items-start gap-4 lg:grid-cols-2",
+    3: "",
+  },
+  small: {
+    1: "grid grid-cols-1 items-start gap-4",
+    2: "grid grid-cols-2 items-start gap-4",
+    3: "grid grid-cols-2 items-start gap-4 lg:grid-cols-3",
+  },
 } as const;
 import WorkoutProfile from "@/components/workout-profile";
 import { Dash, Panel, PageHeader, Stat, button } from "@/components/ui";
@@ -24,7 +32,12 @@ import { addDays, formBand } from "@/lib/engine/pmc";
 import { MINIMUM_BASELINE_DAYS, recoveryWord } from "@/lib/engine/recovery";
 import { formatDay, formatDuration, signed } from "@/lib/format";
 import type { RecoveryToday } from "@/lib/recovery-data";
-import { complianceDays, plannedOn, ridesFor, type TrainingState } from "@/lib/training";
+import {
+  complianceDays,
+  plannedOn,
+  ridesFor,
+  type TrainingState,
+} from "@/lib/training";
 import { markDays } from "@/lib/engine/compliance";
 import { dayRides } from "@/lib/engine/ride-detail";
 import CompletedRide from "./completed-ride";
@@ -36,12 +49,19 @@ import RideSurvey from "./ride-survey";
 import Morning, { type MorningProps } from "./morning";
 import WeeklyWeighIn from "./weekly-weigh-in";
 import RaceDayPlan from "./race-day";
-import { GOAL_KIND_LABELS, goalMinutes, PHASE_LABELS, SAFETY_RULE_LABELS, weekStart } from "@/lib/engine/plan";
+import {
+  GOAL_KIND_LABELS,
+  goalMinutes,
+  PHASE_LABELS,
+  SAFETY_RULE_LABELS,
+  weekStart,
+} from "@/lib/engine/plan";
 import type { StoredMessage } from "@/lib/coach/store";
 import RideChoice from "@/components/ride-choice";
 import RaceReportPrompt from "./race-report-prompt";
 import RestDay from "./rest-day";
 import FirstRide from "./first-ride";
+import FinishSetup from "./finish-setup";
 import { firstRideDay } from "@/lib/first-ride";
 import ThisWeek from "./this-week";
 import type { RaceFollowUp } from "@/lib/engine/race/followup";
@@ -113,22 +133,35 @@ export default function TodayView({
   }
   const { athlete, rides, recovery, today, series } = state;
   const now = series[series.length - 1];
-  const todaysWeighIn = body ? weighInOn(body, today, athlete.timezone) : undefined;
+  const todaysWeighIn = body
+    ? weighInOn(body, today, athlete.timezone)
+    : undefined;
   const ridden = ridesOn(state, today);
   const survey = ridden ? null : unansweredRide(state);
   const choice = todayChoice(state, coachEnabled);
   const weekAgo = series.length > 7 ? series[series.length - 8] : undefined;
   const outside = state.outdoor.some((o) => o.date === today);
   // The brief's pick wins (it explains it); else the engine's. The plan's Start ride steps back when they differ.
-  const briefPick = (brief?.message?.meta.today as OptionId | undefined) ?? null;
+  const briefPick =
+    (brief?.message?.meta.today as OptionId | undefined) ?? null;
   const pickDiffers =
-    !("settled" in choice) && (briefPick && choice.options.options.some((o) => o.id === briefPick) ? briefPick : choice.options.recommended) !== choice.plain;
+    !("settled" in choice) &&
+    (briefPick && choice.options.options.some((o) => o.id === briefPick)
+      ? briefPick
+      : choice.options.recommended) !== choice.plain;
   const morning: MorningProps = {
     title: "",
     askFeel: false,
-    lastNight: recovery?.today ? <RecoverySummary recovery={recovery} variant="tiles" /> : undefined,
+    lastNight: recovery?.today ? (
+      <RecoverySummary recovery={recovery} variant="tiles" />
+    ) : undefined,
     day: today,
-    recovery: { in: Boolean(recovery?.today), line: recoveryLine(recovery), healthLinked, source: recoverySource },
+    recovery: {
+      in: Boolean(recovery?.today),
+      line: recoveryLine(recovery),
+      healthLinked,
+      source: recoverySource,
+    },
     weighedToday: Boolean(todaysWeighIn),
     brief,
     today: choice,
@@ -142,20 +175,43 @@ export default function TodayView({
     "lactic.weigh-in": body ? (
       <WeeklyWeighIn
         day={today}
-        due={weighInDue({ today, timeZone: athlete.timezone, weighIns: body.map((m) => m.measuredAt), rides: rides.map((r) => r.startedAt) })}
+        due={weighInDue({
+          today,
+          timeZone: athlete.timezone,
+          weighIns: body.map((m) => m.measuredAt),
+          rides: rides.map((r) => r.startedAt),
+        })}
         profile={
-          athlete.heightCm !== null && athlete.sex !== null && athlete.birthDate !== null
-            ? { male: athlete.sex === "male", heightCm: athlete.heightCm, age: ageOn(athlete.birthDate, today) }
+          athlete.heightCm !== null &&
+          athlete.sex !== null &&
+          athlete.birthDate !== null
+            ? {
+                male: athlete.sex === "male",
+                heightCm: athlete.heightCm,
+                age: ageOn(athlete.birthDate, today),
+              }
             : null
         }
       />
     ) : null,
     "lactic.workout":
       "settled" in choice ? (
-        <TodayWorkout state={state} ridden={ridden} stream={todayStream} intervalsConnected={intervalsConnected} exertion={exertionTodayFor(state)} className="" />
+        <TodayWorkout
+          state={state}
+          ridden={ridden}
+          stream={todayStream}
+          intervalsConnected={intervalsConnected}
+          exertion={exertionTodayFor(state)}
+          className=""
+        />
       ) : (
         <div className="space-y-4">
-          <ReadyCheck today={choice} day={today} outside={outside} intervalsConnected={intervalsConnected} />
+          <ReadyCheck
+            today={choice}
+            day={today}
+            outside={outside}
+            intervalsConnected={intervalsConnected}
+          />
           <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
             <TodayWorkout
               state={state}
@@ -166,7 +222,10 @@ export default function TodayView({
               className="flex flex-col"
               start={
                 outside ? null : (
-                  <Link href={`/ride?day=${today}`} className={pickDiffers ? button.secondary : button.primary}>
+                  <Link
+                    href={`/ride?day=${today}`}
+                    className={pickDiffers ? button.secondary : button.primary}
+                  >
                     Start ride
                   </Link>
                 )
@@ -178,8 +237,15 @@ export default function TodayView({
               day={today}
               outside={outside}
               ftp={athlete.ftp}
-              exertion={Object.fromEntries(choice.options.options.map((o) => [o.id, exertionTodayFor(state, { session: o.session })]))}
-              eased={Boolean(state.todayPlan?.rule && EASED.has(state.todayPlan.rule))}
+              exertion={Object.fromEntries(
+                choice.options.options.map((o) => [
+                  o.id,
+                  exertionTodayFor(state, { session: o.session }),
+                ]),
+              )}
+              eased={Boolean(
+                state.todayPlan?.rule && EASED.has(state.todayPlan.rule),
+              )}
             />
           </div>
         </div>
@@ -188,36 +254,75 @@ export default function TodayView({
     "lactic.this-week": <ThisWeek state={state} rideShapes={rideShapes} />,
     // Today's form, with the fitness and fatigue it comes from. On a phone, form takes the top row.
     // Small shows just the form number; Fitness and Fatigue come with Medium and Large.
-    "lactic.form": layout.today.find((c) => c.widget === "lactic.form")?.size === "small" ? (
-      <section aria-label="Form" className="overflow-hidden rounded-lg border border-line bg-line">
-        <Stat label="Form" value={signed(Math.round(now.form))} sub={formBand(now.form).meaning} />
-      </section>
-    ) : (
-      <section aria-label="Form" className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3">
-        <Stat className="col-span-2 sm:col-span-1" label="Form" value={signed(Math.round(now.form))} sub={formBand(now.form).meaning} />
-        <Stat
-          label="Fitness"
-          value={Math.round(now.fitness)}
-          sub={
-            <>
-              {weekAgo ? fitnessChange(Math.round(now.fitness - weekAgo.fitness)) : ""}
-              <Link href="/progress" className="text-ink underline underline-offset-4">
-                {review ? "Last week's review" : "Fitness trend"}
-              </Link>
-            </>
-          }
-        />
-        <Stat label="Fatigue" value={Math.round(now.fatigue)} sub="Your last week or so of riding" />
-      </section>
-    ),
+    "lactic.form":
+      layout.today.find((c) => c.widget === "lactic.form")?.size === "small" ? (
+        <section
+          aria-label="Form"
+          className="overflow-hidden rounded-lg border border-line bg-line"
+        >
+          <Stat
+            label="Form"
+            value={signed(Math.round(now.form))}
+            sub={formBand(now.form).meaning}
+          />
+        </section>
+      ) : (
+        <section
+          aria-label="Form"
+          className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3"
+        >
+          <Stat
+            className="col-span-2 sm:col-span-1"
+            label="Form"
+            value={signed(Math.round(now.form))}
+            sub={formBand(now.form).meaning}
+          />
+          <Stat
+            label="Fitness"
+            value={Math.round(now.fitness)}
+            sub={
+              <>
+                {weekAgo
+                  ? fitnessChange(Math.round(now.fitness - weekAgo.fitness))
+                  : ""}
+                <Link
+                  href="/progress"
+                  className="text-ink underline underline-offset-4"
+                >
+                  {review ? "Last week's review" : "Fitness trend"}
+                </Link>
+              </>
+            }
+          />
+          <Stat
+            label="Fatigue"
+            value={Math.round(now.fatigue)}
+            sub="Your last week or so of riding"
+          />
+        </section>
+      ),
     "lactic.last-ride":
       !ridden || !athlete.ftp ? (
-        <section aria-label="Training" className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line">
-          {!ridden && <LastRide ride={rides[0]} timeZone={athlete.timezone} survey={survey} />}
-          <FtpNudge ftp={athlete.ftp} hasPowerRides={rides.some((r) => r.normalizedPower !== null)} />
+        <section
+          aria-label="Training"
+          className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line"
+        >
+          {!ridden && (
+            <LastRide
+              ride={rides[0]}
+              timeZone={athlete.timezone}
+              survey={survey}
+            />
+          )}
+          <FtpNudge
+            ftp={athlete.ftp}
+            hasPowerRides={rides.some((r) => r.normalizedPower !== null)}
+          />
         </section>
       ) : null,
   };
+
+  const rows = cardRows(layout.today, (w) => cards[w] != null);
 
   return (
     <>
@@ -225,7 +330,19 @@ export default function TodayView({
 
       {raceFollowUp && <RaceReportPrompt followUp={raceFollowUp} />}
 
-      {athlete.ftp && <FtpBanner ftp={athlete.ftp} check={checkFtp({ today, ftp: athlete.ftp, history: athlete.ftpHistory, estimate, plan: state.plan })} windowDays={ftpWindowDays} />}
+      {athlete.ftp && (
+        <FtpBanner
+          ftp={athlete.ftp}
+          check={checkFtp({
+            today,
+            ftp: athlete.ftp,
+            history: athlete.ftpHistory,
+            estimate,
+            plan: state.plan,
+          })}
+          windowDays={ftpWindowDays}
+        />
+      )}
 
       <RaceSoon state={state} />
 
@@ -233,23 +350,39 @@ export default function TodayView({
           the coach's brief, how the week and the plan are tracking, then form and the last ride side by side on a computer. */}
       <HoldToCustomize>
         <div className="space-y-4">
-          {cardRows(layout.today, (w) => cards[w] != null).map((row) =>
-            row.size === "large" ? (
-              <Fragment key={row.widgets[0]}>{cards[row.widgets[0]]}</Fragment>
-            ) : (
-              <div key={row.widgets.join(" ")} className={ROW_GRID[row.size === "small" ? "small" : "medium"][rowColumns(row)]}>
-                {row.widgets.map((w) => (
-                  <Fragment key={w}>{cards[w]}</Fragment>
-                ))}
-              </div>
-            ),
-          )}
+          {rows.map((row) => (
+            <Fragment key={row.widgets.join(" ")}>
+              {row.size === "large" ? (
+                cards[row.widgets[0]]
+              ) : (
+                <div
+                  className={
+                    ROW_GRID[row.size === "small" ? "small" : "medium"][
+                      rowColumns(row)
+                    ]
+                  }
+                >
+                  {row.widgets.map((w) => (
+                    <Fragment key={w}>{cards[w]}</Fragment>
+                  ))}
+                </div>
+              )}
+              {/* After a short first run, the rest of setup sits right under the workout. */}
+              {row.widgets.includes("lactic.workout") && (
+                <FinishSetup hasRides={rides.length > 0} />
+              )}
+            </Fragment>
+          ))}
+          {!rows.some((row) => row.widgets.includes("lactic.workout")) && <FinishSetup hasRides={rides.length > 0} />}
         </div>
       </HoldToCustomize>
 
       {/* A quiet way into Customize Today (review U5), after the last card; also in Settings → Layout. */}
       <div className="mt-8 text-center">
-        <Link href="/?customize=1" className="text-sm text-muted underline decoration-control underline-offset-4 hover:text-ink">
+        <Link
+          href="/?customize=1"
+          className="text-sm text-muted underline decoration-control underline-offset-4 hover:text-ink"
+        >
           Customize Today
         </Link>
       </div>
@@ -260,19 +393,37 @@ export default function TodayView({
 /** In the two weeks before an event with a course file: a way into its pre-race report, forecast included. */
 function RaceSoon({ state }: { state: TrainingState }) {
   const { today } = state;
-  const next = state.goals.find((g) => g.course && g.date > today && g.priority !== "C" && Date.parse(`${g.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`) <= 14 * 86_400_000);
+  const next = state.goals.find(
+    (g) =>
+      g.course &&
+      g.date > today &&
+      g.priority !== "C" &&
+      Date.parse(`${g.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`) <=
+        14 * 86_400_000,
+  );
   if (!next) return null;
-  const days = Math.round((Date.parse(`${next.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
+  const days = Math.round(
+    (Date.parse(`${next.date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) /
+      86_400_000,
+  );
   return (
     <Link
       href={`/plan/events/${next.id}`}
       className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg border border-line bg-surface px-4 py-3 text-sm hover:border-ink/30"
     >
       <span>
-        <span className="font-medium">{next.name}</span> {days === 1 ? "is tomorrow" : `in ${days} days`}
-        <span className="text-muted"> · {formatDistance(next.course!.km * 1000, readUnits())}, {formatElevation(next.course!.gain, readUnits())} up</span>
+        <span className="font-medium">{next.name}</span>{" "}
+        {days === 1 ? "is tomorrow" : `in ${days} days`}
+        <span className="text-muted">
+          {" "}
+          · {formatDistance(next.course!.km * 1000, readUnits())},{" "}
+          {formatElevation(next.course!.gain, readUnits())} up
+        </span>
       </span>
-      <span className="text-accent">Pre-race report: course, pacing, fuel{days <= 15 ? " and the forecast" : ""}</span>
+      <span className="text-accent">
+        Pre-race report: course, pacing, fuel
+        {days <= 15 ? " and the forecast" : ""}
+      </span>
     </Link>
   );
 }
@@ -283,14 +434,26 @@ function RaceSoon({ state }: { state: TrainingState }) {
  */
 export function dayLine(state: TrainingState) {
   const { today } = state;
-  const day = new Date(`${today}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" });
+  const day = new Date(`${today}T12:00:00Z`).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
   const week = state.plan.weeks.find((w) => w.start === weekStart(today));
-  const phase = week ? (week.recoveryWeek ? "Recovery week" : `${PHASE_LABELS[week.phase]} week`) : null;
+  const phase = week
+    ? week.recoveryWeek
+      ? "Recovery week"
+      : `${PHASE_LABELS[week.phase]} week`
+    : null;
   return `${day}${phase ? `. ${phase}` : ""}.`;
 }
 
 /** How you feel and today's options, for the morning routine; or why there's nothing to choose. */
-function todayChoice(state: TrainingState, coachEnabled: boolean): MorningProps["today"] {
+function todayChoice(
+  state: TrainingState,
+  coachEnabled: boolean,
+): MorningProps["today"] {
   const options = todayOptions(state);
   if (!options) {
     const { todayStored, todayPlan, athlete } = state;
@@ -309,7 +472,15 @@ function todayChoice(state: TrainingState, coachEnabled: boolean): MorningProps[
   const planned = state.todayPlan?.session ?? null;
   return {
     options,
-    answers: c ? { feel: c.feel, sick: c.sick, minutes: c.minutes, notes: c.notes, at: c.at } : null,
+    answers: c
+      ? {
+          feel: c.feel,
+          sick: c.sick,
+          minutes: c.minutes,
+          notes: c.notes,
+          at: c.at,
+        }
+      : null,
     plain: planned ? "asPlanned" : "rest",
     plannedMinutes: planned ? Math.round(planned.duration / 60) : null,
     coachEnabled,
@@ -318,7 +489,10 @@ function todayChoice(state: TrainingState, coachEnabled: boolean): MorningProps[
 
 /** The rides that count for a day (copies left out), with the one to show first; null until a real ride is in. */
 export function ridesOn(state: TrainingState, day: string) {
-  return dayRides(ridesFor(state, day), state.storedDays.find((d) => d.day === day)?.activityId);
+  return dayRides(
+    ridesFor(state, day),
+    state.storedDays.find((d) => d.day === day)?.activityId,
+  );
 }
 
 /** Today's session: the plan's or the one you chose, and how the last ride felt; once ridden, the ride. */
@@ -351,31 +525,45 @@ export function TodayWorkout({
   const chosen = todayStored?.chosen ?? null;
   const planned = todayPlan?.session ?? null;
   const outside = state.outdoor.find((o) => o.date === today) ?? null;
-  const rodeToday = rides.some((r) => localDate(r.startedAt, athlete.timezone) === today);
+  const rodeToday = rides.some(
+    (r) => localDate(r.startedAt, athlete.timezone) === today,
+  );
   const eased = Boolean(todayPlan?.rule && EASED.has(todayPlan.rule));
-  const exertionBar = exertion && (exertion.soFar !== null || exertion.target) ? <ExertionBar exertion={exertion} eased={eased} compact /> : null;
+  const exertionBar =
+    exertion && (exertion.soFar !== null || exertion.target) ? (
+      <ExertionBar exertion={exertion} eased={eased} compact />
+    ) : null;
   // The day the plan starts with nothing on it: a short first ride rather than a rest day.
-  const firstRide = !ridden && !chosen && !outside?.workout && todayPlan?.role !== "event" && Boolean(athlete.ftp) && firstRideDay(state, rodeToday);
+  const firstRide =
+    !ridden &&
+    !chosen &&
+    !outside?.workout &&
+    todayPlan?.role !== "event" &&
+    Boolean(athlete.ftp) &&
+    firstRideDay(state, rodeToday);
 
   const title = outside?.workout
     ? outside.workout.name
     : chosen
-    ? chosen.session
-      ? chosen.session.workout.name
-      : "Rest day"
-    : todayPlan?.role === "event" && todayPlan.goal
-      ? todayPlan.goal.name
-      : planned
-        ? planned.workout.name
-        : firstRide
-          ? "Your first ride"
-          : "Rest day";
+      ? chosen.session
+        ? chosen.session.workout.name
+        : "Rest day"
+      : todayPlan?.role === "event" && todayPlan.goal
+        ? todayPlan.goal.name
+        : planned
+          ? planned.workout.name
+          : firstRide
+            ? "Your first ride"
+            : "Rest day";
 
   let body: React.ReactNode;
   let heading: React.ReactNode = title;
   if (ridden) {
     const ride = ridden.main;
-    const mark = markDays(complianceDays(state, addDays(today, -1), today), today).get(today) ?? null;
+    const mark =
+      markDays(complianceDays(state, addDays(today, -1), today), today).get(
+        today,
+      ) ?? null;
     heading = ride.name ?? "Today's ride";
     body = (
       <CompletedRide
@@ -402,12 +590,29 @@ export function TodayWorkout({
     ]
       .filter(Boolean)
       .join(" ");
-    body = <RaceDayPlan goal={goal} ftp={athlete.ftp} weightKg={athlete.weightKg} summary={summary} />;
+    body = (
+      <RaceDayPlan
+        goal={goal}
+        ftp={athlete.ftp}
+        weightKg={athlete.weightKg}
+        summary={summary}
+      />
+    );
   } else if (outside?.workout) {
     body = (
       <div className="space-y-4">
-        <WorkoutProfile workout={outside.workout} height={88} details ftp={athlete.ftp} />
-        <RideChoice day={today} outside connected={intervalsConnected} outsideNote="in place of the plan's workout" />
+        <WorkoutProfile
+          workout={outside.workout}
+          height={88}
+          details
+          ftp={athlete.ftp}
+        />
+        <RideChoice
+          day={today}
+          outside
+          connected={intervalsConnected}
+          outsideNote="in place of the plan's workout"
+        />
       </div>
     );
   } else if (chosen && !chosen.session) {
@@ -415,13 +620,35 @@ export function TodayWorkout({
   } else if (chosen) {
     body = (
       <div className="space-y-4">
-        <ChosenSession session={chosen.session} day={today} ftp={athlete.ftp} named={false} extra={<>{exertionBar}{ready}</>} action={<RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} href={`/ride?day=${today}`} />} />
+        <ChosenSession
+          session={chosen.session}
+          day={today}
+          ftp={athlete.ftp}
+          named={false}
+          extra={
+            <>
+              {exertionBar}
+              {ready}
+            </>
+          }
+          action={
+            <RideChoice
+              day={today}
+              outside={Boolean(outside)}
+              connected={intervalsConnected}
+              href={`/ride?day=${today}`}
+            />
+          }
+        />
       </div>
     );
   } else if (!athlete.ftp) {
     body = (
       <p className="text-[15px] text-muted">
-        <Link href="/settings" className="text-ink underline underline-offset-4">
+        <Link
+          href="/settings"
+          className="text-ink underline underline-offset-4"
+        >
           Set your FTP
         </Link>{" "}
         to get a plan.
@@ -430,18 +657,48 @@ export function TodayWorkout({
   } else {
     body = planned ? (
       <div className="space-y-3">
-        <SessionLine session={planned} named={false} note={todayPlan?.rule && todayPlan.rule !== "recoveryWeek" ? `Eased: ${SAFETY_RULE_LABELS[todayPlan.rule].toLowerCase()}` : undefined} />
+        <SessionLine
+          session={planned}
+          named={false}
+          note={
+            todayPlan?.rule && todayPlan.rule !== "recoveryWeek"
+              ? `Eased: ${SAFETY_RULE_LABELS[todayPlan.rule].toLowerCase()}`
+              : undefined
+          }
+        />
         {todayPlan?.movedFrom && (
           <p className="text-sm text-muted">
-            Moved from {weekdayName(todayPlan.movedFrom.date)}, which you missed{todayPlan.movedFrom.shortened ? ", and shortened to fit today" : ""}.
+            Moved from {weekdayName(todayPlan.movedFrom.date)}, which you missed
+            {todayPlan.movedFrom.shortened
+              ? ", and shortened to fit today"
+              : ""}
+            .
           </p>
         )}
-        {todayPlan?.why && <p className="text-sm text-muted">Coach: {todayPlan.why}</p>}
-        {todayPlan?.course && !todayPlan.why && <p className="text-sm text-muted">{todayPlan.course}</p>}
-        <WorkoutProfile workout={planned.workout} height={88} details ftp={athlete.ftp} fit />
+        {todayPlan?.why && (
+          <p className="text-sm text-muted">Coach: {todayPlan.why}</p>
+        )}
+        {todayPlan?.course && !todayPlan.why && (
+          <p className="text-sm text-muted">{todayPlan.course}</p>
+        )}
+        <WorkoutProfile
+          workout={planned.workout}
+          height={88}
+          details
+          ftp={athlete.ftp}
+          fit
+        />
         {exertionBar}
         {ready}
-        {start !== undefined ? <div className="mt-auto pt-1">{start}</div> : <RideChoice day={today} outside={Boolean(outside)} connected={intervalsConnected} />}
+        {start !== undefined ? (
+          <div className="mt-auto pt-1">{start}</div>
+        ) : (
+          <RideChoice
+            day={today}
+            outside={Boolean(outside)}
+            connected={intervalsConnected}
+          />
+        )}
       </div>
     ) : firstRide ? (
       <FirstRide state={state} />
@@ -452,7 +709,9 @@ export function TodayWorkout({
 
   return (
     <Panel
-      title={<span className="text-xl font-semibold tracking-tight">{heading}</span>}
+      title={
+        <span className="text-xl font-semibold tracking-tight">{heading}</span>
+      }
       meta={
         <Link href="/plan" className="hover:text-ink">
           This week&apos;s plan
@@ -467,17 +726,31 @@ export function TodayWorkout({
 }
 
 /** Plan rules that make today easy on purpose: the exertion line defers to them rather than saying "under target". */
-const EASED = new Set<SafetyRule>(["recoveryWeek", "breakWeek", "reentryWeek", "eventTaper", "beforeEvent", "afterEvent"]);
+const EASED = new Set<SafetyRule>([
+  "recoveryWeek",
+  "breakWeek",
+  "reentryWeek",
+  "eventTaper",
+  "beforeEvent",
+  "afterEvent",
+]);
 
 /** The latest ride in the last three days with no post-ride answer yet (rides are newest first). */
 export function unansweredRide(state: TrainingState) {
   const { rides, athlete, today } = state;
   const answered = new Set(state.feedback.map((f) => f.rideId));
-  const feltDays = new Set(state.recentDays.filter((d) => d.feelAfter !== null).map((d) => d.day));
+  const feltDays = new Set(
+    state.recentDays.filter((d) => d.feelAfter !== null).map((d) => d.day),
+  );
   return (
     rides.find((r) => {
       const day = localDate(r.startedAt, athlete.timezone);
-      return day >= addDays(today, -3) && r.durationSeconds >= 600 && !answered.has(r.id) && !feltDays.has(day);
+      return (
+        day >= addDays(today, -3) &&
+        r.durationSeconds >= 600 &&
+        !answered.has(r.id) &&
+        !feltDays.has(day)
+      );
     }) ?? null
   );
 }
@@ -485,15 +758,23 @@ export function unansweredRide(state: TrainingState) {
 /** One line for the morning routine: the score if there is one, otherwise last night's numbers. */
 function recoveryLine(recovery: RecoveryToday | null): string | null {
   if (!recovery?.today) return null;
-  if (recovery.score) return `${recovery.score.score}, ${recoveryWord(recovery.score.score)}. ${recovery.score.reasons[0] ?? ""}`.trim();
-  return [nightValues(recovery.today).join(" · "), `Building your baseline: ${recovery.baselineDays} of ${MINIMUM_BASELINE_DAYS} days.`].filter(Boolean).join(". ");
+  if (recovery.score)
+    return `${recovery.score.score}, ${recoveryWord(recovery.score.score)}. ${recovery.score.reasons[0] ?? ""}`.trim();
+  return [
+    nightValues(recovery.today).join(" · "),
+    `Building your baseline: ${recovery.baselineDays} of ${MINIMUM_BASELINE_DAYS} days.`,
+  ]
+    .filter(Boolean)
+    .join(". ");
 }
 
 function nightValues(today: NonNullable<RecoveryToday["today"]>) {
   return [
     today.hrv !== undefined && `HRV ${Math.round(today.hrv)} ms`,
-    today.restingHeartRate !== undefined && `RHR ${Math.round(today.restingHeartRate)}`,
-    today.sleepHours !== undefined && `slept ${Math.floor(today.sleepHours)}h${String(Math.round((today.sleepHours % 1) * 60)).padStart(2, "0")}`,
+    today.restingHeartRate !== undefined &&
+      `RHR ${Math.round(today.restingHeartRate)}`,
+    today.sleepHours !== undefined &&
+      `slept ${Math.floor(today.sleepHours)}h${String(Math.round((today.sleepHours % 1) * 60)).padStart(2, "0")}`,
   ].filter(Boolean);
 }
 
@@ -501,24 +782,51 @@ function nightValues(today: NonNullable<RecoveryToday["today"]>) {
  * "Ready to train?" above both workout cards: how you feel reshapes today's options, and Indoors or
  * Outside goes for whichever you ride.
  */
-function ReadyCheck({ today, day, outside, intervalsConnected }: { today: Exclude<MorningProps["today"], { settled: string }>; day: string; outside: boolean; intervalsConnected: boolean }) {
+function ReadyCheck({
+  today,
+  day,
+  outside,
+  intervalsConnected,
+}: {
+  today: Exclude<MorningProps["today"], { settled: string }>;
+  day: string;
+  outside: boolean;
+  intervalsConnected: boolean;
+}) {
   return (
     <div className="grid gap-x-5 gap-y-3 rounded-lg border border-line bg-surface p-4 text-sm text-muted sm:p-5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center">
       <p className="font-medium text-ink">Ready to train?</p>
-      <FeelStep key={today.answers?.at ?? "new"} answers={today.answers} plannedMinutes={today.plannedMinutes} coachEnabled={today.coachEnabled} />
-      <RideChoice day={day} outside={outside} connected={intervalsConnected} toggleOnly />
+      <FeelStep
+        key={today.answers?.at ?? "new"}
+        answers={today.answers}
+        plannedMinutes={today.plannedMinutes}
+        coachEnabled={today.coachEnabled}
+      />
+      <RideChoice
+        day={day}
+        outside={outside}
+        connected={intervalsConnected}
+        toggleOnly
+      />
     </div>
   );
 }
 
-const fitnessChange = (change: number) => (change === 0 ? "Steady this week. " : `${signed(change)} this week. `);
+const fitnessChange = (change: number) =>
+  change === 0 ? "Steady this week. " : `${signed(change)} this week. `;
 
 /**
  * FTP lives in Settings; this tile only speaks up when there's none. A higher estimate is the banner above
  * (ftp-banner.tsx). A lower one isn't offered: everyday rides rarely hold a full 20-minute effort, so a
  * lower estimate usually means no hard effort lately, not lost fitness. The overdue-test banner covers that.
  */
-function FtpNudge({ ftp, hasPowerRides }: { ftp: number | null; hasPowerRides: boolean }) {
+function FtpNudge({
+  ftp,
+  hasPowerRides,
+}: {
+  ftp: number | null;
+  hasPowerRides: boolean;
+}) {
   if (ftp) return null;
   return (
     <Stat
@@ -528,7 +836,10 @@ function FtpNudge({ ftp, hasPowerRides }: { ftp: number | null; hasPowerRides: b
       sub={
         <>
           {hasPowerRides ? "Rides need an FTP to count toward fitness. " : ""}
-          <Link href="/settings#profile" className="text-ink underline underline-offset-4">
+          <Link
+            href="/settings#profile"
+            className="text-ink underline underline-offset-4"
+          >
             Set your FTP
           </Link>
         </>
@@ -538,7 +849,17 @@ function FtpNudge({ ftp, hasPowerRides }: { ftp: number | null; hasPowerRides: b
 }
 
 /** The latest ride in one line; the rest are on Progress → Rides. */
-export function LastRide({ ride, timeZone, survey = null, className }: { ride: StoredRide | undefined; timeZone: string; survey?: StoredRide | null; className?: string }) {
+export function LastRide({
+  ride,
+  timeZone,
+  survey = null,
+  className,
+}: {
+  ride: StoredRide | undefined;
+  timeZone: string;
+  survey?: StoredRide | null;
+  className?: string;
+}) {
   if (!ride) {
     return (
       <Stat
@@ -547,7 +868,10 @@ export function LastRide({ ride, timeZone, survey = null, className }: { ride: S
         sub={
           <>
             No rides yet.{" "}
-            <Link href="/settings#connections" className="text-ink underline underline-offset-4">
+            <Link
+              href="/settings#connections"
+              className="text-ink underline underline-offset-4"
+            >
               Bring in your history
             </Link>
           </>
@@ -560,17 +884,33 @@ export function LastRide({ ride, timeZone, survey = null, className }: { ride: S
     <Stat
       className={className}
       label="Last ride"
-      value={ride.trainingStress !== null ? Math.round(ride.trainingStress) : <Dash />}
+      value={
+        ride.trainingStress !== null ? (
+          Math.round(ride.trainingStress)
+        ) : (
+          <Dash />
+        )
+      }
       unit="TSS"
       sub={
         <>
-          {ride.name ?? "Ride"} · {formatDay(ride.startedAt, timeZone)} · {formatHours(ride.durationSeconds / 3600)}.{" "}
-          <Link href="/progress?tab=rides" className="text-ink underline underline-offset-4">
+          {ride.name ?? "Ride"} · {formatDay(ride.startedAt, timeZone)} ·{" "}
+          {formatHours(ride.durationSeconds / 3600)}.{" "}
+          <Link
+            href="/progress?tab=rides"
+            className="text-ink underline underline-offset-4"
+          >
             All rides
           </Link>
           {survey && (
             <div className="mt-4 border-t border-rule pt-4 text-ink">
-              <RideSurvey key={survey.id} ride={{ id: survey.id }} name={survey.name ?? "your ride"} question={survey.id === ride.id ? "How was it?" : undefined} narrow />
+              <RideSurvey
+                key={survey.id}
+                ride={{ id: survey.id }}
+                name={survey.name ?? "your ride"}
+                question={survey.id === ride.id ? "How was it?" : undefined}
+                narrow
+              />
             </div>
           )}
         </>
@@ -579,4 +919,8 @@ export function LastRide({ ride, timeZone, survey = null, className }: { ride: S
   );
 }
 
-const weekdayName = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+const weekdayName = (iso: string) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", {
+    weekday: "long",
+    timeZone: "UTC",
+  });
