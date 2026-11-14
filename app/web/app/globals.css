@@ -20,7 +20,7 @@
   --active: #e6e8ec;
   --line: #e3e5e9;
   --rule: #eef0f3;
-  --control: #cfd3da;
+  --control: #80868f;
   --ink: #0e1014;
   --muted: #5b606a;
   --faint: #686d77;
@@ -76,7 +76,7 @@
     --active: #262626;
     --line: #1c1c1c;
     --rule: #1f1f1f;
-    --control: #444444;
+    --control: #757575;
     --ink: #ffffff;
     --muted: #b4b4b4;
     --faint: #949494;
@@ -122,7 +122,7 @@
   --active: #262626;
   --line: #1c1c1c;
   --rule: #1f1f1f;
-  --control: #444444;
+  --control: #757575;
   --ink: #ffffff;
   --muted: #b4b4b4;
   --faint: #949494;
