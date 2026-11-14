@@ -77,6 +77,9 @@ struct WorkoutArgs: Decodable {
 struct Status: Encodable {
   let healthAvailable: Bool
   let healthAsked: Bool
+  /// iOS hasn't asked about some of the types Lactic uses (new ones since the rider last answered,
+  /// or the sheet never showed): reads of those fail with "Authorization not determined".
+  let healthToAsk: Bool
   let pending: Int
   let paired: PairedInfo?
 }
@@ -783,11 +786,21 @@ class LacticPhonePlugin: Plugin {
 
   @objc public func status(_ invoke: Invoke) throws {
     let p = PairingStore.load()
-    invoke.resolve(Status(
-      healthAvailable: HKHealthStore.isHealthDataAvailable(),
-      healthAsked: UserDefaults.standard.bool(forKey: Self.askedKey),
-      pending: Queue.list().count,
-      paired: p.map { PairedInfo(computer: $0.computer, deviceId: $0.deviceId, lastSentAt: $0.lastSentAt) }))
+    let available = HKHealthStore.isHealthDataAvailable()
+    let asked = UserDefaults.standard.bool(forKey: Self.askedKey)
+    Task {
+      var toAsk = available && !asked
+      if available && asked {
+        let request = try? await Health.store.statusForAuthorizationRequest(toShare: Health.writeTypes, read: Health.readTypes)
+        toAsk = request == .shouldRequest
+      }
+      invoke.resolve(Status(
+        healthAvailable: available,
+        healthAsked: asked,
+        healthToAsk: toAsk,
+        pending: Queue.list().count,
+        paired: p.map { PairedInfo(computer: $0.computer, deviceId: $0.deviceId, lastSentAt: $0.lastSentAt) }))
+    }
   }
 
   @objc public func authorizeHealth(_ invoke: Invoke) throws {
