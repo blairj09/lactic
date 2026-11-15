@@ -10,7 +10,7 @@ import { FAILURE_WORDS, PluginHost, type TickResult, type WorkerLike } from "./h
 import type { PluginManifest } from "./manifest";
 import { FIELDS_UNTIL, SAMPLE_DAY, sampleLiveNumbers, sampleRide, sampleRideInput } from "./preview-sample";
 
-export type PreviewKind = "field" | "analysis" | "card";
+export type PreviewKind = "field" | "analysis";
 
 export interface PreviewPart {
   kind: PreviewKind;
@@ -18,7 +18,7 @@ export interface PreviewPart {
   title: string;
   /** A ride field's number, line and chart. */
   field?: PluginFieldValue;
-  /** A ride page section's or card's checked tree. */
+  /** A ride page section's checked tree. */
   tree?: KitNode;
   /** Why there's nothing to show, in Lactic's words. */
   failed?: string;
@@ -42,7 +42,7 @@ export interface PreviewState {
  * A preview runs code the rider hasn't approved yet, so it gets a fixed allowance: at most this many
  * of each kind of part, and this long in all (wall clock) before it stops and shows what it has.
  */
-export const PREVIEW_LIMITS = { fields: 6, analyses: 3, cards: 3, ms: 12_000 };
+export const PREVIEW_LIMITS = { fields: 6, analyses: 3, ms: 12_000 };
 
 export const PREVIEW_WORDS = { cut: "Preview cut short", riding: "No preview during a ride.", skipped: "wasn't previewed" } as const;
 
@@ -65,20 +65,15 @@ export function previewParts(m: PluginManifest): PreviewPart[] {
       id: c.id,
       title: c.title,
     })),
-    ...m.contributes.widgets.slice(0, L.cards).map((c) => ({
-      kind: "card" as const,
-      id: c.id,
-      title: c.title,
-    })),
   ];
 }
 
 /** How many of a manifest's parts the caps leave out. */
-export const previewMore = (m: PluginManifest) => m.contributes.fields.length + (m.contributes.analyses ?? []).length + m.contributes.widgets.length - previewParts(m).length;
+export const previewMore = (m: PluginManifest) => m.contributes.fields.length + (m.contributes.analyses ?? []).length - previewParts(m).length;
 
 /**
  * Run a plugin on the sample ride: its ride fields tick through the ride (reporting as they go),
- * then its ride analyses run on the finished ride and its cards on the sample day. `onUpdate` gets
+ * then its ride analyses run on the finished ride. `onUpdate` gets
  * each new state; `signal` stops it (the worker is ended either way). Never stores anything. It
  * stops after PREVIEW_LIMITS.ms, and gives up at once if a ride is under way or starts.
  */
@@ -133,7 +128,7 @@ export async function runPreview(
     }
     const fields = parts.filter((p) => p.kind === "field");
     const entry = (p: PreviewPart) =>
-      (p.kind === "field" ? manifest.contributes.fields : p.kind === "analysis" ? (manifest.contributes.analyses ?? []) : manifest.contributes.widgets).find((c) => c.id === p.id)!.entry;
+      (p.kind === "field" ? manifest.contributes.fields : (manifest.contributes.analyses ?? [])).find((c) => c.id === p.id)!.entry;
 
     if (fields.length) {
       for (let t = 0; t < until && !signal.aborted; t += step) {
@@ -169,8 +164,7 @@ export async function runPreview(
         p.failed = PREVIEW_WORDS.skipped;
         continue;
       }
-      const r =
-        p.kind === "analysis" ? await host.analyze(entry(p), sampleRideInput(startedAt), SAMPLE_DAY, startedAt + ride.seconds) : await host.call(entry(p), SAMPLE_DAY, startedAt + ride.seconds);
+      const r = await host.analyze(entry(p), sampleRideInput(startedAt), SAMPLE_DAY, startedAt + ride.seconds);
       if (r.ok && r.output.tree) p.tree = r.output.tree;
       else p.failed = r.ok ? "had nothing to show" : words(r);
     }

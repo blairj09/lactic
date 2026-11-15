@@ -14,7 +14,6 @@ const plugin = (extra: Partial<InstalledPlugin> = {}): InstalledPlugin => ({
   coachVisible: true,
   reads: ["live", "rides"],
   metrics: [{ id: "plugin.wprime-tools.min_balance", label: "Lowest W′", unit: "kJ", scope: "ride", description: "Lowest W′ balance." }],
-  widgets: [{ id: "plugin.wprime-tools.card", name: "W′ balance" }],
   ...extra,
 });
 

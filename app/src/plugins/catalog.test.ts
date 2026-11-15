@@ -135,14 +135,13 @@ describe("plugin catalog", () => {
       const { pkg, host } = await load(entry.id);
       const c = pkg.manifest.contributes;
       // Nothing yet: no ride, no profile.
-      for (const f of [...c.fields, ...c.widgets]) ok(pkg, await host.call(f.entry, {}, 1000));
+      for (const f of c.fields) ok(pkg, await host.call(f.entry, {}, 1000));
       for (const a of c.analyses ?? []) {
         ok(pkg, await host.analyze(a.entry, emptyRide, {}));
         ok(pkg, await host.analyze(a.entry, savedRide, rideMetrics));
       }
       // A whole ride, one tick a second, every tick inside the 20 ms budget.
       for (const f of c.fields) for (let t = 0; t < SECONDS; t++) ok(pkg, await host.call(f.entry, liveMetrics(t), 1000 + t));
-      for (const w of c.widgets) ok(pkg, await host.call(w.entry, { "fitness.ctl": 60, "fitness.atl": 75, "fitness.tsb": -15, "plan.week_done": 40 }));
       host.stop();
     }, 60_000);
   }

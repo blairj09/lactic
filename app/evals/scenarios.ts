@@ -329,7 +329,6 @@ export const SCENARIOS: Scenario[] = [
           coachVisible: true,
           reads: ["live", "rides"],
           metrics: [{ id: "plugin.wprime-tools.min_balance", label: "Lowest W' balance", unit: "kJ", scope: "ride", description: "The lowest W' balance in the ride." }],
-          widgets: [],
         },
       ],
       pluginValues: { "plugin.wprime-tools.min_balance": [{ date: "2026-10-28", value: 4.2 }] },

@@ -36,8 +36,6 @@ export interface InstalledPlugin {
   reads: MetricGroup[];
   /** Metrics it publishes, ids under "plugin.<id>.". */
   metrics: { id: string; label: string; unit: MetricUnit; scope: MetricScope; description: string; /** Fixed choices (ids like "fresh"), for a metric that publishes one instead of a number. */ choices?: string[] }[];
-  /** Today cards it adds. */
-  widgets: { id: string; name: string }[];
 }
 
 /** One published value: a day (YYYY-MM-DD) or a ride. */
@@ -113,7 +111,6 @@ export function pluginList(all: InstalledPlugin[], via: CoachChannel) {
         .filter((m) => m.id.startsWith(`plugin.${p.id}.`))
         .slice(0, 20)
         .map((m) => ({ id: m.id, unit: UNITS.includes(m.unit) ? m.unit : "", scope: m.scope, ...(m.choices ? { choices: m.choices.filter((c) => CHOICE.test(c)).slice(0, 12) } : {}), untrusted: { label: label(m.label, 40), description: label(m.description, 140) } })),
-      cards: p.widgets.slice(0, 10).map((w) => ({ id: w.id, untrusted: { name: label(w.name, 40) } })),
       untrusted: { name: label(p.name, 40), description: label(p.description, 140) },
     })),
     notShared:
