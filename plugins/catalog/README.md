@@ -7,7 +7,6 @@ Official plugins for **Lactic**: add them as they are, or read them to learn how
 | [Best Efforts](best-efforts/) | ride field, ride page | live, rides, profile | 1.0.1 |
 | [Cadence Bands](cadence-bands/) | ride field, ride page | live, rides | 1.0.1 |
 | [Aerobic Decoupling](decoupling/) | ride field, ride page | live, rides | 1.0.1 |
-| [Form Zones](form-zones/) | Plugins tab | fitness | 1.0.1 |
 | [Fuel Reminder](fuel/) | ride field | live | 1.0.1 |
 | [Matches](matches/) | ride field, ride page | live, rides, profile | 1.0.1 |
 | [On Target](on-target/) | ride field, ride page | live, rides | 1.0.1 |

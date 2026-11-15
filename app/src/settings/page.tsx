@@ -40,12 +40,15 @@ import { listSavedLayouts, loadLayout } from "@/lib/layout-data";
 import { defaultLayout } from "@/lib/sdk/layout";
 import { sameLayout } from "@/lib/sdk/layout-editor";
 import { LayoutSetting } from "./layout-panel";
+import { PluginsSettings } from "./plugins-settings";
+import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
   { id: "coach-settings", label: "Coach" },
   { id: "connections", label: "Connections" },
   { id: "gear", label: "Gear" },
+  ...(pluginsAllowed ? [{ id: "plugins", label: "Plugins" }] : []),
   { id: "data", label: "Your data" },
   { id: "about", label: "About" },
 ];
@@ -219,6 +222,15 @@ export default async function SettingsPage() {
             </Section>
           )}
         </div>
+        {pluginsAllowed && (
+          <div id="plugins" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
+            <Section title="Plugins" description="Ride fields and ride page sections. No internet, no changes, and they read only what you allow.">
+              <div className="sm:col-span-2">
+                <PluginsSettings />
+              </div>
+            </Section>
+          </div>
+        )}
         <div id="data" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
           <Section title="Your data" description={`Everything is in one file on ${thisDevice()}. Back it up or take it anywhere.`}>
             <DataPanel />

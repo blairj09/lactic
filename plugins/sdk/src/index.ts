@@ -106,7 +106,7 @@ export interface HandlerOutput {
 }
 
 /**
- * Widgets and fields run once per tick (about once a second on the ride screen), synchronously,
+ * Fields run once per tick (about once a second on the ride screen), synchronously,
  * within 20 ms. Ride analyses run once on a saved ride, within 2 s, and may return up to 128 KB.
  */
 export type Handler = (input: HandlerInput) => HandlerOutput | null | undefined;
@@ -152,5 +152,6 @@ export interface PluginManifest {
   permissions: { read: MetricGroup[] };
   publishes?: PublishedMetric[];
   /** `analyses` need "rides" in permissions.read. */
-  contributes: { widgets?: Contribution[]; fields?: Contribution[]; analyses?: Contribution[] };
+  /** Ride fields and ride page sections only; plugins add nothing else. */
+  contributes: { fields?: Contribution[]; analyses?: Contribution[] };
 }

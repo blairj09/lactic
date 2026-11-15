@@ -61,7 +61,6 @@ export async function buildCatalog(root = CATALOG) {
       adds: {
         fields: (c.fields ?? []).map((f) => f.title),
         analyses: (c.analyses ?? []).map((a) => a.title),
-        widgets: (c.widgets ?? []).map((w) => w.title),
       },
       source: `${dir}/src/plugin.ts`,
       file,

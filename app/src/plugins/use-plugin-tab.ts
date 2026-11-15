@@ -1,4 +1,4 @@
-// Whether this build has plugins at all. When it does, the main bar always shows the Plugins tab.
+// Whether this build has plugins at all. When it does, Settings has a Plugins section.
 import { isModular } from "~/app/beta";
 import { isDesktop } from "~/platform/native";
 

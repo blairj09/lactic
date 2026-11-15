@@ -67,10 +67,8 @@ const STATUS = Object.fromEntries(SUPPORT_TOOLS.map((t) => [t.function.name, t.f
 
 const current = new AsyncLocalStorage<AppState>();
 
-function layoutContext(state: AppState): LayoutContext {
-  const plugins = (state.plugins ?? []).filter((p) => p.enabled);
-  const widgets: LayoutContext["widgets"] = plugins.flatMap((p) => p.widgets.map((w) => ({ id: w.id, name: w.name, sizes: ["medium", "large", "small"], source: { kind: "plugin", pluginId: p.id, pluginName: p.name } })));
-  return { widgets: [...BUILTIN_TODAY_WIDGETS, ...widgets], metrics: new MetricRegistry() };
+function layoutContext(): LayoutContext {
+  return { widgets: [...BUILTIN_TODAY_WIDGETS], metrics: new MetricRegistry() };
 }
 
 async function run(state: AppState, name: string, args: Record<string, unknown>): Promise<ToolResult> {
@@ -96,11 +94,11 @@ async function run(state: AppState, name: string, args: Record<string, unknown>)
         return { content: JSON.stringify({ proposed: summary, note: "Shown to the athlete with an Apply button. Nothing changes until they press it." }), proposal };
       }
       case "get_layout":
-        return out(layoutReport(parseLayout(state.layout ?? null), layoutContext(state)));
+        return out(layoutReport(parseLayout(state.layout ?? null), layoutContext()));
       case "propose_layout_change": {
         const change = checkLayoutChange(args);
         const layout = parseLayout(state.layout ?? null);
-        const ctx = layoutContext(state);
+        const ctx = layoutContext();
         applyLayoutChange(layout, change, ctx);
         const summary = describeLayoutChange(layout, change, ctx);
         const proposal: Proposal = { change: { kind: "app", setting: { setting: "layout", change, summary } }, summary, reason: typeof args.reason === "string" ? args.reason : "", status: "pending" };

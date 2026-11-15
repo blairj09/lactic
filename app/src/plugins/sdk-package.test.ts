@@ -57,8 +57,6 @@ describe("starter plugin", () => {
     const analysis = await host.analyze("analyze", ride, { "profile.ftp": 250 });
     expect(analysis.ok && analysis.output.metrics).toEqual({ "plugin.sweet-spot.ride_minutes": 120 });
     expect(analysis.ok && JSON.stringify(analysis.output.tree)).toContain('"type":"profile"');
-    const card = await host.call("card", { "profile.ftp": 250 });
-    expect(card.ok && JSON.stringify(card.output.tree)).toContain("220–235 W");
     host.stop();
   });
 });

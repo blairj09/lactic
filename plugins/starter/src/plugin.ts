@@ -86,17 +86,4 @@ definePlugin({
     };
     return { tree, metrics: { ride_minutes: inBand } };
   },
-  card(input) {
-    const ftp = input.metrics["profile.ftp"];
-    if (!ftp) return { tree: { type: "text", text: "Set your FTP to see your sweet spot.", tone: "muted" } };
-    return {
-      tree: {
-        type: "stack",
-        children: [
-          { type: "stat", label: "Your sweet spot", value: `${Math.round(ftp * LOW)}–${Math.round(ftp * HIGH)} W`, sub: "88 to 94% of FTP" },
-          { type: "text", text: "Add the Sweet spot field to a ride page to count your time there.", tone: "muted", size: "sm" },
-        ],
-      },
-    };
-  },
 });

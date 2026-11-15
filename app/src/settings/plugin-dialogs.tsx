@@ -77,7 +77,6 @@ const NewTag = () => <span className="h-5 flex-none rounded bg-plugin-soft px-1.
 export function adds(m: PluginManifest): string[] {
   return [
     ...m.contributes.fields.map((c) => `Ride field: ${c.title}`),
-    ...m.contributes.widgets.map((c) => `Card: ${c.title}`),
     ...(m.contributes.analyses ?? []).map((c) => `Ride analysis: ${c.title}`),
   ];
 }
@@ -207,7 +206,7 @@ export function UpdateDialog({
   const [error, setError] = useState<string | null>(null);
   const newReads = changes.newReads.filter((g) => !OPT_IN_GROUPS.includes(g));
   const kept = manifest.permissions.read.filter((g) => !changes.newReads.includes(g) && !OPT_IN_GROUPS.includes(g));
-  const added = [...changes.newFields.map((t) => `Ride field: ${t}`), ...changes.newWidgets.map((t) => `Card: ${t}`), ...changes.newMetrics.map((t) => `Number: ${t}`)];
+  const added = [...changes.newFields.map((t) => `Ride field: ${t}`), ...changes.newMetrics.map((t) => `Number: ${t}`)];
   const nothingNew = !newReads.length && !added.length && !changes.newReads.includes("location");
 
   async function go() {
@@ -338,13 +337,13 @@ export function GitHubDialog({ onFound, onClose }: { onFound: (text: string, ori
 }
 
 function catalogWhere(e: CatalogEntry) {
-  return [e.adds.fields.length && "Ride field", e.adds.analyses.length && "Ride page", e.adds.widgets.length && "Card"].filter(Boolean).join(" · ");
+  return [e.adds.fields.length && "Ride field", e.adds.analyses.length && "Ride page"].filter(Boolean).join(" · ");
 }
 
 /** The first sentence of a catalog plugin's description, for the list. */
 const firstSentence = (text: string) => text.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text;
 
-/** Lactic's own plugins, bundled with the app, listed on the Plugins tab's Browse view. Picking one hands
+/** Lactic's own plugins, bundled with the app, listed in Settings → Plugins → Browse. Picking one hands
  * its text to the usual add or update screen. */
 export function BrowseList({
   installed,
