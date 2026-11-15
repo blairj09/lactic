@@ -3,7 +3,7 @@
 // your data; simulated gear in development builds). Rendered like the other pages, as an async page.
 
 import Nav from "@/components/nav";
-import { Page, PageHeader } from "@/components/ui";
+import { Page } from "@/components/ui";
 import { loadAthlete } from "@/lib/activities";
 import { loadConnection as loadIntervals } from "@/lib/intervals/client";
 import { loadMemory, loadPersona } from "@/lib/coach/store";
@@ -30,7 +30,8 @@ import { AboutSetting } from "~/updates/check-button";
 import { FeatureSetting } from "~/setup/features";
 import { ExperimentsSetting } from "./experiments";
 import { features } from "@/lib/features";
-import { ScrollToSection } from "./scroll-to-section";
+import { SettingsShell, type SettingBlock } from "./shell";
+import { experiments } from "@/lib/experiments";
 import { isDesktop, isPhone, phoneHealthName, phoneWord, thisDevice } from "~/platform/native";
 import { ComputerLink, PairPhone, PhoneHealth } from "~/phone/settings";
 import { phoneStatus } from "~/phone/plugin";
@@ -40,15 +41,6 @@ import { listSavedLayouts, loadLayout } from "@/lib/layout-data";
 import { defaultLayout } from "@/lib/sdk/layout";
 import { sameLayout } from "@/lib/sdk/layout-editor";
 import { LayoutSetting } from "./layout-panel";
-
-const SECTIONS = [
-  { id: "profile", label: "Profile" },
-  { id: "coach-settings", label: "Coach" },
-  { id: "connections", label: "Connections" },
-  { id: "gear", label: "Gear" },
-  { id: "data", label: "Your data" },
-  { id: "about", label: "About" },
-];
 
 export default async function SettingsPage() {
   const supabase = createClient();
@@ -64,27 +56,14 @@ export default async function SettingsPage() {
   ]);
   // A paired iPhone leaves intervals.icu to the computer; one used on its own connects it itself.
   const pairedPhone = isPhone() && Boolean((await phoneStatus().catch(() => null))?.paired);
-  return (
-    <>
-      <Nav current="/settings" />
-      <Page width="medium">
-        <PageHeader title="Settings" />
-        <ScrollToSection />
-        <nav aria-label="Settings sections" className="-mt-2 mb-8 flex flex-wrap gap-1">
-          {SECTIONS.map((s) => (
-            <a
-              key={s.id}
-              href={`#/settings`}
-              onClick={(e) => {
-                e.preventDefault();
-                document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth" });
-              }}
-              className="rounded-md border border-line px-3 py-1.5 text-sm text-muted transition-colors hover:text-ink"
-            >
-              {s.label}
-            </a>
-          ))}
-        </nav>
+  const pairedFor = (connected: boolean) =>
+    connected ? "Connected on your computer. Rides it brings in come across when this iPhone syncs." : "Connect intervals.icu in Lactic on your computer.";
+  const blocks: (SettingBlock | false)[] = [
+    {
+      key: "profile",
+      section: "profile",
+      text: "Training FTP threshold max heart rate zones power Body weight height birth date sex Sleep need time zone",
+      node: (
         <SettingsForm
           ftpSource={ftpSourceLine(athlete.ftpHistory, localDate(new Date(), athlete.timezone))}
           values={{
@@ -99,136 +78,243 @@ export default async function SettingsPage() {
             timezone: athlete.timezone,
           }}
         />
-        <div className="space-y-4 border-t border-line pt-8">
-          <Section id="appearance" title="Appearance" description="Light or dark, contrast, and metric or imperial units.">
-            <ThemeSetting />
-            <ContrastSetting />
-            <UnitsSetting />
-          </Section>
-          <Section id="layout" title="Layout" description="The order of your tabs and the cards on Today.">
-            <LayoutSetting layout={layout} copies={copies} custom={!sameLayout(layout, defaultLayout())} />
-          </Section>
-          <Section id="tracking" title="What you track" description="Besides rides and your plan. Each one you turn off leaves Today, Health, setup and the coach.">
-            <FeatureSetting />
-          </Section>
-          <Section id="experimental" title="Experimental features" description="New things we're still trying out. Off until you turn them on, and labelled wherever they show.">
-            <ExperimentsSetting />
-          </Section>
-          <Section id="tour" title="Getting started" description="A short walk through each screen.">
-            <TakeTour />
-          </Section>
-          <Section id="feedback" title="Feedback" description="Found a problem or have an idea? No account needed.">
-            <FeedbackSetting />
-          </Section>
-        </div>
-        <div id="coach-settings" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-          <Section title="Coach" description="Built-in, an AI app you already use, or none.">
-            <div className="sm:col-span-2">
-              <CoachSetupPanel />
-            </div>
-          </Section>
-          {setup.mode !== "none" && (
-            <>
-              {setup.mode === "builtin" && (
-                <Section title="How the coach talks" description="Its voice in chat and the morning brief.">
-                  <CoachPersona initial={persona} />
-                </Section>
-              )}
-              <Section title="What the coach remembers" description="Facts it reads before every answer. Edit them or add your own.">
-                <CoachMemory memory={memory} />
-              </Section>
-            </>
-          )}
-        </div>
-        <div id="connections" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-          <Section title="intervals.icu" description="Brings in rides from Zwift, Garmin and Wahoo, and sends your rides and planned workouts back.">
-            <div className="sm:col-span-2">
-              {/* A paired iPhone leaves intervals.icu to the computer and gets its rides by syncing. */}
-              {pairedPhone ? (
-                <p className="text-sm text-muted">{icu ? "Connected on your computer. Rides it brings in come across when this iPhone syncs." : "Connect intervals.icu in Lactic on your computer."}</p>
-              ) : icu ? (
-                <IntervalsPanel
-                  status={{
-                    connected: true,
-                    lastSyncedAt: icu.lastSyncedAt?.toISOString() ?? null,
-                    historyDone: icu.backfillDone,
-                    historyReachedBack: icu.backfillBeforeLocal ?? null,
-                    uploadRides: icu.uploadRides,
-                    stravaMissing: icu.stravaMissing,
-                  }}
-                />
-              ) : (
-                <IntervalsConnect heading={false} />
-              )}
-            </div>
-          </Section>
-          {isPhone() ? (
-            <>
-              <Section id="iphone" title="Your computer" description={`Lactic on your computer keeps the main copy of everything. This ${phoneWord()} syncs with it.`}>
-                <ComputerLink />
-              </Section>
-              <Section id="health" title={phoneHealthName()} description="Sleep and recovery in, rides out.">
-                <PhoneHealth />
-              </Section>
-              <StravaSection />
-            </>
-          ) : (
-            <>
-              <StravaSection />
-              {isDesktop && (
-                <Section id="iphone" title="Phone" description="Lactic on your phone reads Apple Health for you and runs rides, and stays in sync with this computer over Wi-Fi.">
-                  <PairPhone />
-                </Section>
-              )}
-              {tracking.recovery && (
-                <Section id="health" title="Sleep and recovery" description="Sleep, HRV and resting heart rate from Apple Health, or your watch or ring through intervals.icu.">
-                  <div className="sm:col-span-2">
-                    <HealthSetup heading={false} />
-                  </div>
-                </Section>
-              )}
-            </>
-          )}
-          <Section
-            title="Import ride files"
-            description={
-              isPhone()
-                ? "FIT, GPX or TCX files from the Files app, or a whole .zip such as Strava's or Garmin's archive of your account. Duplicates are skipped."
-                : "FIT, GPX or TCX files from Zwift (Documents/Zwift/Activities), Garmin Connect or your bike computer, or a whole .zip such as Strava's or Garmin's archive of your account. Duplicates are skipped."
-            }
-          >
-            <div className="sm:col-span-2">
-              <FitImport />
-            </div>
-          </Section>
-        </div>
-        <div id="gear" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-          <Section title="Bluetooth" description="Pair once and your gear reconnects on its own.">
-            <BluetoothDevices />
-          </Section>
-          {canWatchApps() && (
-            <Section id="head-unit" title="Head unit" description="Your fields over Zwift, Rouvy or any app. Pick Head unit on the Ride page.">
-              <div className="sm:col-span-2">
-                <HeadUnitAuto className="" />
-              </div>
-            </Section>
-          )}
-          {import.meta.env.DEV && (
-            <Section title="Simulated gear" description="Development builds only: a virtual trainer, heart rate strap, power meter and scale for testing without a bike.">
-              <SimulatorSwitch />
-            </Section>
-          )}
-        </div>
-        <div id="data" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-          <Section title="Your data" description={`Everything is in one file on ${thisDevice()}. Back it up or take it anywhere.`}>
-            <DataPanel />
-          </Section>
-        </div>
-        <div id="about" className="scroll-mt-16 space-y-4 border-t border-line pt-8">
-          <Section title="About Lactic" description="Your version, and whether there's a newer one.">
-            <AboutSetting />
-          </Section>
-        </div>
+      ),
+    },
+    {
+      key: "look",
+      section: "appearance",
+      text: "Look theme light dark contrast high contrast units metric imperial kg lb km miles",
+      node: (
+        <Section id="units" title="Look" description="Theme, contrast and units.">
+          <ThemeSetting />
+          <ContrastSetting />
+          <UnitsSetting />
+        </Section>
+      ),
+    },
+    {
+      key: "layout",
+      section: "appearance",
+      text: "Layout tabs order Today cards customize reset",
+      node: (
+        <Section id="layout" title="Layout" description="Your tabs and the cards on Today.">
+          <LayoutSetting layout={layout} copies={copies} custom={!sameLayout(layout, defaultLayout())} />
+        </Section>
+      ),
+    },
+    {
+      key: "bluetooth",
+      section: "devices",
+      text: "Bluetooth pair trainer smart trainer KICKR heart rate strap power meter cadence scale sensors",
+      node: (
+        <Section id="bluetooth" title="Bluetooth" description="Pair once and your gear reconnects on its own.">
+          <BluetoothDevices />
+        </Section>
+      ),
+    },
+    canWatchApps() && {
+      key: "head-unit",
+      section: "devices",
+      text: "Head unit fields over Zwift Rouvy MyWhoosh any app overlay",
+      node: (
+        <Section id="head-unit" title="Head unit" description="Your fields over Zwift, Rouvy or any app.">
+          <div className="sm:col-span-2">
+            <HeadUnitAuto className="" />
+          </div>
+        </Section>
+      ),
+    },
+    import.meta.env.DEV && {
+      key: "simulated",
+      section: "devices",
+      text: "Simulated gear virtual trainer development testing",
+      node: (
+        <Section title="Simulated gear" description="Development builds only: virtual gear for testing without a bike.">
+          <SimulatorSwitch />
+        </Section>
+      ),
+    },
+    {
+      key: "coach",
+      section: "coach",
+      text: "Coach AI built-in external Claude ChatGPT OpenRouter API key model none MCP",
+      node: (
+        <Section id="coach-settings" title="Coach" description="Built-in, an AI app you already use, or none.">
+          <div className="sm:col-span-2">
+            <CoachSetupPanel />
+          </div>
+        </Section>
+      ),
+    },
+    setup.mode === "builtin" && {
+      key: "persona",
+      section: "coach",
+      text: "How the coach talks voice tone persona morning brief",
+      node: (
+        <Section title="How the coach talks" description="Its voice in chat and the morning brief.">
+          <CoachPersona initial={persona} />
+        </Section>
+      ),
+    },
+    setup.mode !== "none" && {
+      key: "memory",
+      section: "coach",
+      text: "What the coach remembers memory facts",
+      node: (
+        <Section title="What the coach remembers" description="Facts it reads before every answer.">
+          <CoachMemory memory={memory} />
+        </Section>
+      ),
+    },
+    {
+      key: "intervals",
+      section: "connections",
+      text: "intervals.icu sync rides Zwift Garmin Wahoo planned workouts upload",
+      node: (
+        <Section id="intervals" title="intervals.icu" description="Rides in from Zwift, Garmin and Wahoo. Your rides and planned workouts back out.">
+          <div className="sm:col-span-2">
+            {/* A paired iPhone leaves intervals.icu to the computer and gets its rides by syncing. */}
+            {pairedPhone ? (
+              <p className="text-sm text-muted">{pairedFor(Boolean(icu))}</p>
+            ) : icu ? (
+              <IntervalsPanel
+                status={{
+                  connected: true,
+                  lastSyncedAt: icu.lastSyncedAt?.toISOString() ?? null,
+                  historyDone: icu.backfillDone,
+                  historyReachedBack: icu.backfillBeforeLocal ?? null,
+                  uploadRides: icu.uploadRides,
+                  stravaMissing: icu.stravaMissing,
+                }}
+              />
+            ) : (
+              <IntervalsConnect heading={false} />
+            )}
+          </div>
+        </Section>
+      ),
+    },
+    experiments().strava_upload && { key: "strava", section: "connections", text: "Strava post upload rides", node: <StravaSection /> },
+    {
+      key: "import",
+      section: "connections",
+      text: "Import ride files FIT GPX TCX zip Zwift Garmin Strava archive",
+      node: (
+        <Section id="import" title="Import ride files" description="FIT, GPX or TCX files, or a whole .zip such as Strava's or Garmin's archive. Duplicates are skipped.">
+          <div className="sm:col-span-2">
+            <FitImport />
+          </div>
+        </Section>
+      ),
+    },
+    {
+      key: "tracking",
+      section: "health",
+      text: "What you track sleep recovery weight turn off",
+      node: (
+        <Section id="tracking" title="What you track" description="Besides rides and your plan. Turning one off hides it everywhere.">
+          <FeatureSetting />
+        </Section>
+      ),
+    },
+    isPhone() && {
+      key: "phone-health",
+      section: "health",
+      text: `${phoneHealthName()} Apple Health sleep HRV resting heart rate rides out`,
+      node: (
+        <Section id="health-source" title={phoneHealthName()} description="Sleep and recovery in, rides out.">
+          <PhoneHealth />
+        </Section>
+      ),
+    },
+    !isPhone() && tracking.recovery && {
+      key: "recovery",
+      section: "health",
+      text: "Sleep and recovery HRV resting heart rate Apple Health watch ring Oura WHOOP Garmin",
+      node: (
+        <Section id="health-source" title="Sleep and recovery" description="From Apple Health, or your watch or ring through intervals.icu.">
+          <div className="sm:col-span-2">
+            <HealthSetup heading={false} />
+          </div>
+        </Section>
+      ),
+    },
+    isPhone() && {
+      key: "computer",
+      section: "phone",
+      text: "Your computer sync pair Mac Wi-Fi",
+      node: (
+        <Section id="computer" title="Your computer" description={`It keeps the main copy of everything. This ${phoneWord()} syncs with it.`}>
+          <ComputerLink />
+        </Section>
+      ),
+    },
+    !isPhone() && isDesktop && {
+      key: "pair-phone",
+      section: "phone",
+      text: "Phone iPhone Android pair QR code sync Wi-Fi Apple Health",
+      node: (
+        <Section id="iphone" title="Phone" description="Reads Apple Health for you and runs rides. Syncs with this computer over Wi-Fi.">
+          <PairPhone />
+        </Section>
+      ),
+    },
+    {
+      key: "data",
+      section: "data",
+      text: "Your data backup back up export restore delete everything file CSV",
+      node: (
+        <Section title="Your data" description={`Everything is in one file on ${thisDevice()}.`}>
+          <DataPanel />
+        </Section>
+      ),
+    },
+    {
+      key: "experimental",
+      section: "experimental",
+      text: "Experimental features race report Strava course prep adaptive workouts beta",
+      node: (
+        <Section title="Experimental features" description="Off until you turn them on, and labelled wherever they show.">
+          <ExperimentsSetting />
+        </Section>
+      ),
+    },
+    {
+      key: "tour",
+      section: "help",
+      text: "Getting started tour walk through",
+      node: (
+        <Section id="tour" title="Getting started" description="A short walk through each screen.">
+          <TakeTour />
+        </Section>
+      ),
+    },
+    {
+      key: "feedback",
+      section: "help",
+      text: "Feedback problem bug idea report",
+      node: (
+        <Section id="feedback" title="Feedback" description="A problem or an idea? No account needed.">
+          <FeedbackSetting />
+        </Section>
+      ),
+    },
+    {
+      key: "about",
+      section: "help",
+      text: "About Lactic version update",
+      node: (
+        <Section id="about" title="About Lactic" description="Your version, and whether there's a newer one.">
+          <AboutSetting />
+        </Section>
+      ),
+    },
+  ];
+  return (
+    <>
+      <Nav current="/settings" />
+      <Page>
+        <SettingsShell blocks={blocks.filter((b): b is SettingBlock => Boolean(b))} />
       </Page>
     </>
   );

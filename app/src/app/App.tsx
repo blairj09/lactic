@@ -30,6 +30,7 @@ import { isPhone } from "~/platform/native";
 import { startPhoneBridge } from "~/phone/computer";
 import { PhoneWelcome, SOLO } from "~/phone/welcome";
 import { ComputerRide } from "~/phone/remote";
+import { SettingsShortcut } from "~/settings/shell";
 
 // The coach's tools for checking and fixing the app itself (gear, intervals.icu, its own setup).
 installSupportTools();
@@ -125,6 +126,7 @@ function Shell() {
     <>
       <NavigatorBridge />
       {onboarded && <HeadUnitWatcher />}
+      {onboarded && <SettingsShortcut />}
       <Routes>
         <Route path="/overlay" element={<Lazy load={overlay} />} />
         <Route path="/welcome/*" element={<Lazy load={onboarding} />} />
