@@ -28,6 +28,8 @@ export interface CheckinInput {
   offBikeTrimp?: number;
   /** Warning signs across recent nights (recoverySignals in recovery-glance.ts): a run of low HRV, signs of illness, sleep debt. */
   signals?: { strain: number; reason: string }[];
+  /** Where the planned ride should leave today's exertion, and the top of today's target (exertionToday in recovery-glance.ts). */
+  exertion?: { landsAt: number; targetHigh: number } | null;
 }
 
 /** Off-bike TRIMP that counts as a big day: about an hour's endurance ride. */
@@ -113,7 +115,7 @@ export function checkin(input: CheckinInput): CheckinResult {
   let recommended: OptionId;
   if (input.sick || strain >= 4) recommended = "rest";
   else if (strain === 3) recommended = intense ? "endurance" : planned ? "recovery" : "rest";
-  else if (strain === 2) recommended = intense ? "easier" : planned ? "shorter" : "rest";
+  else if (strain === 2) recommended = intense ? "easier" : planned ? (underTarget(input) ? "asPlanned" : "shorter") : "rest";
   else if (strain <= -2 && intense && has("harder")) recommended = "harder";
   else recommended = planned ? "asPlanned" : "rest";
   // Less time than planned: the shorter version of whatever was chosen.
@@ -121,6 +123,14 @@ export function checkin(input: CheckinInput): CheckinResult {
   if (!has(recommended)) recommended = planned ? "asPlanned" : "rest";
 
   return { recommended, strain, reasons, options };
+}
+
+/**
+ * An easy planned ride that leaves the day inside or under today's exertion target (which already
+ * follows recovery) has nothing to trim: mild warning signs don't shorten it, unless the rider feels tired.
+ */
+function underTarget(input: CheckinInput): boolean {
+  return input.feel >= 3 && !!input.exertion && input.exertion.landsAt <= input.exertion.targetHigh;
 }
 
 function buildOptions(planned: Session | null, minutes?: number): CheckinOption[] {
