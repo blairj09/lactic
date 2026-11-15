@@ -12,7 +12,8 @@ import { defaultWeek, saveWeek, WeekForm } from "~/setup/week";
 import { GearSetup } from "~/setup/gear";
 import { RidesSetup } from "~/setup/rides";
 import { CoachSetupPanel } from "~/setup/coach";
-import { keepCoachChoice } from "~/ai/settings";
+import { builtinReady, coachSetup, keepCoachChoice, SECRET_AI } from "~/ai/settings";
+import { secretStatus } from "~/platform/secrets";
 import { revalidatePath } from "~/shims/next-cache";
 import { TOUR_DONE } from "~/tour/store";
 import { FeatureChoice } from "~/setup/features";
@@ -226,6 +227,16 @@ function Welcome({ onStart }: { onStart: () => void }) {
 }
 
 /** A plan to ride from day one, until the rider sets their week and goal (left alone if one exists). */
+/** The coach step counts as done with No coach, an AI app, or a built-in coach that can run (model and key). */
+async function coachStepResult() {
+  const setup = await coachSetup();
+  if (setup.mode !== "builtin") return { ok: true, message: "" };
+  const keySaved = setup.provider?.hasKey ? Boolean(await secretStatus(SECRET_AI).catch(() => null)) : false;
+  return builtinReady(setup, keySaved)
+    ? { ok: true, message: "" }
+    : { ok: false, message: "Pick where the model runs, a model and its key, or choose No coach." };
+}
+
 async function starterPlan() {
   const { data } = await createClient()
     .from("training_plans")
@@ -417,7 +428,7 @@ export default function Onboarding() {
         continueButton(
           () =>
             void save(
-              () => keepCoachChoice().then(() => ({ ok: true, message: "" })),
+              () => keepCoachChoice().then(coachStepResult),
               () => later("coach"),
             ),
         ),

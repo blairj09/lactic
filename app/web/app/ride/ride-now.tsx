@@ -1,6 +1,6 @@
 "use client";
 
-import { MAX_LEVEL, MIN_LEVEL, STARTING_LEVELS, ZONES, ZONE_LABELS, buildSession, rampTest, type Levels, type Session, type Zone } from "@/lib/engine/library";
+import { MAX_LEVEL, MIN_LEVEL, STARTING_LEVELS, ZONES, ZONE_LABELS, buildSession, isRampTest, rampTest, type Levels, type Session, type Zone } from "@/lib/engine/library";
 import { templateById, templatesFor } from "@/lib/engine/templates";
 import { plannedStress, workoutDuration } from "@/lib/engine/workout";
 import { customKey, libraryKey, LIBRARY_CATEGORIES, LIBRARY_CATEGORY_LABELS, WORKOUT_LIBRARY, libraryWorkout, type LibraryCategory, type LibraryWorkout } from "@/lib/engine/workout-library";
@@ -193,6 +193,7 @@ export default function RideNow({
             <span className="num"> · {sessionLine(planned, planned.zone !== "recovery")}</span>
           </p>
         )}
+        {source === "planned" && planned && isRampTest(planned.workout) && <RampTestHint />}
 
         {source === "library" && (
           <div className="space-y-4">
@@ -240,6 +241,7 @@ export default function RideNow({
               {leveled && <span className="sm:hidden">{stepper}</span>}
             </div>
             {picked && <p className="-mt-2 text-sm text-muted">{picked.description}</p>}
+            {library.kind === "rampTest" && <RampTestHint />}
             <button type="button" className={button.ghost} onClick={() => onSource("custom")}>
               Library and my workouts
             </button>
@@ -292,6 +294,11 @@ export default function RideNow({
       </div>
     </Panel>
   );
+}
+
+/** How a ramp test works, for a rider who may never have done one (often their first workout). */
+function RampTestHint() {
+  return <p className="-mt-2 text-sm text-muted">Ride until you can&apos;t hold the target, then end the ride. Your best minute sets your FTP.</p>;
 }
 
 const workoutLine = (duration: number, stress: number, level?: number) =>

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { shortcutHeld } from "@/app/coach/open";
 import { openFeedback } from "~/feedback/dialog";
 import { isDemo } from "~/demo/flag";
+import { modKey } from "~/platform/native";
 import { ago, appName, connection, useMcpStatus, type McpStatus } from "./status";
 
 const ASK = ["How's my training going?", "Should I ride hard today, or take it easy?", "Plan my week around a long ride on Saturday."];
@@ -70,7 +71,7 @@ export function ExternalCoachButton({ alongside = false }: { alongside?: boolean
         aria-haspopup="dialog"
         onClick={() => setOpen((o) => !o)}
         className={`inline-flex h-8 items-center gap-2 rounded-md border border-control px-3 text-sm text-muted hover:text-ink ${open ? "bg-active text-ink" : ""}`}
-        title={alongside ? `${name} can also coach you, through Lactic's MCP server` : `${name} is your coach, through Lactic's MCP server (⌘K)`}
+        title={alongside ? `${name} can also coach you, through Lactic's MCP server` : `${name} is your coach, through Lactic's MCP server (${modKey()}K)`}
       >
         <span className={`size-1.5 rounded-full ${DOT[state]}`} aria-hidden />
         {alongside ? name : state === "none" ? "External coach" : `Coach in ${name}`}
