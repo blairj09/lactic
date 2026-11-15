@@ -16,3 +16,12 @@ export const TERRAIN_TILES: TileSource = {
   maxZoom: 14,
   attribution: 'Terrain: <a href="https://github.com/tilezen/joerd/blob/master/docs/attribution.md">Mapzen, USGS and others</a>',
 };
+
+/**
+ * What's on the land (rivers, lakes, forests, other roads): OpenStreetMap data as vector tiles from
+ * OpenFreeMap's public server, free with no account or key. The view works without it.
+ */
+export const FEATURE_TILES = {
+  url: "https://tiles.openfreemap.org/planet",
+  attribution: '<a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/">OpenMapTiles</a>, data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+};

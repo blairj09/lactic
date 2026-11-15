@@ -5,7 +5,7 @@ import type * as MapLibre from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { STEP, type CourseProfile } from "@/lib/engine/course/profile";
 import { climbAhead, elevationAt, gradeAt, placeAt, roadAhead, type CourseRideState, type CourseSection } from "@/lib/ride/course-ride";
-import { TERRAIN_TILES } from "@/lib/course-imagery";
+import { FEATURE_TILES, TERRAIN_TILES } from "@/lib/course-imagery";
 import { LANDSCAPE_LOOKS, PALETTES, doubleHeights, metersPerPixel, paintLandscape, terrariumHeights, tileLat, type LandscapeLook } from "@/lib/ride/landscape";
 import { distanceIn, distanceUnit, elevationIn, elevationUnit, speedIn, speedUnit, type UnitSystem } from "@/lib/units";
 import { useUnits } from "@/lib/use-units";
@@ -79,7 +79,7 @@ const point = (coordinates: [number, number]) => ({ type: "Feature" as const, pr
 
 /**
  * The course in 3D as you ride it: the real terrain drawn as Lactic's own landscape (contours and
- * light, not photos), the road colored by its grade, and the camera following where your power has
+ * light, not photos) with its rivers, lakes, forests and roads, the course colored by its grade, and the camera following where your power has
  * taken you. Over it: the grade now, the climb you're on
  * and the next stretch of road.
  */
@@ -149,6 +149,7 @@ export default function CourseRideView({
             sources: {
               land: { type: "raster", tiles: [`${LAND}://${look}/${low}/${high}/{z}/{x}/{y}`], tileSize: 256, maxzoom: TERRAIN_TILES.maxZoom },
               terrain: { type: "raster-dem", tiles: [TERRAIN_TILES.tiles], encoding: "terrarium", tileSize: 256, maxzoom: TERRAIN_TILES.maxZoom, attribution: TERRAIN_TILES.attribution },
+              features: { type: "vector", url: FEATURE_TILES.url, attribution: FEATURE_TILES.attribution },
               course: { type: "geojson", data: line(sectionLine(profile, 0, profile.meters)) },
               section: { type: "geojson", lineMetrics: true, data: line(sectionLine(profile, section.from, section.to)) },
               rider: { type: "geojson", data: point([start.lng, start.lat]) },
@@ -157,6 +158,19 @@ export default function CourseRideView({
             layers: [
               { id: "ground", type: "background", paint: { "background-color": `rgb(${palette.ramp[1].join(",")})` } },
               { id: "land", type: "raster", source: "land", paint: { "raster-fade-duration": 200, "raster-resampling": "linear" } },
+              // What's on the land, in the look's own colors: forest as a tint, water bright, the roads you cross faint.
+              { id: "forest", type: "fill", source: "features", "source-layer": "landcover", filter: ["==", ["get", "class"], "wood"], paint: { "fill-color": palette.forest, "fill-opacity": palette.forestOpacity, "fill-antialias": false } },
+              { id: "streams", type: "line", source: "features", "source-layer": "waterway", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": palette.water, "line-opacity": 0.85, "line-width": ["match", ["get", "class"], "river", 4, "canal", 2, 1.6] } },
+              { id: "water", type: "fill", source: "features", "source-layer": "water", paint: { "fill-color": palette.water, "fill-opacity": 0.9 } },
+              {
+                id: "roads",
+                type: "line",
+                source: "features",
+                "source-layer": "transportation",
+                filter: ["in", ["get", "class"], ["literal", ["motorway", "trunk", "primary", "secondary", "tertiary", "minor"]]],
+                layout: { "line-cap": "round", "line-join": "round" },
+                paint: { "line-color": palette.roads, "line-opacity": 0.45, "line-width": ["match", ["get", "class"], ["motorway", "trunk", "primary"], 2.5, 1.2] },
+              },
               { id: "course", type: "line", source: "course", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": palette.road, "line-width": 3, "line-opacity": 0.6 } },
               { id: "section-case", type: "line", source: "section", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": palette.casing, "line-width": 10, "line-opacity": 0.9 } },
               // The road wears its grade: green easy, through yellow and orange, to red steep.

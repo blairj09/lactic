@@ -22,6 +22,11 @@ interface Palette {
   /** The road outside the picked section, and the casing under the section. */
   road: string;
   casing: string;
+  /** What's on the land: water, forest, and the other roads you pass. */
+  water: string;
+  forest: string;
+  forestOpacity: number;
+  roads: string;
 }
 
 export const PALETTES: Record<LandscapeLook, Palette> = {
@@ -41,6 +46,10 @@ export const PALETTES: Record<LandscapeLook, Palette> = {
     sky: { sky: "#070b1c", horizon: "#2b55d6", fog: "#141d44" },
     road: "#9fb4ff",
     casing: "#0a1026",
+    water: "#46d7ff",
+    forest: "#11a08c",
+    forestOpacity: 0.2,
+    roads: "#c9d4ff",
   },
   day: {
     ramp: [
@@ -58,6 +67,10 @@ export const PALETTES: Record<LandscapeLook, Palette> = {
     sky: { sky: "#a9c4f2", horizon: "#f1efe6", fog: "#f1efe6" },
     road: "#5b6472",
     casing: "#ffffff",
+    water: "#5a9fe0",
+    forest: "#5f8f62",
+    forestOpacity: 0.24,
+    roads: "#8a8172",
   },
 };
 
