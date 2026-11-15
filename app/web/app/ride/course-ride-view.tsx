@@ -5,7 +5,8 @@ import type * as MapLibre from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { STEP, type CourseProfile } from "@/lib/engine/course/profile";
 import { climbAhead, elevationAt, gradeAt, placeAt, roadAhead, type CourseRideState, type CourseSection } from "@/lib/ride/course-ride";
-import { TERRAIN_TILES, imageryFor } from "@/lib/course-imagery";
+import { TERRAIN_TILES } from "@/lib/course-imagery";
+import { LANDSCAPE_LOOKS, PALETTES, doubleHeights, metersPerPixel, paintLandscape, terrariumHeights, tileLat, type LandscapeLook } from "@/lib/ride/landscape";
 import { distanceIn, distanceUnit, elevationIn, elevationUnit, speedIn, speedUnit, type UnitSystem } from "@/lib/units";
 import { useUnits } from "@/lib/use-units";
 
@@ -13,6 +14,38 @@ import { useUnits } from "@/lib/use-units";
 export type CourseCamera = "chase" | "rider";
 
 const CAMERA_PREF = "ride.courseCamera";
+const LOOK_PREF = "ride.courseLook";
+const LAND = "lactic-land";
+
+/**
+ * Lactic's landscape tiles: `lactic-land://<look>/<low>/<high>/<z>/<x>/<y>` fetches that tile's
+ * heights and paints them (lib/ride/landscape), so the land is drawn here, on the rider's computer.
+ */
+async function landTile(url: string, signal: AbortSignal): Promise<ArrayBuffer> {
+  const [look, low, high, z, x, y] = url.slice(`${LAND}://`.length).split("/");
+  const res = await fetch(TERRAIN_TILES.tiles.replace("{z}", z).replace("{x}", x).replace("{y}", y), { signal });
+  if (!res.ok) throw new Error(`Terrain tile ${res.status}`);
+  const bitmap = await createImageBitmap(await res.blob());
+  const size = bitmap.width;
+  const read = new OffscreenCanvas(size, size).getContext("2d", { willReadFrequently: true })!;
+  read.drawImage(bitmap, 0, 0);
+  // Painted at twice the terrain's detail, so contours stay fine lines close to the rider.
+  const heights = doubleHeights(terrariumHeights(read.getImageData(0, 0, size, size).data), size);
+  const pixels = paintLandscape(heights, size * 2, metersPerPixel(Number(z), tileLat(Number(z), Number(y))) * (256 / size / 2), Number(low), Number(high), look as LandscapeLook);
+  const canvas = new OffscreenCanvas(size * 2, size * 2);
+  canvas.getContext("2d")!.putImageData(new ImageData(pixels as Uint8ClampedArray<ArrayBuffer>, size * 2, size * 2), 0, 0);
+  return (await canvas.convertToBlob({ type: "image/png" })).arrayBuffer();
+}
+
+/** The section's line colored by its grade, as a gradient along its length. */
+function gradeGradient(profile: CourseProfile, section: CourseSection): unknown[] {
+  const length = section.to - section.from;
+  const step = Math.max(STEP, Math.ceil(length / 300 / STEP) * STEP);
+  const stops: unknown[] = [];
+  for (let m = 0; m < length; m += step) stops.push(m / length, gradeColor(gradeAt(profile, section.from + m + step / 2)));
+  if (stops.length < 4) stops.push(1, stops[1]);
+  return ["interpolate", ["linear"], ["line-progress"], ...stops];
+}
 const AHEAD_SPAN = 2000;
 
 /** A point `meters` from another along a compass bearing; fine over the few hundred meters used here. */
@@ -45,8 +78,9 @@ const line = (coordinates: [number, number][]) => ({ type: "Feature" as const, p
 const point = (coordinates: [number, number]) => ({ type: "Feature" as const, properties: {}, geometry: { type: "Point" as const, coordinates } });
 
 /**
- * The course in 3D as you ride it: real terrain with aerial imagery over it, the road drawn on, and
- * the camera following where your power has taken you. Over it: the grade now, the climb you're on
+ * The course in 3D as you ride it: the real terrain drawn as Lactic's own landscape (contours and
+ * light, not photos), the road colored by its grade, and the camera following where your power has
+ * taken you. Over it: the grade now, the climb you're on
  * and the next stretch of road.
  */
 export default function CourseRideView({
@@ -75,6 +109,13 @@ export default function CourseRideView({
       return "chase";
     }
   });
+  const [look, setLook] = useState<LandscapeLook>(() => {
+    try {
+      return localStorage.getItem(LOOK_PREF) === "day" ? "day" : "night";
+    } catch {
+      return "night";
+    }
+  });
   const cameraRef = useRef(camera);
   cameraRef.current = camera;
   // The frame loop reads the latest ride through refs, and glides between the once-a-second updates.
@@ -92,7 +133,10 @@ export default function CourseRideView({
       .then(({ default: maplibre }) => {
         if (cancelled || !box.current) return;
         const start = placeAt(profile, section.from);
-        const imagery = imageryFor(start.lat, start.lng);
+        const palette = PALETTES[look];
+        const low = Math.round(Math.min(...profile.ele));
+        const high = Math.round(Math.max(...profile.ele));
+        maplibre.addProtocol(LAND, async (request, abort) => ({ data: await landTile(request.url, abort.signal) }));
         made = new maplibre.Map({
           container: box.current,
           interactive: false,
@@ -103,25 +147,25 @@ export default function CourseRideView({
           style: {
             version: 8,
             sources: {
-              imagery: { type: "raster", tiles: [imagery.tiles], tileSize: 256, maxzoom: imagery.maxZoom, attribution: imagery.attribution },
+              land: { type: "raster", tiles: [`${LAND}://${look}/${low}/${high}/{z}/{x}/{y}`], tileSize: 256, maxzoom: TERRAIN_TILES.maxZoom },
               terrain: { type: "raster-dem", tiles: [TERRAIN_TILES.tiles], encoding: "terrarium", tileSize: 256, maxzoom: TERRAIN_TILES.maxZoom, attribution: TERRAIN_TILES.attribution },
               course: { type: "geojson", data: line(sectionLine(profile, 0, profile.meters)) },
-              section: { type: "geojson", data: line(sectionLine(profile, section.from, section.to)) },
+              section: { type: "geojson", lineMetrics: true, data: line(sectionLine(profile, section.from, section.to)) },
               rider: { type: "geojson", data: point([start.lng, start.lat]) },
               finish: { type: "geojson", data: point(sectionLine(profile, section.to, section.to)[0]) },
             },
             layers: [
-              // The land without imagery (offline, or a tile that hasn't come): still the terrain's shape, never blank.
-              { id: "land", type: "background", paint: { "background-color": "#8a9478" } },
-              { id: "imagery", type: "raster", source: "imagery", paint: { "raster-fade-duration": 200 } },
-              { id: "course", type: "line", source: "course", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": 3, "line-opacity": 0.55 } },
-              { id: "section-case", type: "line", source: "section", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": 9, "line-opacity": 0.9 } },
-              { id: "section", type: "line", source: "section", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#2b55d6", "line-width": 5 } },
+              { id: "ground", type: "background", paint: { "background-color": `rgb(${palette.ramp[1].join(",")})` } },
+              { id: "land", type: "raster", source: "land", paint: { "raster-fade-duration": 200, "raster-resampling": "linear" } },
+              { id: "course", type: "line", source: "course", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": palette.road, "line-width": 3, "line-opacity": 0.6 } },
+              { id: "section-case", type: "line", source: "section", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": palette.casing, "line-width": 10, "line-opacity": 0.9 } },
+              // The road wears its grade: green easy, through yellow and orange, to red steep.
+              { id: "section", type: "line", source: "section", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-width": 6, "line-gradient": gradeGradient(profile, section) as never } },
               { id: "finish", type: "circle", source: "finish", paint: { "circle-radius": 7, "circle-color": "#b8232a", "circle-stroke-color": "#ffffff", "circle-stroke-width": 2, "circle-pitch-alignment": "map" } },
-              { id: "rider", type: "circle", source: "rider", paint: { "circle-radius": 9, "circle-color": "#2b55d6", "circle-stroke-color": "#ffffff", "circle-stroke-width": 3, "circle-pitch-alignment": "map" } },
+              { id: "rider", type: "circle", source: "rider", paint: { "circle-radius": 9, "circle-color": "#ffffff", "circle-stroke-color": "#2b55d6", "circle-stroke-width": 4, "circle-pitch-alignment": "map" } },
             ],
             terrain: { source: "terrain", exaggeration: 1 },
-            sky: { "sky-color": "#8fb8e8", "horizon-color": "#dfe9f2", "fog-color": "#dfe9f2", "sky-horizon-blend": 0.6, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.2, "atmosphere-blend": 0.5 },
+            sky: { "sky-color": palette.sky.sky, "horizon-color": palette.sky.horizon, "fog-color": palette.sky.fog, "sky-horizon-blend": 0.7, "horizon-fog-blend": 0.7, "fog-ground-blend": 0.35, "atmosphere-blend": 0.6 },
           },
         });
         mapRef.current = made;
@@ -180,7 +224,14 @@ export default function CourseRideView({
       mapRef.current = null;
       setReady(false);
     };
-  }, [profile, section]);
+  }, [profile, section, look]);
+
+  const pickLook = (next: LandscapeLook) => {
+    setLook(next);
+    try {
+      localStorage.setItem(LOOK_PREF, next);
+    } catch {}
+  };
 
   const pickCamera = (next: CourseCamera) => {
     setCamera(next);
@@ -196,7 +247,7 @@ export default function CourseRideView({
   const done = state.meters >= length;
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-line bg-[#8a9478]" data-course-ride>
+    <div className="relative overflow-hidden rounded-xl border border-line" style={{ background: PALETTES[look].sky.sky }} data-course-ride>
       <div ref={box} className="h-[46vh] min-h-72 w-full" aria-label={`3D view of ${section.name}, ${eventName}`} />
       {failed && <p className="absolute inset-0 grid place-items-center bg-raised text-sm text-muted">The 3D view couldn&apos;t start here. The trainer still follows the course.</p>}
 
@@ -215,6 +266,13 @@ export default function CourseRideView({
           </div>
         </div>
         <div className="flex items-start gap-2">
+          <div className="pointer-events-auto flex overflow-hidden rounded-lg bg-black/55 text-xs text-white backdrop-blur-sm" role="group" aria-label="Look">
+            {LANDSCAPE_LOOKS.map((l) => (
+              <button key={l} type="button" aria-pressed={look === l} className={`px-2.5 py-1.5 ${look === l ? "bg-white/25 font-medium" : "opacity-80 hover:opacity-100"}`} onClick={() => pickLook(l)}>
+                {l === "night" ? "Night" : "Day"}
+              </button>
+            ))}
+          </div>
           <div className="pointer-events-auto flex overflow-hidden rounded-lg bg-black/55 text-xs text-white backdrop-blur-sm" role="group" aria-label="Camera">
             {(["chase", "rider"] as const).map((c) => (
               <button key={c} type="button" aria-pressed={camera === c} className={`px-2.5 py-1.5 ${camera === c ? "bg-white/25 font-medium" : "opacity-80 hover:opacity-100"}`} onClick={() => pickCamera(c)}>
