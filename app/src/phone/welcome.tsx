@@ -7,6 +7,8 @@ import { MarkTile } from "~/app/brand";
 import { button, Result } from "@/components/ui";
 import { setSetting } from "~/settings/store";
 import { phoneHealthName, phoneWord } from "~/platform/native";
+import { resetLink } from "./link";
+import { unpair } from "./plugin";
 import { PairWithComputer, useLinkState } from "./settings";
 
 /** app_settings key: this phone was set up without a computer. */
@@ -40,7 +42,25 @@ export function PhoneWelcome({ onSolo }: { onSolo: () => void }) {
         <div className="space-y-3">
           <h1 className="text-2xl font-semibold tracking-tight">Paired with {computer}</h1>
           {link?.error ? (
-            <Result ok={false}>{link.error}</Result>
+            <>
+              <Result ok={false}>{link.error}</Result>
+              {/* Without this the screen was a dead end: forget the computer and scan a fresh code. */}
+              <button
+                type="button"
+                className={button.secondary}
+                onClick={() =>
+                  void unpair()
+                    .catch(() => {})
+                    .then(() => resetLink())
+                    .finally(() => {
+                      setComputer(null);
+                      setPairing(true);
+                    })
+                }
+              >
+                Pair again
+              </button>
+            </>
           ) : (
             <p className="text-muted">
               Bringing your plan, rides and settings across{link?.received ? ` (${link.received.toLocaleString()} so far)` : ""}. Keep Lactic open on both for a moment.
