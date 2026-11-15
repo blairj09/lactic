@@ -644,5 +644,6 @@ struct LacticWidgets: WidgetBundle {
     RecoveryWidget()
     RideWidget()
     FieldsWidget()
+    RideLiveActivity()
   }
 }

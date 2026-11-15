@@ -39,3 +39,25 @@ describe("Apple Health import", () => {
     expect(data).toMatchObject({ steps: 7000, vo2max: 52.1 });
   });
 });
+
+describe("weigh-ins from Apple Health", () => {
+  it("adds other scales' weigh-ins once, skips ones Lactic already has, and updates the profile weight", async () => {
+    const t = localClient.from("body_measurements");
+    await t.insert({ measured_at: "2026-11-10T13:32:00Z", source: "body_pod", weight_kg: 75.4 });
+    const body = {
+      weightDate: ["2026-11-10T06:30:00-07:00", "2026-11-11T06:30:00-07:00"],
+      weightValue: ["75.43", "75.1"],
+      bodyFatDate: ["2026-11-11T06:30:00-07:00"],
+      bodyFatValue: ["0.182"],
+    };
+    expect((await ingestHealth(body)).weighIns).toBe(1);
+    expect((await ingestHealth(body)).weighIns).toBe(0);
+    const { data } = await localClient.from("body_measurements").select("measured_at, source, weight_kg, body_fat_pct").order("measured_at");
+    expect(data).toEqual([
+      { measured_at: "2026-11-10T13:32:00.000Z", source: "body_pod", weight_kg: 75.4, body_fat_pct: null },
+      { measured_at: "2026-11-11T13:30:00.000Z", source: "apple_health", weight_kg: 75.1, body_fat_pct: 18.2 },
+    ]);
+    const { data: settings } = await localClient.from("athlete_settings").select("weight_kg").maybeSingle();
+    expect((settings as { weight_kg: number }).weight_kg).toBe(75.1);
+  });
+});

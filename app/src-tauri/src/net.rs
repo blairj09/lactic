@@ -108,9 +108,23 @@ fn friendly(e: reqwest::Error) -> String {
         format!("Couldn't connect: {}", e.url().map(|u| u.as_str()).unwrap_or(""))
     } else if e.is_timeout() {
         "The request timed out".into()
+    } else if e.is_body() || e.is_decode() {
+        // reqwest calls a body cut off partway "error decoding response body" and hides why.
+        format!("The connection dropped partway through the reply{}", root_cause(&e).map(|c| format!(" ({c})")).unwrap_or_default())
     } else {
         e.to_string()
     }
+}
+
+/// The innermost error under reqwest's own, e.g. "connection reset by peer".
+fn root_cause(e: &reqwest::Error) -> Option<String> {
+    let mut source = std::error::Error::source(e);
+    let mut last = None;
+    while let Some(s) = source {
+        last = Some(s.to_string());
+        source = std::error::Error::source(s);
+    }
+    last.filter(|s| !s.is_empty())
 }
 
 #[tauri::command]
