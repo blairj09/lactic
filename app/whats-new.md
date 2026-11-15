@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- A free ride is saved as "Free ride" instead of taking the name of the day's planned workout.
+- If the built-in coach has no model or key yet, the coach says to finish setting it up in Settings → Coach, and setup's coach step asks for them (or No coach) before it counts as done.
 - Today's This week compares rides since your plan started with what it planned, so rides you brought in from before the plan no longer show as "314 of 36 TSS". They still show on their days.
 - iPhone: Customize fields now has Head unit, so you can set up the head unit's pages on your phone. The phone remote shows those pages during a head unit ride.
 - New riders who don't know their FTP start with an easy ride on day one; the FTP test comes on the next good day.

@@ -55,6 +55,7 @@ import RampTestResult from "./ramp-test-result";
 const OVERLAY_PREF = "ride.overlayOnStart";
 /** What a head unit ride is called in Lactic: the other app names its own copy. */
 const HEAD_UNIT_NAME = "Head unit ride";
+const FREE_RIDE_NAME = "Free ride";
 
 /** The chart's x axis in a head unit ride: the ride so far and five minutes on, no targets. */
 function headUnitWorkout(position: number): Workout {
@@ -751,10 +752,12 @@ function RideOnThisDevice({
   const save = async () => {
     const started = startedAt.current;
     if (!started) return;
+    // A free ride or head unit ride follows no workout, so it isn't named after the one loaded beside it.
+    const rideName = headUnit ? HEAD_UNIT_NAME : erg ? FREE_RIDE_NAME : workout.name;
     setSaveState("saving");
     const result = await saveAppRide({
       startedAt: started,
-      name: headUnit ? HEAD_UNIT_NAME : workout.name,
+      name: rideName,
       watts: samples.current,
       heartRate: hrSamples.current,
       cadence: cadenceSamples.current,
@@ -776,7 +779,7 @@ function RideOnThisDevice({
       const libraryRide = intensity !== 100 || edited ? null : source === "library" ? librarySession(library, levels) : starter ? starterSession(starter) : null;
       setSurvey({
         appStartedAt: started,
-        name: workout.name,
+        name: rideName,
         session: libraryRide && { zone: libraryRide.zone, level: libraryRide.level, duration: libraryRide.duration, stress: libraryRide.stress },
       });
     } else setError(result.message);

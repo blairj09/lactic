@@ -52,7 +52,7 @@ export async function answer(
   attachments: Attachment[] = [],
 ): Promise<StoredMessage> {
   const coach = coachModel();
-  if (!coach) throw new Error("The coach needs OPENROUTER_API_KEY");
+  if (!coach) throw new Error("Finish setting up the coach first: pick a model and add its API key in Settings → Coach.");
   const [conversation, data] = await Promise.all([conversationId ? loadConversation(supabase, conversationId) : currentConversation(supabase), loadCoachData(supabase)]);
   const read = await readAttachments(supabase, attachments, data.state.athlete, text, hooks.onStatus);
   await saveMessage(supabase, conversation, { role: "user", content: text, attachments: read });
@@ -69,7 +69,7 @@ export async function answer(
  */
 export async function brief(supabase: Supabase, hooks: ChatHooks): Promise<StoredMessage> {
   const coach = coachModel();
-  if (!coach) throw new Error("The coach needs OPENROUTER_API_KEY");
+  if (!coach) throw new Error("Finish setting up the coach first: pick a model and add its API key in Settings → Coach.");
   // Key days without a workout picked get one first, so the brief can say what today is for.
   try {
     await planAhead(supabase, { onStatus: hooks.onStatus });
