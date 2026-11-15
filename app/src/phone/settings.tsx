@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { renderSVG } from "uqr";
 import { button, Pill, Result } from "@/components/ui";
+import { localDate } from "@/lib/engine/activity";
 import { invoke, listen, os, phoneHealthName, phoneWord } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 import { connectHealth, healthError, syncPhoneHealth, WRITE_RIDES } from "./health";
@@ -168,7 +169,11 @@ export async function scanPairingCode(): Promise<string | null> {
 const PIECE = 1 << 20;
 
 /** What a phone used on its own brings to a computer that has its own plan: what it rode and measured. */
-const KEEP_TABLES = ["activities", "activity_streams", "ride_feedback", "intervals_uploads", "strava_uploads", "ftp_history", "body_measurements", "health_days", "recovery_days", "custom_workouts", "workout_favorites"];
+const KEEP_TABLES = [
+  "activities", "activity_streams", "ride_feedback", "intervals_uploads", "strava_uploads", "ftp_history", "body_measurements", "health_days", "recovery_days", "custom_workouts", "workout_favorites",
+  // Events and their courses, breaks and race reports set up on the phone, and its check-ins up to today.
+  "training_goals", "event_courses", "plan_breaks", "race_reviews", "race_rivals", "plan_days",
+];
 
 /**
  * A phone set up on its own, pairing with a computer: a computer new to Lactic starts from this
@@ -218,7 +223,7 @@ export function PairWithComputer({ onPaired }: { onPaired?: (computer: string) =
       });
       const brought = await bringDataToComputer(setSending);
       await resetLink();
-      if (brought === "keep") await invoke("sync_keep", { tables: KEEP_TABLES });
+      if (brought === "keep") await invoke("sync_keep", { tables: KEEP_TABLES, through: localDate(new Date(), Intl.DateTimeFormat().resolvedOptions().timeZone) });
       onPaired?.(computer);
       void syncWithComputer();
     } catch (e) {
@@ -412,8 +417,12 @@ export function PhoneHealth() {
           }}
         />
         <span>
-          Save rides to {android ? "Health Connect" : "Health"} as cycling workouts
-          <span className="block text-muted">With heart rate, power, cadence, distance and energy. Rides Zwift or your bike computer already put there are skipped.</span>
+          {android ? "Save rides to Health Connect as cycling workouts" : "Save rides and weigh-ins to Health"}
+          <span className="block text-muted">
+            {android
+              ? "With heart rate, power, cadence, distance and energy. Rides Zwift or your bike computer already put there are skipped."
+              : "Rides as cycling workouts with heart rate, power, cadence, distance and energy; weigh-ins from your scale as weight and body fat. Anything already there from Zwift, a bike computer or the scale's own app is skipped."}
+          </span>
         </span>
       </label>
       <WidgetLine />

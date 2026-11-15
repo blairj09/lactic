@@ -40,6 +40,7 @@ import { parseTheme, readTheme, setTheme } from "@/lib/theme";
 import { GUIDE } from "./guide";
 import { APP_GUIDE } from "@/lib/coach/app-guide";
 import { AREAS, SUPPORT_TOOLS, type Area } from "./definitions";
+import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { logEvent, recentEvents, type LogArea } from "./log";
 import { applyLayout, getLayout, listPlugins, pluginMetric, proposeLayoutChange } from "./layout-tools";
 
@@ -448,7 +449,11 @@ export async function runSupportTool(name: string, args: Record<string, unknown>
   }
 }
 
-export const supportTools: AppTools = { tools: SUPPORT_TOOLS, run: runSupportTool, apply, status: STATUS };
+/** Where this app has no plugins (use-plugin-tab.ts), the coach isn't offered the plugin tools. */
+const PLUGIN_TOOLS = new Set(["list_plugins", "read_plugin_metric"]);
+const offered = pluginsAllowed ? SUPPORT_TOOLS : SUPPORT_TOOLS.filter((t) => !PLUGIN_TOOLS.has(t.function.name));
+
+export const supportTools: AppTools = { tools: offered, run: runSupportTool, apply, status: STATUS };
 
 /** Makes the tools available to the coach and the MCP server (once, at boot). */
 export function installSupportTools() {

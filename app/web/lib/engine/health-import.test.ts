@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoExportSamples, columnSamples, cutShortNight, healthNights, parseHealthDate, sleepStage } from "./health-import";
+import { autoExportSamples, columnSamples, cutShortNight, healthNights, healthWeighIns, parseHealthDate, sleepStage } from "./health-import";
 
 const line = (start: string, end: string, value: string) => `2026-11-0${start}-05:00|2026-11-0${end}-05:00|${value}`;
 
@@ -165,6 +165,30 @@ describe("column samples", () => {
 
   it("ignores bodies without the lists", () => {
     expect(columnSamples({ sleep: "x" })).toBeNull();
+  });
+});
+
+describe("healthWeighIns", () => {
+  it("pairs body fat with the weight taken with it", () => {
+    const out = healthWeighIns({
+      weightDate: ["2026-11-10T06:30:00-07:00", "2026-11-11T06:31:00-07:00"],
+      weightValue: ["75.43", "75.1"],
+      bodyFatDate: ["2026-11-11T06:31:30-07:00"],
+      bodyFatValue: ["0.182"],
+    });
+    expect(out).toEqual([
+      { at: Date.parse("2026-11-10T13:30:00Z") / 1000, weightKg: 75.43, bodyFatPercent: null },
+      { at: Date.parse("2026-11-11T13:31:00Z") / 1000, weightKg: 75.1, bodyFatPercent: 18.2 },
+    ]);
+  });
+
+  it("takes percentages as well as fractions, and drops impossible readings", () => {
+    const out = healthWeighIns({ weightDate: "2026-11-11T06:00:00Z\n2026-11-11T07:00:00Z", weightValue: "4\n80", bodyFatDate: "2026-11-11T07:00:00Z", bodyFatValue: "21.5" });
+    expect(out).toEqual([{ at: Date.parse("2026-11-11T07:00:00Z") / 1000, weightKg: 80, bodyFatPercent: 21.5 }]);
+  });
+
+  it("is empty without weight columns", () => {
+    expect(healthWeighIns({ sleepStart: [] })).toEqual([]);
   });
 });
 

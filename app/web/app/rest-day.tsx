@@ -44,23 +44,34 @@ export default function RestDay({ state }: { state: TrainingState }) {
   );
 }
 
-/** A bike asleep on its kickstand, dreaming in z's. */
+/** A bike parked for the night under a moon and stars. */
 function RestArt() {
   return (
-    <svg viewBox="0 -16 170 126" className="h-28 w-40 shrink-0 text-accent" aria-hidden="true">
-      <g fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="38" cy="78" r="24" />
-        <circle cx="118" cy="78" r="24" />
-        <path d="M38 78 L64 46 L104 46 L118 78 M64 46 L80 78 L104 46 M80 78 L38 78" />
-        <path d="M60 36 L72 36 M64 46 L60 36" />
-        <path d="M104 46 L100 32 L112 30" />
+    <svg viewBox="0 -8 170 122" className="h-28 w-40 shrink-0 text-accent" aria-hidden="true">
+      <circle cx="85" cy="62" r="58" className="fill-accent-soft" />
+      <path d="M128 6 a13 13 0 1 0 14 18 a10 10 0 1 1 -14 -18 Z" fill="currentColor" />
+      <g fill="currentColor">
+        <circle cx="40" cy="16" r="2" />
+        <circle cx="60" cy="6" r="1.5" opacity="0.6" />
+        <circle cx="104" cy="14" r="1.5" opacity="0.6" />
+        <circle cx="24" cy="38" r="1.5" opacity="0.5" />
       </g>
-      <circle cx="80" cy="78" r="5" fill="currentColor" />
-      <g fill="currentColor" className="text-muted" fontFamily="inherit" fontWeight="600">
-        <text x="118" y="22" fontSize="16" className="fill-current opacity-60">z</text>
-        <text x="130" y="14" fontSize="20" className="fill-current opacity-80">z</text>
-        <text x="145" y="6" fontSize="24" className="fill-current">Z</text>
+      <g fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="38" cy="82" r="25" />
+        <circle cx="132" cy="82" r="25" />
+        <path d="M38 82 L80 84 L70 42 Z" />
+        <path d="M70 42 L118 40 L80 84" />
+        <path d="M118 40 L122 54 Q128 70 132 82" />
+        <path d="M70 42 L67 32" />
+        <path d="M57 31 L77 31" strokeWidth="4.5" />
+        <path d="M118 40 L116 33 L126 32 Q134 32 134 40 Q134 46 128 47" />
+        <circle cx="80" cy="84" r="7" />
+        <path d="M80 84 L85 96 M80 96 L90 96" />
+        <path d="M56 83 L50 107" strokeWidth="3" />
+        <path d="M20 108 L150 108" strokeWidth="3" opacity="0.25" />
       </g>
+      <circle cx="38" cy="82" r="2.5" fill="currentColor" />
+      <circle cx="132" cy="82" r="2.5" fill="currentColor" />
     </svg>
   );
 }
