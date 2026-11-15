@@ -247,6 +247,8 @@ export interface AppTools {
   apply(setting: AppSetting): Promise<string>;
   /** Short status lines for the chat while each tool runs. */
   status: Record<string, string>;
+  /** A status line that depends on the call, such as the words being searched for. */
+  describe?: (name: string, args: Record<string, unknown>) => string | undefined;
 }
 
 let registered: AppTools | null = null;

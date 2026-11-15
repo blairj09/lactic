@@ -1,7 +1,7 @@
 // The coach's conversations, on the server: chat replies, the morning brief, and keeping each
 // conversation's running summary short. Shared by the chat and brief routes.
 
-import { briefInputs, briefStale, coachChat, HISTORY_MESSAGES, KEEP_MESSAGES, morningBrief, planWeek, summarize, type ChatHooks } from "./chat";
+import { briefInputs, briefStale, coachChat, HISTORY_MESSAGES, KEEP_MESSAGES, morningBrief, planWeek, summarize, type ChatHooks, type ChatReply } from "./chat";
 import { holdsFavorite, unpickedKeyDays } from "../engine/picks";
 import { weekStart } from "../engine/plan";
 import { addDays } from "../engine/pmc";
@@ -58,7 +58,7 @@ export async function answer(
   await saveMessage(supabase, conversation, { role: "user", content: text, attachments: read });
   const history = await loadUnsummarized(supabase, conversation, HISTORY_MESSAGES);
   const reply = await coachChat(coach.complete, data, history, conversation.summary, hooks, page);
-  const saved = await saveMessage(supabase, conversation, { role: "assistant", content: reply.message, proposals: reply.proposals, model: coach.model, ...(reply.feedback ? { meta: { feedback: reply.feedback } } : {}) });
+  const saved = await saveMessage(supabase, conversation, { role: "assistant", content: reply.message, proposals: reply.proposals, model: coach.model, ...replyMeta(reply) });
   if (reply.memory.length) await applyMemory(supabase, reply.memory);
   return saved;
 }
@@ -212,4 +212,10 @@ export async function recordChoice(supabase: Supabase, day: string, text: string
   } catch (e) {
     console.error("Couldn't add the choice to the coach chat", e);
   }
+}
+
+/** What a chat reply saves besides its words: feedback it offered and the pages a search found. */
+function replyMeta(reply: ChatReply): { meta?: Record<string, unknown> } {
+  const meta = { ...(reply.feedback ? { feedback: reply.feedback } : {}), ...(reply.sources?.length ? { sources: reply.sources } : {}) };
+  return Object.keys(meta).length ? { meta } : {};
 }

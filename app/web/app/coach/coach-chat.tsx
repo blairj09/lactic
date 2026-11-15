@@ -11,6 +11,7 @@ import { ProposalCard } from "./proposal-card";
 import { FeedbackCard } from "./feedback-card";
 import { streamCoach } from "./events";
 import { Prose } from "./prose";
+import { Sources } from "./sources";
 import { AutoTextarea } from "@/components/auto-textarea";
 import { ACCEPT } from "@/lib/coach/attachments";
 import {
@@ -216,6 +217,7 @@ export default function CoachChat({
                 <Label message={m} />
               )}
               <Prose text={m.content} />
+              <Sources meta={m.meta} />
               {m.proposals.map((p, i) =>
                 pluginDraft(p) ? (
                   <PluginDraftCard

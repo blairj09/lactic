@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { button, Field, input, Notice, Pill, Result } from "@/components/ui";
 import { formatMonthly, monthlyEstimate } from "~/ai/cost";
 import { knownPrice, PROVIDERS, preset, type ProviderKind } from "~/ai/providers";
-import { coachSetup, saveCoachSetup, SECRET_AI, type CoachMode, type CoachSetup, type ModelChoice } from "~/ai/settings";
+import { coachSetup, saveCoachSetup, SECRET_AI, webSearchSupported, type CoachMode, type CoachSetup, type ModelChoice } from "~/ai/settings";
 import { listModels, testModel, type ModelInfo } from "~/ai/test";
 import { invoke, isDesktop, isPhone, openExternal } from "~/platform/native";
 import { deleteSecret, rebindSecret, saveSecret, secretStatus } from "~/platform/secrets";
@@ -313,6 +313,10 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
         </div>
       )}
 
+      {info && !info.local && setup.chat && (
+        <WebSearchSetting on={Boolean(setup.webSearch)} supported={webSearchSupported(setup)} onChange={(webSearch) => void update({ ...setup, webSearch })} />
+      )}
+
       {info && <ModelGuide local={info.local} />}
 
       {info && !info.local && (
@@ -335,6 +339,36 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
           </div>
         </Field>
       )}
+    </div>
+  );
+}
+
+/** Lets the built-in coach search the web (OpenRouter only). Off until the rider turns it on. */
+function WebSearchSetting({ on, supported, onChange }: { on: boolean; supported: boolean; onChange: (on: boolean) => void }) {
+  const active = on && supported;
+  return (
+    <div className="flex items-start gap-3">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={active}
+        aria-label="Search the web"
+        disabled={!supported}
+        onClick={() => onChange(!active)}
+        className="mt-0.5 flex-none disabled:opacity-50"
+      >
+        <span className={`relative inline-block h-5 w-9 rounded-full transition-colors ${active ? "bg-primary" : "bg-active"}`}>
+          <span className={`absolute top-0.5 size-4 rounded-full transition-all ${active ? "left-[1.125rem] bg-on-primary" : "left-0.5 bg-muted"}`} />
+        </span>
+      </button>
+      <div className="text-sm">
+        <span className="block font-medium">Search the web</span>
+        <span className="block text-muted">
+          {supported
+            ? "For things that change, like gear and prices. Only the search words leave Lactic, never your rides or health data. 1 to 2¢ a search, counted in the monthly limit."
+            : "Needs an OpenRouter key."}
+        </span>
+      </div>
     </div>
   );
 }

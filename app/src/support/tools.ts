@@ -39,7 +39,8 @@ import { setFtp } from "@/app/actions";
 import { parseTheme, readTheme, setTheme } from "@/lib/theme";
 import { GUIDE } from "./guide";
 import { APP_GUIDE } from "@/lib/coach/app-guide";
-import { AREAS, PLUGIN_DRAFT_TOOLS, SUPPORT_TOOLS, type Area } from "./definitions";
+import { AREAS, PLUGIN_DRAFT_TOOLS, SUPPORT_TOOLS, WEB_SEARCH_TOOL, type Area } from "./definitions";
+import { searchWeb, webSearchOffered } from "~/ai/web-search";
 import { draftPlugin } from "~/plugins/coach-draft";
 import { PLUGIN_GUIDE } from "~/plugins/coach-guide";
 import { createPluginWorker } from "~/plugins/spawn";
@@ -63,7 +64,15 @@ const STATUS: Record<string, string> = {
   read_plugin_metric: "Reading a plugin",
   plugin_guide: "Reading up on plugins",
   draft_plugin: "Writing a plugin",
+  search_web: "Searching the web",
 };
+
+/** Status lines that show the call: the words being searched for. */
+function describe(name: string, args: Record<string, unknown>): string | undefined {
+  if (name !== "search_web" || typeof args.query !== "string" || !args.query.trim()) return undefined;
+  const q = args.query.replace(/\s+/g, " ").trim();
+  return `Searching the web for "${q.length > 80 ? `${q.slice(0, 79)}…` : q}"`;
+}
 
 const out = (value: unknown): ToolResult => ({ content: JSON.stringify(value) });
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -168,6 +177,7 @@ async function coachReport() {
     provider: setup.provider ? { kind: setup.provider.kind, baseUrl: setup.provider.baseUrl, keySaved: setup.provider.hasKey } : null,
     model: setup.chat?.model ?? null,
     lastModelTest: setup.chat?.tested ?? null,
+    webSearch: webSearchOffered() ? "on" : setup.webSearch ? "off (needs the built-in coach on OpenRouter with a key)" : "off (turned on in Settings → Coach, OpenRouter only)",
     mcpServer: mcpOn(setup) ? "on" : "off (turns on when the coach mode is an external AI app, or the built-in coach lets AI apps connect too)",
     app: info ? { version: info.version, os: info.os } : null,
   };
@@ -457,6 +467,12 @@ export async function runSupportTool(name: string, args: Record<string, unknown>
         if (isRiding()) throw new Error("A ride is under way: draft the plugin after it's saved");
         return await draftPlugin(args, createPluginWorker);
       }
+      case "search_web": {
+        if (ctx.via !== "chat" || !webSearchOffered()) throw new Error("Web search is off. The athlete can turn it on in Settings → Coach (needs an OpenRouter key).");
+        const r = await searchWeb(args.query);
+        logEvent("coach", "info", `Coach searched the web for "${r.query}"`);
+        return { content: JSON.stringify({ query: r.query, results: r.answer, sources: r.sources.map((s) => ({ title: s.title, url: s.url })) }), sources: r.sources };
+      }
       default:
         return { content: `Unknown tool ${name}` };
     }
@@ -469,7 +485,16 @@ export async function runSupportTool(name: string, args: Record<string, unknown>
 const PLUGIN_TOOLS = new Set(["list_plugins", "read_plugin_metric"]);
 const offered = pluginsAllowed ? [...SUPPORT_TOOLS, ...PLUGIN_DRAFT_TOOLS] : SUPPORT_TOOLS.filter((t) => !PLUGIN_TOOLS.has(t.function.name));
 
-export const supportTools: AppTools = { tools: offered, run: runSupportTool, apply, status: STATUS };
+export const supportTools: AppTools = {
+  // Read each time a chat starts, so turning web search on or off takes effect on the next message.
+  get tools() {
+    return webSearchOffered() ? [...offered, WEB_SEARCH_TOOL] : offered;
+  },
+  run: runSupportTool,
+  apply,
+  status: STATUS,
+  describe,
+};
 
 /** Makes the tools available to the coach and the MCP server (once, at boot). */
 export function installSupportTools() {

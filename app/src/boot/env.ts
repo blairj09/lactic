@@ -3,13 +3,15 @@
 // placeholders.
 
 import { env } from "./globals";
-import { builtinReady, coachSetup, mcpOn, SECRET_AI } from "~/ai/settings";
+import { builtinReady, coachSetup, mcpOn, SECRET_AI, webSearchOn } from "~/ai/settings";
+import { offerWebSearch } from "~/ai/web-search";
 import { secretStatus } from "~/platform/secrets";
 import { invoke, isDesktop } from "~/platform/native";
 
 export async function applyEnv() {
   const setup = await coachSetup();
   const keySaved = setup.mode === "builtin" && setup.provider?.hasKey ? Boolean(await secretStatus(SECRET_AI).catch(() => null)) : false;
+  offerWebSearch(builtinReady(setup, keySaved) && webSearchOn(setup));
   if (builtinReady(setup, keySaved) && setup.chat) {
     env.OPENROUTER_API_KEY = "keychain:ai";
     env.OPENROUTER_MODEL = setup.chat.model;

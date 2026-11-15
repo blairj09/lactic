@@ -80,8 +80,16 @@ export const PLUGIN_DRAFT_TOOLS: FnTool[] = [
   ),
 ];
 
+/** The built-in coach's web search, offered only when the rider turned it on (Settings → Coach). */
+export const WEB_SEARCH_TOOL: FnTool = fn(
+  "search_web",
+  "Searches the web for things that change and aren't in Lactic: current gear and prices, new products, reviews, event dates and courses, rule changes. Not for training advice you can give from the athlete's data, and never for their own numbers. Only the query leaves Lactic, so write short generic search words with no personal details (no names, places they live, health details, or their watts, weight or rides): \"best power meter pedals 2026\", not \"power meter for a 72 kg rider with 260 W FTP\". Each search costs the athlete a little money, so search once or twice per question at most. Returns a summary of what the results say; base current facts on it, mention where they come from, and say when results disagree or may be out of date. Lactic shows the sources as links under your reply.",
+  { query: { type: "string", description: "Short search words, under 200 characters" } },
+  ["query"],
+);
+
 /** Tools only the built-in coach gets, never an outside AI app over MCP. */
-export const CHAT_ONLY_TOOLS: readonly string[] = PLUGIN_DRAFT_TOOLS.map((t) => t.function.name);
+export const CHAT_ONLY_TOOLS: readonly string[] = [...PLUGIN_DRAFT_TOOLS.map((t) => t.function.name), WEB_SEARCH_TOOL.function.name];
 
 export const SUPPORT_TOOLS: FnTool[] = [
   fn(

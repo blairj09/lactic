@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- The built-in coach can search the web for things that change, like gear and prices. Turn it on in Settings → Coach (needs an OpenRouter key); only the search words leave Lactic, and sources show under the reply.
 - iPhone: if pairing with your computer fails after the code is scanned, a Pair again button takes you back to scan a fresh code.
 - iPhone: Apple Health keeps reading sleep and HRV even when iOS hasn't yet asked about a newer type such as weight, and only one permission sheet shows at a time.
 

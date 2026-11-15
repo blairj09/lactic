@@ -36,7 +36,7 @@ export class BudgetReached extends Error {
   }
 }
 
-interface Target {
+export interface Target {
   url: string;
   headers: Record<string, string>;
   provider: string;
@@ -66,7 +66,7 @@ export async function monthSpend(): Promise<number> {
   return Number(rows[0]?.total ?? 0);
 }
 
-async function checkBudget(setup: CoachSetup, t: Target) {
+export async function checkBudget(setup: CoachSetup, t: Target) {
   if (t.local || setup.monthlyCapUsd === null) return;
   const spent = await monthSpend();
   if (spent >= setup.monthlyCapUsd) throw new BudgetReached(setup.monthlyCapUsd);
@@ -74,11 +74,16 @@ async function checkBudget(setup: CoachSetup, t: Target) {
 
 const estimateTokens = (text: string) => Math.ceil(text.length / 4);
 
-async function record(job: string, t: Target, choice: ModelChoice, input: number, output: number) {
+/**
+ * Counts one call in ai_usage. `fees` adds a charge on top of the tokens (a web search's results);
+ * `billed` is the provider's own figure for the whole call, used instead when it gives one.
+ */
+export async function record(job: string, t: Target, choice: ModelChoice, input: number, output: number, { fees = 0, billed }: { fees?: number; billed?: number } = {}) {
   // The provider's own price when its model list has one (OpenRouter), else the list price Lactic
   // ships for suggested models, so the monthly limit counts direct Anthropic, OpenAI and Gemini keys.
   const price = choice.price ?? knownPrice(t.provider as ProviderKind, choice.model);
-  const cost = price ? (input * price.input + output * price.output) / 1_000_000 : t.local ? 0 : null;
+  const tokens = price ? (input * price.input + output * price.output) / 1_000_000 : t.local ? 0 : null;
+  const cost = typeof billed === "number" && Number.isFinite(billed) && billed >= 0 ? billed : tokens === null ? (fees ? fees : null) : tokens + fees;
   try {
     const now = new Date().toISOString();
     await sql().execute(
