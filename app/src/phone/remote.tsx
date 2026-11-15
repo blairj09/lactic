@@ -193,7 +193,7 @@ export function ComputerRide() {
   const sent = ride?.data;
   const data = useMemo(() => {
     if (!sent || !mine) return sent;
-    const pages = pagesOf(mine, sent.erg ? "free" : "workout");
+    const pages = pagesOf(mine, sent.headUnit ? "headUnit" : sent.erg ? "free" : "workout");
     return pages.length ? { ...sent, fields: { ...fieldsOf(sent), pages, page } } : sent;
   }, [sent, mine, page]);
   const status = !data ? "" : data.ended ? "Ended" : data.running ? formatTime(data.position) : data.autoPaused ? "Paused" : data.elapsed > 0 ? "Paused" : "Ready";
