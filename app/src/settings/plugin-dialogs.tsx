@@ -6,7 +6,7 @@ import { button, input, Notice, Result } from "@/components/ui";
 import type { MetricGroup } from "@shared/sdk";
 import type { PluginManifest } from "~/plugins/manifest";
 import { GROUP_WORDS, OPT_IN_GROUPS, type InstallChoices, type UpdateChanges } from "~/plugins/permissions";
-import { CATALOG_CODE_URL, CATALOG_ORIGIN, catalogEntries, catalogState, catalogText, type CatalogEntry } from "~/plugins/catalog";
+import { CATALOG_CODE_URL, CATALOG_ORIGIN, COACH_ORIGIN, catalogEntries, catalogState, catalogText, type CatalogEntry } from "~/plugins/catalog";
 import { openExternal } from "~/platform/native";
 import { PluginPreview } from "./plugin-preview";
 import { GitHubError, fetchFromGitHub, originOf, parseRepoLink, sourceChange, sourceLabel } from "~/plugins/github";
@@ -81,6 +81,29 @@ export function adds(m: PluginManifest): string[] {
   ];
 }
 
+/** A plugin's code, shown as plain text (never run here), for a plugin the coach wrote. */
+export function CodeView({ source }: { source: string }) {
+  return <pre className="max-h-64 overflow-auto rounded-md border border-line bg-raised p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">{source}</pre>;
+}
+
+/** The footer line for a plugin the coach wrote, with its code a click away. */
+function CoachWritten({ source, version }: { source?: string; version?: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <p className="text-xs text-faint">
+        AI-written. Lactic doesn't check it.{version ? "" : " Approved on this computer only."}{" "}
+        {source && (
+          <button type="button" className="underline" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {open ? "Hide the code" : "See the code"}
+          </button>
+        )}
+      </p>
+      {open && source && <CodeView source={source} />}
+    </>
+  );
+}
+
 export const CANT = "It can't go online, change your rides, plan or settings, control your trainer, or see your coach chats.";
 
 function Head({ manifest, origin, line }: { manifest: PluginManifest; origin: string | null; line?: string }) {
@@ -119,6 +142,7 @@ export function PermissionDialog({
   const list = adds(manifest);
   // One of Lactic's own plugins: only set for a bundled package (catalog.ts; store.ts checks the hash).
   const ours = origin === CATALOG_ORIGIN;
+  const coachWrote = origin === COACH_ORIGIN;
 
   async function go() {
     setBusy(true);
@@ -134,10 +158,10 @@ export function PermissionDialog({
 
   return (
     <Dialog title={mode === "add" ? `Add “${manifest.name}”?` : `Turn on “${manifest.name}” here?`} labelId="plugin-permission-title" onClose={onClose} busy={busy} wide={Boolean(source && list.length)}>
-      <Head manifest={manifest} origin={origin} />
+      <Head manifest={manifest} origin={origin} line={coachWrote ? `${manifest.version} · written by your coach` : undefined} />
       {warning && <Notice>{warning}</Notice>}
       <blockquote className="border-l-2 border-plugin-line pl-3">
-        <span className="block text-xs text-faint">{ours ? "What it does" : "The author says"}</span>
+        <span className="block text-xs text-faint">{ours ? "What it does" : coachWrote ? "Your coach says" : "The author says"}</span>
         {manifest.description}
       </blockquote>
       {source && list.length > 0 ? (
@@ -167,7 +191,7 @@ export function PermissionDialog({
       {manifest.permissions.read.includes("location") && <Checkbox checked={location} onChange={setLocation} label="Also let it see where you ride" hint="GPS routes can show where you live. It works without them." />}
       {manifest.publishes.length > 0 && <Checkbox checked={coach} onChange={setCoach} label="Let your coach see its numbers" hint="Numbers only. You can change this later." />}
       <p className="text-muted">{CANT}</p>
-      <p className="text-xs text-faint">{ours ? "Approved on this computer only." : "Lactic doesn't check plugins. Approved on this computer only."}</p>
+      {coachWrote ? <CoachWritten source={source} /> : <p className="text-xs text-faint">{ours ? "Approved on this computer only." : "Lactic doesn't check plugins. Approved on this computer only."}</p>}
       {error && <Result ok={false}>{error}</Result>}
       <div className="flex justify-end gap-2">
         <button type="button" className={button.secondary} disabled={busy} onClick={onClose}>
@@ -188,10 +212,13 @@ export function UpdateDialog({
   previousOrigin,
   changes,
   coachVisible,
+  source,
   onConfirm,
   onClose,
 }: {
   manifest: PluginManifest;
+  /** The new version's code: a preview on the sample ride, and for a coach draft the code itself. */
+  source?: string;
   /** Where this file came from (null for a chosen file). */
   origin: string | null;
   /** Where the installed version came from. */
@@ -222,7 +249,7 @@ export function UpdateDialog({
   }
 
   return (
-    <Dialog title={`Update ${manifest.name} to ${changes.to}?`} labelId="plugin-update-title" onClose={onClose} busy={busy}>
+    <Dialog title={`Update ${manifest.name} to ${changes.to}?`} labelId="plugin-update-title" onClose={onClose} busy={busy} wide={Boolean(source)}>
       <Head manifest={manifest} origin={origin} line={`You have ${changes.from} from ${sourceLabel(previousOrigin)} · this one is from ${sourceLabel(origin)}`} />
       {changes.author && (
         <Notice>
@@ -258,6 +285,8 @@ export function UpdateDialog({
         {kept.length ? `Still reads ${kept.map((g) => GROUP_WORDS[g].name.split(",")[0].toLowerCase()).join(", ")}. ` : ""}
         Coach {coachVisible ? "sees" : "can't see"} its numbers. Still can't go online or change anything.
       </p>
+      {source && <PluginPreview manifest={manifest} source={source} />}
+      {origin === COACH_ORIGIN && <CoachWritten source={source} version />}
       {error && <Result ok={false}>{error}</Result>}
       <div className="flex justify-end gap-2">
         <button type="button" className={button.secondary} disabled={busy} onClick={onClose}>
