@@ -4,6 +4,8 @@
 
 import { summarizeRide } from "@shared/engine/activity";
 import { chartStream } from "@shared/engine/ride-detail";
+import { targetAt, workoutDuration } from "@shared/engine/workout";
+import { libraryWorkout } from "@shared/engine/workout-library";
 import { storeRides } from "@shared/activities";
 import { rememberDevice, DEVICE_KEYS, forgetDevice } from "@shared/ble/devices";
 import { createLocalClient } from "~/db/supa";
@@ -51,16 +53,22 @@ function sleepSegments(start: Date, end: Date, rnd: () => number): [number, numb
 async function seedHistory() {
   const supa = createLocalClient();
   const rnd = random(7);
-  const block = (secs: number, frac: number, out: number[], noise = 0.04) => {
-    for (let i = 0; i < secs; i++) out.push(Math.max(0, Math.round(FTP * frac * (1 + (rnd() - 0.5) * 2 * noise))));
+  // The rides have their own sequence, so changing a workout leaves sleep, HRV and weight as they were.
+  const pedal = random(3);
+  // Every sample ride is a workout from the library, ridden on target with a little wobble.
+  const ride = (id: string, noise: number): Kind => {
+    const { workout } = libraryWorkout(id)!;
+    return [workout.name, (out) => {
+      for (let t = 0, n = workoutDuration(workout); t < n; t++) out.push(Math.max(0, Math.round(FTP * (targetAt(workout, t) ?? 0.6) * (1 + (pedal() - 0.5) * 2 * noise))));
+    }];
   };
   const kinds: Record<string, Kind> = {
-    ss: ["Sweet spot 3 × 12", (o) => { block(600, 0.6, o); for (let k = 0; k < 3; k++) { block(720, 0.92, o); block(300, 0.55, o); } block(600, 0.55, o); }],
-    thr: ["Threshold 2 × 20", (o) => { block(900, 0.6, o); for (let k = 0; k < 2; k++) { block(1200, 1.0, o, 0.03); block(480, 0.55, o); } block(600, 0.55, o); }],
-    vo2: ["VO2 max 5 × 4", (o) => { block(900, 0.6, o); for (let k = 0; k < 5; k++) { block(240, 1.2, o, 0.05); block(240, 0.5, o); } block(15, 2.9, o, 0.1); block(900, 0.55, o); }],
-    end: ["Endurance 60 min", (o) => block(3600, 0.66, o, 0.08)],
-    long: ["Long endurance", (o) => { block(6600, 0.68, o, 0.1); block(12, 3.3, o, 0.1); block(600, 0.6, o); }],
-    rec: ["Recovery spin", (o) => block(2700, 0.5, o, 0.06)],
+    ss: ride("sweetspot-3x15", 0.04),
+    thr: ride("threshold-2x20", 0.03),
+    vo2: ride("vo2-5x5", 0.05),
+    end: ride("endurance-60", 0.08),
+    long: ride("endurance-120", 0.1),
+    rec: ride("recovery-openers-45", 0.06),
   };
   const weekPlan: Record<number, string> = { 2: "ss", 3: "end", 4: "thr", 6: "long", 0: "end" };
   const now = new Date();
@@ -75,7 +83,7 @@ async function seedHistory() {
     if (!k) continue;
     if (week % 4 === 3 && week < 11 && k !== "long") k = "rec";
     if (k === "thr" && week % 2 === 1) k = "vo2";
-    if (rnd() < 0.08) continue;
+    if (pedal() < 0.08) continue;
     if (dow === 6 || dow === 0) day.setHours(8, 15, 0, 0);
     const watts: number[] = [];
     kinds[k][1](watts);

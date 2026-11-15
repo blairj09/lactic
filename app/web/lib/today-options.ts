@@ -25,7 +25,9 @@ export function todayOptions(state: TrainingState, answers?: CheckinAnswers): Ch
   if (state.outdoor.some((o) => o.date === today && o.workout)) return null;
   const given = answers ?? todayStored?.checkin ?? null;
   const yesterday = state.exertion?.days.find((d) => d.day === addDays(today, -1));
+  const planned = todayPlan?.session ? exertionTodayFor(state, { session: todayPlan.session }) : null;
   return checkin({
+    exertion: planned?.planned && planned.target ? { landsAt: planned.planned.landsAt, targetHigh: planned.target.high } : null,
     planned: todayPlan?.session ?? null,
     recovery: state.recovery?.score?.score ?? null,
     form: state.form,

@@ -8,6 +8,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## 0.3.0
 
+- Today no longer suggests a shorter ride when the planned easy ride already fits inside today's exertion target.
 - The Ride screen says how a ramp test works: ride until you can't hold the target, then end the ride.
 - Windows and Linux: Head unit's "Start with Zwift" says Lactic stays in the system tray, and the coach shortcut shows as Ctrl+K.
 - A free ride is saved as "Free ride" instead of taking the name of the day's planned workout.
