@@ -1,0 +1,11 @@
+name: Idea
+description: Something Lactic should do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: What you're trying to do, and how Lactic gets in the way today. Could it be a plugin?
+    validations:
+      required: true

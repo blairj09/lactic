@@ -57,12 +57,12 @@ export function checkDraftArgs(args: Record<string, unknown>): DraftArgs {
   };
 }
 
-/** Missing lists become empty ones, so a draft with only fields doesn't fail on `widgets`. */
+/** A missing fields list becomes an empty one, so a draft with only ride page sections is fine. */
 function normalContributes(c: unknown): unknown {
   if (typeof c !== "object" || c === null || Array.isArray(c)) return c;
   const o = c as Record<string, unknown>;
-  return { fields: [], widgets: [], ...o };
+  return { fields: [], ...o };
 }
 
 /** The coach's chat prompt line. Only in Lactic Modular, where plugins exist. */
-export const PLUGIN_DRAFT_GUIDE = `- Drafting plugins: when the rider asks for something Lactic doesn't show (a ride field, a section on a ride's page, a card in the Plugins tab), you can write a small plugin for it. Call plugin_guide first, then draft_plugin. Lactic checks it and runs it on a sample ride; if it fails you get the error, so fix it and call draft_plugin again. The rider then sees it with Review and add, on the same screen as any plugin; you can't add, switch on or update it yourself. Only draft when they ask for something like this, use only the permissions it needs, say in a sentence what it reads and adds, and point out it's AI-written code they can read before adding. To change one you drafted, call draft_plugin again with the same id and a higher version. Plugins never go on Today. Once it's added, you can offer to put a ride field on a ride page with propose_layout_change.`;
+export const PLUGIN_DRAFT_GUIDE = `- Drafting plugins: when the rider asks for something Lactic doesn't show (a ride field, or a section on a ride's page; plugins can add nothing else), you can write a small plugin for it. Call plugin_guide first, then draft_plugin. Lactic checks it and runs it on a sample ride; if it fails you get the error, so fix it and call draft_plugin again. The rider then sees it with Review and add, on the same screen as any plugin; you can't add, switch on or update it yourself. Only draft when they ask for something like this, use only the permissions it needs, say in a sentence what it reads and adds, and point out it's AI-written code they can read before adding. To change one you drafted, call draft_plugin again with the same id and a higher version. Plugins never go on Today. Once it's added, you can offer to put a ride field on a ride page with propose_layout_change.`;

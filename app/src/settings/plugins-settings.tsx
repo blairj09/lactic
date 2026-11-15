@@ -1,22 +1,21 @@
-// The Plugins tab (Lactic Modular): the one place for plugins. Cards shows plugin cards on the rider's
-// screens; Added is where plugins are switched on or off, updated, approved and removed; Browse lists
-// Lactic's own plugins. Adding from GitHub or a file starts here too. Updates are only ever offered.
+// Settings → Plugins: the one place plugins are managed. Plugins add ride fields (ride screen, overlay
+// and head unit) and sections on a ride's page, nothing else. Added is where plugins are switched on or
+// off, updated, approved and removed; Browse lists Lactic's own plugins. Adding from GitHub or a file
+// starts here too. Updates are only ever offered.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { button, Result } from "@/components/ui";
-import type { Layout } from "@/lib/sdk/layout";
-import { GROUP_WORDS, OPT_IN_GROUPS, type InstallChoices } from "./permissions";
-import { approvePlugin, installPlugin, listPlugins, preparePackage, removePlugin, setCoachVisible, setPluginEnabled, updatePlugin, type PluginRecord, type Prepared } from "./store";
-import { checkForUpdates, type Offer } from "./updates";
-import { CATALOG_ORIGIN, COACH_ORIGIN } from "./catalog";
+import { GROUP_WORDS, OPT_IN_GROUPS, type InstallChoices } from "~/plugins/permissions";
+import { approvePlugin, installPlugin, listPlugins, preparePackage, removePlugin, setCoachVisible, setPluginEnabled, updatePlugin, type PluginRecord, type Prepared } from "~/plugins/store";
+import { checkForUpdates, type Offer } from "~/plugins/updates";
+import { CATALOG_ORIGIN, COACH_ORIGIN } from "~/plugins/catalog";
 import { saveBytes } from "~/data/export";
-import { PACKAGE_EXTENSION, packagePlugin } from "./package";
-import { CardsView } from "./plugins-tab";
-import { adds, BrowseList, CANT, GitHubDialog, PermissionDialog, PluginIcon, ReadLine, RefusedDialog, sourceChange, sourceLabel, UpdateDialog } from "~/settings/plugin-dialogs";
-import { PluginPreview } from "~/settings/plugin-preview";
-import { SandboxCheck } from "~/settings/sandbox-check";
+import { PACKAGE_EXTENSION, packagePlugin } from "~/plugins/package";
+import { adds, BrowseList, CANT, GitHubDialog, PermissionDialog, PluginIcon, ReadLine, RefusedDialog, sourceChange, sourceLabel, UpdateDialog } from "./plugin-dialogs";
+import { PluginPreview } from "./plugin-preview";
+import { SandboxCheck } from "./sandbox-check";
 import { isDesktop } from "~/platform/native";
 
-export type View = "cards" | "added" | "browse";
+export type View = "added" | "browse";
 
 type Open =
   | { kind: "github" }
@@ -33,10 +32,8 @@ type Open =
   | { kind: "approve"; plugin: PluginRecord }
   | { kind: "refused"; reason: string };
 
-/** Where the tab opens: cards when a plugin has some, the list when plugins are added, else Browse. */
-export function startView(plugins: PluginRecord[], asked?: string | null): View {
-  if (asked === "cards" || asked === "added" || asked === "browse") return asked;
-  if (plugins.some((p) => p.manifest.contributes.widgets.length > 0)) return "cards";
+/** Where it opens: the list when plugins are added, else Browse. */
+export function startView(plugins: PluginRecord[]): View {
   return plugins.length > 0 ? "added" : "browse";
 }
 
@@ -53,7 +50,6 @@ function Switch({ on, onChange, label, disabled }: { on: boolean; onChange: (on:
 
 function Segments({ view, count, onPick }: { view: View; count: number; onPick: (v: View) => void }) {
   const items: [View, string][] = [
-    ["cards", "Cards"],
     ["added", "Added"],
     ["browse", "Browse"],
   ];
@@ -122,7 +118,7 @@ function AddMenu({ onBrowse, onGitHub, onFile }: { onBrowse: () => void; onGitHu
 
 function where(p: PluginRecord): string[] {
   const c = p.manifest.contributes;
-  return [c.fields.length > 0 && "Ride field", (c.analyses ?? []).length > 0 && "Ride page", c.widgets.length > 0 && "Card"].filter((x): x is string => Boolean(x));
+  return [c.fields.length > 0 && "Ride field", (c.analyses ?? []).length > 0 && "Ride page"].filter((x): x is string => Boolean(x));
 }
 
 const groupShort = (g: keyof typeof GROUP_WORDS) => GROUP_WORDS[g].name.split(",")[0].toLowerCase();
@@ -336,7 +332,7 @@ function Details({ p, offer, onOpen, onBack, run }: { p: PluginRecord; offer?: O
   );
 }
 
-export function PluginsTab({ initial, asked }: { initial: Layout; asked?: string | null }) {
+export function PluginsSettings() {
   const [plugins, setPlugins] = useState<PluginRecord[] | null>(null);
   const [offers, setOffers] = useState<Map<string, Offer>>(new Map());
   const [view, setView] = useState<View | null>(null);
@@ -349,12 +345,12 @@ export function PluginsTab({ initial, asked }: { initial: Layout; asked?: string
   const load = useCallback(async () => {
     const list = await listPlugins();
     setPlugins(list);
-    setView((v) => v ?? startView(list, asked));
+    setView((v) => v ?? startView(list));
     if (!checked.current) {
       checked.current = true;
       setOffers(await checkForUpdates(list));
     } else setOffers((o) => new Map([...o].filter(([id, offer]) => list.find((p) => p.pluginId === id)?.sha256 === offer.current.sha256)));
-  }, [asked]);
+  }, []);
 
   useEffect(() => {
     void load().catch(() => setView((v) => v ?? "browse"));
@@ -398,11 +394,10 @@ export function PluginsTab({ initial, asked }: { initial: Layout; asked?: string
   const none = plugins !== null && plugins.length === 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Plugins</h1>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
         {view && <Segments view={view} count={plugins?.length ?? 0} onPick={pick} />}
-        <span className="ml-auto flex items-center gap-2">
+        <span className="ml-auto flex flex-wrap items-center gap-2">
           {none && view === "browse" ? (
             <>
               <button type="button" className={button.secondary} onClick={() => setOpen({ kind: "github" })}>
@@ -421,7 +416,6 @@ export function PluginsTab({ initial, asked }: { initial: Layout; asked?: string
 
       {note && <Result ok={note.ok}>{note.text}</Result>}
 
-      {view === "cards" && <CardsView initial={initial} onBrowse={() => pick("browse")} />}
       {view === "added" &&
         plugins &&
         (shown ? (
@@ -431,7 +425,6 @@ export function PluginsTab({ initial, asked }: { initial: Layout; asked?: string
         ))}
       {view === "browse" && (
         <div className="space-y-4">
-          {none && <p className="max-w-2xl text-[15px] text-muted">Add ride fields, ride page charts and cards. Plugins can't use the internet or change anything, and read only what you allow.</p>}
           <BrowseList installed={new Map((plugins ?? []).map((p) => [p.pluginId, p.manifest.version]))} onPick={(text) => handle(text, CATALOG_ORIGIN)} />
         </div>
       )}

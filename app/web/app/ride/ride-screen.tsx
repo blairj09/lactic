@@ -39,6 +39,7 @@ import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type Ride
 import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
+import { LiveActivityHost } from "~/phone/live-activity";
 import { RemoteHost } from "~/ride/remote";
 import { pluginFieldOptions, usePluginFields, usePlugins } from "~/plugins/ride-fields";
 import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
@@ -308,7 +309,11 @@ function RideOnThisDevice({
 
   useEffect(() => setSupported(isWebBluetoothAvailable()), []);
   // Hands off the trainer for a head unit ride, so nothing Lactic does can fight the other app.
-  useEffect(() => hub.setHandsOff(headUnit), [hub, headUnit]);
+  useEffect(() => {
+    hub.setHandsOff(headUnit);
+    // Leaving the Ride page gives the trainer back, so nothing else finds it still hands off.
+    return () => hub.setHandsOff(false);
+  }, [hub, headUnit]);
   const trainerApp = useTrainingApp(headUnit);
   useEffect(() => {
     // On unless turned off: clicking Start opens the overlay on top of other windows.
@@ -1389,6 +1394,7 @@ function RideOnThisDevice({
         </div>
         {pip.pip && <OverlayPortal pip={pip.pip} data={data} controls={controls} onResize={resizeOverlay} />}
         {isDesktop && !isPhone() && <RemoteHost data={data} controls={controls} />}
+        {isPhone() && <LiveActivityHost ride={data} />}
       </Page>
     </div>
   );

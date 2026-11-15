@@ -1,13 +1,12 @@
 # Lactic plugin catalog
 
-Official plugins for **Lactic Modular**: add them as they are, or read them to learn how a plugin is built. Each one is a single commented file that explains the sport science behind it.
+Official plugins for **Lactic**: add them as they are, or read them to learn how a plugin is built. Each one is a single commented file that explains the sport science behind it.
 
 | Plugin | Adds | Reads | Version |
 | --- | --- | --- | --- |
 | [Best Efforts](best-efforts/) | ride field, ride page | live, rides, profile | 1.0.1 |
 | [Cadence Bands](cadence-bands/) | ride field, ride page | live, rides | 1.0.1 |
 | [Aerobic Decoupling](decoupling/) | ride field, ride page | live, rides | 1.0.1 |
-| [Form Zones](form-zones/) | Plugins tab | fitness | 1.0.1 |
 | [Fuel Reminder](fuel/) | ride field | live | 1.0.1 |
 | [Matches](matches/) | ride field, ride page | live, rides, profile | 1.0.1 |
 | [On Target](on-target/) | ride field, ride page | live, rides | 1.0.1 |
@@ -19,7 +18,7 @@ None of them read health data or where you ride, and none appear on Today.
 
 ## Add one
 
-In Lactic Modular, open the Plugins tab, choose Browse and pick one. The catalog ships inside the app, so nothing is downloaded, and Lactic shows what a plugin reads before anything runs.
+In Lactic, open Settings → Plugins, choose Browse and pick one. The catalog ships inside the app, so nothing is downloaded, and Lactic shows what a plugin reads before anything runs.
 
 ## Learn from one
 

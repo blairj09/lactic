@@ -15,7 +15,7 @@ import { loadLayout, saveLayout } from "@/lib/layout-data";
 import { isRiding } from "@/lib/live-ride";
 import { createClient } from "~/db/supabase-client";
 
-/** The cards that can go on Today: Lactic's own only. Plugin cards live in the Plugins area. */
+/** The cards that can go on Today: Lactic's own only. Plugins add ride fields and ride page sections, never cards. */
 async function layoutContext(): Promise<LayoutContext> {
   return { widgets: [...BUILTIN_TODAY_WIDGETS], metrics: new MetricRegistry() };
 }

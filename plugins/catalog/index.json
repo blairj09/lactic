@@ -17,8 +17,7 @@
         ],
         "analyses": [
           "Best efforts"
-        ],
-        "widgets": []
+        ]
       },
       "source": "best-efforts/src/plugin.ts",
       "file": "dist/best-efforts-1.0.1.lacticplugin",
@@ -40,8 +39,7 @@
         ],
         "analyses": [
           "Cadence bands"
-        ],
-        "widgets": []
+        ]
       },
       "source": "cadence-bands/src/plugin.ts",
       "file": "dist/cadence-bands-1.0.1.lacticplugin",
@@ -63,33 +61,12 @@
         ],
         "analyses": [
           "Aerobic decoupling"
-        ],
-        "widgets": []
+        ]
       },
       "source": "decoupling/src/plugin.ts",
       "file": "dist/decoupling-1.0.1.lacticplugin",
       "bytes": 4388,
       "sha256": "17a3e6ab572083be0355357ee792c1c5130022c2040fae0cb7b598831220fbe9"
-    },
-    {
-      "id": "form-zones",
-      "name": "Form Zones",
-      "version": "1.0.1",
-      "description": "Places today's form (fitness minus fatigue) in a training zone, from fresh to overreaching, as a card in Plugins.",
-      "reads": [
-        "fitness"
-      ],
-      "adds": {
-        "fields": [],
-        "analyses": [],
-        "widgets": [
-          "Form zone"
-        ]
-      },
-      "source": "form-zones/src/plugin.ts",
-      "file": "dist/form-zones-1.0.1.lacticplugin",
-      "bytes": 2326,
-      "sha256": "4869a1fff24e40f599f22edd6e5f2f5bdedfa150072ff7f2d7e43fa6d9cb5880"
     },
     {
       "id": "fuel",
@@ -103,8 +80,7 @@
         "fields": [
           "Fuel"
         ],
-        "analyses": [],
-        "widgets": []
+        "analyses": []
       },
       "source": "fuel/src/plugin.ts",
       "file": "dist/fuel-1.0.1.lacticplugin",
@@ -127,8 +103,7 @@
         ],
         "analyses": [
           "Matches burned"
-        ],
-        "widgets": []
+        ]
       },
       "source": "matches/src/plugin.ts",
       "file": "dist/matches-1.0.1.lacticplugin",
@@ -150,8 +125,7 @@
         ],
         "analyses": [
           "Intervals vs target"
-        ],
-        "widgets": []
+        ]
       },
       "source": "on-target/src/plugin.ts",
       "file": "dist/on-target-1.0.1.lacticplugin",
@@ -174,8 +148,7 @@
         ],
         "analyses": [
           "Ride quality"
-        ],
-        "widgets": []
+        ]
       },
       "source": "ride-quality/src/plugin.ts",
       "file": "dist/ride-quality-1.0.1.lacticplugin",
@@ -198,8 +171,7 @@
         ],
         "analyses": [
           "W′ balance"
-        ],
-        "widgets": []
+        ]
       },
       "source": "w-prime/src/plugin.ts",
       "file": "dist/w-prime-1.0.1.lacticplugin",
@@ -220,8 +192,7 @@
           "Power zones",
           "Power, last 5 min"
         ],
-        "analyses": [],
-        "widgets": []
+        "analyses": []
       },
       "source": "zones/src/plugin.ts",
       "file": "dist/zones-0.1.0.lacticplugin",

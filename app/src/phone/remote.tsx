@@ -19,6 +19,7 @@ import { isRiding } from "@/lib/live-ride";
 import { endAlert, endAlertKey } from "@/lib/ride/end-alert";
 import { sendableArgs, type ControlMessage, type ControlName, type OverlayPayload } from "~/ride/channel";
 import { useKeepAwake } from "~/platform/keep-awake";
+import { showRide } from "./live-activity";
 import { cancelRideEnd, phoneStatus, scheduleRideEnd, send } from "./plugin";
 
 interface Reply {
@@ -106,6 +107,8 @@ export function ComputerRide() {
       setRide(reply.ride);
       setLost(false);
       syncEndAlert(reply.ride, computerRef.current, lastAlert);
+      // On the lock screen and in the Dynamic Island too, from the moment the ride shows up here.
+      if (!isRiding()) showRide(reply.ride?.data ?? null, `On ${computerRef.current ?? "your computer"}`);
     } catch {
       // Out of reach: keep the last view up while it's open, and say so; otherwise drop the bar.
       if (openRef.current) setLost(true);
@@ -190,7 +193,7 @@ export function ComputerRide() {
   const sent = ride?.data;
   const data = useMemo(() => {
     if (!sent || !mine) return sent;
-    const pages = pagesOf(mine, sent.erg ? "free" : "workout");
+    const pages = pagesOf(mine, sent.headUnit ? "headUnit" : sent.erg ? "free" : "workout");
     return pages.length ? { ...sent, fields: { ...fieldsOf(sent), pages, page } } : sent;
   }, [sent, mine, page]);
   const status = !data ? "" : data.ended ? "Ended" : data.running ? formatTime(data.position) : data.autoPaused ? "Paused" : data.elapsed > 0 ? "Paused" : "Ready";

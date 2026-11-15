@@ -35,7 +35,7 @@ describe("manifest", () => {
   });
 
   it("leaves analyses out of manifests that don't have any, so their hash doesn't change", () => {
-    const r = validateManifest({ ...manifest(), contributes: { widgets: [{ id: "w", title: "W", entry: "w" }] } });
+    const r = validateManifest({ ...manifest(), contributes: { fields: [{ id: "w", title: "W", entry: "w" }] } });
     expect(r.ok && "analyses" in r.manifest.contributes).toBe(false);
   });
 });

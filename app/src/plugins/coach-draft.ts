@@ -25,13 +25,12 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 /** "adds 1 ride field, 1 ride page section · reads live ride, profile" */
 export function draftSummary(m: {
   permissions: { read: string[] };
-  contributes: { fields: unknown[]; widgets: unknown[]; analyses?: unknown[] };
+  contributes: { fields: unknown[]; analyses?: unknown[] };
 }): string {
   const c = m.contributes;
   const adds = [
     c.fields.length && plural(c.fields.length, "ride field"),
     c.analyses?.length && plural(c.analyses.length, "ride page section"),
-    c.widgets.length && plural(c.widgets.length, "Plugins tab card"),
   ].filter(Boolean);
   const reads = m.permissions.read.map((g) =>
     g in GROUP_WORDS
@@ -55,12 +54,7 @@ function report(state: PreviewState): { ok: boolean; lines: string[] } {
   const lines: string[] = [];
   let ok = true;
   for (const p of state.parts) {
-    const where =
-      p.kind === "field"
-        ? "ride field"
-        : p.kind === "analysis"
-          ? "ride page section"
-          : "card";
+    const where = p.kind === "field" ? "ride field" : "ride page section";
     if (p.failed) {
       ok = false;
       lines.push(

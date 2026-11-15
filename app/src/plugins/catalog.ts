@@ -1,4 +1,4 @@
-// Lactic's own plugins (plugins/catalog in the repo), shipped inside the app: Plugins tab →
+// Lactic's own plugins (plugins/catalog in the repo), shipped inside the app: Settings → Plugins →
 // Browse lists them and adds them through the same permission screen as any plugin. Nothing is
 // downloaded. Every version ever published is bundled, so "from Lactic" can be decided by the
 // package's hash alone (isCatalogPackage), never by anything a plugin or a stored row says.
@@ -21,7 +21,7 @@ export interface CatalogEntry {
   version: string;
   description: string;
   reads: string[];
-  adds: { fields: string[]; analyses: string[]; widgets: string[] };
+  adds: { fields: string[]; analyses: string[] };
   file: string;
   sha256: string;
 }

@@ -87,6 +87,10 @@ describe("draft_plugin", () => {
     expect(r.proposal?.summary).toMatch(/^Update Above FTP to 0.2.0: /);
   }, 30_000);
 
+  it("refuses cards: plugins only add ride fields and ride page sections", async () => {
+    await expect(draft({ ...EXAMPLE_MANIFEST, contributes: { ...EXAMPLE_MANIFEST.contributes, widgets: [{ id: "c", title: "C", entry: "field" }] } })).rejects.toThrow(/refused/);
+  });
+
   it("never takes one of Lactic's own plugin ids", async () => {
     await expect(draft({ ...EXAMPLE_MANIFEST, id: "zones" })).rejects.toThrow(
       /Lactic's own/,
@@ -101,6 +105,7 @@ describe("the draft's arguments", () => {
         ...EXAMPLE_MANIFEST,
         author: "Lactic team",
         homepage: "https://x.example/",
+        contributes: {},
       },
       code: "x",
       reason: " r ",
@@ -110,7 +115,7 @@ describe("the draft's arguments", () => {
     expect(d.manifest).toMatchObject({
       apiVersion: 1,
       main: "main.js",
-      contributes: { widgets: [] },
+      contributes: { fields: [] },
     });
     expect(d.reason).toBe("r");
   });

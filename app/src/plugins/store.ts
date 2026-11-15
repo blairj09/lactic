@@ -3,7 +3,7 @@
 // back is checked again, so a row edited by hand, by sync or by a restored backup can't skip the gate.
 import { sql, type Row } from "~/db/sql";
 import type { MetricGroup } from "@shared/sdk";
-import { validateManifest, type PluginManifest } from "./manifest";
+import { packageHashText, validateManifest, type PluginManifest } from "./manifest";
 import { deviceId } from "./device";
 import { CATALOG_ORIGIN, isCatalogPackage } from "./catalog";
 import { parsePackage, sha256Hex, type PluginPackage } from "./package";
@@ -53,7 +53,7 @@ function toGrant(r: Row | undefined): Grant | null {
 // restored row with new code under the old hash must not run on the old approval (review S6, S7).
 const hashes = new Map<string, string>();
 async function packageHash(manifest: PluginManifest, source: string): Promise<string> {
-  const text = JSON.stringify(manifest) + "\n" + source;
+  const text = packageHashText(manifest, source);
   let h = hashes.get(text);
   if (!h) {
     h = await sha256Hex(text);
@@ -183,7 +183,7 @@ export async function markSwitchedOff(pluginId: string, reason: string) {
   notify();
 }
 
-/** Remove a plugin and everything it published, on every device. Its cards become placeholders (review U12). */
+/** Remove a plugin and everything it published, on every device. Its ride fields become placeholders (review U12). */
 export async function removePlugin(pluginId: string) {
   await sql().batch([
     { sql: `DELETE FROM plugin_values WHERE plugin_id = ?`, params: [pluginId] },

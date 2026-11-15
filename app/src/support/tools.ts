@@ -465,7 +465,11 @@ export async function runSupportTool(name: string, args: Record<string, unknown>
   }
 }
 
-export const supportTools: AppTools = { tools: pluginsAllowed ? [...SUPPORT_TOOLS, ...PLUGIN_DRAFT_TOOLS] : SUPPORT_TOOLS, run: runSupportTool, apply, status: STATUS };
+/** Where this app has no plugins (use-plugin-tab.ts), the coach isn't offered the plugin tools. */
+const PLUGIN_TOOLS = new Set(["list_plugins", "read_plugin_metric"]);
+const offered = pluginsAllowed ? [...SUPPORT_TOOLS, ...PLUGIN_DRAFT_TOOLS] : SUPPORT_TOOLS.filter((t) => !PLUGIN_TOOLS.has(t.function.name));
+
+export const supportTools: AppTools = { tools: offered, run: runSupportTool, apply, status: STATUS };
 
 /** Makes the tools available to the coach and the MCP server (once, at boot). */
 export function installSupportTools() {

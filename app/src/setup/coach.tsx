@@ -93,7 +93,14 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
   const [testing, setTesting] = useState(false);
 
   useEffect(() => {
-    void secretStatus(SECRET_AI).then(setKeySaved);
+    const load = () => void secretStatus(SECRET_AI).then(setKeySaved);
+    load();
+    // A key that arrives from the paired computer (or phone) while this is open.
+    const onSettings = (e: Event) => {
+      if ((e as CustomEvent<string>).detail === "secrets") load();
+    };
+    window.addEventListener("lactic:settings", onSettings);
+    return () => window.removeEventListener("lactic:settings", onSettings);
   }, []);
 
   const ready = Boolean(info && (info.local || setup.provider?.hasKey || kind === "custom"));
