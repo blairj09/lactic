@@ -25,10 +25,11 @@ import { getSetting } from "~/settings/store";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const coachEnabled = Boolean(process.env.OPENROUTER_API_KEY);
 const FTP_WINDOW_DAYS = 90;
 
 export default async function Today() {
+  // Read on each visit: the coach can be set up, or its key removed, while Lactic is open.
+  const coachEnabled = Boolean(process.env.OPENROUTER_API_KEY);
 
   const supabase = await createClient();
   // The brief and last week's review only need today's date, so they load alongside the training state rather than

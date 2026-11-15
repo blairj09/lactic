@@ -74,6 +74,8 @@ function Shell() {
       const key = (e as CustomEvent<string>).detail;
       if (key === "onboarding.done") void getSetting("onboarding.done", false).then(setOnboarded);
       if (key === "coach.setup") void refreshCoachMode();
+      // A coach setup or key that arrives from the paired computer or phone turns the built-in coach on or off.
+      if (key === "coach.setup" || key === "secrets") void import("~/boot/env").then((m) => m.applyEnv());
       if (key === SOLO && isPhone()) void getSetting<boolean>(SOLO, false).then(setSolo);
     };
     window.addEventListener("lactic:settings", onSettings);
