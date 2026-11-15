@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- iPhone: if pairing with your computer fails after the code is scanned, a Pair again button takes you back to scan a fresh code.
 - iPhone: Apple Health keeps reading sleep and HRV even when iOS hasn't yet asked about a newer type such as weight, and only one permission sheet shows at a time.
 
 ## 0.3.0
