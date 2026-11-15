@@ -1,6 +1,6 @@
 # Lactic plugins
 
-Plugins add two things to Lactic on a computer: fields on the ride screen (the overlay and head unit rides included) and sections on a ride's page. Nothing else: no pages or tabs of their own, and never anything on Today, Plan or Health. They're added and managed in Settings → Plugins.
+Plugins add two things to Lactic on Mac, Windows and Linux: live fields on the ride screen (the overlay and head unit rides included) and sections on a ride's page. Nothing else: no pages or tabs of their own, and never anything on Today, Plan or Health. Riders manage them in Settings → Plugins.
 
 - `sdk/` is `@lactic/sdk`: TypeScript types for the plugin API, the kit, metric ids and the manifest, `definePlugin()`, and `lactic-pack`, which turns a manifest and a built bundle into a `.lacticplugin` file.
 - `starter/` is a small working plugin (Sweet Spot) to copy from.

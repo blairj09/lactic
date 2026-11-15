@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- iPhone: Customize fields now has Head unit, so you can set up the head unit's pages on your phone. The phone remote shows those pages during a head unit ride.
+- New riders who don't know their FTP start with an easy ride on day one; the FTP test comes on the next good day.
 - Today no longer shows a coach error when the built-in coach has no API key yet; the brief simply stays hidden until the coach is set up.
 - iPhone: when Apple Health hasn't been asked about something Lactic reads ("Authorization not determined"), Lactic shows Apple's permission sheet again, and Settings shows Connect Apple Health instead of the error.
 - Phones: tap the tab you're on to go back to the top of its page (or back to its main page first).
@@ -33,7 +35,6 @@ Write for riders: what they can now do or what works better, one short line each
 - Add plugins from a GitHub link or a .lacticplugin file in Settings → Plugins. You see what each one reads before it's added, switch it on or off per computer, and choose whether the coach sees its numbers. Updates are only offered, never automatic. Plugins can add a section to a ride's page, but never show up on Today.
 - Plugin ride fields can draw a small live chart under the number, such as time-in-zone bars, a trend line or a gauge. The Zones example plugin adds HR zones, Power zones and Power, last 5 min.
 - Plugin ride fields. In Customize fields, pick one from the Plugins group and it shows on the ride screen, the overlay and the iPhone, marked with a small purple square. If a plugin is slow or stops, its field shows "–" and your ride carries on.
-- A Plugins tab for plugin cards, once a plugin has one. Make as many screens as you like, name them, and switch with ← →. Customize adds, sizes and moves cards, and one card can sit on several screens. Hide the tab in Settings → Layout.
 - Choose your ride screen's numbers, like on a bike computer. Before a ride, press Customize fields to pick a layout (the usual screen, or 1, 4, 6 with the chart, 8 or 10 big numbers), tap a field to choose what it shows, and add pages you flip through with ← → or a swipe while riding. Make your own fields with no code, like 10-second power, % of FTP, this interval's average, or your best 15-second (or any length) power so far in the ride. Free rides, the overlay over Zwift and the iPhone follow the same pages unless you set them up separately.
 - Ask the coach where something is and it answers from your own layout. Ask it to move a Today card, hide a tab or add a ride field and it offers the change with an Apply button; it adds rather than swaps unless you ask. Plugins you share with the coach show it numbers only, and it never installs or recommends plugins.
 - Weigh-ins from other scales in Apple Health now come into Lactic on iPhone and keep your profile weight current, and weigh-ins from your Body Pod or typed into Lactic are saved to Apple Health when "Save rides and weigh-ins to Health" is on.

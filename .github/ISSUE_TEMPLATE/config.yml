@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Write a plugin
+    url: https://github.com/blairj09/lactic/tree/main/plugins
+    about: Most new ride fields and ride analyses can be a plugin. Start here.
+  - name: Security problem
+    url: https://github.com/blairj09/lactic/blob/main/SECURITY.md
+    about: Please report these privately.

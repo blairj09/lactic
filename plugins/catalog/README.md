@@ -1,6 +1,6 @@
 # Lactic plugin catalog
 
-Official plugins for Lactic: add them as they are, or read them to learn how a plugin is built. Each one is a single commented file that explains the sport science behind it.
+Official plugins for **Lactic**: add them as they are, or read them to learn how a plugin is built. Each one is a single commented file that explains the sport science behind it.
 
 | Plugin | Adds | Reads | Version |
 | --- | --- | --- | --- |
