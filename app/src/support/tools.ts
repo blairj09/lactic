@@ -6,6 +6,8 @@
 // raw Bluetooth writes, trainer control. While a ride is under way, only check_app runs.
 
 import { features } from "@/lib/features";
+import { loadLayout } from "@/lib/layout-data";
+import { layoutSummary } from "@/lib/sdk/layout-editor";
 import { saveFeatures } from "~/settings/features";
 import { readUnits, setUnits } from "@/lib/units";
 import { appTools, checkAppSetting, COACH_MODE_LABELS, describeAppSetting, formatProfile, GEAR_LABELS, registerAppTools, type AppSetting, type AppTools, type GearKey } from "@/lib/coach/app-tools";
@@ -37,10 +39,15 @@ import { setFtp } from "@/app/actions";
 import { parseTheme, readTheme, setTheme } from "@/lib/theme";
 import { GUIDE } from "./guide";
 import { APP_GUIDE } from "@/lib/coach/app-guide";
-import { AREAS, SUPPORT_TOOLS, type Area } from "./definitions";
+import { AREAS, PLUGIN_DRAFT_TOOLS, SUPPORT_TOOLS, type Area } from "./definitions";
+import { draftPlugin } from "~/plugins/coach-draft";
+import { PLUGIN_GUIDE } from "~/plugins/coach-guide";
+import { createPluginWorker } from "~/plugins/spawn";
+import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { logEvent, recentEvents, type LogArea } from "./log";
+import { applyLayout, getLayout, listPlugins, pluginMetric, proposeLayoutChange } from "./layout-tools";
 
-const TRY_TOOLS = new Set(["test_connection", "sync_now", "reconnect_device", "scan_for_devices", "propose_app_change"]);
+const TRY_TOOLS = new Set(["test_connection", "sync_now", "reconnect_device", "scan_for_devices", "propose_app_change", "propose_layout_change"]);
 
 const STATUS: Record<string, string> = {
   check_app: "Checking the app",
@@ -50,6 +57,12 @@ const STATUS: Record<string, string> = {
   scan_for_devices: "Listening for gear nearby",
   propose_app_change: "Drafting a settings change",
   set_appearance: "Changing the theme",
+  get_layout: "Looking at your layout",
+  propose_layout_change: "Drafting a layout change",
+  list_plugins: "Looking at your plugins",
+  read_plugin_metric: "Reading a plugin",
+  plugin_guide: "Reading up on plugins",
+  draft_plugin: "Writing a plugin",
 };
 
 const out = (value: unknown): ToolResult => ({ content: JSON.stringify(value) });
@@ -168,6 +181,10 @@ export async function checkApp(area: Area | "all" = "all") {
   report.riding = isRiding();
   // Riders choose whether to track recovery and weight; what's off is hidden on purpose, not broken.
   report.tracking = { ...features(), note: "Off means hidden by the rider's choice (Settings → What you track), not a fault." };
+  // The rider's tab order and Today cards (review U10), since a customized layout changes what they see.
+  report.layout = await loadLayout(createClient() as never)
+    .then((l) => ({ ...layoutSummary(l), note: "Hidden tabs and cards were taken off by the rider (Settings → Layout, Customize Today), not missing." }))
+    .catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
   report.activityLog = recentEvents({ area: area === "all" ? undefined : (area as LogArea), limit: area === "all" ? 40 : 30 }).map((e) => `${e.at} ${e.area} ${e.level}: ${e.message}`);
   report.guide = Object.fromEntries(areas.map((a) => [a, GUIDE[a] ?? []]));
   if (area === "all") report.howLacticWorks = APP_GUIDE;
@@ -280,6 +297,9 @@ async function currentValue(s: AppSetting): Promise<string | null> {
     }
     case "units":
       return readUnits();
+    case "layout":
+    case "plugin_draft":
+      return null;
     case "tracking":
       return features()[s.feature] ? "tracked" : "not tracked";
     default: {
@@ -363,6 +383,12 @@ async function apply(setting: AppSetting): Promise<string> {
     case "ai_limit":
       await saveCoachSetup({ ...(await coachSetup()), monthlyCapUsd: setting.value });
       break;
+    case "layout":
+      await applyLayout(setting);
+      break;
+    case "plugin_draft":
+      // Added only from its own review screen (the card's Review and add), never by Apply.
+      throw new Error("Use Review and add to see this plugin before adding it.");
   }
   const done = describeAppSetting(setting);
   logEvent("coach", "info", `Applied: ${done}`);
@@ -383,7 +409,7 @@ export function setAppearance(raw: unknown) {
 }
 
 /** Runs one support tool. Never throws: errors come back as text starting "Error:". */
-export async function runSupportTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+export async function runSupportTool(name: string, args: Record<string, unknown>, ctx: { via: "chat" | "mcp" } = { via: "chat" }): Promise<ToolResult> {
   try {
     if (TRY_TOOLS.has(name) && isRiding()) throw new Error("A ride is under way, so the coach can only look (check_app) until it's saved or reset.");
     switch (name) {
@@ -416,6 +442,21 @@ export async function runSupportTool(name: string, args: Record<string, unknown>
         return await propose(args);
       case "set_appearance":
         return out(setAppearance(args.theme));
+      case "get_layout":
+        return out(await getLayout());
+      case "propose_layout_change":
+        return await proposeLayoutChange(args);
+      case "list_plugins":
+        return out(await listPlugins(ctx.via));
+      case "read_plugin_metric":
+        return out(await pluginMetric(args, ctx.via));
+      case "plugin_guide":
+      case "draft_plugin": {
+        if (!pluginsAllowed || ctx.via !== "chat") throw new Error("Plugins can only be drafted by Lactic Modular's built-in coach");
+        if (name === "plugin_guide") return { content: PLUGIN_GUIDE };
+        if (isRiding()) throw new Error("A ride is under way: draft the plugin after it's saved");
+        return await draftPlugin(args, createPluginWorker);
+      }
       default:
         return { content: `Unknown tool ${name}` };
     }
@@ -424,7 +465,11 @@ export async function runSupportTool(name: string, args: Record<string, unknown>
   }
 }
 
-export const supportTools: AppTools = { tools: SUPPORT_TOOLS, run: runSupportTool, apply, status: STATUS };
+/** Where this app has no plugins (use-plugin-tab.ts), the coach isn't offered the plugin tools. */
+const PLUGIN_TOOLS = new Set(["list_plugins", "read_plugin_metric"]);
+const offered = pluginsAllowed ? [...SUPPORT_TOOLS, ...PLUGIN_DRAFT_TOOLS] : SUPPORT_TOOLS.filter((t) => !PLUGIN_TOOLS.has(t.function.name));
+
+export const supportTools: AppTools = { tools: offered, run: runSupportTool, apply, status: STATUS };
 
 /** Makes the tools available to the coach and the MCP server (once, at boot). */
 export function installSupportTools() {

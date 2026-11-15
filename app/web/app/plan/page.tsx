@@ -7,7 +7,7 @@ import { localDate } from "@/lib/engine/activity";
 import { ZONE_LABELS } from "@/lib/engine/library";
 import { addDays } from "@/lib/engine/pmc";
 import { signed } from "@/lib/format";
-import { BREAK_KIND_LABELS, BREAK_RIDING_LABELS, PHASE_LABELS, PLAN_GOAL_LABELS, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES, weekStart, type Break, type PlanDay, type PlanWeek } from "@/lib/engine/plan";
+import { BREAK_KIND_LABELS, BREAK_RIDING_LABELS, PHASE_LABELS, PLAN_GOAL_LABELS, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES, weekStart, DEFAULT_RAMP_RATE, type Break, type PlanDay, type PlanWeek } from "@/lib/engine/plan";
 import { createClient } from "@/lib/supabase/server";
 import { complianceDays, loadTrainingState, plannedOn, ridesFor, type TrainingState } from "@/lib/training";
 import { DAY_MARK_LABELS, markDays, weekProgress, type DayMark, type DayResult } from "@/lib/engine/compliance";
@@ -22,6 +22,7 @@ import EditableDay, { type WorkoutChoices } from "./day-editor";
 import { customKey, customLibraryWorkout, keyOf, type LibraryWorkout } from "@/lib/engine/workout-library";
 import { formatTime } from "../ride/player";
 import EditableEvent from "./event-editor";
+import Workouts from "./workouts";
 import { CHANGE_WINDOW_DAYS } from "@/lib/coach/changes";
 
 export const metadata = { title: "Plan · My Coach" };
@@ -34,11 +35,13 @@ const HISTORY_DAYS = 42;
 
 const TABS = [
   { id: "calendar", label: "Calendar" },
+  { id: "workouts", label: "Workouts" },
   { id: "setup", label: "Setup" },
 ] as const;
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const tab = (await searchParams).tab === "setup" ? "setup" : "calendar";
+  const asked = (await searchParams).tab;
+  const tab = asked === "setup" || asked === "workouts" ? asked : "calendar";
   const state = await loadTrainingState(await createClient());
   const { plan, today, goals, athlete, activePlan } = state;
   const coach = Boolean(process.env.OPENROUTER_API_KEY);
@@ -52,7 +55,8 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const loadWeeks = plan.weeks.filter((w) => !w.recoveryWeek && (w.phase === "base" || w.phase === "build"));
   const average = (values: number[]) => values.reduce((a, b) => a + b, 0) / Math.max(values.length, 1);
   const shortfall = { planned: average(loadWeeks.map((w) => w.stress)), target: average(loadWeeks.map((w) => w.target)) };
-  const timeLimited = loadWeeks.length && shortfall.planned < 0.85 * shortfall.target ? shortfall : null;
+  // Only for riders who picked a faster build than the default: on the default it's noise they never asked about.
+  const timeLimited = loadWeeks.length && athlete.rampRate > DEFAULT_RAMP_RATE && shortfall.planned < 0.85 * shortfall.target ? shortfall : null;
   const raceDay = plan.target ? plan.forecast.find((d) => d.date === plan.target!.date) : null;
   const planEnd = activePlan && !plan.target ? plan.forecast.find((d) => d.date === activePlan.end) : null;
   const planWeeks = activePlan ? Math.floor(daysBetween(weekStart(activePlan.start), weekStart(plan.target?.date ?? activePlan.end)) / 7) + 1 : 0;
@@ -99,7 +103,9 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         ))}
       </nav>
 
-      {tab === "calendar" ? (
+      {tab === "workouts" ? (
+        <Workouts saved={state.customWorkouts} favorites={state.favorites} ftp={athlete.ftp} days={moveTargets} />
+      ) : tab === "calendar" ? (
       <>
       <StatStrip cols={4} phone={2}>
         <Stat label="Fitness now" value={Math.round(state.fitness)} />
@@ -120,8 +126,8 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
 
       {timeLimited && (
         <Notice>
-          Your time limits harder weeks to about {Math.round(timeLimited.planned)} TSS, short of the {Math.round(timeLimited.target)} your ramp rate
-          calls for. Add time or choose a gentler ramp.
+          Your hours cap how hard the build weeks can get, so fitness will climb slower than the pace you picked. Add time, or pick a gentler
+          pace under Setup.
         </Notice>
       )}
 

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function POST() {
-  if (!coachModel()) return Response.json({ error: "The coach needs OPENROUTER_API_KEY" }, { status: 503 });
+  if (!coachModel()) return Response.json({ error: "Finish setting up the coach first: pick a model and add its API key in Settings → Coach." }, { status: 503 });
   const supabase = await createClient();
   const {
     data: { user },

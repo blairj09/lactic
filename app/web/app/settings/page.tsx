@@ -78,6 +78,7 @@ export default async function SettingsPage() {
             <div className="space-y-4 border-t border-line pt-8">
               <Section id="appearance" title="Appearance" description="Light, dark, or match the system. Applies everywhere, the ride overlay included.">
                 <ThemeSetting />
+            <ContrastSetting />
               </Section>
             </div>
             {coach && (

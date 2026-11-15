@@ -24,6 +24,37 @@ interface DrawerData {
   name: string;
 }
 
+/**
+ * The part of the screen the rider can see, on a phone. iOS scrolls the page to keep the message
+ * box above the keyboard and doesn't always scroll it back, which left the drawer hanging off the
+ * top of the screen (its title under the clock) with a gap below. Pinning the drawer to the visible
+ * area keeps it on screen, and above the keyboard while typing. Null elsewhere (CSS places it).
+ */
+function useVisibleBox(open: boolean) {
+  const [box, setBox] = useState<{ top: number; height: number; keyboard: boolean } | null>(null);
+  useEffect(() => {
+    const view = window.visualViewport;
+    if (!open || !view || !window.matchMedia("(pointer: coarse)").matches) return setBox(null);
+    const fit = () => {
+      // The keyboard covers the home bar, so the bottom safe-area gap goes while it's up.
+      const keyboard = window.innerHeight - view.height > 120;
+      setBox((b) => (b && b.top === view.offsetTop && b.height === view.height && b.keyboard === keyboard ? b : { top: view.offsetTop, height: view.height, keyboard }));
+    };
+    // The keyboard is still sliding away when focus leaves, so measure again once it's gone.
+    const settle = () => setTimeout(fit, 300);
+    fit();
+    view.addEventListener("resize", fit);
+    view.addEventListener("scroll", fit);
+    window.addEventListener("focusout", settle);
+    return () => {
+      view.removeEventListener("resize", fit);
+      view.removeEventListener("scroll", fit);
+      window.removeEventListener("focusout", settle);
+    };
+  }, [open]);
+  return box;
+}
+
 const STALE = "The app was updated since this page opened. Reload the page to use the coach.";
 
 /** Pages without the coach: signing in. */
@@ -109,10 +140,12 @@ export default function CoachDrawer() {
     return () => window.removeEventListener("keydown", key);
   }, [open, hidden]);
 
-  // Fresh messages each time it opens (a brief or check-in may have been added since), and the cursor in the box.
+  // Fresh messages each time it opens (a brief or check-in may have been added since), and the cursor
+  // in the box. Not on a phone: the keyboard would cover the conversation the rider opened to read.
   useEffect(() => {
     if (!open) return;
     void load();
+    if (window.matchMedia("(pointer: coarse)").matches) return;
     const focus = setTimeout(() => panel.current?.querySelector<HTMLTextAreaElement>("textarea[name=message]")?.focus(), 50);
     return () => clearTimeout(focus);
   }, [open, load]);
@@ -152,6 +185,7 @@ export default function CoachDrawer() {
       await load(data?.conversation.id === id ? null : shown.current);
     });
 
+  const box = useVisibleBox(open);
   const close = () => setOpen(false);
   const name = data?.name ?? "Coach";
 
@@ -163,7 +197,8 @@ export default function CoachDrawer() {
         ref={panel}
         aria-label={name}
         inert={!open}
-        className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] border-l border-line bg-ground transition-transform duration-200 ease-out sm:w-[28rem] ${open ? "translate-x-0 shadow-2xl xl:shadow-none" : "translate-x-full"}`}
+        style={box ? { top: box.top, height: box.height, bottom: "auto", ["--drawer-bottom" as string]: box.keyboard ? "0px" : undefined } : undefined}
+        className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col pt-[env(safe-area-inset-top)] [--drawer-bottom:env(safe-area-inset-bottom)] border-l border-line bg-ground transition-transform duration-200 ease-out sm:w-[28rem] ${open ? "translate-x-0 shadow-2xl xl:shadow-none" : "translate-x-full"}`}
       >
         {!data ? (
           <Bar>
@@ -294,7 +329,7 @@ function History({
 }) {
   const [confirming, setConfirming] = useState<string | null>(null);
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-2 pb-[max(0.5rem,var(--drawer-bottom,0px))]">
       <ul className="divide-y divide-rule">
         {conversations.map((c) => (
           <li key={c.id} className="px-2 py-2.5">

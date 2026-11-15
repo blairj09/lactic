@@ -7,7 +7,7 @@ import { Panel, Result } from "@/components/ui";
 import type { StoredMessage } from "@/lib/coach/store";
 import type { CheckinResult, OptionId } from "@/lib/engine/checkin";
 import { applyProposal, dismissProposal } from "./coach/actions";
-import { streamCoach } from "./coach/events";
+import { briefError, streamCoach } from "./coach/events";
 import { openCoach } from "./coach/open";
 import { Prose } from "./coach/prose";
 import { ProposalCard } from "./coach/proposal-card";
@@ -285,6 +285,24 @@ function Brief({
   const [error, setError] = useState<string | null>(null);
   const requested = useRef<string | null>(null);
   const streaming = status !== null;
+  // Bumped by Try again (or coming back to the app after a failure) to write the brief once more.
+  const [attempt, setAttempt] = useState(0);
+  const retry = () => {
+    requested.current = null;
+    setAttempt((a) => a + 1);
+  };
+
+  // On a phone the connection drops when the app goes to the background mid-brief: try again on return.
+  useEffect(() => {
+    if (!error || /AI budget/.test(error)) return;
+    const visible = () => {
+      if (document.visibilityState !== "visible") return;
+      requested.current = null;
+      setAttempt((a) => a + 1);
+    };
+    document.addEventListener("visibilitychange", visible);
+    return () => document.removeEventListener("visibilitychange", visible);
+  }, [error]);
 
   // A refreshed page brings a newer brief.
   const seen = useRef(initial?.id);
@@ -317,7 +335,7 @@ function Brief({
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setStatus(null));
-  }, [stale, ready, streaming, inputs, initial, router]);
+  }, [stale, ready, streaming, inputs, initial, router, attempt]);
 
   const update = (index: number, status: "applied" | "dismissed") =>
     setMessage((m) => m && { ...m, proposals: m.proposals.map((p, i) => (i === index ? { ...p, status } : p)) });
@@ -349,7 +367,19 @@ function Brief({
           </button>
         </p>
       )}
-      {error && (/AI budget/.test(error) ? <p className="text-sm text-muted">{error}</p> : <Result ok={false}>The coach couldn&apos;t write today&apos;s brief ({error}).</Result>)}
+      {error &&
+        (/AI budget/.test(error) ? (
+          <p className="text-sm text-muted">{error}</p>
+        ) : (
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <Result ok={false}>{briefError(error)}</Result>
+            {!streaming && (
+              <button className="text-sm text-ink underline-offset-4 hover:underline" onClick={retry}>
+                Try again
+              </button>
+            )}
+          </div>
+        ))}
       {!status && today && <TodayOptionsFor today={today} pick={(message?.meta.today as OptionId | undefined) ?? null} />}
       {!status && message && message.proposals.length > 0 && (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

@@ -18,6 +18,7 @@ import { appTools } from "./app-tools";
 import { todayOptions } from "../today-options";
 import { experiments } from "../experiments";
 import { APP_GUIDE } from "./app-guide";
+import { PLUGIN_DRAFT_GUIDE } from "./plugin-draft";
 import { FEEDBACK_TOOLS, forFeatures, MEMORY_TOOLS, PICK_TOOLS, READ_TOOL_NAMES, runTool, status, TODAY_TOOLS, TOOLS, type CoachData, type FeedbackDraft, type MemoryOp } from "./tools";
 
 export interface ChatTurn {
@@ -111,8 +112,10 @@ function system(instructions: string, data: CoachData, summary: string, page?: s
 
 /** Answers the latest user message in `history`. `page` describes the page they're on (page-context.ts). */
 export async function coachChat(complete: Complete, data: CoachData, history: ChatTurn[], summary = "", hooks: ChatHooks = {}, page?: string | null): Promise<ChatReply> {
+  // Lactic Modular's shell offers draft_plugin; only then is the coach told about drafting plugins.
+  const drafts = Boolean(appTools()?.tools.some((t) => t.function.name === "draft_plugin"));
   const messages: ChatMessage[] = [
-    { role: "system", content: system(CHAT, data, summary, page) },
+    { role: "system", content: system(drafts ? `${CHAT}\n${PLUGIN_DRAFT_GUIDE}` : CHAT, data, summary, page) },
     ...turnsForModel(history.slice(-HISTORY_MESSAGES)).map((m) => ({ role: m.role, content: m.content })),
   ];
   // Feedback is offered once a conversation: after that the tool isn't there to call.
@@ -282,6 +285,32 @@ export function briefStale(existing: StoredMessage | null, inputs: BriefInputs) 
 }
 
 /**
+ * A dropped connection, a timeout or a provider hiccup (5xx), worth one more try. Not a turned-down
+ * key, a missing model, rate limiting or the monthly budget: trying again wouldn't help those.
+ */
+export function retryable(e: unknown): boolean {
+  if (e instanceof TypeError) return true; // fetch's network failure, and the desktop's cut-off stream
+  const text = e instanceof Error ? `${e.name} ${e.message}` : String(e);
+  return /TimeoutError|timed out|connection dropped|decoding response body|error sending request|network|answered 5\d\d/i.test(text);
+}
+
+/** How many times a model call is tried before its error stands. */
+const ATTEMPTS = 3;
+
+/** One model call, tried again after a short wait when it fails in a way that might pass. Text streamed by a failed try is dropped (onTurn). */
+export async function completeWithRetry(complete: Complete, messages: ChatMessage[], tools: unknown[], hooks: ChatHooks, wait = (ms: number) => new Promise((r) => setTimeout(r, ms))): Promise<ChatMessage> {
+  for (let attempt = 1; ; attempt++) {
+    hooks.onTurn?.();
+    try {
+      return await complete(messages, tools, hooks.onText);
+    } catch (e) {
+      if (attempt >= ATTEMPTS || !retryable(e)) throw e;
+      await wait(1000 * attempt);
+    }
+  }
+}
+
+/**
  * Runs the model with its tools until it answers. `mustCall` names a tool it must call before its
  * answer counts: when it answers without it, it's asked once to call it and answer again.
  */
@@ -296,8 +325,7 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
   let asked = false;
 
   for (let turn = 0; turn < maxTurns; turn++) {
-    hooks.onTurn?.();
-    const reply = await complete(messages, turn === maxTurns - 1 ? [] : tools, hooks.onText);
+    const reply = await completeWithRetry(complete, messages, turn === maxTurns - 1 ? [] : tools, hooks);
     messages.push({ role: "assistant", content: reply.content ?? null, tool_calls: reply.tool_calls });
     if (!reply.tool_calls?.length) {
       const message = (reply.content ?? "").trim();

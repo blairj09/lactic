@@ -3,6 +3,9 @@
 // the screens and Ride move to a tab bar along the bottom, within reach of a thumb.
 
 import Link from "next/link";
+import { useLocation } from "react-router";
+import { isRiding } from "@/lib/live-ride";
+import { retap, scrollToTop } from "./tab-retap";
 import CoachButton from "@/app/coach/coach-button";
 import { Wordmark } from "./brand";
 import { useCoachMode, useMcpOn } from "./coach-mode";
@@ -11,23 +14,38 @@ import { FeedbackButton } from "~/feedback/dialog";
 import { isDemo } from "~/demo/flag";
 import { hasHealth } from "@/lib/features";
 import { useFeatures } from "@/lib/use-features";
+import { useTabs } from "@/lib/use-tabs";
+import type { TabId } from "@/lib/sdk/layout";
 
-const LINKS = [
-  { href: "/", label: "Today" },
-  { href: "/plan", label: "Plan" },
-  { href: "/progress", label: "Progress" },
-  { href: "/health", label: "Health" },
-];
+const LINKS: Record<TabId, { href: string; label: string }> = {
+  today: { href: "/", label: "Today" },
+  plan: { href: "/plan", label: "Plan" },
+  ride: { href: "/ride", label: "Ride" },
+  progress: { href: "/progress", label: "Progress" },
+  health: { href: "/health", label: "Health" },
+};
 
 export default function Nav({ current }: { current: string }) {
   const mode = useCoachMode();
   const mcp = useMcpOn();
   const tracking = useFeatures();
-  // Health has nothing to show when the rider tracks neither recovery nor weight.
-  const links = LINKS.filter((l) => l.href !== "/health" || hasHealth(tracking));
-  // Ride sits between Plan and Progress, in the bar and in the phone's tab bar alike.
-  const tabs = [...links.slice(0, 2), { href: "/ride", label: "Ride" }, ...links.slice(2)];
+  // In the rider's order (Settings → Layout), Ride between Plan and Progress by default, in the bar and
+  // the phone's tab bar alike. Hidden tabs stay out; Health also has nothing to show when the rider
+  // tracks neither recovery nor weight.
+  const tabs = useTabs()
+    .filter((t) => !t.hidden && (t.id !== "health" || hasHealth(tracking)))
+    .map((t) => LINKS[t.id]);
   const coach = mode === "builtin" || mode === "external";
+  const { pathname, search } = useLocation();
+  // Tapping the tab you're on: back to its page, then to the top of it.
+  const onTab = (href: string) => (e: React.MouseEvent) => {
+    const what = retap({ href, current, pathname, search, riding: isRiding() });
+    if (what === "top") {
+      e.preventDefault();
+      scrollToTop();
+    } else if (what === "root") requestAnimationFrame(() => window.scrollTo({ top: 0 }));
+    else if (href === current) e.preventDefault();
+  };
   return (
     <>
     <header className="lactic-drag lactic-titlebar sticky top-0 z-30 border-b border-line bg-ground pt-[env(safe-area-inset-top)]">
@@ -87,6 +105,7 @@ export default function Nav({ current }: { current: string }) {
             href={href}
             data-tour={label.toLowerCase()}
             aria-current={current === href ? "page" : undefined}
+            onClick={onTab(href)}
             className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted aria-[current=page]:text-accent"
           >
             <TabIcon href={href} />

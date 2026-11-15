@@ -3,7 +3,7 @@
 
 import { createRoot } from "react-dom/client";
 import { createElement } from "react";
-import { readTheme, setTheme } from "@shared/theme";
+import { applyContrast, readTheme, setTheme, watchAppearance } from "@shared/theme";
 import { setSql } from "~/db/sql";
 import { migrate } from "~/db/migrate";
 import { isDesktop, appInfo, invoke, setOs } from "~/platform/native";
@@ -15,13 +15,19 @@ import { applyEnv } from "./env";
 import { isDemo } from "~/demo/flag";
 import { hideLoader } from "./loader";
 import { applySharedPrefs, installSharedPrefs } from "~/settings/shared-prefs";
+import { installPluginSource } from "~/plugins/source";
+import { setLayoutDevice } from "@/lib/layout-data";
 
 export async function boot() {
   setTheme(readTheme());
+  applyContrast();
+  watchAppearance();
   const info = await appInfo().catch(() => null);
   if (info) setOs(info.os);
+  // The iPhone keeps its own Today, tabs and ride fields (web/lib/layout-data.ts).
+  if (info?.mobile) setLayoutDevice("phone");
   if (info?.os === "macos") document.documentElement.dataset.desktop = "macos";
-  if (info?.mobile) document.documentElement.dataset.phone = "ios";
+  if (info?.mobile) document.documentElement.dataset.phone = info.os === "android" ? "android" : "ios";
   const root = createRoot(document.getElementById("root")!);
   try {
     await start(root);
@@ -43,6 +49,8 @@ async function start(root: ReturnType<typeof createRoot>) {
     // Notes each change for a paired iPhone (src-tauri/src/sync.rs).
     if (isDesktop) await invoke("sync_prepare").catch((e) => console.error("sync_prepare", e));
     setSql(db);
+    // The coach's plugin tools read installed plugins from the database (only ones shared with it).
+    installPluginSource();
     // Units and a few ride habits follow the rider to a paired iPhone (settings/shared-prefs.ts).
     installSharedPrefs();
     await applySharedPrefs().catch((e) => console.error("shared prefs", e));

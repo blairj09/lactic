@@ -226,6 +226,18 @@ describe("check-in", () => {
     expect(result.options.find((o) => o.id === "shorter")!.session!.duration).toBe(40 * 60);
   });
 
+  it("doesn't shorten an easy ride that stays within today's exertion target", () => {
+    const easy = { ...base, planned: buildSession("endurance", 3, 3600), form: -20, signals: [{ strain: 1, reason: "Short on sleep this week" }] };
+    expect(checkin(easy).recommended).toBe("shorter");
+    expect(checkin({ ...easy, exertion: { landsAt: 5.2, targetHigh: 6.9 } }).recommended).toBe("asPlanned");
+    expect(checkin({ ...easy, exertion: { landsAt: 5.4, targetHigh: 6.1 } }).recommended).toBe("asPlanned");
+    // Over the target, or the rider says they're tired: the shorter ride stands.
+    expect(checkin({ ...easy, exertion: { landsAt: 7.2, targetHigh: 6.9 } }).recommended).toBe("shorter");
+    expect(checkin({ ...easy, form: -5, feel: 2, exertion: { landsAt: 5.2, targetHigh: 6.9 } }).recommended).toBe("shorter");
+    // A hard session still drops a level: the target counts load, not intensity.
+    expect(checkin({ ...easy, planned, exertion: { landsAt: 5.2, targetHigh: 6.9 } }).recommended).toBe("easier");
+  });
+
   it("on a rest day, rest stays the pick", () => {
     expect(checkin({ ...base, planned: null }).recommended).toBe("rest");
   });

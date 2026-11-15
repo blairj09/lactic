@@ -47,11 +47,14 @@ export default function SensorPanel({
   state,
   supported,
   onError,
+  headUnit = false,
 }: {
   hub: SensorHub;
   state: SensorState;
   supported: boolean;
   onError: (message: string | null) => void;
+  /** A head unit ride: the trainer may be busy with the other app, and a power meter or heart rate alone will do. */
+  headUnit?: boolean;
 }) {
   const [pairing, setPairing] = useState<SensorKind | null>(null);
   const [silent, setSilent] = useState(true);
@@ -84,10 +87,25 @@ export default function SensorPanel({
   const reading = (kind: SensorKind) => (kind === "heartRate" ? state.heartRate : kind === "trainer" ? state.trainerWatts : state.meterWatts);
 
   const sensor = SENSORS.find((s) => s.kind === pairing);
-  const ready = !!state.connected.trainer && !Object.values(state.links).some((l) => l.status === "lost");
+  const riding = !!state.connected.trainer || (headUnit && !!state.connected.powerMeter);
+  const ready = riding && !Object.values(state.links).some((l) => l.status === "lost");
+  const trainer = state.links.trainer;
+  // The trainer's known but not here: in a head unit ride the other app may hold its only connection.
+  const busy = headUnit && !!trainer.name && (trainer.status === "idle" || trainer.status === "lost");
+  const note = busy && (
+    <TrainerBusy
+      trainer={trainer.name!}
+      meter={state.connected.powerMeter ?? null}
+      meterKnown={!!state.links.powerMeter.name || !!remembered("powerMeter")}
+      onMeter={() => connect("powerMeter")}
+      onRetry={() => connect("trainer")}
+    />
+  );
 
   if (ready && !expanded) {
     return (
+      <>
+      {note}
       <section aria-label="Sensors" className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg bg-surface px-5 py-3 text-sm">
         {SENSORS.map(({ kind, label }) => {
           const { status, name, waiting } = state.links[kind];
@@ -103,12 +121,14 @@ export default function SensorPanel({
           Sensors
         </button>
       </section>
+      </>
     );
   }
 
   return (
     <>
       <section aria-label="Sensors" className="space-y-3">
+        {note}
         {ready && (
           <div className="flex justify-end">
             <button className="text-sm text-muted underline-offset-4 hover:text-ink hover:underline" onClick={() => setExpanded(false)}>
@@ -167,5 +187,35 @@ export default function SensorPanel({
 
       <PairSheet kind={sensor ? deviceKind(sensor.kind) : null} onFind={(k) => run(k.key as SensorKind, true)} onClose={() => setPairing(null)} />
     </>
+  );
+}
+
+/**
+ * Head unit: the trainer didn't connect, most likely because the other app has it and it takes one
+ * connection. Power comes from the power meter instead, or the ride goes on with heart rate only.
+ */
+function TrainerBusy({ trainer, meter, meterKnown, onMeter, onRetry }: { trainer: string; meter: string | null; meterKnown: boolean; onMeter: () => void; onRetry: () => void }) {
+  return (
+    <div role="status" className="mb-3 space-y-3 rounded-lg bg-surface px-5 py-4">
+      <div>
+        <p className="text-[15px] font-medium">{trainer} isn&apos;t connected</p>
+        <p className="text-sm text-muted">
+          {meter
+            ? `It may only take one app at a time. Lactic is using ${meter} for power.`
+            : "It may only take one app at a time, and the other app has it. Lactic can use your power meter instead, or ride with heart rate only."}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {!meter && (
+          <button className={button.smallPrimary} onClick={onMeter}>
+            {meterKnown ? "Use power meter" : "Pair a power meter"}
+          </button>
+        )}
+        <button className={button.small} onClick={onRetry}>
+          Try trainer again
+        </button>
+      </div>
+      <p className="text-sm text-faint">Or in Zwift, connect the trainer over Wi-Fi or a cable (Direct Connect) to free up Bluetooth.</p>
+    </div>
   );
 }

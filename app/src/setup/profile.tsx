@@ -5,7 +5,12 @@ import { useEffect, useState } from "react";
 import { saveSettings } from "@/app/actions";
 import { Field, Result, Segmented, input } from "@/components/ui";
 import { createClient } from "~/db/supabase-client";
-import { CM_PER_IN as IN, LB_PER_KG as LB, readUnits, setUnits } from "@/lib/units";
+import {
+  CM_PER_IN as IN,
+  LB_PER_KG as LB,
+  readUnits,
+  setUnits,
+} from "@/lib/units";
 
 export interface ProfileValues {
   ftp: string;
@@ -25,7 +30,17 @@ const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 export const guessFtp = (kg: number) => Math.round((kg * 2.5) / 5) * 5;
 
 export function useProfile() {
-  const [values, setValues] = useState<ProfileValues>({ ftp: "", ftpUnknown: false, weight: "", units: readUnits(), maxHr: "", birthDate: "", sex: "", height: "", timezone: zone() });
+  const [values, setValues] = useState<ProfileValues>({
+    ftp: "",
+    ftpUnknown: false,
+    weight: "",
+    units: readUnits(),
+    maxHr: "",
+    birthDate: "",
+    sex: "",
+    height: "",
+    timezone: zone(),
+  });
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     void createClient()
@@ -39,12 +54,23 @@ export function useProfile() {
             ...v,
             units: imperial ? "imperial" : "metric",
             ftp: data.ftp_watts ? String(data.ftp_watts) : "",
-            weight: data.weight_kg ? String(imperial ? Math.round(data.weight_kg * LB * 10) / 10 : data.weight_kg) : "",
+            weight: data.weight_kg
+              ? String(
+                  imperial
+                    ? Math.round(data.weight_kg * LB * 10) / 10
+                    : data.weight_kg,
+                )
+              : "",
             maxHr: data.max_hr ? String(data.max_hr) : "",
             birthDate: data.birth_date ?? "",
             sex: data.sex ?? "",
-            height: data.height_cm ? String(imperial ? Math.round(data.height_cm / IN) : data.height_cm) : "",
-            timezone: data.timezone && data.timezone !== "UTC" ? data.timezone : zone(),
+            height: data.height_cm
+              ? String(
+                  imperial ? Math.round(data.height_cm / IN) : data.height_cm,
+                )
+              : "",
+            timezone:
+              data.timezone && data.timezone !== "UTC" ? data.timezone : zone(),
           }));
         } else if (imperial) setValues((v) => ({ ...v, units: "imperial" }));
         setLoaded(true);
@@ -55,11 +81,27 @@ export function useProfile() {
 
 /** Saves through the app's own settings action (which also records FTP history). */
 export async function saveProfile(v: ProfileValues) {
-  const kg = v.weight ? (v.units === "imperial" ? Number(v.weight) / LB : Number(v.weight)) : null;
-  const cm = v.height ? (v.units === "imperial" ? Number(v.height) * IN : Number(v.height)) : null;
-  if (!kg || !(kg > 30 && kg < 200)) return { ok: false, message: "Add your weight so power can be shown per kilo." };
+  const kg = v.weight
+    ? v.units === "imperial"
+      ? Number(v.weight) / LB
+      : Number(v.weight)
+    : null;
+  const cm = v.height
+    ? v.units === "imperial"
+      ? Number(v.height) * IN
+      : Number(v.height)
+    : null;
+  if (!kg || !(kg > 30 && kg < 200))
+    return {
+      ok: false,
+      message: "Add your weight so power can be shown per kilo.",
+    };
   const ftp = v.ftpUnknown ? guessFtp(kg) : Number(v.ftp);
-  if (!(ftp > 50 && ftp < 700)) return { ok: false, message: "FTP should be between 50 and 700 W, or tick “I don't know”." };
+  if (!(ftp > 50 && ftp < 700))
+    return {
+      ok: false,
+      message: "FTP should be between 50 and 700 W, or tick “I don't know”.",
+    };
   try {
     setUnits(v.units);
   } catch {}
@@ -76,80 +118,194 @@ export async function saveProfile(v: ProfileValues) {
   return saveSettings(null, form);
 }
 
-export function ProfileForm({ values: v, onChange, error }: { values: ProfileValues; onChange: (v: ProfileValues) => void; error?: string | null }) {
-  const set = <K extends keyof ProfileValues>(k: K, value: ProfileValues[K]) => onChange({ ...v, [k]: value });
-  const kg = v.weight ? (v.units === "imperial" ? Number(v.weight) / LB : Number(v.weight)) : null;
+/** `short` asks only what a first ride needs (FTP and weight); the rest waits for Settings. */
+export function ProfileForm({
+  values: v,
+  onChange,
+  error,
+  short = false,
+}: {
+  values: ProfileValues;
+  onChange: (v: ProfileValues) => void;
+  error?: string | null;
+  short?: boolean;
+}) {
+  const set = <K extends keyof ProfileValues>(k: K, value: ProfileValues[K]) =>
+    onChange({ ...v, [k]: value });
+  const kg = v.weight
+    ? v.units === "imperial"
+      ? Number(v.weight) / LB
+      : Number(v.weight)
+    : null;
+  // Converts what's typed so far, so switching units never changes the rider's numbers.
+  const switchUnits = (u: ProfileValues["units"]) => {
+    const w = Number(v.weight);
+    const h = Number(v.height);
+    onChange({
+      ...v,
+      units: u,
+      weight:
+        v.weight && u !== v.units
+          ? String(Math.round((u === "imperial" ? w * LB : w / LB) * 10) / 10)
+          : v.weight,
+      height:
+        v.height && u !== v.units
+          ? String(Math.round(u === "imperial" ? h / IN : h * IN))
+          : v.height,
+    });
+  };
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Segmented
-          label="Units"
-          value={v.units}
-          onChange={(u) => {
-            const w = Number(v.weight);
-            const h = Number(v.height);
-            onChange({
-              ...v,
-              units: u,
-              weight: v.weight && u !== v.units ? String(Math.round((u === "imperial" ? w * LB : w / LB) * 10) / 10) : v.weight,
-              height: v.height && u !== v.units ? String(Math.round(u === "imperial" ? h / IN : h * IN)) : v.height,
-            });
-          }}
-          options={[
-            { value: "metric", label: "kg · cm" },
-            { value: "imperial", label: "lb · in" },
-          ]}
-        />
-      </div>
+      {!short && (
+        <div className="flex justify-end">
+          <Segmented
+            label="Units"
+            value={v.units}
+            onChange={switchUnits}
+            options={[
+              { value: "metric", label: "kg · cm" },
+              { value: "imperial", label: "lb · in" },
+            ]}
+          />
+        </div>
+      )}
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="FTP" hint={v.ftpUnknown ? `Lactic starts at ${kg ? `${guessFtp(kg)} W` : "about 2.5 W/kg"} and makes your first workout an FTP test to find your real number.` : "The power you can hold for about an hour."}>
+        <Field
+          label="FTP"
+          hint={
+            v.ftpUnknown
+              ? `Lactic starts at ${kg ? `${guessFtp(kg)} W` : "about 2.5 W/kg"} and makes your first workout an FTP test to find your real number.`
+              : "The power you can hold for about an hour."
+          }
+        >
           <div className="flex items-center gap-3">
             <div className="relative w-36">
-              <input className={`${input} w-full pr-8`} inputMode="numeric" value={v.ftp} disabled={v.ftpUnknown} onChange={(e) => set("ftp", e.target.value.replace(/\D/g, ""))} placeholder="250" />
-              <span className="pointer-events-none absolute top-2 right-3 text-sm text-muted">W</span>
+              <input
+                className={`${input} w-full pr-8`}
+                inputMode="numeric"
+                value={v.ftp}
+                disabled={v.ftpUnknown}
+                onChange={(e) => set("ftp", e.target.value.replace(/\D/g, ""))}
+                placeholder="250"
+              />
+              <span className="pointer-events-none absolute top-2 right-3 text-sm text-muted">
+                W
+              </span>
             </div>
             <label className="flex items-center gap-2 text-sm text-muted">
-              <input type="checkbox" checked={v.ftpUnknown} onChange={(e) => set("ftpUnknown", e.target.checked)} /> I don&apos;t know
+              <input
+                type="checkbox"
+                checked={v.ftpUnknown}
+                onChange={(e) => set("ftpUnknown", e.target.checked)}
+              />{" "}
+              I don&apos;t know
             </label>
           </div>
         </Field>
         <Field label="Weight">
-          <div className="relative w-36">
-            <input className={`${input} w-full pr-9`} inputMode="decimal" value={v.weight} onChange={(e) => set("weight", e.target.value.replace(/[^\d.]/g, ""))} placeholder={v.units === "imperial" ? "160" : "72"} />
-            <span className="pointer-events-none absolute top-2 right-3 text-sm text-muted">{v.units === "imperial" ? "lb" : "kg"}</span>
+          <div className="flex items-center gap-3">
+            <div className="relative w-36">
+              <input
+                className={`${input} w-full pr-9`}
+                inputMode="decimal"
+                value={v.weight}
+                onChange={(e) =>
+                  set("weight", e.target.value.replace(/[^\d.]/g, ""))
+                }
+                placeholder={v.units === "imperial" ? "160" : "72"}
+              />
+              <span className="pointer-events-none absolute top-2 right-3 text-sm text-muted">
+                {v.units === "imperial" ? "lb" : "kg"}
+              </span>
+            </div>
+            {/* The first run's only units choice, right where it matters (also sets distances). */}
+            {short && (
+              <div className="w-28">
+                <Segmented
+                  label="Units"
+                  value={v.units}
+                  onChange={switchUnits}
+                  options={[
+                    { value: "metric", label: "kg" },
+                    { value: "imperial", label: "lb" },
+                  ]}
+                />
+              </div>
+            )}
           </div>
         </Field>
-        <Field label="Max heart rate" hint="Optional. The highest you've seen.">
-          <div className="relative w-36">
-            <input className={`${input} w-full pr-12`} inputMode="numeric" value={v.maxHr} onChange={(e) => set("maxHr", e.target.value.replace(/\D/g, ""))} placeholder="185" />
-            <span className="pointer-events-none absolute top-2 right-3 text-sm text-muted">bpm</span>
-          </div>
-        </Field>
-        <Field label="Height" hint="Optional, for smart scale body fat.">
-          <div className="relative w-36">
-            <input className={`${input} w-full pr-9`} inputMode="decimal" value={v.height} onChange={(e) => set("height", e.target.value.replace(/[^\d.]/g, ""))} placeholder={v.units === "imperial" ? "70" : "178"} />
-            <span className="pointer-events-none absolute top-2 right-3 text-sm text-muted">{v.units === "imperial" ? "in" : "cm"}</span>
-          </div>
-        </Field>
-        <Field label="Birth date" hint="Optional, for heart rate zones and fitness age.">
-          <input type="date" className={`${input} w-44`} value={v.birthDate} onChange={(e) => set("birthDate", e.target.value)} />
-        </Field>
-        <div className="space-y-2">
-          <span className="block text-sm font-medium">Sex</span>
-          <Segmented
-            label="Sex"
-            value={v.sex}
-            onChange={(s) => set("sex", s)}
-            options={[
-              { value: "female", label: "Female" },
-              { value: "male", label: "Male" },
-              { value: "", label: "Skip" },
-            ]}
-          />
-          <span className="block text-sm text-muted">Optional, for VO2 max and body fat.</span>
-        </div>
+        {!short && (
+          <>
+            <Field
+              label="Max heart rate"
+              hint="Optional. The highest you've seen."
+            >
+              <div className="relative w-36">
+                <input
+                  className={`${input} w-full pr-12`}
+                  inputMode="numeric"
+                  value={v.maxHr}
+                  onChange={(e) =>
+                    set("maxHr", e.target.value.replace(/\D/g, ""))
+                  }
+                  placeholder="185"
+                />
+                <span className="pointer-events-none absolute top-2 right-3 text-sm text-muted">
+                  bpm
+                </span>
+              </div>
+            </Field>
+            <Field label="Height" hint="Optional, for smart scale body fat.">
+              <div className="relative w-36">
+                <input
+                  className={`${input} w-full pr-9`}
+                  inputMode="decimal"
+                  value={v.height}
+                  onChange={(e) =>
+                    set("height", e.target.value.replace(/[^\d.]/g, ""))
+                  }
+                  placeholder={v.units === "imperial" ? "70" : "178"}
+                />
+                <span className="pointer-events-none absolute top-2 right-3 text-sm text-muted">
+                  {v.units === "imperial" ? "in" : "cm"}
+                </span>
+              </div>
+            </Field>
+            <Field
+              label="Birth date"
+              hint="Optional, for heart rate zones and fitness age."
+            >
+              <input
+                type="date"
+                className={`${input} w-44`}
+                value={v.birthDate}
+                onChange={(e) => set("birthDate", e.target.value)}
+              />
+            </Field>
+            <div className="space-y-2">
+              <span className="block text-sm font-medium">Sex</span>
+              <Segmented
+                label="Sex"
+                value={v.sex}
+                onChange={(s) => set("sex", s)}
+                options={[
+                  { value: "female", label: "Female" },
+                  { value: "male", label: "Male" },
+                  { value: "", label: "Skip" },
+                ]}
+              />
+              <span className="block text-sm text-muted">
+                Optional, for VO2 max and body fat.
+              </span>
+            </div>
+          </>
+        )}
       </div>
-      <p className="text-sm text-muted">Time zone: {v.timezone}</p>
+      <p className="text-sm text-muted">
+        {short
+          ? "Heart rate, birth date and the rest are in Settings."
+          : `Time zone: ${v.timezone}`}
+      </p>
       {error && <Result ok={false}>{error}</Result>}
     </div>
   );

@@ -10,6 +10,7 @@ import { features } from "@/lib/features";
 import { createClient } from "~/db/supabase-client";
 import { invoke, isDesktop, listen } from "~/platform/native";
 import { revalidatePath } from "~/shims/next-cache";
+import { CHAT_ONLY_TOOLS } from "~/support/definitions";
 import { recordSeen } from "./status";
 
 interface FnTool {
@@ -28,7 +29,7 @@ const OVERVIEW = {
 /** The tools in MCP's shape. */
 export function mcpTools() {
   const fromFn = (t: FnTool) => ({ name: t.function.name, description: t.function.description, inputSchema: t.function.parameters });
-  return [OVERVIEW, ...forFeatures(TOOLS as FnTool[], features()).map(fromFn), ...(MEMORY_TOOLS as FnTool[]).map(fromFn), ...(appTools()?.tools ?? []).map(fromFn)];
+  return [OVERVIEW, ...forFeatures(TOOLS as FnTool[], features()).map(fromFn), ...(MEMORY_TOOLS as FnTool[]).map(fromFn), ...(appTools()?.tools ?? []).filter((t) => !CHAT_ONLY_TOOLS.includes(t.function.name)).map(fromFn)];
 }
 
 const text = (s: string, isError = false) => ({ content: [{ type: "text", text: s }], ...(isError ? { isError: true } : {}) });
@@ -41,7 +42,7 @@ export async function callTool(name: string, args: Record<string, unknown>) {
   const isApp = Boolean(app?.tools.some((t) => t.function.name === name));
   const data = isApp ? null : await loadCoachData(supabase);
   if (name === "get_overview") return text(JSON.stringify({ ...status(data!), memory: data!.memory }));
-  const result = isApp ? await app!.run(name, args ?? {}) : runTool(data!, name, args ?? {});
+  const result = isApp ? await app!.run(name, args ?? {}, { via: "mcp" }) : runTool(data!, name, args ?? {});
   if (result.proposal) {
     const { error } = await supabase.from("coach_proposals").insert({ source: "mcp", proposal: result.proposal });
     if (error) return text(`Couldn't save the proposal: ${error.message}`, true);

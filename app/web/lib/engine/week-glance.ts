@@ -25,6 +25,8 @@ export interface WeekGlance {
   planned: number;
   plannedToDate: number;
   done: number;
+  /** Ridden since the saved plan started: what `planned` is measured against (rides before it don't count). */
+  tracked: number;
   /** Ridden against planned through today: within TRACKING_BAND is on track. Early: nothing was due yet. */
   tracking: Tracking;
   /** Sessions done (or partly), and planned sessions in the week. */
@@ -65,6 +67,7 @@ export function weekGlance(days: ComplianceDay[], monday: string, today: string)
     planned,
     plannedToDate,
     done,
+    tracked,
     tracking,
     sessionsDone: out.filter((d) => d.planned > 0 && (d.mark === "done" || d.mark === "partial" || d.mark === "moved")).length,
     sessions: out.filter((d) => d.planned > 0).length,

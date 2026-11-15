@@ -50,4 +50,23 @@ describe("widgetSnapshot", () => {
     const today = widgetSnapshot(state, null).week?.days.find((d) => d.today);
     expect(today?.state).toMatch(/done|partial/);
   });
+
+  it("words the Fields widget's numbers from the engine", () => {
+    const { state } = athlete({ recovery: { hrv: 52, restingHr: 49, sleepHours: 7.5, score: 72, reasons: [] } });
+    const fields = new Map((widgetSnapshot(state, null, new Date("2026-10-29T14:00:00Z")).fields ?? []).map((f) => [f.key, f]));
+    expect(fields.get("recovery")).toEqual({ key: "recovery", label: "Recovery", value: "72", unit: "" });
+    expect(fields.get("hrv")).toMatchObject({ value: "52", unit: "ms" });
+    expect(fields.get("restingHr")).toMatchObject({ value: "49", unit: "bpm" });
+    const now = state.series.at(-1)!;
+    expect(fields.get("fitness")?.value).toBe(String(Math.round(now.fitness)));
+    expect(fields.get("form")?.value).toMatch(/^[+−-]?\d+$/);
+    if (state.athlete.ftp) expect(fields.get("ftp")).toMatchObject({ value: String(Math.round(state.athlete.ftp)), unit: "W" });
+    expect(fields.get("today")?.value).toBeTruthy();
+  });
+
+  it("gives weight in the rider's units", () => {
+    const { state } = athlete();
+    state.athlete.weightKg = 70;
+    expect(widgetSnapshot(state, null, new Date(), true, "imperial").fields?.find((f) => f.key === "weight")).toMatchObject({ value: "154.3", unit: "lb" });
+  });
 });

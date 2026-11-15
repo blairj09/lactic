@@ -65,13 +65,15 @@
           <h1>The <span class="nowrap">open-source,</span> modular training platform.</h1>
         </div>
         <div class="hero-side">
-          <p class="lede"><strong>Training, your way.</strong> A plan that fits your week, workouts on your trainer or head unit, recovery from your watch, and a coach if you want one. Arrange it all how you like. Free forever.</p>
+          <div class="lede-block">
+            <p class="lede"><strong>Training, your way.</strong> A plan that fits your week, workouts on your trainer or head unit, recovery from your watch, and a coach if you want one. Arrange it all how you like. Free forever.</p>
+            <p class="just-ride"><strong>Just want to ride?</strong> Skip the watch and the AI. The plan and the workouts work on their own.</p>
+          </div>
           <div class="buttons">
             <a class="btn btn-primary" href="https://github.com/blairj09/lactic/releases/latest" data-download><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg><span data-download-label>Download free</span></a>
             <p class="hero-sub desktop-only">Bring your rides from Zwift, Garmin, Strava and intervals.icu.</p>
             <p class="phone-note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg><span>Lactic runs on your Mac, Windows or Linux computer: open lactic.fit there to download it. The iPhone app is in beta on TestFlight.</span></p>
-            <!-- iPhone beta: set the public TestFlight link on every [data-testflight] and remove hidden. -->
-            <a class="btn btn-primary phone-testflight" href="" data-testflight hidden>Join the iPhone beta</a>
+            <a class="btn btn-primary phone-testflight" href="https://testflight.apple.com/join/nDjt8pAG" data-testflight>Join the iPhone beta</a>
           </div>
         </div>
       </div>
@@ -120,7 +122,7 @@
           <div class="mode"><h3>Your screens</h3><p>Reorder and resize the cards on Today. Reorder or hide tabs.</p></div>
           <div class="mode"><h3>Your ride fields</h3><p>Pick the numbers on each ride page, like a head unit. Build your own, like best 20 minutes or average of this interval.</p></div>
           <div class="mode"><h3>A head unit over any app</h3><p>Ride Zwift, Rouvy or any app with your fields floating on top, plugins included. Lactic never touches your trainer.</p></div>
-          <div class="mode"><h3>Plugins</h3><p>Add cards, metrics and ride analysis from a GitHub link. Each runs sandboxed, sees only what you allow, and the coach can read its numbers if you say so.</p></div>
+          <div class="mode"><h3>Plugins</h3><p>Add ride fields and ride page sections from Lactic&apos;s list or a GitHub link, or ask the coach to write one. Each runs sandboxed and sees only what you allow.</p></div>
         </div>
       </div>
       <div class="belief">
@@ -202,7 +204,7 @@
           <p class="eyebrow">iPhone · beta</p>
           <h2>Lactic in your pocket.</h2>
           <p>Scan a code to pair the iPhone app with Lactic on your computer, and the two keep each other up to date straight over your Wi-Fi, with no Lactic server in between. No computer? The iPhone app also works on its own. It&apos;s in beta on TestFlight, Apple&apos;s app for trying apps before they reach the App Store.</p>
-          <div class="buttons"><a class="btn btn-white" href="" data-testflight hidden>Join the iPhone beta</a></div>
+          <div class="buttons"><a class="btn btn-white" href="https://testflight.apple.com/join/nDjt8pAG" data-testflight>Join the iPhone beta</a></div>
         </div>
         <div class="belief-detail modes">
           <div class="mode"><h3>Apple Health, built in</h3><p>Sleep, HRV and resting heart rate come straight from Apple Health each morning. Your rides go back to Health as workouts.</p></div>
@@ -277,6 +279,7 @@
     </ol>
   </div>
   <div class="dl-steps-wrap" data-os="windows" hidden>
+    <p class="dl-untested">Not tested on Windows yet. If something doesn&apos;t work, tell us with Send feedback or on GitHub.</p>
     <ol class="dl-steps">
       <li>Run the installer.</li>
       <li>Windows warns about an unknown publisher. Choose More info, then Run anyway.</li>
@@ -284,12 +287,14 @@
     </ol>
   </div>
   <div class="dl-steps-wrap" data-os="appimage" hidden>
+    <p class="dl-untested">Not tested on Linux yet. If something doesn&apos;t work, tell us with Send feedback or on GitHub.</p>
     <ol class="dl-steps">
       <li>Make it runnable: <code>chmod +x Lactic_*.AppImage</code></li>
       <li>Run it.</li>
     </ol>
   </div>
   <div class="dl-steps-wrap" data-os="deb" hidden>
+    <p class="dl-untested">Not tested on Linux yet. If something doesn&apos;t work, tell us with Send feedback or on GitHub.</p>
     <ol class="dl-steps">
       <li>Install it: <code>sudo apt install ./Lactic_*_amd64.deb</code></li>
       <li>Open Lactic from your apps.</li>

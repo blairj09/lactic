@@ -1,7 +1,7 @@
 import { fileURLToPath, URL } from "node:url";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 
 const host = process.env.TAURI_DEV_HOST;
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
@@ -42,6 +42,8 @@ export default defineConfig(({ command, mode }) => ({
     hmr: host ? { protocol: "ws", host, port: 1421 } : undefined,
     
     watch: { ignored: ["**/src-tauri/**"] },
+    // Lactic's own plugins (src/plugins/catalog.ts) are bundled from the repo's plugins/catalog.
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), here("../plugins/catalog")] },
   },
   // Vite's build swaps `process.env` for `{}`, which froze every setting the app writes at boot
   // (src/boot/env.ts) to undefined in packaged builds. Point it at the live object globals.ts makes.
@@ -56,6 +58,8 @@ export default defineConfig(({ command, mode }) => ({
         }
       : {},
   envPrefix: ["VITE_", "TAURI_ENV_*"],
+  // Plugin workers (src/plugins/worker.ts) are module workers: the QuickJS engine loads in chunks.
+  worker: { format: "es" },
   build: {
     target: "safari16",
     minify: process.env.TAURI_ENV_DEBUG ? false : "esbuild",
