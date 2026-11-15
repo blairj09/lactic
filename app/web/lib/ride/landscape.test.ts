@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contourInterval, doubleHeights, metersPerPixel, paintLandscape, terrariumHeights, tileLat } from "./landscape";
+import { contourInterval, doubleHeights, metersPerPixel, paintLandscape, resampleHeights, terrariumHeights, tileLat } from "./landscape";
 
 describe("landscape", () => {
   it("reads Terrarium heights", () => {
@@ -42,5 +42,29 @@ describe("landscape", () => {
     const row = Array.from({ length: size - 1 }, (_, x) => lum(shaded, 8 * size + x));
     expect(new Set(row).size).toBeGreaterThan(1);
     expect(new Set(Array.from({ length: size }, (_, x) => lum(low, 8 * size + x))).size).toBe(1);
+  });
+
+  it("cuts a closer tile out of a height grid", () => {
+    // A 4-pixel grid rising 10 m a pixel to the east; its east half redrawn at 4 samples.
+    const heights = Float32Array.from({ length: 16 }, (_, i) => (i % 4) * 10);
+    const out = resampleHeights(heights, 4, 2, 0, 2, 4);
+    expect(Array.from(out.slice(0, 4))).toEqual([17.5, 22.5, 27.5, 30]);
+  });
+
+  it("paints the grid look dark, with grid lines that meet across tiles and contours on slopes", () => {
+    const size = 64;
+    const lum = (px: Uint8ClampedArray, x: number, y: number) => px[(y * size + x) * 4] + px[(y * size + x) * 4 + 1] + px[(y * size + x) * 4 + 2];
+    // Flat ground at zoom 16: the small squares are a sixteenth of the tile (too small to show at this size), the next a quarter, so lines fall on columns 0, 16, 32, 48.
+    const flat = paintLandscape(new Float32Array(size * size).fill(1403), size, 2, 1400, 2300, "grid", { z: 16, x: 5, y: 9 });
+    expect(lum(flat, 8, 8)).toBeLessThan(60);
+    expect(lum(flat, 16, 8)).toBeGreaterThan(lum(flat, 8, 8) + 60);
+    expect(lum(flat, 8, 32)).toBe(lum(flat, 16, 8));
+    // A line is centered on the boundary between two pixels, and every fourth line is bolder: here the tile's edges.
+    expect(lum(flat, 15, 8)).toBe(lum(flat, 16, 8));
+    expect(lum(flat, 63, 8)).toBeGreaterThan(lum(flat, 16, 8));
+    // A 20% slope crossing 1,500 m at column 32: a bright contour there, dark between lines.
+    const slope = paintLandscape(Float32Array.from({ length: size * size }, (_, i) => 1500.2 + ((i % size) - 32) * 0.4), size, 2, 1400, 2300, "grid", { z: 16, x: 5, y: 9 });
+    expect(lum(slope, 31, 8)).toBeGreaterThan(300);
+    expect(lum(slope, 24, 8)).toBeLessThan(lum(slope, 31, 8) / 3);
   });
 });
