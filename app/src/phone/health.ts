@@ -37,7 +37,7 @@ const WRITE_WINDOW_DAYS = 14;
 
 /** Shows Apple's Health permission sheet, then imports and starts listening for new data. */
 export async function connectHealth(): Promise<boolean> {
-  const { granted } = await authorizeHealth();
+  const { granted } = await askHealth();
   await setSetting(ASKED_TYPES, HEALTH_TYPES);
   await setSetting(SOURCE_SETTING, "apple");
   if ((await getSetting<string | null>(WRITE_SINCE, null)) === null) {
@@ -61,6 +61,20 @@ const CLEANUP_MS = 120_000;
 const ASK_MS = 120_000;
 /** The whole read and import: past this, the next ask starts afresh. */
 const RUN_MS = 3 * 60_000;
+
+let asking: Promise<{ granted: boolean }> | null = null;
+
+/**
+ * Apple's permission sheet, one at a time: opening the app reads Health (which asks about new types
+ * itself) while Today or Settings offers Connect Apple Health, and a second request made while the
+ * first sheet is up could fail or never show.
+ */
+export function askHealth(): Promise<{ granted: boolean }> {
+  asking ??= within(authorizeHealth(), ASK_MS, "The permission sheet").finally(() => {
+    asking = null;
+  });
+  return asking;
+}
 
 /** `p`, or an error once `ms` pass without an answer. */
 export function within<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
@@ -112,7 +126,7 @@ async function importHealth(): Promise<string | null> {
   // iOS hasn't asked about some types yet (added since the rider answered, or the sheet never
   // showed): Apple's sheet asks for just those. Only with the app on screen, where it can show.
   if (status.healthToAsk && typeof document !== "undefined" && document.visibilityState === "visible") {
-    await within(authorizeHealth(), ASK_MS, "The permission sheet").catch(() => {});
+    await askHealth().catch(() => {});
     await setSetting(ASKED_TYPES, HEALTH_TYPES);
   }
   const first = !(await getSetting<boolean>(IMPORTED, false)) || !(await getSetting<boolean>(REREAD, false));
@@ -138,6 +152,9 @@ async function importHealth(): Promise<string | null> {
   if (pending.length) await within(ackPending(pending.map((p) => p.id)), READ_MS, "The iPhone app").catch(() => {});
   // The fresh read last: it's the newest, so its latest night wins.
   add(await ingestHealth(fresh));
+  // Types iOS hasn't asked about read as empty (the rest still comes in); the next status says to ask.
+  const notAsked = Array.isArray(fresh.notAsked) ? fresh.notAsked.map(String) : [];
+  if (notAsked.length) logEvent("health", "warn", `${phoneHealthName()} hasn't asked about: ${notAsked.join(", ")}`);
   await setSetting(IMPORTED, true);
   await setSetting(REREAD, true);
   const at = new Date().toISOString();

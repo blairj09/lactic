@@ -425,6 +425,24 @@ enum Health {
     let hrSince = Date().addingTimeInterval(-Double(min(days, 14)) * 86_400)
     var body: [String: JSONValue] = ["hrvKind": .string("sdnn"), "source": .string("healthkit")]
     func put(_ key: String, _ values: [String]) { body[key] = .array(values.map { .string($0) }) }
+    // A type iOS never asked the rider about (one Lactic started reading after they answered, like
+    // weight and body fat) fails its query with "Authorization not determined". That used to fail
+    // the whole read, so sleep and HRV stopped coming in too. Now it reads as empty and is listed
+    // under notAsked, and the app asks about it the next time it's on screen.
+    var notAsked: [String] = []
+    func soft<T>(_ type: HKSampleType, _ empty: T, _ query: () async throws -> T) async throws -> T {
+      do { return try await query() }
+      catch let error as HKError where error.code == .errorAuthorizationNotDetermined || error.code == .errorAuthorizationDenied {
+        notAsked.append(type.identifier)
+        return empty
+      }
+    }
+    func samples(_ type: HKSampleType, since: Date) async throws -> [HKSample] {
+      try await soft(type, []) { try await Health.samples(type, since: since) }
+    }
+    func dailySums(_ type: HKQuantityType, unit: HKUnit, since: Date) async throws -> [(Date, Double)] {
+      try await soft(type, []) { try await Health.dailySums(type, unit: unit, since: since) }
+    }
     func quantities(_ id: HKQuantityTypeIdentifier, _ unit: HKUnit, from: Date, date: String, value: String, end: String? = nil) async throws {
       let list = try await samples(HKQuantityType(id), since: from).compactMap { $0 as? HKQuantitySample }
       put(date, list.map { iso.string(from: $0.startDate) })
@@ -457,6 +475,7 @@ enum Health {
     let steps = try await dailySums(HKQuantityType(.stepCount), unit: .count(), since: since)
     put("stepsDate", steps.map { iso.string(from: $0.0) })
     put("stepsValue", steps.map { String($0.1) })
+    put("notAsked", notAsked)
     return .object(body)
   }
 

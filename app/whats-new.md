@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- iPhone: Apple Health keeps reading sleep and HRV even when iOS hasn't yet asked about a newer type such as weight, and only one permission sheet shows at a time.
+
 ## 0.3.0
 
 - Today no longer suggests a shorter ride when the planned easy ride already fits inside today's exertion target.
