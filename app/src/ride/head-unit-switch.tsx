@@ -1,6 +1,7 @@
 "use client";
 
 import { canWatchApps, useHeadUnitAuto } from "./head-unit-auto";
+import { os } from "~/platform/native";
 
 /**
  * Head unit with Zwift, in the Lactic app on a computer: Lactic stays in the menu bar and gets the
@@ -14,7 +15,7 @@ export default function HeadUnitAuto({ className = "mt-4" }: { className?: strin
       <input type="checkbox" className="mt-1 size-4 accent-[var(--primary)]" checked={on} onChange={(e) => setOn(e.target.checked)} />
       <span>
         <span className="block text-[15px]">Start with Zwift, Rouvy or MyWhoosh</span>
-        <span className="block text-sm text-muted">Lactic stays in the menu bar. When one opens, pedal and the head unit starts.</span>
+        <span className="block text-sm text-muted">Lactic stays in the {os() === "macos" ? "menu bar" : "system tray"}. When one opens, pedal and the head unit starts.</span>
       </span>
     </label>
   );
