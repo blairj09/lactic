@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- iPhone: Customize fields now has Head unit, so you can set up the head unit's pages on your phone. The phone remote shows those pages during a head unit ride.
 - Today no longer shows a coach error when the built-in coach has no API key yet; the brief simply stays hidden until the coach is set up.
 - iPhone: when Apple Health hasn't been asked about something Lactic reads ("Authorization not determined"), Lactic shows Apple's permission sheet again, and Settings shows Connect Apple Health instead of the error.
 - Phones: tap the tab you're on to go back to the top of its page (or back to its main page first).
