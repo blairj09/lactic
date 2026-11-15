@@ -381,6 +381,26 @@ describe("app tools in the chat", () => {
     expect(statuses).toContain("Checking the app");
     expect(reply.proposals[0].change).toEqual({ kind: "app", setting: { setting: "power_source", value: "trainer" } });
   });
+
+  it("shows what a web search looks for and keeps its sources for the reply", async () => {
+    const { registerAppTools } = await import("./app-tools");
+    registerAppTools({
+      tools: [{ type: "function", function: { name: "search_web", description: "", parameters: { type: "object", properties: {} } } }],
+      status: { search_web: "Searching the web" },
+      describe: (name, args) => (name === "search_web" ? `Searching the web for "${args.query}"` : undefined),
+      apply: async () => "Done.",
+      run: async (_name, args) => ({
+        content: "{}",
+        sources: args.query === "a" ? [{ url: "https://dcrainmaker.com/x", title: "DCR" }] : [{ url: "https://dcrainmaker.com/x", title: "DCR" }, { url: "https://bikeradar.com/y", title: "BR" }],
+      }),
+    });
+    const replies = [call("search_web", { query: "a" }, "1"), call("search_web", { query: "b" }, "2"), say("The pedals.")];
+    const statuses: string[] = [];
+    const reply = await coachChat(async () => replies.shift()!, data, [{ role: "user", content: "Best power meter?" }], "", { onStatus: (s) => statuses.push(s) });
+    registerAppTools(null);
+    expect(statuses).toContain('Searching the web for "a"');
+    expect(reply.sources?.map((s) => s.url)).toEqual(["https://dcrainmaker.com/x", "https://bikeradar.com/y"]);
+  });
 });
 
 describe("feedback offers", () => {

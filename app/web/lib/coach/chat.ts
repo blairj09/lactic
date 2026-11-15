@@ -15,6 +15,7 @@ import { ZONE_LABELS } from "../engine/library";
 import type { OptionId } from "../engine/checkin";
 import { attachmentNames, turnsForModel, type Attachment } from "./attachments";
 import { appTools } from "./app-tools";
+import { cleanSources, type Source } from "./sources";
 import { todayOptions } from "../today-options";
 import { experiments } from "../experiments";
 import { APP_GUIDE } from "./app-guide";
@@ -40,6 +41,8 @@ export interface ChatReply {
   today?: OptionId;
   /** Feedback about Lactic the coach offered to send, shown as a button under the reply. */
   feedback?: FeedbackDraft;
+  /** Web pages a search found for this reply, shown as links under it. */
+  sources?: Source[];
 }
 
 export interface ChatHooks {
@@ -320,6 +323,8 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
   const picks: WorkoutPick[] = [];
   let today: OptionId | undefined;
   let feedback: FeedbackDraft | undefined;
+  let sources: Source[] = [];
+  const extras = () => ({ ...(feedback ? { feedback } : {}), ...(sources.length ? { sources } : {}) });
   const allowed = new Set((tools as { function: { name: string } }[]).map((t) => t.function.name));
   let required = mustCall === undefined;
   let asked = false;
@@ -334,7 +339,7 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
         messages.push({ role: "user", content: `You haven't called ${mustCall} yet. Call it with the option your brief recommends, then reply with the brief again, changed if your choice changed it.` });
         continue;
       }
-      if (message) return { message, proposals, memory, picks, today, ...(feedback ? { feedback } : {}) };
+      if (message) return { message, proposals, memory, picks, today, ...extras() };
       messages.push({ role: "user", content: "Please answer in a message." });
       continue;
     }
@@ -342,19 +347,20 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
       const name = call.function.name;
       const app = appTools();
       const isApp = Boolean(app?.tools.some((t) => t.function.name === name));
-      hooks.onStatus?.(STATUS[name] ?? (isApp ? app!.status[name] : undefined) ?? "Thinking");
       const args = parseArgs(call.function.arguments);
+      hooks.onStatus?.(STATUS[name] ?? (isApp ? (app!.describe?.(name, args) ?? app!.status[name]) : undefined) ?? "Thinking");
       if (name === mustCall) required = true;
       const result = !allowed.has(name) ? { content: `Unknown tool ${name}` } : isApp ? await app!.run(name, args) : runTool(data, name, args);
       if (result.proposal && !proposals.some((p) => JSON.stringify(p.change) === JSON.stringify(result.proposal!.change))) proposals.push(result.proposal);
       if (result.memory) memory.push(result.memory);
       if (result.today) today = result.today;
       if (result.feedback && !feedback) feedback = result.feedback;
+      if (result.sources) sources = cleanSources([...sources, ...result.sources]);
       if (result.pick) picks.splice(0, picks.length, ...picks.filter((p) => p.date !== result.pick!.date), result.pick);
       messages.push({ role: "tool", tool_call_id: call.id, content: result.content });
     }
   }
-  if (proposals.length) return { message: "Here's what I'd change.", proposals, memory, picks, today, ...(feedback ? { feedback } : {}) };
+  if (proposals.length) return { message: "Here's what I'd change.", proposals, memory, picks, today, ...extras() };
   if (feedback) return { message: "You can send this to the Lactic team with the button below.", proposals, memory, picks, feedback };
   if (picks.length) return { message: "I've picked the workouts for the key days ahead.", proposals, memory, picks };
   throw new Error("The coach didn't finish its answer");

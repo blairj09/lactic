@@ -24,6 +24,8 @@ export interface CoachSetup {
   monthlyCapUsd: number | null;
   /** With the built-in coach: AI apps can still connect over MCP too. */
   alongside?: boolean;
+  /** The built-in coach may search the web (OpenRouter only, see web-search.ts). Off unless the rider turns it on. */
+  webSearch?: boolean;
 }
 
 /** Whether AI apps can reach Lactic's MCP server with this setup. */
@@ -42,6 +44,12 @@ export function builtinReady(setup: CoachSetup, keySaved: boolean): boolean {
   if (kind === "custom" || preset(kind).local) return true;
   return hasKey && keySaved;
 }
+
+/** Web search needs OpenRouter's web plugin; other providers' OpenAI-compatible APIs have no search. */
+export const webSearchSupported = (setup: Pick<CoachSetup, "provider">) => setup.provider?.kind === "openrouter";
+
+/** Whether the built-in coach is offered search_web: turned on, on OpenRouter, with a model. */
+export const webSearchOn = (setup: CoachSetup) => setup.mode === "builtin" && Boolean(setup.webSearch) && webSearchSupported(setup) && Boolean(setup.chat?.model);
 
 const KEY = "coach.setup";
 export const DEFAULT_SETUP: CoachSetup = { mode: "none", provider: null, chat: null, vision: null, monthlyCapUsd: 10 };

@@ -25,6 +25,7 @@ import type { StoredRide } from "../activities";
 import type { StoredFeedback, StoredPlanDay, TrainingState } from "../training";
 import { exertionTodayFor, todayOptions } from "../today-options";
 import type { Persona } from "./persona";
+import type { Source } from "./sources";
 import { CM_PER_IN, LB_PER_KG, M_PER_MILE, type UnitSystem } from "../units";
 import { CHANGE_WINDOW_DAYS, resolveChange, type PlanChange, type Proposal } from "./changes";
 
@@ -238,7 +239,7 @@ export interface FeedbackDraft {
   summary: string;
 }
 
-export type ToolResult = { content: string; proposal?: Proposal; memory?: MemoryOp; pick?: WorkoutPick; today?: OptionId; feedback?: FeedbackDraft };
+export type ToolResult = { content: string; proposal?: Proposal; memory?: MemoryOp; pick?: WorkoutPick; today?: OptionId; feedback?: FeedbackDraft; sources?: Source[] };
 
 /** Runs one tool call. Errors come back as text so the coach can correct itself. */
 export function runTool(data: CoachData, name: string, args: Record<string, unknown>): ToolResult {
