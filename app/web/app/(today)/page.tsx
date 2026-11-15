@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadIngestToken } from "@/lib/recovery-data";
 import { loadRecoverySetup, recoverySourceInfo } from "@/lib/recovery-source";
 import TodayView, { ridesOn } from "../today";
+import { loadLayout } from "@/lib/layout-data";
 import { experiments } from "@/lib/experiments";
 import { loadRaceFollowUp, RACE_PROMPTS_SETTING } from "@/lib/race-glance";
 import { getSetting } from "~/settings/store";
@@ -27,7 +28,8 @@ export const maxDuration = 60;
 
 const FTP_WINDOW_DAYS = 90;
 
-export default async function Today() {
+export default async function Today({ searchParams }: { searchParams?: Promise<Record<string, string | undefined>> }) {
+  const customize = (await searchParams)?.customize === "1";
   // Read on each visit: the coach can be set up, or its key removed, while Lactic is open.
   const coachEnabled = Boolean(process.env.OPENROUTER_API_KEY);
 
@@ -44,13 +46,14 @@ export default async function Today() {
     ] as const);
   });
   dated.catch(() => {}); // Reported by loadTrainingState, which loads the same athlete.
-  const [state, icu, body, healthToken, recoverySetup, [briefDay, earlyBrief, earlyReview]] = await Promise.all([
+  const [state, icu, body, healthToken, recoverySetup, [briefDay, earlyBrief, earlyReview], layout] = await Promise.all([
     loadTrainingState(supabase),
     optional(loadIntervals(supabase)),
     optional(loadBodyMeasurements(supabase, new Date(Date.now() - 40 * 86_400_000))),
     optional(loadIngestToken(supabase)),
     loadRecoverySetup(),
     dated,
+    loadLayout(supabase),
   ]);
   const { athlete, rides, today } = state;
   const monday = weekStart(today);
@@ -97,6 +100,8 @@ export default async function Today() {
           todayStream={todayStream}
           raceFollowUp={raceFollowUp}
           intervalsConnected={Boolean(icu)}
+          layout={layout}
+          customize={customize}
           brief={
             coachEnabled
               ? { message: brief, stale: briefStale(brief, briefInputs(state, Boolean(body && weighInOn(body, today, athlete.timezone)))) }

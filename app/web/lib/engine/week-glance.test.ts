@@ -70,6 +70,7 @@ describe("weekGlance before a plan starts", () => {
     expect(g.days[0]).toMatchObject({ done: 80, beforePlan: true });
     // Every ride this week counts toward the total; only the plan's days count toward tracking.
     expect(g.done).toBe(120);
+    expect(g.tracked).toBe(40);
     expect(g.tracking).toBe("onTrack");
   });
 });

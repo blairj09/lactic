@@ -66,6 +66,24 @@ export async function applyProposal(messageId: string, index: number): Promise<A
   });
 }
 
+/**
+ * A plugin draft the rider added on its own review screen (src/plugins/draft-card.tsx). Marked
+ * applied only when that exact file is what's added now, so this can't stand in for Apply.
+ */
+export async function markDraftAdded(messageId: string, index: number): Promise<ActionResult> {
+  return attempt(async () => {
+    const supabase = await createClient();
+    const message = await loadMessage(supabase, messageId);
+    const proposal = message.proposals[index];
+    const change = proposal?.change;
+    if (!proposal || change?.kind !== "app" || change.setting.setting !== "plugin_draft") throw new Error("That plugin draft isn't there any more");
+    const { draftIsAdded } = await import("~/plugins/store");
+    if (!(await draftIsAdded(change.setting.file))) throw new Error(`${change.setting.name} isn't added`);
+    await saveProposals(supabase, messageId, message.proposals.map((p, i) => (i === index ? { ...p, status: "applied" } : p)));
+    return `${change.setting.name} is added.`;
+  });
+}
+
 export async function dismissProposal(messageId: string, index: number): Promise<ActionResult> {
   return attempt(async () => {
     const supabase = await createClient();

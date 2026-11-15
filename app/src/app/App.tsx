@@ -1,15 +1,20 @@
 // Lactic's window: the web app's screens, routed in the window, with the coach drawer beside them.
 
-import { useEffect, useState } from "react";
-import { HashRouter, Navigate, Route, Routes, useNavigate } from "react-router";
+import { useCallback, useEffect, useState } from "react";
+import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
+import { HEAD_UNIT_EVENT, useHeadUnitWatch } from "~/ride/head-unit-auto";
 import CoachDrawer from "@/app/coach/coach-drawer";
 import DrawerBoundary from "@/app/coach/drawer-boundary";
 import NewDayRefresh from "@/components/new-day-refresh";
+import PullToRefresh from "@/components/pull-to-refresh";
 import { ServerPage } from "./server-page";
 import { setNavigator } from "~/shims/next-navigation";
 import { refreshCoachMode, useCoachMode, useMcpOn } from "./coach-mode";
 import { getSetting } from "~/settings/store";
 import { loadFeatures } from "~/settings/features";
+import { loadLayout } from "@/lib/layout-data";
+import { setCurrentTabs } from "@/lib/layout-tabs";
+import { createClient as createDb } from "~/db/supabase-client";
 import { loadExperiments } from "~/settings/experiments";
 import { startBackground } from "~/integrations/background";
 import "~/integrations/apple-health";
@@ -24,6 +29,7 @@ import { isPhone } from "~/platform/native";
 import { startPhoneBridge } from "~/phone/computer";
 import { PhoneWelcome, SOLO } from "~/phone/welcome";
 import { ComputerRide } from "~/phone/remote";
+import { SettingsShortcut } from "~/settings/shell";
 
 // The coach's tools for checking and fixing the app itself (gear, intervals.icu, its own setup).
 installSupportTools();
@@ -48,6 +54,18 @@ function NavigatorBridge() {
   return null;
 }
 
+/** Head unit with Zwift: when Zwift, Rouvy or MyWhoosh opens, the Ride page gets the head unit ready. */
+function HeadUnitWatcher() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const go = useCallback(() => {
+    if (pathname === "/ride") window.dispatchEvent(new CustomEvent(HEAD_UNIT_EVENT));
+    else navigate("/ride?source=headUnit");
+  }, [navigate, pathname]);
+  useHeadUnitWatch(go);
+  return null;
+}
+
 function Lazy({ load }: { load: () => Promise<{ default: React.ComponentType }> }) {
   const [C, setC] = useState<React.ComponentType | null>(null);
   useEffect(() => {
@@ -65,8 +83,8 @@ function Shell() {
   useEffect(() => {
     if (isPhone()) void getSetting<boolean>(SOLO, false).then(setSolo);
     void refreshCoachMode();
-    // What the rider tracks is read before the first screen, so nothing they turned off flashes up.
-    void Promise.all([loadFeatures(), loadExperiments()])
+    // What the rider tracks and their tab order are read before the first screen, so nothing they turned off flashes up.
+    void Promise.all([loadFeatures(), loadExperiments(), loadLayout(createDb() as never).then((l) => setCurrentTabs(l.tabs))])
       .catch(() => {})
       .then(() => getSetting("onboarding.done", false))
       .then(setOnboarded);
@@ -105,6 +123,8 @@ function Shell() {
   return (
     <>
       <NavigatorBridge />
+      {onboarded && <HeadUnitWatcher />}
+      {onboarded && <SettingsShortcut />}
       <Routes>
         <Route path="/overlay" element={<Lazy load={overlay} />} />
         <Route path="/welcome/*" element={<Lazy load={onboarding} />} />
@@ -125,11 +145,13 @@ function Shell() {
         <Route path="/settings" element={<ServerPage load={settings} />} />
         <Route path="/analysis" element={<Navigate to="/progress" replace />} />
         <Route path="/rides" element={<Navigate to="/progress?tab=rides" replace />} />
+        <Route path="/plugins" element={<Navigate to="/settings?section=plugins" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}
       </Routes>
       <NewDayRefresh />
+      {onboarded && <PullToRefresh />}
       <BluetoothPicker />
       {!isPhone() && <UpdatePrompt />}
       {onboarded && isPhone() && <ComputerRide />}

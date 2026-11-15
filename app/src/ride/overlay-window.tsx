@@ -29,7 +29,7 @@ export default function OverlayWindow() {
   }, []);
 
   const controls = useMemo(() => {
-    const names: ControlName[] = ["onPlayPause", "onSkip", "onBack", "onIntensity", "onErg", "onErgMode", "onGrade", "onExtend", "onEnd", "onExtendMinutes", "onExtendWatts", "onExtendKind", "onExtendBlock", "onHold", "onAdaptUndo", "onAdaptYes", "onAdaptNo", "onAdaptive"];
+    const names: ControlName[] = ["onPlayPause", "onSkip", "onBack", "onIntensity", "onErg", "onErgMode", "onGrade", "onExtend", "onEnd", "onExtendMinutes", "onExtendWatts", "onExtendKind", "onExtendBlock", "onHold", "onAdaptUndo", "onAdaptYes", "onAdaptNo", "onAdaptive", "onPage"];
     return Object.fromEntries(names.map((n) => [n, (...args: unknown[]) => void control(n, args)])) as unknown as Omit<PlayerControls, "canPlay">;
   }, []);
 

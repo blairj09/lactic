@@ -9,6 +9,7 @@ import { createClient } from "~/db/supabase-client";
 import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { logEvent } from "~/support/log";
+import { os, phoneHealthName } from "~/platform/native";
 import { ackPending, authorizeHealth, phoneStatus, readHealth, removeDuplicateWorkouts, saveWeighIn, saveWorkout, takePending } from "./plugin";
 
 // Device-local settings ("phone." never syncs).
@@ -94,8 +95,8 @@ export function syncPhoneHealth(): Promise<string | null> {
     .catch((e: unknown) => {
       lastError = e instanceof Error ? e.message : String(e);
       // HealthKit's words for a type iOS hasn't asked the rider about yet.
-      if (/not determined/i.test(lastError)) lastError = "Lactic needs your OK to read Health. Tap Connect Apple Health.";
-      logEvent("health", "error", `Apple Health: ${lastError}`);
+      if (/not determined/i.test(lastError)) lastError = `Lactic needs your OK to read ${phoneHealthName()}. Tap Connect ${phoneHealthName()}.`;
+      logEvent("health", "error", `${phoneHealthName()}: ${lastError}`);
       return null;
     })
     .finally(() => {
@@ -111,7 +112,7 @@ async function importHealth(): Promise<string | null> {
   // iOS hasn't asked about some types yet (added since the rider answered, or the sheet never
   // showed): Apple's sheet asks for just those. Only with the app on screen, where it can show.
   if (status.healthToAsk && typeof document !== "undefined" && document.visibilityState === "visible") {
-    await within(authorizeHealth(), ASK_MS, "Apple Health's permission sheet").catch(() => {});
+    await within(authorizeHealth(), ASK_MS, "The permission sheet").catch(() => {});
     await setSetting(ASKED_TYPES, HEALTH_TYPES);
   }
   const first = !(await getSetting<boolean>(IMPORTED, false)) || !(await getSetting<boolean>(REREAD, false));
@@ -252,6 +253,8 @@ async function writeNewRides(): Promise<number> {
 
 /** Writes each recent weigh-in from a scale (on this iPhone or synced from the computer) to Health. Each is tried once. */
 export async function writeWeighIns(): Promise<number> {
+  // Health Connect on Android takes rides only for now.
+  if (os() === "android") return 0;
   if (!(await getSetting<boolean>(WRITE_RIDES, true))) return 0;
   const since = await getSetting<string | null>(WRITE_SINCE, null);
   if (!since) return 0;

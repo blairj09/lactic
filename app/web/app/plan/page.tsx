@@ -22,6 +22,7 @@ import EditableDay, { type WorkoutChoices } from "./day-editor";
 import { customKey, customLibraryWorkout, keyOf, type LibraryWorkout } from "@/lib/engine/workout-library";
 import { formatTime } from "../ride/player";
 import EditableEvent from "./event-editor";
+import Workouts from "./workouts";
 import { CHANGE_WINDOW_DAYS } from "@/lib/coach/changes";
 
 export const metadata = { title: "Plan · My Coach" };
@@ -34,11 +35,13 @@ const HISTORY_DAYS = 42;
 
 const TABS = [
   { id: "calendar", label: "Calendar" },
+  { id: "workouts", label: "Workouts" },
   { id: "setup", label: "Setup" },
 ] as const;
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const tab = (await searchParams).tab === "setup" ? "setup" : "calendar";
+  const asked = (await searchParams).tab;
+  const tab = asked === "setup" || asked === "workouts" ? asked : "calendar";
   const state = await loadTrainingState(await createClient());
   const { plan, today, goals, athlete, activePlan } = state;
   const coach = Boolean(process.env.OPENROUTER_API_KEY);
@@ -100,7 +103,9 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         ))}
       </nav>
 
-      {tab === "calendar" ? (
+      {tab === "workouts" ? (
+        <Workouts saved={state.customWorkouts} favorites={state.favorites} ftp={athlete.ftp} days={moveTargets} />
+      ) : tab === "calendar" ? (
       <>
       <StatStrip cols={4} phone={2}>
         <Stat label="Fitness now" value={Math.round(state.fitness)} />

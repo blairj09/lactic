@@ -13,6 +13,8 @@ import { MINIMUM_BASELINE_DAYS, recoveryWord } from "./engine/recovery";
 import type { ExertionToday, GlanceKey } from "./engine/recovery-glance";
 import { zoneStep } from "./engine/ride-calendar";
 import { complianceDays, plannedOn, type TrainingState } from "./training";
+import { signed } from "./format";
+import { weightIn, weightUnit, type UnitSystem } from "./units";
 
 export const WIDGET_SNAPSHOT_VERSION = 1;
 
@@ -72,6 +74,20 @@ export interface WidgetSnapshot {
   recoveryTracked?: boolean;
   tomorrow?: WidgetDay | null;
   week?: WidgetWeek | null;
+  /** The numbers the Fields widget can show, each one the rider picks with Edit Widget (added later). */
+  fields?: WidgetField[];
+}
+
+/** The Fields widget's choices; Swift's FieldChoice uses the same keys. */
+export const WIDGET_FIELD_KEYS = ["recovery", "hrv", "restingHr", "sleep", "form", "fitness", "fatigue", "ftp", "today", "week", "rides", "weight"] as const;
+export type WidgetFieldKey = (typeof WIDGET_FIELD_KEYS)[number];
+
+/** One number for the Fields widget, worded. Left out when there's nothing to show; the widget shows "–". */
+export interface WidgetField {
+  key: WidgetFieldKey;
+  label: string;
+  value: string;
+  unit: string;
 }
 
 const WIDGET_METRICS: { key: GlanceKey; label: string; format: (v: number) => string }[] = [
@@ -84,7 +100,7 @@ const WIDGET_METRICS: { key: GlanceKey; label: string; format: (v: number) => st
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const oneDecimal = (n: number) => Math.round(n * 10) / 10;
 
-export function widgetSnapshot(state: TrainingState, exertion: ExertionToday | null, now = new Date(), recoveryTracked = true): WidgetSnapshot {
+export function widgetSnapshot(state: TrainingState, exertion: ExertionToday | null, now = new Date(), recoveryTracked = true, units: UnitSystem = "metric"): WidgetSnapshot {
   const { today, recovery } = state;
   const glance = recovery?.glance;
   const score = recovery?.score ?? null;
@@ -123,7 +139,41 @@ export function widgetSnapshot(state: TrainingState, exertion: ExertionToday | n
     recoveryTracked,
     tomorrow: tomorrowLine(state),
     week: weekLine(state),
+    fields: widgetFields(state, units),
   };
+}
+
+/** The Fields widget's numbers, from the same engine values Today shows. */
+function widgetFields(state: TrainingState, units: UnitSystem): WidgetField[] {
+  const out: WidgetField[] = [];
+  const add = (key: WidgetFieldKey, label: string, value: string | null | undefined, unit = "") => {
+    if (value !== null && value !== undefined && value !== "") out.push({ key, label, value, unit });
+  };
+  // Last night as Today's recovery tiles show it, or as read when the glance has no entry for it.
+  const night = state.recovery?.today;
+  const glance = (key: GlanceKey & keyof NonNullable<typeof night>) => state.recovery?.glance?.metrics.find((m) => m.key === key)?.value ?? night?.[key] ?? null;
+  const round = (v: number | null) => (v === null ? null : String(Math.round(v)));
+  const score = state.recovery?.score?.score;
+  add("recovery", "Recovery", score === undefined ? null : String(Math.round(score)));
+  add("hrv", "HRV", round(glance("hrv")), "ms");
+  add("restingHr", "Resting HR", round(glance("restingHeartRate")), "bpm");
+  const sleep = glance("sleepHours");
+  add("sleep", "Sleep", sleep === null ? null : formatHours(sleep));
+  const now = state.series.at(-1);
+  if (now) {
+    add("form", "Form", signed(Math.round(now.form)));
+    add("fitness", "Fitness", String(Math.round(now.fitness)));
+    add("fatigue", "Fatigue", String(Math.round(now.fatigue)));
+  }
+  add("ftp", "FTP", state.athlete.ftp ? String(Math.round(state.athlete.ftp)) : null, "W");
+  add("today", "Today", todayLine(state).title);
+  const week = weekLine(state);
+  if (week) {
+    add("week", "This week", week.time.done, `of ${week.time.planned}`);
+    add("rides", "Rides", `${week.rides.done} of ${week.rides.planned}`);
+  }
+  if (state.athlete.weightKg) add("weight", "Weight", weightIn(state.athlete.weightKg, units).toFixed(1), weightUnit(units));
+  return out;
 }
 
 const sessionDay = (session: Session): WidgetDay => ({

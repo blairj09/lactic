@@ -5,3 +5,7 @@ export const isBeta = true;
 // A Lactic Preview build: a testing build of main or a pull request (CI sets VITE_LACTIC_CHANNEL,
 // see tauri.preview.conf.json). It's its own app with its own data, and says Preview, not Beta.
 export const isPreview = import.meta.env.VITE_LACTIC_CHANNEL === "preview";
+
+// Lactic Modular: the testing build of the modular-ui branch (the customizable layouts and plugins
+// work, tauri.modular.conf.json). Its own app and data again, apart from Lactic and Lactic Preview.
+export const isModular = import.meta.env.VITE_LACTIC_CHANNEL === "modular";

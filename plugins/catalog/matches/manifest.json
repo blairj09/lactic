@@ -1,0 +1,18 @@
+{
+  "apiVersion": 1,
+  "id": "matches",
+  "name": "Matches",
+  "version": "1.0.1",
+  "description": "Counts the hard efforts above threshold you make in a ride (\"matches burned\") and lists each one after.",
+  "homepage": "https://github.com/blairj09/lactic/tree/modular-ui/plugins/catalog/matches",
+  "main": "main.js",
+  "permissions": { "read": ["live", "rides", "profile"] },
+  "publishes": [
+    { "id": "count", "label": "Matches burned", "kind": "number" },
+    { "id": "ride_count", "label": "Matches in the ride", "kind": "number" }
+  ],
+  "contributes": {
+    "fields": [{ "id": "count", "title": "Matches", "entry": "field" }],
+    "analyses": [{ "id": "ride", "title": "Matches burned", "entry": "analyze" }]
+  }
+}

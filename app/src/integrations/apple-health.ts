@@ -7,7 +7,7 @@
 
 import { autoExportSamples, columnDaySamples, columnSamples, cutShortNight, healthDays, healthNights, healthWeighIns } from "@/lib/engine/health-import";
 import { createClient } from "~/db/supabase-client";
-import { invoke, isDesktop, isPhone } from "~/platform/native";
+import { invoke, isDesktop, isPhone, os } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { provideRecoverySetup } from "@/lib/recovery-source";
@@ -48,17 +48,32 @@ export async function phoneSuppliesHealth(): Promise<boolean> {
   return Boolean(phone && iphone);
 }
 
+/** On the phone: whether this app has asked for Health (iOS keeps each app's permission apart). Elsewhere true. */
+async function healthConnectedHere(): Promise<boolean> {
+  if (!isPhone()) return true;
+  const { phoneStatus } = await import("~/phone/plugin");
+  const status = await phoneStatus().catch(() => null);
+  return Boolean(status?.healthAvailable && status.healthAsked && !status.healthToAsk);
+}
+
 // Today names the rider's recovery source from this.
 provideRecoverySetup(async () => {
-  const [picked, last, iphone] = await Promise.all([
+  const [picked, last, synced, connectedHere] = await Promise.all([
     getSetting<string | null>(SOURCE_SETTING, null),
     getSetting<{ nights: number; days: number } | null>("health.lastImport", null),
     getSetting<IphoneHealth | null>(IPHONE_SETTING, null),
+    healthConnectedHere(),
   ]);
+  // On a phone that hasn't connected Health itself (a second Lactic app on the same iPhone, say),
+  // the read that synced in was another app's: this phone isn't receiving anything, so Today asks
+  // to connect instead of waiting for a night that will never come.
+  const iphone = connectedHere ? synced : null;
   return {
     picked: picked === "apple" ? "apple" : picked === "watch" || picked === "android" ? "intervals" : null,
-    appleReceiving: Boolean(iphone || (last && (last.nights > 0 || last.days > 0))),
+    appleReceiving: connectedHere && Boolean(iphone || (last && (last.nights > 0 || last.days > 0))),
     iphone: iphone ? { readAt: iphone.at, here: isPhone() } : null,
+    // On the Android app, the phone's own health store is Health Connect.
+    appleName: os() === "android" ? "Health Connect" : "Apple Health",
   };
 });
 
@@ -131,7 +146,8 @@ export async function ingestHealth(body: Record<string, unknown>): Promise<Inges
           wrist_temp_c: pick(n.wristTempC, "wrist_temp_c"),
           respiratory_rate: pick(n.respiratoryRate, "respiratory_rate"),
           sleep_segments: !keepSleep && n.segments.length ? n.segments.map((g) => [g.start, g.end, g.stage]) : pick(null, "sleep_segments"),
-          source: "shortcut",
+          // The Android app's reader says so; everything else is Apple Health (Shortcut, app or HealthKit).
+          source: body.source === "healthconnect" ? "health_connect" : "shortcut",
         };
       });
       const { error } = await supabase.from("recovery_days").upsert(rows, { onConflict: "user_id,day" });

@@ -5,6 +5,7 @@ import { authEnabled } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { loadPlanDays, loadTrainingState, sessionFor } from "@/lib/training";
 import { firstRideSession } from "@/lib/first-ride";
+import { loadLayout } from "@/lib/layout-data";
 import RideScreen from "./ride-screen";
 
 export const metadata = { title: "Ride · My Coach" };
@@ -12,12 +13,12 @@ export const dynamic = "force-dynamic";
 
 const DAY = /^\d{4}-\d\d-\d\d$/;
 
-export default async function RidePage({ searchParams }: { searchParams: Promise<{ day?: string; source?: string; first?: string }> }) {
+export default async function RidePage({ searchParams }: { searchParams: Promise<{ day?: string; source?: string; first?: string; workout?: string }> }) {
   if (!authEnabled) return <RideScreen initialFtp={null} canSave={false} levels={STARTING_LEVELS} />;
   const supabase = await createClient();
-  const { day: asked, source, first } = await searchParams;
+  const { day: asked, source, first, workout } = await searchParams;
   // Ride now offers a plan day's session first: the one asked for (from Today's check-in), else today's.
-  const state = await loadTrainingState(supabase);
+  const [state, layout] = await Promise.all([loadTrainingState(supabase), loadLayout(supabase)]);
   const day = asked && DAY.test(asked) ? asked : state.today;
   const stored = day === state.today ? state.todayStored : ((await loadPlanDays(supabase, day, day))[0] ?? null);
   const session = sessionFor(state, day, stored);
@@ -37,6 +38,8 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
         favorites={state.favorites}
         today={state.today}
         thresholdHr={state.athlete.thresholdHr}
+        weightKg={state.athlete.weightKg}
+        rideFields={layout.ride}
       />
     );
   }
@@ -44,7 +47,7 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
   const saved = await loadCustomWorkouts(supabase).catch(() => []);
   return (
     <RideScreen
-      key={day}
+      key={`${day}:${workout ?? ""}`}
       initialFtp={state.athlete.ftp}
       ftpGuess={ftpIsGuess(state.athlete.ftpHistory, state.today)}
       canSave
@@ -56,7 +59,10 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
       favorites={state.favorites}
       today={state.today}
       thresholdHr={state.athlete.thresholdHr}
-      initialSource={source === "library" || source === "custom" || source === "erg" ? source : undefined}
+      weightKg={state.athlete.weightKg}
+      rideFields={layout.ride}
+      initialSource={source === "library" || source === "custom" || source === "erg" || source === "headUnit" ? source : undefined}
+      initialWorkout={workout}
     />
   );
 }

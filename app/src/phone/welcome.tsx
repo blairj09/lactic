@@ -1,11 +1,12 @@
-// The iPhone's first screen: one question, two equal answers. Pair with Lactic on a computer, which
-// brings everything across (the plan, rides, settings), or use this iPhone on its own. Pairing
+// The phone's first screen: one question, two equal answers. Pair with Lactic on a computer, which
+// brings everything across (the plan, rides, settings), or use this phone on its own. Pairing
 // opens its own short screen with the steps and the Scan button.
 
 import { useState } from "react";
 import { MarkTile } from "~/app/brand";
 import { button, Result } from "@/components/ui";
 import { setSetting } from "~/settings/store";
+import { phoneHealthName, phoneWord } from "~/platform/native";
 import { PairWithComputer, useLinkState } from "./settings";
 
 /** app_settings key: this phone was set up without a computer. */
@@ -55,11 +56,11 @@ export function PhoneWelcome({ onSolo }: { onSolo: () => void }) {
         <MarkTile size={56} />
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight">Pair with your computer</h1>
-          <p className="text-muted">Your computer keeps your plan, rides and settings. This iPhone syncs with it, reads Apple Health and runs rides.</p>
+          <p className="text-muted">Your computer keeps your plan, rides and settings. This {phoneWord()} syncs with it, reads {phoneHealthName()} and runs rides.</p>
         </div>
         <ol className="list-decimal space-y-1 pl-5 text-sm">
-          <li>On your computer, open Lactic → Settings → iPhone.</li>
-          <li>Click Pair an iPhone.</li>
+          <li>On your computer, open Lactic → Settings → Phone.</li>
+          <li>Click Pair a phone.</li>
           <li>Scan the code it shows.</li>
         </ol>
         <PairWithComputer onPaired={setComputer} />
@@ -77,10 +78,10 @@ export function PhoneWelcome({ onSolo }: { onSolo: () => void }) {
         <p className="text-muted">A training plan that fits your week, workouts on your smart trainer, and your recovery in one place. Free.</p>
       </div>
       <div className="space-y-3">
-        <Choice title="Pair with your computer" line="Lactic on your Mac or PC keeps everything. This iPhone syncs with it and can steer its rides." onPick={() => setPairing(true)} />
+        <Choice title="Pair with your computer" line={`Lactic on your Mac or PC keeps everything. This ${phoneWord()} syncs with it and can steer its rides.`} onPick={() => setPairing(true)} />
         <Choice
-          title="Use this iPhone on its own"
-          line="No computer needed. Your plan, rides with your trainer and Apple Health, all on this iPhone."
+          title={`Use this ${phoneWord()} on its own`}
+          line={`No computer needed. Your plan, rides with your trainer and ${phoneHealthName()}, all on this ${phoneWord()}.`}
           onPick={() => {
             void setSetting(SOLO, true);
             onSolo();

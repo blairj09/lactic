@@ -101,6 +101,8 @@ export async function saveAppRide(input: {
   plannedWorkoutId?: string;
   /** What adaptive workouts changed mid-ride. */
   adaptations?: unknown;
+  /** A head unit ride: another app (Zwift, Rouvy) drove the trainer and usually posts the ride itself. */
+  headUnit?: boolean;
 }): Promise<ActionResult & { rideId?: string }> {
   let rideId: string | undefined;
   const result = await attempt(async () => {
@@ -143,16 +145,20 @@ export async function saveAppRide(input: {
     } catch (e) {
       console.error("Couldn't queue the ride for intervals.icu:", e);
     }
-    // Posted to Strava as a Lactic activity, when Strava is connected (an experiment for now).
+    // Posted to Strava as a Lactic activity, when Strava is connected (an experiment for now). Not a
+    // head unit ride: the other app usually posts it, and two would be one too many. Post to Strava
+    // on its page still sends it.
+    let skippedStrava = false;
     try {
       const strava = await import("~/integrations/strava");
-      if (ids[0]) await strava.queueStravaRide(ids[0], fit());
+      if (input.headUnit === true) skippedStrava = strava.stravaOn() && (await strava.loadStrava())?.uploadRides === true;
+      else if (ids[0]) await strava.queueStravaRide(ids[0], fit());
     } catch (e) {
       console.error("Couldn't queue the ride for Strava:", e);
     }
     refresh();
     rideId = ids[0];
-    return "Ride saved.";
+    return skippedStrava ? "Ride saved. Not posted to Strava, since the other app usually does." : "Ride saved.";
   });
   return { ...result, rideId };
 }
@@ -262,7 +268,9 @@ export async function scheduleFirstTest(): Promise<ActionResult> {
       const day = dayMinutes(d, state.athlete.availability, state.breaks);
       return day.easyOnly ? 0 : day.minutes;
     };
-    const date = firstTestDay(state.plan, state.today, minutes, ridesFor(state, state.today).length > 0);
+    // Not today once ridden, nor on a new rider's first day: that day starts with an easy ride to try the trainer.
+    const firstDay = state.rides.length === 0;
+    const date = firstTestDay(state.plan, state.today, minutes, firstDay || ridesFor(state, state.today).length > 0);
     if (!date) return "No day with time for an FTP test this week. Today will offer one once there is.";
     await writeDays(supabase, state, [{ date, session: rampTest() }]);
     const pushed = await pushChangedPlan(supabase);

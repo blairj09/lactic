@@ -20,7 +20,7 @@ export interface AppInfo {
   /** e.g. "15.1.0" on macOS; missing from builds before 0.1.2. */
   osVersion?: string;
   dataDir: string | null;
-  /** The iPhone app (missing from builds before the phone app). */
+  /** A phone app (missing from builds before the phone apps). */
   mobile?: boolean;
 }
 
@@ -36,14 +36,24 @@ export function setOs(os: string) {
   if (os && os !== "browser") currentOs = os;
 }
 
-/** The iPhone app: same screens, but it syncs with the rider's computer instead of running the integrations. */
+/** The phone apps (iPhone, Android): same screens, but they sync with the rider's computer instead of running the integrations. */
 export function isPhone(): boolean {
   return currentOs === "ios" || currentOs === "android";
 }
 
-/** "macos", "windows", "linux" or "ios". */
+/** "macos", "windows", "linux", "ios" or "android". */
 export function os(): string {
   return currentOs;
+}
+
+/** What to call this phone in sentences: "iPhone" or "phone" (Android). */
+export function phoneWord(): string {
+  return currentOs === "android" ? "phone" : "iPhone";
+}
+
+/** The phone's health store: Apple Health or Health Connect. */
+export function phoneHealthName(): string {
+  return currentOs === "android" ? "Health Connect" : "Apple Health";
 }
 
 /** What the system calls its file browser. */

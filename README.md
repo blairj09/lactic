@@ -9,21 +9,22 @@
 A training plan that fits your week, workouts on your smart trainer, and your recovery in one place.<br>
 Free, on your computer, with the AI coach of your choice. Or none.
 
-_Lactic is in beta. Expect a few rough edges, and please [open an issue](https://github.com/blairj09/lactic/issues) or use Send feedback in the app when something's off._
+_Lactic is in beta. Expect a few rough edges, and please [open an issue](https://github.com/blairj09/lactic/issues/new/choose) or use the speech bubble in the app when something's off._
 
-[**Download**](https://github.com/blairj09/lactic/releases/latest) · [MIT licensed](LICENSE) · [lactic.fit](https://lactic.fit) · [Build from source](#build-from-source) · [Contributing](#contributing)
+[**Download**](https://github.com/blairj09/lactic/releases/latest) · [iPhone beta](https://testflight.apple.com/join/nDjt8pAG) · [lactic.fit](https://lactic.fit) · [Plugins](plugins/) · [Contributing](CONTRIBUTING.md) · [MIT licensed](LICENSE)
 
 </div>
 
 <p align="center">
-  <img src="docs/images/hero.png" width="100%" alt="Lactic running a sweet spot workout in ERG: power on target, heart rate, cadence and the intervals ahead">
+  <img src="docs/images/hero.png" width="100%" alt="Lactic riding a sweet spot workout in ERG, with W′ balance and power zones fields from plugins">
 </p>
 
 ---
 
 - **A plan that fits your life.** Your goal, the time you have each day, and the weeks to get there.
-- **Every interval on target.** ERG on your smart trainer, road mode for sprints, an overlay on top of Zwift or anything else.
+- **Every interval on target.** ERG on your smart trainer, with an overlay on top of Zwift or anything else.
 - **Train for the day you're having.** A morning recovery score from your watch, and a plan that adjusts to it.
+- **Make it yours.** Arrange Today, choose your ride fields, add plugins.
 - **A coach that knows your numbers.** Built-in, the AI app you already use, or none. It suggests; you apply.
 
 Free and open source. Your data stays in one file on your computer.
@@ -32,62 +33,68 @@ Free and open source. Your data stays in one file on your computer.
 
 ### Every morning, one screen
 
-Your recovery, your weight and how you feel. Today's workout, with **Ride it** one click away. Your form, your last ride, and a new FTP estimate when your rides call for one.
+Recovery, today's workout with **Start ride**, a shorter option when you're carrying fatigue, your week and your form. Drag cards into any order, resize them or take them off.
 
-![Today: recovery, weigh-in, today's workout with Ride it, form, last ride and a new FTP estimate](docs/images/today.png)
+![Today: recovery, ready to train, today's plan and a suggested shorter ride](docs/images/today.png)
 
 ### Rides that hold the watts
 
-Lactic sets the watts for every interval and drops to road mode for sprints. The workout starts with your first pedal stroke, and paired gear reconnects on its own.
+Lactic sets the watts for every interval. The workout starts with your first pedal stroke, and paired gear reconnects on its own.
 
-The overlay keeps the workout on top of other windows, full screen included: Zwift, a video, a browser. Want more at the end? Extend with a free ride, a held ERG target or another block.
+- **Your fields.** Pick a layout (1 to 10 big numbers, with or without the chart), choose what each shows, and add pages to swipe through. Build your own fields without code, like 10-second power or % of FTP.
+- **Overlay.** Keeps the ride on top of Zwift, a video or a browser, full screen included.
+- **Head unit.** Riding Zwift, Rouvy or MyWhoosh? Lactic shows your fields on the overlay and records the ride without touching the trainer.
 
 ### Plans that adapt
 
 Pick a goal (an event, a higher FTP, getting fitter or staying consistent) and the time you have each day. Lactic builds the phases and recovery weeks, forecasts your fitness to the end, and adjusts each morning for sleep, HRV and how yesterday felt.
 
-Click a day to change it or ride it outside. Drag it to swap days.
-
 ![A 13-week plan with phases and a fitness forecast](docs/images/plan.png)
 
 ### Progress you can trust
 
-Fitness, fatigue and form. FTP from critical power, your power curve and profile, VO2 max. All calculated on your computer by an engine with tests behind it. Compare any range with the one before, or with last year.
+Fitness, fatigue and form. FTP from critical power, your power curve and profile, VO2 max. All calculated on your computer by an engine with tests behind it.
 
 ![Fitness, fatigue and form over three months](docs/images/progress.png)
 
 ### Recovery from the watch you already wear
 
-A daily recovery score from sleep, HRV and resting heart rate, plus sleep stages and weight. Click any number for its history.
+A daily recovery score from sleep, HRV and resting heart rate, plus sleep stages, exertion and weight.
 
-![Health: recovery, sleep score, HRV, resting heart rate and sleep](docs/images/health.png)
+![Health: recovery, HRV, resting heart rate, sleep and exertion](docs/images/health.png)
 
 | Your device | How it gets to Lactic |
 | --- | --- |
-| **Apple Watch** | [The Lactic Shortcut](docs/apple-health-shortcut.md) on your iPhone saves your nights to a synced folder (iCloud Drive, Dropbox, Google Drive, Nextcloud or Syncthing). Lactic picks them up. |
+| **Apple Watch** | The [Lactic iPhone app](https://testflight.apple.com/join/nDjt8pAG) reads Apple Health. Or use [the Lactic Shortcut](docs/apple-health-shortcut.md) with a synced folder. |
 | **Garmin, Oura, WHOOP** (and Polar, Coros, Suunto) | Link it to [intervals.icu](https://intervals.icu), then connect intervals.icu to Lactic. |
-| **Android** (Samsung, Pixel Watch, Fitbit) | [Health Sync](https://play.google.com/store/apps/details?id=nl.appyhapps.healthsync) sends Health Connect to intervals.icu. Lactic walks you through it. |
-| **Smart scale** | Over Bluetooth: Hume Body Pod, Xiaomi Mi scales, Renpho and other QN scales, Etekcity ESF-551, and standard Bluetooth scales (Omron, A&D, Beurer, Sanitas and others). Withings and Garmin Index come in through intervals.icu or Apple Health. Or type your weight in. |
+| **Android** (Samsung, Pixel Watch, Fitbit) | [Health Sync](https://play.google.com/store/apps/details?id=nl.appyhapps.healthsync) sends Health Connect to intervals.icu. |
+| **Smart scale** | Over Bluetooth: Hume Body Pod, Xiaomi, Renpho and other QN scales, Etekcity ESF-551, and standard Bluetooth scales (Omron, A&D, Beurer, Sanitas). Or type your weight in. |
 
-**intervals.icu** also brings in your ride history from Zwift, Garmin, Wahoo and most other apps, so your fitness is right from day one. Rides and planned workouts sync back.
+intervals.icu also brings in your ride history from Zwift, Garmin, Wahoo and most other apps. You can import FIT, GPX and TCX files (or a Strava archive) too, and post rides to Strava.
+
+### Plugins
+
+Plugins add live ride fields and sections on a ride's page. Add Lactic's own from **Settings → Plugins** (W′ Balance, Best Efforts, Matches, Fuel Reminder, Zones and more), or any plugin from a GitHub link or a `.lacticplugin` file.
+
+Each plugin runs in a sandbox with no internet, no storage and no way to change anything. You see what it reads before it's added, and it gets only what you allow. Plugins are on Mac, Windows and Linux.
+
+Write your own with the [starter and SDK](plugins/), or hand [AI-GUIDE.md](plugins/AI-GUIDE.md) to an AI assistant and describe what you want. The [catalog](plugins/catalog/) is commented to learn from.
 
 ### Bring your own AI (or none)
 
-![Choosing a coach: built-in, an AI app you already use, or none](docs/images/coach.png)
-
-| Coach mode | What you get |
+| Coach | What you get |
 | --- | --- |
-| **Built-in coach** | Chat inside Lactic on a model you pick: OpenRouter, Anthropic, OpenAI, Gemini, any OpenAI-compatible API, or a free model on your computer with Ollama or LM Studio. A morning brief and weekly workout picks with reasons. |
-| **An AI app you already use** | Lactic runs an MCP server on your computer. One click adds it to Claude Desktop; any MCP app can connect. It gets the same tools as the built-in coach. |
-| **No coach** | Just the plan, the workouts and your numbers. Nothing leaves your computer. |
+| **Built-in** | Chat inside Lactic on a model you pick: OpenRouter, Anthropic, OpenAI, Gemini, any OpenAI-compatible API, or a free local model with Ollama or LM Studio. A morning brief and weekly workout picks. |
+| **An AI app you already use** | Lactic runs an MCP server on your computer. One click adds it to Claude Desktop; any MCP app can connect. |
+| **None** | The plan, the workouts and your numbers. Nothing leaves your computer. |
 
-Either coach reads the engine's numbers through tools and **suggests** changes. You apply or dismiss them. It can also check your gear and connections, and try a reconnect when something's off. Keys live in your OS keychain, never in the screens or the AI.
+The coach reads the engine's numbers through tools and **suggests** changes; you apply or dismiss them. Keys live in your OS keychain. Cloud models stop at a monthly limit you set (default $10). See [choosing a coach model](docs/coach-models.md).
 
-Cloud models stop at a monthly limit you set (default $10), so there are no surprise bills. [Choosing a coach model](docs/coach-models.md) lists good picks per provider, rough monthly costs and what leaves your computer.
+### On your phone
 
-### Easy to start
+**Lactic for iPhone** ([TestFlight beta](https://testflight.apple.com/join/nDjt8pAG)) reads Apple Health, runs rides on the trainer or acts as the remote for your computer's ride, and adds widgets, a Live Activity and an Apple Watch app. It pairs with your computer by QR code and syncs over your home Wi-Fi, encrypted, with no server in between. Android is on the way.
 
-5 minutes and you'll be riding intervals. Five steps: you, your week and goal, your gear, your rides and sleep, your coach. Skip anything you don't have. A short tour shows you around after.
+![Lactic on iPhone: Today and a ride](docs/images/phone.png)
 
 ## Download
 
@@ -95,23 +102,22 @@ Get the latest version from [**GitHub Releases**](https://github.com/blairj09/la
 
 | Platform | File | First launch |
 | --- | --- | --- |
-| **macOS** (Apple silicon or Intel) | `Lactic_*_universal.dmg` | Drag Lactic to Applications and open it (signed and notarized by Apple). |
+| **macOS** (Apple silicon or Intel) | `Lactic_*_universal.dmg` | Drag Lactic to Applications and open it. Signed and notarized by Apple. |
 | **Windows** | `Lactic_*_x64-setup.exe` | SmartScreen warns about an unknown publisher: choose **More info → Run anyway**. |
-| **Linux** | `Lactic_*_amd64.AppImage` or `.deb` | `chmod +x Lactic_*.AppImage` and run it, or `sudo apt install ./Lactic_*_amd64.deb`. Bluetooth needs BlueZ; keys are stored via the Secret Service (GNOME Keyring or KWallet). |
+| **Linux** | `Lactic_*_amd64.AppImage` or `.deb` | `chmod +x` the AppImage and run it, or `sudo apt install ./Lactic_*_amd64.deb`. Needs BlueZ, and GNOME Keyring or KWallet for keys. |
+| **iPhone** | [TestFlight](https://testflight.apple.com/join/nDjt8pAG) | Install TestFlight, then open the link. |
 
 > [!NOTE]
-> Lactic isn't code-signed yet, which is why macOS and Windows ask for those extra steps. Windows and Linux builds are new and haven't had much riding on real hardware yet. Bug reports are very welcome.
+> **Windows and Linux builds haven't been tested on real hardware yet.** If you try one, please [tell us how it went](https://github.com/blairj09/lactic/issues/new/choose).
 
 ## Quick start
 
 1. **Install** Lactic and open it.
-2. **About you:** FTP (or "I don't know"), weight and, if you like, max heart rate.
-3. **Your week and goal:** how long you can ride each day and what you're training for. Lactic builds the plan.
-4. **Your gear:** spin the trainer and put the strap on (or turn on heart rate broadcast on your watch). Lactic finds them.
-5. **Your rides and sleep:** an intervals.icu key brings in your history. Pick your watch for recovery.
-6. **Your coach:** pick one, or go without. Change any of it later in Settings.
+2. **About you:** your FTP (or "I don't know") and weight.
+3. **Your trainer:** spin the pedals and put the strap on. Lactic finds them.
+4. Press **Start riding.** Your week and goal, past rides, sleep and the coach wait on Today under "Finish setting up".
 
-Then press **Ride**. Riding with Zwift too? Pair the trainer in Zwift for power and cadence only, and leave control to Lactic.
+Riding with Zwift too? Pair the trainer in Zwift for power and cadence only, and leave control to Lactic.
 
 ## Build from source
 
@@ -123,50 +129,29 @@ cd lactic/app
 npm ci
 npm run dev       # in a browser at http://localhost:1420, with simulated sensors
 npx tauri dev     # the desktop app (needs Rust: https://rustup.rs)
-npx tauri build   # installers in src-tauri/target/release/bundle
 ```
 
-You'll need Node 22 and, for the desktop app, stable Rust. On Linux also install `libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev pkg-config`.
-
-See [app/README.md](app/README.md) for how the app is put together.
+You'll need Node 22 and, for the desktop app, stable Rust. On Linux also install `libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev pkg-config`. See [app/README.md](app/README.md) for the iPhone build and how the app is put together.
 
 ```
 app/
   web/lib/engine/   training engine: load, zones, fitness, plans (pure TypeScript, tested)
   web/              screens and data code
-  src/              desktop shell: SQLite schema, Bluetooth, setup, tour, coach tools
-  src-tauri/        Rust core: db.rs, ble.rs, secrets.rs, net.rs, mcp.rs, window.rs
+  src/              shell: SQLite schema, Bluetooth, setup, plugins, coach tools
+  src-tauri/        Rust core: database, Bluetooth, keychain, network, MCP server
+plugins/            plugin SDK, starter, catalog and AI guide
 site/               lactic.fit
 ```
 
 ## Contributing
 
-Lactic is built by riders, for riders, in the open. Issues and pull requests are welcome, whether that's a bug on your trainer, support for new gear or a health source, or a better workout.
+Lactic is built by riders, for riders, in the open. Bug reports, gear support, plugins and pull requests are all welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md).
 
-The quickest way to tell us something is the speech bubble at the top of the app: it attaches a picture of the screen you're on, so write a note, circle the problem and send. No GitHub account needed; it arrives here as an issue.
-
-Before you open a pull request, run the checks in `app/`:
-
-```sh
-npm run typecheck && npm run lint && npm test && npx vite build
-(cd src-tauri && cargo check)   # when Rust changed
-```
-
-Changing the coach's prompt or tools? `npm run eval:coach` scores it across models. See [app/evals](app/evals/README.md).
-
-A few house rules keep Lactic trustworthy:
-
-- **The engine owns every number.** The AI coach reads engine outputs through tools and proposes changes; it never computes metrics.
-- **Keep the core portable.** `web/lib/engine`, `web/lib/fit`, `web/lib/ride` and the Bluetooth protocol code stay free of browser and Node APIs so they run anywhere and test in Vitest.
-- **One GATT write at a time,** through `SensorHub`'s queue.
-- **Migrations only add.** New tables and columns, never drops or renames. Every table has a UUID `id` and `updated_at`, so sync can come later.
-- **Secrets stay in the OS keychain.** The UI only ever sends `keychain:<name>` placeholders.
+No GitHub account? The speech bubble at the top of the app attaches a picture of the screen you're on, so circle the problem and send. It arrives here as an issue.
 
 ## License
 
-[MIT](LICENSE). Use it, fork it, ship it. Just keep the copyright notice.
-
-The Lactic name and logo aren't covered by the license. If you ship a fork, give it its own name and icon. See [TRADEMARKS.md](TRADEMARKS.md).
+[MIT](LICENSE). The Lactic name and logo aren't covered by the license; if you ship a fork, give it its own name and icon. See [TRADEMARKS.md](TRADEMARKS.md).
 
 ---
 

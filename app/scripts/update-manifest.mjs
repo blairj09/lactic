@@ -88,8 +88,8 @@ if (process.argv[1] && import.meta.url.endsWith(basename(process.argv[1]))) {
     console.error("usage: update-manifest.mjs <dir> <version> <owner/repo>");
     process.exit(2);
   }
-  // A preview (0.1.4-preview.12) lists what's coming: the Next section.
-  const section = /-preview\./.test(version) ? "Next" : version;
+  // A preview (0.1.4-preview.12) or modular build (0.1.4-modular.3) lists what's coming: the Next section.
+  const section = /-(preview|modular)\./.test(version) ? "Next" : version;
   const notes = notesFile ? whatsNew(readFileSync(notesFile, "utf8"), section) : undefined;
   console.log(JSON.stringify(manifest({ paths: files(dir), version, repo, notes, tag: tag || undefined }), null, 2));
 }
