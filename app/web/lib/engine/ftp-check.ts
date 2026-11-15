@@ -88,18 +88,18 @@ export function retestDay(plan: Plan, today: string, minutes: (date: string) => 
 }
 
 /**
- * The day for a new rider's first ramp test, when FTP is only a guess: the first day from `today` (tomorrow,
- * once today is ridden) in the next RETEST_WINDOW_DAYS with time to ride, no hard day before it, and no
+ * The day for a new rider's first ramp test, when FTP is only a guess: the first day from `today` (tomorrow
+ * with `skipToday`: today is ridden, or it's the rider's first day and keeps its easy first ride) in the next RETEST_WINDOW_DAYS with time to ride, no hard day before it, and no
  * event or openers on it. Sessions are set from FTP, so the sooner the test, the sooner they fit. Null if
  * none fits.
  */
-export function firstTestDay(plan: Plan, today: string, minutes: (date: string) => number, riddenToday: boolean): string | null {
+export function firstTestDay(plan: Plan, today: string, minutes: (date: string) => number, skipToday: boolean): string | null {
   const days = new Map(plan.weeks.flatMap((w) => w.days).map((d) => [d.date, d]));
   const hard = (date: string) => {
     const role = days.get(date)?.role;
     return role !== undefined && HARD.includes(role);
   };
-  for (let k = riddenToday ? 1 : 0; k <= RETEST_WINDOW_DAYS; k++) {
+  for (let k = skipToday ? 1 : 0; k <= RETEST_WINDOW_DAYS; k++) {
     const date = addDays(today, k);
     const day = days.get(date);
     if (!day || day.break || day.role === "event" || day.role === "openers") continue;
