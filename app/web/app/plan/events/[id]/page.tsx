@@ -16,6 +16,7 @@ import { loadTrainingState, type TrainingState } from "@/lib/training";
 import { distanceIn, distanceUnit, elevationIn, elevationUnit, readUnits, type UnitSystem } from "@/lib/units";
 import CourseField from "../../course-field";
 import CourseView from "./course-view";
+import RideCourse from "./ride-course";
 import { HomeElevationForm, MeasureDrag, RaceTargetForm, RefreshForecast, ScienceLink, UseCourseDuration } from "./prep-actions";
 import { loadRiderDrag } from "@/lib/calibration";
 import { defaultPack, PACK_LABELS, ROAD_KINDS } from "@/lib/engine/course/pacing";
@@ -192,6 +193,12 @@ export default async function PreRacePage({ params }: { params: Promise<{ id: st
         <Panel title="The course" meta={stored.fileName ?? undefined}>
           <CourseView profile={profile} pacing={pacing} start={goal.startTime ?? null} />
         </Panel>
+
+        {profile.hasElevation && (
+          <Panel title="Ride the course">
+            <RideCourse goalId={goal.id} profile={profile} />
+          </Panel>
+        )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Panel title="How to ride it">

@@ -17,6 +17,9 @@ import FavoriteButton from "@/components/favorite-button";
 import { RideClock } from "@/lib/ride/clock";
 import { rideTotals } from "@/lib/ride/totals";
 import { SPRINT_GRADE, allOutAt, clampGrade, freeRideAt } from "@/lib/ride/sprint";
+import { COURSE_START, advance, gradeAt, trainerGrade, type CourseRider, type CourseSection } from "@/lib/ride/course-ride";
+import type { CourseProfile } from "@/lib/engine/course/profile";
+import CourseRideView from "./course-ride-view";
 import { blankWorkout } from "@/lib/engine/workout-edit";
 import type { CustomWorkout } from "@/lib/custom-workouts";
 import { ERG_STEP, addErgChange, clampErg, defaultErg, ergWorkout, type ErgChange } from "@/lib/ride/erg";
@@ -96,6 +99,22 @@ function writePref(key: string, value: string) {
 
 type RideScreenProps = Parameters<typeof RideOnThisDevice>[0];
 
+/** Part of an event's course to ride: the trainer follows its grade and a 3D view follows the road. */
+export interface CourseRide {
+  goalId: string;
+  eventName: string;
+  profile: CourseProfile;
+  section: CourseSection;
+  rider: CourseRider;
+  /** About how long the section takes at an endurance pace. */
+  seconds: number;
+}
+
+/** A free ride long enough for the section at an easy pace; reaching the section's end finishes it. */
+function courseWorkout(course: CourseRide): Workout {
+  return { name: `${course.eventName}: ${course.section.name}`, segments: [{ kind: "freeRide", duration: Math.max(600, Math.ceil((course.seconds * 1.5) / 60) * 60) }] };
+}
+
 /**
  * The Ride tab. On an iPhone paired with a computer whose Ride page is open, the computer holds the
  * trainer: the tab opens the remote for that ride instead of a second ride screen reaching for it.
@@ -133,7 +152,10 @@ function RideOnThisDevice({
   rideFields,
   initialSource,
   initialWorkout,
+  course,
 }: {
+  /** Ride this part of an event's course instead of a workout. */
+  course?: CourseRide;
   /** A workout to load first, by key (`library:<id>` or `custom:<id>`): Ride now from a workout's page. */
   initialWorkout?: string;
   /** Weight from Settings, for W/kg fields. */
@@ -170,6 +192,7 @@ function RideOnThisDevice({
   const [ftp, setFtp] = useState(initialFtp ?? 250);
   // Ride now from a workout's page opens with that workout loaded.
   const [opening] = useState(() => {
+    if (course) return { source: "custom" as const, workout: courseWorkout(course), starterId: null, customId: null };
     if (initialWorkout?.startsWith("library:")) {
       const entry = libraryWorkout(initialWorkout.slice(8));
       return entry ? { source: "starter" as const, workout: entry.workout, starterId: entry.id, customId: null } : null;
@@ -253,6 +276,8 @@ function RideOnThisDevice({
   const [sprintGrade, setSprintGrade] = useState(SPRINT_GRADE);
   const sprintGradeRef = useRef(SPRINT_GRADE);
   const gradeRef = useRef(0);
+  /** On a course ride: how far along the section your power has taken you. */
+  const courseState = useRef(COURSE_START);
   /** The grade sent while the trainer is on the road for a sprint or a free ride, not holding a target. */
   const sprinting = useRef<number | null>(null);
   const autoPause = useRef(new AutoPause());
@@ -403,7 +428,10 @@ function RideOnThisDevice({
       targetSamples.current.push(erg ? ergRef.current : headUnit ? null : targetWattsAt(workout, at, ftp));
       intervalSamples.current.push(open ? -1 : (intervalAt(workout, at)?.index ?? -1));
       trace.current.push([samples.current.length + offset.current, powerWatts ?? 0, heartRate ?? 0, Math.round(cadenceRpm ?? 0)]);
+      if (course) courseState.current = advance(courseState.current, powerWatts ?? 0, 1, course.profile, course.section, course.rider);
     }
+    // The end of the section is the end of the ride, however long it took.
+    if (course && courseState.current.meters >= course.section.to - course.section.from && now + offset.current < duration) offset.current += duration - (now + offset.current);
     if (now !== elapsedRef.current) {
       elapsedRef.current = now;
       setElapsed(now);
@@ -421,7 +449,7 @@ function RideOnThisDevice({
     if (easeFrom.current !== null && now - easeFrom.current >= 10) easeFrom.current = null;
     // A sprint or a free ride: off ERG and onto the road until it's over, then the next target goes
     // back as usual. Sprints ride the sprint grade, free rides the grade you set.
-    const road = !ergOnRef.current || erg ? null : allOutAt(workout, position) ? sprintGradeRef.current : freeRideAt(workout, position) ? gradeRef.current : null;
+    const road = !ergOnRef.current || erg ? null : allOutAt(workout, position) ? sprintGradeRef.current : freeRideAt(workout, position) ? (course ? trainerGrade(gradeAt(course.profile, course.section.from + courseState.current.meters)) : gradeRef.current) : null;
     if (road !== null) {
       if (sprinting.current !== road) {
         sprinting.current = road;
@@ -495,6 +523,7 @@ function RideOnThisDevice({
     autoStart.current.reset();
     setStartIn(null);
     if (elapsedRef.current === 0) {
+      courseState.current = COURSE_START;
       samples.current = [];
       hrSamples.current = [];
       cadenceSamples.current = [];
@@ -934,7 +963,8 @@ function RideOnThisDevice({
     autoPaused,
     // Free ERG is ERG by definition.
     ergOn: !headUnit && (erg || ergOn),
-    grade,
+    // On a course ride the road sets the grade, not the rider.
+    grade: course && freeRide ? trainerGrade(gradeAt(course.profile, course.section.from + courseState.current.meters)) : grade,
     allOut,
     sprintGrade: allOut && ergOn ? sprintGrade : null,
     freeRide,
@@ -1107,7 +1137,21 @@ function RideOnThisDevice({
           <SensorPanel hub={hub} state={state} supported={supported} onError={setError} headUnit={headUnit} />
         </div>
 
-        {elapsed === 0 && (
+        {course && !ended && (
+          <div className="space-y-2">
+            <CourseRideView profile={course.profile} section={course.section} state={courseState.current} running={running} eventName={course.eventName} />
+            {elapsed === 0 && (
+              <p className="text-sm text-muted">
+                The trainer follows the road&apos;s grade, so shift as you would outside.{" "}
+                <Link href={`/plan/events/${course.goalId}`} className="underline hover:text-ink">
+                  Pick another part
+                </Link>
+              </p>
+            )}
+          </div>
+        )}
+
+        {elapsed === 0 && !course && (
           <div data-tour="ride-pick">
             <RideNow
               ftp={ftp}

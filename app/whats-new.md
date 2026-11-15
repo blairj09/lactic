@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Race courses (experimental): ride part of an event's course indoors. Pick a climb, the finish or any stretch on the pre-race report; the trainer follows the road's grade and a 3D view of the real terrain follows you along it.
 - Lactic Modular: ask the coach for a ride field or ride page section Lactic doesn't have, and it writes a small plugin for it. You see it running on a sample ride, and its code, before you add it.
 - Settings is organized into sections with a menu, and has a search box (⌘F). ⌘, opens Settings from anywhere.
 - Today's This week compares rides since your plan started with what it planned, so rides you brought in from before the plan no longer show as "314 of 36 TSS". They still show on their days.

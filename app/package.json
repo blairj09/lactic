@@ -30,6 +30,7 @@
     "buffer": "^6.0.3",
     "fflate": "^0.8.3",
     "leaflet": "^1.9.4",
+    "maplibre-gl": "^5.24.1",
     "modern-screenshot": "^4.7.0",
     "quickjs-emscripten-core": "^0.32.0",
     "react": "^19.3.1",
