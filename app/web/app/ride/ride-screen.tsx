@@ -309,7 +309,11 @@ function RideOnThisDevice({
 
   useEffect(() => setSupported(isWebBluetoothAvailable()), []);
   // Hands off the trainer for a head unit ride, so nothing Lactic does can fight the other app.
-  useEffect(() => hub.setHandsOff(headUnit), [hub, headUnit]);
+  useEffect(() => {
+    hub.setHandsOff(headUnit);
+    // Leaving the Ride page gives the trainer back, so nothing else finds it still hands off.
+    return () => hub.setHandsOff(false);
+  }, [hub, headUnit]);
   const trainerApp = useTrainingApp(headUnit);
   useEffect(() => {
     // On unless turned off: clicking Start opens the overlay on top of other windows.
