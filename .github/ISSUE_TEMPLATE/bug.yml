@@ -1,0 +1,31 @@
+name: Something's wrong
+description: A bug, a crash, or gear that won't connect.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected and what you saw. Screenshots help.
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where?
+      multiple: true
+      options: [Mac, Windows, Linux, iPhone]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Lactic version
+      description: Settings → About.
+      placeholder: 0.2.0
+  - type: input
+    id: gear
+    attributes:
+      label: Gear
+      description: Trainer, heart rate strap, power meter, scale, watch. Anything involved.
+      placeholder: Wahoo KICKR CORE, Garmin HRM-Dual

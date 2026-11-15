@@ -1,6 +1,6 @@
 # Lactic plugins
 
-Plugins add cards to the Plugins area, fields to the ride screen and sections to a ride's page in **Lactic Modular**, the test build of the modular UI. They aren't in the regular Lactic app yet.
+Plugins add live fields to the ride screen and sections to a ride's page in Lactic on Mac, Windows and Linux. Riders manage them in Settings → Plugins.
 
 - `sdk/` is `@lactic/sdk`: TypeScript types for the plugin API, the kit, metric ids and the manifest, `definePlugin()`, and `lactic-pack`, which turns a manifest and a built bundle into a `.lacticplugin` file.
 - `starter/` is a small working plugin (Sweet Spot) to copy from.
@@ -34,4 +34,4 @@ npm install
 npm run build         # dist/sweet-spot-0.1.0.lacticplugin
 ```
 
-In Lactic Modular, go to Plugins → Add plugin → From a file… and pick the file. To update a plugin, add the newer file. Lactic shows what changed and asks first.
+In Lactic, go to Settings → Plugins → Add plugin → From a file… and pick the file. To update a plugin, add the newer file. Lactic shows what changed and asks first.

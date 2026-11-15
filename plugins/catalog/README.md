@@ -1,6 +1,6 @@
 # Lactic plugin catalog
 
-Official plugins for **Lactic Modular**: add them as they are, or read them to learn how a plugin is built. Each one is a single commented file that explains the sport science behind it.
+Official plugins for **Lactic**: add them as they are, or read them to learn how a plugin is built. Each one is a single commented file that explains the sport science behind it.
 
 | Plugin | Adds | Reads | Version |
 | --- | --- | --- | --- |
@@ -19,7 +19,7 @@ None of them read health data or where you ride, and none appear on Today.
 
 ## Add one
 
-In Lactic Modular, open the Plugins tab, choose Browse and pick one. The catalog ships inside the app, so nothing is downloaded, and Lactic shows what a plugin reads before anything runs.
+In Lactic, open Settings → Plugins, choose Browse and pick one. The catalog ships inside the app, so nothing is downloaded, and Lactic shows what a plugin reads before anything runs.
 
 ## Learn from one
 

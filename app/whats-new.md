@@ -7,6 +7,8 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Settings is organized into sections with a menu, and has a search box (⌘F). ⌘, opens Settings from anywhere.
+- iPhone: Customize fields now has Head unit, so you can set up the head unit's pages on your phone. The phone remote shows those pages during a head unit ride.
+- New riders who don't know their FTP start with an easy ride on day one; the FTP test comes on the next good day.
 - Today no longer shows a coach error when the built-in coach has no API key yet; the brief simply stays hidden until the coach is set up.
 - iPhone: when Apple Health hasn't been asked about something Lactic reads ("Authorization not determined"), Lactic shows Apple's permission sheet again, and Settings shows Connect Apple Health instead of the error.
 - Phones: tap the tab you're on to go back to the top of its page (or back to its main page first).

@@ -268,7 +268,9 @@ export async function scheduleFirstTest(): Promise<ActionResult> {
       const day = dayMinutes(d, state.athlete.availability, state.breaks);
       return day.easyOnly ? 0 : day.minutes;
     };
-    const date = firstTestDay(state.plan, state.today, minutes, ridesFor(state, state.today).length > 0);
+    // Not today once ridden, nor on a new rider's first day: that day starts with an easy ride to try the trainer.
+    const firstDay = state.rides.length === 0;
+    const date = firstTestDay(state.plan, state.today, minutes, firstDay || ridesFor(state, state.today).length > 0);
     if (!date) return "No day with time for an FTP test this week. Today will offer one once there is.";
     await writeDays(supabase, state, [{ date, session: rampTest() }]);
     const pushed = await pushChangedPlan(supabase);
