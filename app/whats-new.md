@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Settings is organized into sections with a menu, and has a search box (⌘F). ⌘, opens Settings from anywhere.
 - Today's This week compares rides since your plan started with what it planned, so rides you brought in from before the plan no longer show as "314 of 36 TSS". They still show on their days.
 - iPhone: Customize fields now has Head unit, so you can set up the head unit's pages on your phone. The phone remote shows those pages during a head unit ride.
 - New riders who don't know their FTP start with an easy ride on day one; the FTP test comes on the next good day.
