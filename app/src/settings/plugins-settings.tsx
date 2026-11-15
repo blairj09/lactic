@@ -7,8 +7,9 @@ import { button, Result } from "@/components/ui";
 import { GROUP_WORDS, OPT_IN_GROUPS, type InstallChoices } from "~/plugins/permissions";
 import { approvePlugin, installPlugin, listPlugins, preparePackage, removePlugin, setCoachVisible, setPluginEnabled, updatePlugin, type PluginRecord, type Prepared } from "~/plugins/store";
 import { checkForUpdates, type Offer } from "~/plugins/updates";
-import { CATALOG_ORIGIN } from "~/plugins/catalog";
-import { PACKAGE_EXTENSION } from "~/plugins/package";
+import { CATALOG_ORIGIN, COACH_ORIGIN } from "~/plugins/catalog";
+import { saveBytes } from "~/data/export";
+import { PACKAGE_EXTENSION, packagePlugin } from "~/plugins/package";
 import { adds, BrowseList, CANT, GitHubDialog, PermissionDialog, PluginIcon, ReadLine, RefusedDialog, sourceChange, sourceLabel, UpdateDialog } from "./plugin-dialogs";
 import { PluginPreview } from "./plugin-preview";
 import { SandboxCheck } from "./sandbox-check";
@@ -307,9 +308,22 @@ function Details({ p, offer, onOpen, onBack, run }: { p: PluginRecord; offer?: O
                 </button>
               </>
             ) : (
-              <button type="button" className={`${button.small} text-negative`} onClick={() => setRemoving(true)}>
-                Remove
-              </button>
+              <>
+                {p.origin === COACH_ORIGIN && (
+                  <button
+                    type="button"
+                    className={button.small}
+                    onClick={() =>
+                      run(() => saveBytes(`${m.id}-${m.version}${PACKAGE_EXTENSION}`, new TextEncoder().encode(packagePlugin(m, p.source)), { name: "Lactic plugin", extensions: [PACKAGE_EXTENSION.slice(1)] }))
+                    }
+                  >
+                    Save as file
+                  </button>
+                )}
+                <button type="button" className={`${button.small} text-negative`} onClick={() => setRemoving(true)}>
+                  Remove
+                </button>
+              </>
             )}
           </section>
         </div>
