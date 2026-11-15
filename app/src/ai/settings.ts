@@ -2,7 +2,7 @@
 // they already use, connected over MCP.
 
 import { getSetting, setSetting } from "~/settings/store";
-import type { ProviderKind } from "./providers";
+import { preset, type ProviderKind } from "./providers";
 
 export type CoachMode = "none" | "builtin" | "external";
 
@@ -30,6 +30,18 @@ export interface CoachSetup {
 export const mcpOn = (s: Pick<CoachSetup, "mode" | "alongside">) => s.mode === "external" || (s.mode === "builtin" && Boolean(s.alongside));
 
 export const SECRET_AI = "ai";
+
+/**
+ * Whether the built-in coach can run: chosen, with a model, and a key in the keychain unless the
+ * provider needs none (local models, a custom server). Without one, Lactic acts as if the coach is
+ * off rather than sending keyless requests the provider turns down.
+ */
+export function builtinReady(setup: CoachSetup, keySaved: boolean): boolean {
+  if (setup.mode !== "builtin" || !setup.chat || !setup.provider) return false;
+  const { kind, hasKey } = setup.provider;
+  if (kind === "custom" || preset(kind).local) return true;
+  return hasKey && keySaved;
+}
 
 const KEY = "coach.setup";
 export const DEFAULT_SETUP: CoachSetup = { mode: "none", provider: null, chat: null, vision: null, monthlyCapUsd: 10 };
