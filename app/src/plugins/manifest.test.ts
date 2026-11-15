@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { looksLikeLactic, manifestEntries, parseManifestText, validateManifest } from "./manifest";
+import { looksLikeLactic, manifestEntries, packageHashText, parseManifestText, validateManifest } from "./manifest";
 import escapeManifestJson from "./fixtures/escape-manifest.json";
 
 const base = {
@@ -9,9 +9,9 @@ const base = {
   version: "0.4.0",
   description: "W′ balance during rides.",
   main: "plugin.js",
-  permissions: { read: ["live", "profile"] },
+  permissions: { read: ["live", "rides", "profile"] },
   publishes: [{ id: "balance", label: "W′ balance", unit: "kJ", kind: "number" }],
-  contributes: { fields: [{ id: "wbal", title: "W′ bal", entry: "field" }], widgets: [{ id: "wbal-card", title: "W′ balance", entry: "card" }] },
+  contributes: { fields: [{ id: "wbal", title: "W′ bal", entry: "field" }], analyses: [{ id: "wbal-ride", title: "W′ balance", entry: "ride" }] },
 };
 const errorsFor = (patch: Record<string, unknown>) => {
   const r = validateManifest({ ...base, ...patch });
@@ -22,7 +22,7 @@ describe("plugin manifest", () => {
   it("accepts a good manifest and lists its handlers", () => {
     const r = validateManifest(base);
     expect(r.ok).toBe(true);
-    if (r.ok) expect(manifestEntries(r.manifest)).toEqual(["card", "field"]);
+    if (r.ok) expect(manifestEntries(r.manifest)).toEqual(["field", "ride"]);
     expect(validateManifest(escapeManifestJson).ok).toBe(true);
   });
 
@@ -30,6 +30,19 @@ describe("plugin manifest", () => {
     expect(errorsFor({ permissions: { read: ["live"], network: ["api.weather.gov"] } }).join()).toMatch(/internet/);
     expect(errorsFor({ network: true }).join()).toMatch(/internet/);
     expect(errorsFor({ secrets: ["key"] }).join()).toMatch(/API keys/);
+  });
+
+  it("refuses plugin cards with a plain reason, but reads older manifests' empty list", () => {
+    expect(errorsFor({ contributes: { fields: base.contributes.fields, widgets: [{ id: "c", title: "C", entry: "card" }] } }).join()).toMatch(/can't add cards/);
+    const old = validateManifest({ ...base, contributes: { widgets: [], fields: base.contributes.fields } });
+    expect(old.ok && old.manifest.contributes).toEqual({ fields: base.contributes.fields });
+  });
+
+  it("keeps the hash older plugins were approved under", () => {
+    const r = validateManifest({ ...base, contributes: { widgets: [], fields: base.contributes.fields } });
+    if (!r.ok) throw new Error("invalid");
+    const { contributes, ...rest } = r.manifest;
+    expect(packageHashText(r.manifest, "x")).toBe(JSON.stringify({ ...rest, contributes: { widgets: [], ...contributes } }) + "\n" + "x");
   });
 
   it("refuses unknown keys, including __proto__", () => {

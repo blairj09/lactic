@@ -41,6 +41,8 @@ import { listSavedLayouts, loadLayout } from "@/lib/layout-data";
 import { defaultLayout } from "@/lib/sdk/layout";
 import { sameLayout } from "@/lib/sdk/layout-editor";
 import { LayoutSetting } from "./layout-panel";
+import { PluginsSettings } from "./plugins-settings";
+import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 
 export default async function SettingsPage() {
   const supabase = createClient();
@@ -256,6 +258,18 @@ export default async function SettingsPage() {
       node: (
         <Section id="iphone" title="Phone" description="Reads Apple Health for you and runs rides. Syncs with this computer over Wi-Fi.">
           <PairPhone />
+        </Section>
+      ),
+    },
+    pluginsAllowed && {
+      key: "plugins",
+      section: "plugins",
+      text: "Plugins add-ons install add GitHub catalog browse ride fields ride page sections sandbox update remove",
+      node: (
+        <Section id="plugins-list" title="Plugins" description="No internet, no changes, and they read only what you allow.">
+          <div className="sm:col-span-2">
+            <PluginsSettings />
+          </div>
         </Section>
       ),
     },

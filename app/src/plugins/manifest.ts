@@ -37,8 +37,22 @@ export interface PluginManifest {
   main: string;
   permissions: { read: MetricGroup[] };
   publishes: PublishedMetric[];
-  /** `analyses` run once on a saved ride (never during one) and draw on its ride page. Present only when non-empty, so older manifests hash the same. */
-  contributes: { widgets: Contribution[]; fields: Contribution[]; analyses?: Contribution[] };
+  /**
+   * Plugins add two things only (James 2026-11-15): `fields` on the ride screen, the overlay and head
+   * unit rides, and `analyses`, which run once on a saved ride (never during one) and draw on its ride
+   * page. `analyses` is present only when non-empty, so older manifests hash the same.
+   */
+  contributes: { fields: Contribution[]; analyses?: Contribution[] };
+}
+
+/**
+ * The text a plugin's hash is taken over: the checked manifest plus its code. Manifests used to carry
+ * `widgets` (plugin cards, now gone), always written as a list, so an empty one stays in this text and
+ * every plugin added before keeps its hash and its approval.
+ */
+export function packageHashText(m: PluginManifest, source: string): string {
+  const { contributes, ...rest } = m;
+  return JSON.stringify({ ...rest, contributes: { widgets: [], ...contributes } }) + "\n" + source;
 }
 
 export type ManifestResult = { ok: true; manifest: PluginManifest } | { ok: false; errors: string[] };
@@ -61,6 +75,9 @@ const NOT_IN_V1: Record<string, string> = {
   propose: "Plugins can't propose changes in this version of Lactic.",
   trainer: "Plugins can never control the trainer.",
 };
+
+/** Plugin cards (their own pages) were taken out: plugins add ride fields and ride page sections only. */
+const NO_CARDS = "Plugins can't add cards in this version of Lactic, only ride fields and ride page sections.";
 
 class Checker {
   errors: string[] = [];
@@ -193,10 +210,10 @@ export function validateManifest(raw: unknown): ManifestResult {
     } else c.fail(`${p}.kind`, 'must be "number" or "choice"');
   });
 
-  const contributions = (key: "widgets" | "fields" | "analyses", v: unknown): Contribution[] => {
+  const contributions = (key: "fields" | "analyses", v: unknown): Contribution[] => {
     const out: Contribution[] = [];
     const ids = new Set<string>();
-    c.arr(v ?? [], `manifest.contributes.${key}`, key === "widgets" ? 16 : key === "analyses" ? 8 : 32).forEach((w, i) => {
+    c.arr(v ?? [], `manifest.contributes.${key}`, key === "analyses" ? 8 : 32).forEach((w, i) => {
       const p = `manifest.contributes.${key}[${i}]`;
       const o = c.obj(w, p, ["id", "title", "entry"], ["id", "title", "entry"]);
       if (!o) return;
@@ -209,15 +226,15 @@ export function validateManifest(raw: unknown): ManifestResult {
     });
     return out;
   };
-  let widgets: Contribution[] = [];
   let fields: Contribution[] = [];
   let analyses: Contribution[] = [];
   const contributes = c.obj(top.contributes, "manifest.contributes", ["widgets", "fields", "analyses"], []);
   if (contributes) {
-    widgets = contributions("widgets", contributes.widgets);
+    // An empty list is fine: manifests written before cards were taken out always had one.
+    if (contributes.widgets !== undefined && !(Array.isArray(contributes.widgets) && contributes.widgets.length === 0)) c.fail("manifest.contributes.widgets", NO_CARDS);
     fields = contributions("fields", contributes.fields);
     analyses = contributions("analyses", contributes.analyses);
-    if (widgets.length + fields.length + analyses.length === 0 && c.errors.length === 0) c.fail("manifest.contributes", "must add at least one widget, field or ride analysis");
+    if (fields.length + analyses.length === 0 && c.errors.length === 0) c.fail("manifest.contributes", "must add at least one ride field or ride analysis");
     // A ride analysis reads a whole saved ride, so it has to ask for rides.
     if (analyses.length && !read.includes("rides")) c.fail("manifest.contributes.analyses", 'needs "rides" in permissions.read');
   }
@@ -236,7 +253,7 @@ export function validateManifest(raw: unknown): ManifestResult {
       main,
       permissions: { read },
       publishes,
-      contributes: analyses.length ? { widgets, fields, analyses } : { widgets, fields },
+      contributes: analyses.length ? { fields, analyses } : { fields },
     },
   };
 }
@@ -257,5 +274,5 @@ export function parseManifestText(text: string): ManifestResult {
 
 /** Every handler name the manifest points at; the sandbox refuses calls to anything else. */
 export function manifestEntries(m: PluginManifest): string[] {
-  return [...new Set([...m.contributes.widgets, ...m.contributes.fields, ...(m.contributes.analyses ?? [])].map((c) => c.entry))];
+  return [...new Set([...m.contributes.fields, ...(m.contributes.analyses ?? [])].map((c) => c.entry))];
 }

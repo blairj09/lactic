@@ -92,9 +92,9 @@ describe("kit validation", () => {
 });
 
 describe("layouts", () => {
-  it("defaults to the app as it was: five tabs plus Plugins (Modular only), Today's cards, the player's ten fields", () => {
+  it("defaults to the app as it was: five tabs, Today's cards, the player's ten fields", () => {
     const l = defaultLayout();
-    expect(l.tabs.map((t) => t.id)).toEqual(["today", "plan", "ride", "progress", "health", "plugins"]);
+    expect(l.tabs.map((t) => t.id)).toEqual(["today", "plan", "ride", "progress", "health"]);
     expect(l.today.map((c) => c.widget)).toEqual(["lactic.recovery", "lactic.weigh-in", "lactic.workout", "lactic.brief", "lactic.this-week", "lactic.form", "lactic.last-ride"]);
     expect(ridePages(l, "overlay")).toEqual(l.ride.workout.pages);
     expect(l.ride.workout.pages[0]).toMatchObject({ template: "standard" });
@@ -104,9 +104,7 @@ describe("layouts", () => {
   it("round-trips through JSON", () => {
     const l = defaultLayout();
     l.today[0].size = "medium";
-    l.tabs = [l.tabs[2], l.tabs[0], l.tabs[1], l.tabs[3], { ...l.tabs[4], hidden: true }, l.tabs[5]];
-    l.plugins.screens = [{ name: "Climbing", cards: [{ widget: "plugin.climb.form", size: "large", hidden: false }] }, { name: "Main", cards: [] }];
-    l.plugins.placed = ["plugin.climb.form"];
+    l.tabs = [l.tabs[2], l.tabs[0], l.tabs[1], l.tabs[3], { ...l.tabs[4], hidden: true }];
     expect(parseLayout(JSON.stringify(l))).toEqual(l);
   });
 
@@ -137,7 +135,7 @@ describe("layouts", () => {
       today: [{ widget: "lactic.form", size: "huge" }, { widget: "lactic.form" }, { widget: "<script>" }, { widget: "plugin.climb-lab.readiness", size: "small", extra: 1 }],
     });
     expect(l.tabs.slice(0, 2)).toEqual([{ id: "ride", hidden: false }, { id: "today", hidden: false }]);
-    expect(l.tabs).toHaveLength(6);
+    expect(l.tabs).toHaveLength(5);
     expect(l.today).toEqual([{ widget: "lactic.form", size: "large", hidden: false }]);
   });
 
@@ -242,7 +240,7 @@ describe("layout edits", () => {
 
   it("moves tabs and never hides Today or Ride", () => {
     let l = moveTab(defaultLayout(), "ride", 1);
-    expect(l.tabs.map((t) => t.id)).toEqual(["today", "ride", "plan", "progress", "health", "plugins"]);
+    expect(l.tabs.map((t) => t.id)).toEqual(["today", "ride", "plan", "progress", "health"]);
     expect(setTabHidden(l, "today", true)).toBe(l);
     expect(setTabHidden(l, "ride", true)).toBe(l);
     l = setTabHidden(l, "health", true);

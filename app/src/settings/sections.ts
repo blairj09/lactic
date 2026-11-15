@@ -31,7 +31,7 @@ export const SECTIONS: SectionInfo[] = [
   { id: "connections", label: "Connections", line: "Rides in and out." },
   { id: "health", label: "Health", line: "What you track, and where it comes from." },
   { id: "phone", label: "Phone", line: "Lactic on your phone, synced over Wi-Fi." },
-  { id: "plugins", label: "Plugins", line: "Add-ons for your ride screen and ride pages." },
+  { id: "plugins", label: "Plugins", line: "Ride fields and ride page sections." },
   { id: "data", label: "Your data", line: "Back it up, take it anywhere, or delete it." },
   { id: "experimental", label: "Experimental", line: "New things we're still trying out.", more: true },
   { id: "help", label: "Help and about", line: "Tour, feedback and your version.", more: true },

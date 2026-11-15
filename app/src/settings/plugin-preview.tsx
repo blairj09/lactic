@@ -1,5 +1,5 @@
 // What a plugin looks like, on the add screen: Lactic runs it on a made-up ride and rider
-// (plugins/preview.ts) and draws its ride fields, ride page sections and cards the way the app will.
+// (plugins/preview.ts) and draws its ride fields, and ride page sections the way the app will.
 // The plugin never sees the rider's own data here, and the run stops when the screen closes.
 import { useEffect, useState } from "react";
 import { Big } from "@/app/ride/field-grid";
@@ -11,7 +11,6 @@ import { createPluginWorker } from "~/plugins/spawn";
 const WHERE: Record<PreviewKind, string> = {
   field: "Ride fields",
   analysis: "Ride page",
-  card: "Plugins tab",
 };
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -64,7 +63,7 @@ export function PluginPreview({ manifest, source }: { manifest: PluginManifest; 
 
   if (!state.parts.length) return null;
   const running = !state.done;
-  const groups = (["field", "analysis", "card"] as const).map((k) => [k, state.parts.filter((p) => p.kind === k)] as const).filter(([, ps]) => ps.length);
+  const groups = (["field", "analysis"] as const).map((k) => [k, state.parts.filter((p) => p.kind === k)] as const).filter(([, ps]) => ps.length);
 
   return (
     <div className="space-y-3">

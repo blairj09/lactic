@@ -50,7 +50,7 @@ export default function ThisWeek({ state, rideShapes = {}, className }: { state:
       <div className="space-y-4">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <p className="num text-2xl font-medium tracking-tight">
-            {glance.done} <span className="text-sm font-normal text-muted">{glance.planned ? `of ${glance.planned} TSS` : "TSS"}</span>
+            {glance.planned ? glance.tracked : glance.done} <span className="text-sm font-normal text-muted">{glance.planned ? `of ${glance.planned} TSS` : "TSS"}</span>
           </p>
           {glance.planned > 0 && <span className={`rounded px-2 py-0.5 text-xs font-medium ${TRACKING_TONE[glance.tracking]}`}>{TRACKING[glance.tracking]}</span>}
           <span className="text-sm text-muted">
