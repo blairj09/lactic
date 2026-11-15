@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let read: () => Promise<Record<string, unknown>>;
+let asks = 0;
 let pending: { id: string; body: Record<string, unknown> }[] = [];
 const acked: string[] = [];
 vi.mock("./plugin", () => ({
@@ -10,7 +11,10 @@ vi.mock("./plugin", () => ({
   saveWeighIn: async () => ({ saved: true, reason: null }),
   removeDuplicateWorkouts: async () => ({ removed: 0 }),
   ackPending: async (ids: string[]) => void acked.push(...ids),
-  authorizeHealth: async () => ({ granted: true }),
+  authorizeHealth: () => {
+    asks++;
+    return new Promise((resolve) => setTimeout(() => resolve({ granted: true }), 10));
+  },
   phoneStatus: async () => ({ healthAvailable: true, healthAsked: true }),
   readHealth: () => read(),
   takePending: async () => pending,
@@ -35,7 +39,18 @@ vi.mock("~/integrations/apple-health", () => ({
 vi.mock("~/shims/next-cache", () => ({ revalidatePath: () => {} }));
 vi.mock("~/support/log", () => ({ logEvent: () => {} }));
 
-import { healthError, syncPhoneHealth } from "./health";
+import { askHealth, healthError, syncPhoneHealth } from "./health";
+
+describe("askHealth", () => {
+  it("shows one permission sheet at a time", async () => {
+    asks = 0;
+    const [a, b] = await Promise.all([askHealth(), askHealth()]);
+    expect(a.granted && b.granted).toBe(true);
+    expect(asks).toBe(1);
+    await askHealth();
+    expect(asks).toBe(2);
+  });
+});
 
 describe("syncPhoneHealth", () => {
   beforeEach(() => vi.useFakeTimers());
