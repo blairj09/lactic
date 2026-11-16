@@ -31,7 +31,7 @@ export const EXPERIMENTS: Experiment[] = [
   {
     id: "strava_upload",
     title: "Post rides to Strava",
-    line: "Rides you record in Lactic go to your Strava as Lactic activities, titled with the workout and described with how each interval went. Connect Strava in Settings → Connections.",
+    line: "Rides you record in Lactic post to your Strava with the workout's name and shape. Connect Strava in Settings → Connections.",
   },
 ];
 

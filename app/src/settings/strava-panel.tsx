@@ -43,7 +43,7 @@ export function StravaSection() {
           Strava <ExperimentalTag className="ml-1 align-[2px]" />
         </>
       }
-      description="Posts rides you record here to your Strava as Lactic activities, with the workout and how each interval went."
+      description="Posts rides you record here to your Strava, with the workout's name and shape."
     >
       <div className="sm:col-span-2">
         <StravaPanel />
@@ -127,17 +127,14 @@ export function StravaPanel() {
   if (!connection && viaComputer)
     return (
       <p className="text-sm text-muted">
-        Connect Strava in Lactic on your computer. Your computer then posts the rides you record on this iPhone too, once they sync, so none goes twice.
+        Connect Strava in Lactic on your computer. It posts this iPhone&apos;s rides once they sync.
       </p>
     );
 
   if (!connection)
     return (
       <div className="space-y-3 text-sm">
-        <p className="text-muted">
-          Each ride you record in Lactic shows on Strava as a Lactic activity: the workout&apos;s name as the title, and how each interval went, your
-          normalized power, TSS and heart rate in the description. Lactic only asks Strava for permission to upload; it can&apos;t read your Strava.
-        </p>
+        <p className="text-muted">Lactic can only upload to your Strava. It can&apos;t read it.</p>
         {connectButton}
         {available === false && <p className="text-muted">Strava isn&apos;t switched on for Lactic yet, or lactic.fit can&apos;t be reached right now.</p>}
         {result && <Result ok={result.ok}>{result.message}</Result>}
@@ -149,7 +146,7 @@ export function StravaPanel() {
       <p>
         {viaComputer ? "Connected on your computer" : "Connected"}
         {connection.athleteName ? ` as ${connection.athleteName}` : ""}.
-        {viaComputer && <span className="text-muted"> It posts the rides you record on this iPhone once they sync, so none goes twice.</span>}
+        {viaComputer && <span className="text-muted"> It posts this iPhone&apos;s rides once they sync.</span>}
       </p>
       {connection.needsReconnect && (
         <div role="alert" className="space-y-2 rounded-lg border border-line bg-raised p-3">
