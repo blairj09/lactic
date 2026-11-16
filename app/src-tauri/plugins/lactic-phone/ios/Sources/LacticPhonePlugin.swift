@@ -824,6 +824,8 @@ class LacticPhonePlugin: Plugin {
     super.init()
     RideEnd.shared.start()
     WatchLink.shared.start()
+    // Keeps a computer ride's Live Activity current while locked (also on a Bluetooth relaunch).
+    RideBeacon.shared.start(askingAllowed: false)
     // Every launch, including the ones iOS makes in the background for new Health data.
     if UserDefaults.standard.bool(forKey: Self.askedKey) { watch() }
   }
@@ -957,6 +959,7 @@ class LacticPhonePlugin: Plugin {
 
   @objc public func unpair(_ invoke: Invoke) throws {
     PairingStore.clear()
+    RideBeacon.shared.stop()
     invoke.resolve()
   }
 

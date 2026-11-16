@@ -54,6 +54,8 @@ enum RideActivity {
 extension LacticPhonePlugin {
   @objc public func rideActivity(_ invoke: Invoke) throws {
     let args = try invoke.parseArgs(RideActivityArgs.self)
+    // The computer's ride showing here: from now on, keep it current while locked too.
+    if args.json.contains("\"place\":\"") { RideBeacon.shared.start(askingAllowed: true) }
     Task {
       do {
         try await RideActivity.show(args.json)
