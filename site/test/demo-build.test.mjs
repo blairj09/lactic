@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { latestTag, tagFromLocation } from "../scripts/build-demo.mjs";
+import { hasScript, latestTag, tagFromLocation } from "../scripts/build-demo.mjs";
+import { fileURLToPath } from "node:url";
 import { decide } from "../scripts/should-build.mjs";
 
 test("reads the tag from the releases/latest redirect", () => {
@@ -35,4 +36,10 @@ test("production rebuilds when a newer release is out", async () => {
 test("production builds when it can't tell", async () => {
   const r = await decide({ changed: false, production: true, latest: async () => { throw new Error("offline"); }, live: async () => "v1" });
   assert.equal(r.code, 1);
+});
+
+test("builds the try-a-ride page only from apps that have it", () => {
+  const app = fileURLToPath(new URL("../../app", import.meta.url));
+  assert.equal(hasScript(app, "build:ride"), true);
+  assert.equal(hasScript(app, "build:nothing-like-this"), false);
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { intervalAt, intervals, ramp, steady, type Workout } from "../engine/workout";
-import { liveActivity, NUMBERS_EVERY, worthSending, type LiveRide } from "./live-activity";
+import { liveActivity, NUDGE_EVERY, nudgeDue, NUMBERS_EVERY, worthSending, type LiveRide } from "./live-activity";
 
 const workout: Workout = {
   name: "Sweet spot 3x12",
@@ -104,5 +104,22 @@ describe("when to update the Live Activity", () => {
     const busier = liveActivity(at(1901, { powerAverage: 280, heartRate: 155 }), NOW + 1000)!;
     expect(worthSending(first, NOW, busier, NOW + 1000)).toBe(false);
     expect(worthSending(first, NOW, busier, NOW + NUMBERS_EVERY)).toBe(true);
+  });
+});
+
+describe("when to nudge a locked phone for the computer's ride", () => {
+  const first = liveActivity(at(1900), NOW)!;
+
+  it("nudges at the start, at a new interval and when the ride ends", () => {
+    expect(nudgeDue(null, 0, first, NOW)).toBe(true);
+    expect(nudgeDue(first, NOW, liveActivity(at(2340), NOW + 1000)!, NOW + 1000)).toBe(true);
+    expect(nudgeDue(first, NOW, null, NOW + 1000)).toBe(true);
+    expect(nudgeDue(null, 0, null, NOW)).toBe(false);
+  });
+
+  it("otherwise only every few seconds, for fresh numbers", () => {
+    const busier = liveActivity(at(1902, { powerAverage: 280 }), NOW + 2000)!;
+    expect(nudgeDue(first, NOW, busier, NOW + 2000)).toBe(false);
+    expect(nudgeDue(first, NOW, liveActivity(at(1905), NOW + NUDGE_EVERY)!, NOW + NUDGE_EVERY)).toBe(true);
   });
 });

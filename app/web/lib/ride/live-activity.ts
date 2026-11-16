@@ -182,7 +182,13 @@ export const NUMBERS_EVERY = 2000;
  * at most every two seconds for new power, heart rate and cadence.
  */
 export function worthSending(last: LiveActivityState | null, lastAt: number, next: LiveActivityState, now: number): boolean {
-  if (!last) return true;
+  if (!last || shapeChanged(last, next)) return true;
+  if (LIVE_NUMBERS.some((k) => last[k] !== next[k])) return now - lastAt >= NUMBERS_EVERY;
+  return false;
+}
+
+/** The ride's shape changed: a new interval, phase or target, or a countdown moved by more than 2 seconds. */
+function shapeChanged(last: LiveActivityState, next: LiveActivityState): boolean {
   const strip = (s: LiveActivityState) => {
     const copy: Record<string, unknown> = { ...s };
     for (const k of [...LIVE_NUMBERS, ...MOMENTS]) delete copy[k];
@@ -194,6 +200,18 @@ export function worthSending(last: LiveActivityState | null, lastAt: number, nex
     const b = next[k];
     if ((a === null) !== (b === null) || (a !== null && b !== null && Math.abs(a - b) > 2)) return true;
   }
-  if (LIVE_NUMBERS.some((k) => last[k] !== next[k])) return now - lastAt >= NUMBERS_EVERY;
   return false;
+}
+
+/** A locked phone is nudged (computer's ride beacon) at least this often (ms) for fresh numbers. */
+export const NUDGE_EVERY = 5000;
+
+/**
+ * Whether the computer should nudge a locked, paired phone to fetch the ride for its Live Activity:
+ * straight away when the ride's shape changes or it ends, and every few seconds for the numbers.
+ * Each nudge wakes the phone, so not on every pedal stroke.
+ */
+export function nudgeDue(last: LiveActivityState | null, lastAt: number, next: LiveActivityState | null, now: number): boolean {
+  if (!last || !next) return last !== next;
+  return shapeChanged(last, next) || now - lastAt >= NUDGE_EVERY;
 }

@@ -4,6 +4,8 @@
 
 #[cfg(desktop)]
 pub mod apps;
+#[cfg(desktop)]
+pub mod beacon;
 // On Android, Bluetooth is the phone plugin's (Kotlin, plugins/lactic-phone/android): the same
 // commands answer there with a pointer to it.
 #[cfg_attr(target_os = "android", path = "ble_android.rs")]
@@ -213,6 +215,8 @@ pub fn run() {
         phone::phone_pair_cancel,
         phone::phone_forget,
         phone::phone_respond,
+        beacon::ride_beacon,
+        beacon::ride_beacon_nudge,
     ]);
     #[cfg(mobile)]
     let builder = builder.invoke_handler(tauri::generate_handler![
