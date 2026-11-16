@@ -49,7 +49,7 @@
       <a class="nav-link" href="#your-way">Make it yours</a>
       <a class="nav-link" href="#iphone">iPhone</a>
       <a class="nav-link" href="#gear">Gear</a>
-      <a class="nav-link" href="/ride/">Try a ride</a>
+      <a class="nav-link" href="/ride/" data-ride hidden>Try a ride</a>
       <a class="nav-link" href="https://github.com/blairj09/lactic">GitHub</a>
       <a class="nav-link" href="https://ko-fi.com/lactic">Support</a>
       <a class="nav-cta" href="https://github.com/blairj09/lactic/releases/latest" data-download>Download</a>
@@ -72,7 +72,7 @@
           </div>
           <div class="buttons">
             <a class="btn btn-primary" href="https://github.com/blairj09/lactic/releases/latest" data-download><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg><span data-download-label>Download free</span></a>
-            <a class="btn btn-secondary" href="/ride/">Ride a workout in your browser</a>
+            <a class="btn btn-secondary" href="/ride/" data-ride hidden>Ride a workout in your browser</a>
             <p class="hero-sub desktop-only">Bring your rides from Zwift, Garmin, Strava and intervals.icu.</p>
             <p class="phone-note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg><span>Lactic runs on your Mac, Windows or Linux computer: open lactic.fit there to download it. The iPhone app is in beta on TestFlight.</span></p>
             <a class="btn btn-primary phone-testflight" href="https://testflight.apple.com/join/nDjt8pAG" data-testflight>Join the iPhone beta</a>
@@ -331,6 +331,13 @@
       return event;
     });
   })();
+</script>
+<script>
+  // The try-a-ride page ships with the app release that has it (scripts/build-demo.mjs): show its
+  // links once lactic.fit/ride/ is there, so the site never links to a missing page.
+  fetch("/ride/", { method: "HEAD" }).then(function (r) {
+    if (r.ok) document.querySelectorAll("[data-ride]").forEach(function (a) { a.hidden = false; });
+  }).catch(function () {});
 </script>
 <script src="/download.js"></script>
 <script src="/hero.js"></script>
