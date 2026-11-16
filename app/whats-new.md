@@ -6,7 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
-- The ride overlay has a close button in its top-left corner that brings Lactic back to the front.
+- The ride overlay has a button in its top-left corner that closes it and brings Lactic back to the front; the ride keeps going.
 
 ## 0.3.1
 

@@ -989,17 +989,15 @@ export function MiniPlayer({ data, controls, onResize, onClose }: { data: Player
         right.length > 0 && <section className={`flex shrink-0 gap-[6vh] ${twoRows ? "flex-wrap content-center" : ""}`}>{right.map((i) => mini(i))}</section>
       )}
 
-      {/* Close: a small tab in the top-left corner shuts the overlay and brings Lactic back to the front. */}
+      {/* Back to Lactic: a small tab in the top-left corner shuts the overlay and brings Lactic back to the front; the ride keeps going. */}
       {onClose && (
         <button
           className="absolute left-0 top-0 flex size-[clamp(22px,11vh,44px)] items-center justify-center rounded-br-[1.5vh] border-b border-r border-line bg-raised text-muted transition-colors hover:bg-active hover:text-ink"
           onClick={() => onClose()}
-          aria-label="Close overlay"
-          title="Close overlay and show Lactic"
+          aria-label="Back to Lactic"
+          title="Back to Lactic (the ride keeps going)"
         >
-          <svg viewBox="0 0 24 24" aria-hidden className="size-[55%]" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
+          <BackToAppIcon />
         </button>
       )}
 
@@ -1052,6 +1050,13 @@ export function MiniPlayer({ data, controls, onResize, onClose }: { data: Player
     </div>
   );
 }
+
+/** Back to Lactic: an arrow heading out of the box, the usual sign for going to another window (not ✕, which reads as ending the ride). */
+const BackToAppIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden className="size-[60%]" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4M20 4l-8 8M14 4h6v6" />
+  </svg>
+);
 
 /** Sliders: the usual sign for controls you adjust. */
 const SlidersIcon = () => (
