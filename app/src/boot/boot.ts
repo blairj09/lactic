@@ -17,6 +17,7 @@ import { hideLoader } from "./loader";
 import { applySharedPrefs, installSharedPrefs } from "~/settings/shared-prefs";
 import { installPluginSource } from "~/plugins/source";
 import { setLayoutDevice } from "@/lib/layout-data";
+import { installWindowDrag } from "./window-drag";
 
 export async function boot() {
   setTheme(readTheme());
@@ -27,6 +28,8 @@ export async function boot() {
   // The iPhone keeps its own Today, tabs and ride fields (web/lib/layout-data.ts).
   if (info?.mobile) setLayoutDevice("phone");
   if (info?.os === "macos") document.documentElement.dataset.desktop = "macos";
+  // The window moves by its top bar on desktops (the overlay window drags itself).
+  if (info && !info.mobile) installWindowDrag();
   if (info?.mobile) document.documentElement.dataset.phone = info.os === "android" ? "android" : "ios";
   const root = createRoot(document.getElementById("root")!);
   try {

@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Mac: drag the window by its top bar again, and double-click the bar to zoom it.
 - Phone: touching a chart on Progress, Plan or Health shows the value at that point instead of zooming in, and a double tap zooms back out. Ride charts still zoom with a drag.
 - The built-in coach can search the web for things that change, like gear and prices. Turn it on in Settings → Coach (needs an OpenRouter key); only the search words leave Lactic, and sources show under the reply.
 - iPhone: if pairing with your computer fails after the code is scanned, a Pair again button takes you back to scan a fresh code.
