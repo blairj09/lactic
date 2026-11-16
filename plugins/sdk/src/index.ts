@@ -3,27 +3,74 @@
 
 // ---- The kit: what a plugin asks Lactic to draw ----
 
-export type Tone = "default" | "good" | "warn" | "bad" | "muted";
+/** What a value means; Lactic picks the colour. `accent` is Lactic blue. There are no other colours. */
+export type Tone = "default" | "good" | "warn" | "bad" | "muted" | "accent";
+
+/** A step on Lactic's zone ramp (the colours of power and heart rate zones), 1 to 7. */
+export type Zone = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+/**
+ * How Lactic writes a number you send as a number: `duration` as a clock (724 → 12:04), `percent`
+ * from 0 to 1 (0.72 → 72%), otherwise with `decimals` (0 to 3). Send metric units (km/h, km, m, kg,
+ * °C): Lactic converts them for riders who use imperial.
+ */
+export type NumberFormat = "number" | "duration" | "percent";
+
+/** How a number moved: `by` (signed) since `since` ("20 min"), and which way is good. Lactic draws ▲ or ▼. */
+export type KitChange = { by: number; since?: string; good?: "up" | "down" };
+
+/** A band on a gauge, up to `to`. Coloured by `tone` or `zone`, else Lactic's zone ramp. */
+export type GaugeBand = { to: number; tone?: Tone; zone?: Zone };
+
+export type StatusIcon = "check" | "alert" | "up" | "down" | "pause" | "dot" | "half";
+
+/** Options every number shares. `subTone` colours the line under it; `zone` colours the number like a zone. */
+type NumberLook = { decimals?: number; format?: NumberFormat; subTone?: Tone; zone?: Zone };
+
+/**
+ * Built-in blocks. You describe the numbers; Lactic draws them to fit the phone, a big field, a wide
+ * desktop field, the Zwift overlay strip and a ride's page. Except a ring without `text`, each one shows
+ * the field's number itself, so a ride field needs nothing else.
+ */
+export type BlockNode =
+  /** A dial between `min` and `max`. `ticks` labels every step; `needle` adds a needle; `target` a mark. */
+  | { type: "gauge"; value: number; min: number; max: number; label?: string; unit?: string; decimals?: number; format?: NumberFormat; zones?: GaugeBand[]; ticks?: number; needle?: boolean; shape?: "dial" | "half"; target?: number; tone?: Tone; zone?: Zone }
+  /** How far through something, 0 to 1, with up to 6 characters in the middle. */
+  | { type: "ring"; value: number; label?: string; text?: string; tone?: Tone; zone?: Zone }
+  /** Where `value` sits among bands. `bands` are the edges low to high (2 to 8, so 1 to 7 bands); `names` one per band. */
+  | { type: "zonebar"; value: number; bands: number[]; label?: string; names?: string[]; tones?: Tone[] }
+  /** A value against a target: good while within `within` (2% of the target when left out). */
+  | { type: "target"; value: number; target: number; within?: number; label?: string; unit?: string; decimals?: number; format?: NumberFormat }
+  /** Labelled rows, each with its own tone. As a ride field: 5 rows, labels 16 and values 12 characters. */
+  | { type: "list"; label?: string; rows: { label: string; value: string; tone?: Tone }[] }
+  /** A word for a state, not a number ("Too hot", "Fuel now"); 20 characters in a ride field. */
+  | { type: "status"; text: string; tone?: Tone; icon?: StatusIcon; sub?: string; label?: string }
+  /** Time to `until` or since `since` (seconds since 1970, e.g. `input.now + 258`). Lactic ticks it every second. */
+  | { type: "countdown"; until?: number; since?: number; sub?: string; label?: string; tone?: Tone }
+  /** Two sides of one thing, e.g. left/right power, centred at 50/50. */
+  | { type: "balance"; left: number; right: number; label?: string };
 
 /** Plugin buttons can only open the plugin's own detail view. */
 export type KitAction = { kind: "open-detail" };
 
 export type KitNode =
   /** A big number with a label, like a bike computer field. */
-  | { type: "field"; label: string; value: string; unit?: string; sub?: string; tone?: Tone; lead?: boolean }
+  /** `emphasis: "flash"` rings the field for 3 s (at most every 30 s); `"quiet"` dims it. */
+  | ({ type: "field"; label: string; value: string | number; unit?: string; sub?: string; tone?: Tone; lead?: boolean; emphasis?: "flash" | "quiet"; change?: KitChange } & NumberLook)
   /** A smaller number with a label and a line under it. */
-  | { type: "stat"; label: string; value: string; sub?: string; tone?: Tone }
+  | ({ type: "stat"; label: string; value: string | number; unit?: string; sub?: string; tone?: Tone } & NumberLook)
   /**
    * A few short labeled numbers in one ride field, e.g. best 5 s, 1 min, 5 min and 20 min power. One
    * unit for all. As a ride field: 2 to 4 items, labels up to 8 characters, values up to 7.
    */
   | { type: "values"; label?: string; unit?: string; items: { label: string; value: string; tone?: Tone }[] }
   | { type: "text"; text: string; tone?: Tone; size?: "sm" | "md" | "lg"; weight?: "normal" | "medium" | "semibold" }
-  /** A small trend line; values only, scaled to fit. */
-  | { type: "sparkline"; values: (number | null)[]; tone?: Tone }
+  /** A small trend line, scaled to fit (or to `min`/`max`). `fill` shades under it, `band` marks a good range, `ref` a dashed line, `marker: "last"` dots the latest point. */
+  | { type: "sparkline"; values: (number | null)[]; tone?: Tone; fill?: boolean; band?: [number, number]; ref?: number; marker?: "last"; min?: number; max?: number }
   /** Simple bars, e.g. per day; labels optional. */
   /** `palette: "zones"` colours bar 1 as zone 1, bar 2 as zone 2 and so on (up to 7), in Lactic's zone colours. */
-  | { type: "bars"; values: (number | null)[]; labels?: string[]; tone?: Tone; palette?: "zones" }
+  /** `target` draws a dashed line across; `highlight` (a bar's index) dims the others, e.g. to show the interval you're in. */
+  | { type: "bars"; values: (number | null)[]; labels?: string[]; tone?: Tone; palette?: "zones"; target?: number; highlight?: number }
   /** A 0 to 1 bar. */
   | { type: "meter"; value: number; label?: string; tone?: Tone }
   | { type: "stack"; direction?: "row" | "column"; gap?: "sm" | "md"; children: KitNode[] }
@@ -31,7 +78,8 @@ export type KitNode =
   | { type: "table"; columns: string[]; rows: string[][]; align?: ("left" | "right")[] }
   /** A line over a ride against time (s) or distance (km), up to 2000 points, with up to 40 marked stretches. */
   | { type: "profile"; x: number[]; y: (number | null)[]; xUnit?: "s" | "km"; yUnit?: string; tone?: Tone; marks?: { from: number; to: number; label?: string; tone?: Tone }[] }
-  | { type: "button"; label: string; action: KitAction };
+  | { type: "button"; label: string; action: KitAction }
+  | BlockNode;
 
 /** Limits Lactic enforces on a tree; anything over them is refused for that call. */
 export const KIT_LIMITS = { nodes: 200, depth: 6, text: 280, points: 400, profilePoints: 2000, marks: 40, values: 8, columns: 8, rows: 200, cell: 60 } as const;

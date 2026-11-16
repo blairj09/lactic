@@ -11,6 +11,7 @@ Official plugins for **Lactic**: add them as they are, or read them to learn how
 | [Matches](matches/) | ride field, ride page | live, rides, profile | 1.0.1 |
 | [On Target](on-target/) | ride field, ride page | live, rides | 1.0.1 |
 | [Ride Quality](ride-quality/) | ride field, ride page | live, rides, profile | 1.0.1 |
+| [Speedometer](speedometer/) | ride field | live, profile | 1.0.0 |
 | [W′ Balance](w-prime/) | ride field, ride page | live, rides, profile | 1.0.1 |
 | [Zones](zones/) | ride field | live | 0.1.0 |
 

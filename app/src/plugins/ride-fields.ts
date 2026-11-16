@@ -10,6 +10,7 @@ import { pluginHost } from "./running";
 import { createPluginWorker } from "./spawn";
 import { listPlugins, type PluginRecord } from "./store";
 import { pluginsAllowed } from "./use-plugin-tab";
+import { readUnits } from "@/lib/units";
 
 /** Every field of every added plugin, for the picker. */
 export function pluginFieldOptions(plugins: readonly PluginRecord[]): PluginFieldOption[] {
@@ -91,8 +92,8 @@ export function usePluginFields(plugins: readonly PluginRecord[], ids: readonly 
               set(id, empty(field.title, failureWords(r.reason)));
               continue;
             }
-            const v = r.output.tree ? fieldFromKit(r.output.tree) : null;
-            set(id, v ? { label: field.title, value: v.value, unit: v.unit, ...(v.sub ? { sub: v.sub } : {}), ...(v.tone ? { tone: v.tone } : {}), ...(v.chart ? { chart: v.chart } : {}), ...(v.values ? { values: v.values } : {}), plugin: true } : empty(field.title, PLUGIN_FIELD_WORDS.nothing));
+            const v = r.output.tree ? fieldFromKit(r.output.tree, readUnits()) : null;
+            set(id, v ? { label: field.title, value: v.value, unit: v.unit, ...(v.sub ? { sub: v.sub } : {}), ...(v.tone ? { tone: v.tone } : {}), ...(v.chart ? { chart: v.chart } : {}), ...(v.values ? { values: v.values } : {}), ...(v.look ? { look: v.look } : {}), plugin: true } : empty(field.title, PLUGIN_FIELD_WORDS.nothing));
           } catch {
             set(id, empty(field.title, PLUGIN_FIELD_WORDS.failed));
           }

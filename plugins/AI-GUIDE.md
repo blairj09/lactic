@@ -18,7 +18,7 @@ Types are in `sdk/src/index.ts`. Read it before writing code. For worked example
 - **Register once:** call `definePlugin({ handlerName(input) { ... } })` at the top level. Every `entry` in the manifest must be a handler name you register.
 - **Handlers are synchronous** and must return quickly: fields have **20 ms** per call (about once a second); ride analyses have **2 s** once per saved ride. Promises never run.
 - **Output is `{ tree?, metrics? }` only.**
-  - `tree` is built from the kit pieces in the SDK: `field`, `stat`, `text`, `sparkline`, `bars`, `meter`, `stack`, `button` (opens the plugin's own detail view only), `table`, `profile`. No HTML, no styles, no colours beyond `tone`. Respect `KIT_LIMITS`.
+  - `tree` is built from the kit pieces in the SDK: `field`, `stat`, `text`, `sparkline`, `bars`, `meter`, `stack`, `button` (opens the plugin's own detail view only), `table`, `profile`, `values`, and the built-in blocks (`gauge`, `ring`, `zonebar`, `target`, `list`, `status`, `countdown`, `balance`). No HTML, no styles, no colours: colour comes only from `tone` (`good`, `warn`, `bad`, `muted`, `accent`) or `zone` (1 to 7, Lactic's zone ramp). Respect `KIT_LIMITS`.
   - `metrics` keys must be declared in the manifest's `publishes`; values are finite numbers or one of that metric's `choices`. **Never free text.**
 - **Manifest:** `id` is lowercase letters, digits and dashes and must not contain "lactic"; `name` must not look like "Lactic". Unknown keys are refused. Never add `network`, `internet`, `sites`, `secrets` or `write`.
 - **Permissions:** ask only for the groups you use in `permissions.read`: `live`, `rides`, `fitness`, `profile`, `recovery` (health data), `location` (GPS; the rider can decline it, so the plugin must still work without it). Ride analyses need `rides`.
@@ -37,10 +37,25 @@ Field handlers keep state between calls in ordinary variables (the starter count
 
 ### What a ride field shows
 
-- **One number:** the first `field` (or `stat`) in the tree: value up to 12 characters, unit up to 8, `sub` line up to 40, plus at most one `bars`, `sparkline` or `meter` chart.
+- **One number:** the first `field` (or `stat`) in the tree: value up to 12 characters, unit up to 8, `sub` line up to 40, plus at most one chart or block under it (the first `bars`, `sparkline`, `meter` or block in the tree).
+- **A block:** a `gauge`, `ring`, `zonebar`, `target`, `list`, `status`, `countdown` or `balance` (see `BlockNode` in the SDK). You describe the numbers; Lactic draws the block to fit a phone field, a big field, a wide desktop field, the Zwift overlay strip and the ride's page. Every block except a `ring` without `text` shows the field's number itself, so it can be the whole tree:
+
+  ```ts
+  return { tree: { type: "gauge", value: kmh, min: 0, max: 60, unit: "km/h", decimals: 1, zones: [{ to: 25 }, { to: 40 }, { to: 60 }], ticks: 10, needle: true } };
+  ```
+
+  A `countdown` takes a moment (`until: input.now + 258`) and Lactic ticks it each second. In a ride field a `list` shows 5 rows and a `status` 20 characters. See `catalog/speedometer` for a worked example.
 - **A few numbers:** a `values` node, `{ type: "values", unit: "W", items: [{ label: "5 s", value: "612" }, { label: "1 min", value: "402", tone: "good" }] }`, with 2 to 4 items, labels up to 8 characters and values up to 7. It takes the whole field; Lactic lays the numbers out to fit (a 2×2 block, one row in a wide field, a compact block on the overlay). Use it instead of several fields that show the same kind of number.
 
 The rider can make any field wide (two slots) in the field editor; you don't need to do anything for that.
+
+### Numbers and looks
+
+- **Send numbers as numbers** where you can: `{ type: "field", label: "Speed", value: 34.2, unit: "km/h", decimals: 1 }`. Lactic writes them (thousands, decimals 0 to 3, `format: "duration"` for 724 → 12:04, `format: "percent"` for 0.72 → 72%) and converts metric units (km/h, km, m, kg, °C) for riders who use imperial. So always send metric. Text values still work.
+- **Colour by meaning:** `tone` on the number, `subTone` on the line under it, or `zone: 1..7` to colour the number like a zone.
+- **Change:** `change: { by: 1.1, since: "20 min", good: "down" }` adds ▲ or ▼ after the number, coloured by whether the move is good, and "+1.1 since 20 min" as the line under it unless you wrote one.
+- **Emphasis:** `emphasis: "flash"` rings the field for 3 seconds when it starts (at most once every 30 s, so a new best can't strobe); `"quiet"` dims a field that doesn't matter right now.
+- **Charts:** a `sparkline` takes `fill`, `band: [low, high]` (a shaded good range), `ref` (a dashed line), `marker: "last"` and fixed `min`/`max`. `bars` take `target` (a dashed line) and `highlight` (the index of the bar to stand out, e.g. the interval you're in).
 
 ### Field options
 

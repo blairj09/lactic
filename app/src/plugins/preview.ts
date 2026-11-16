@@ -3,6 +3,7 @@
 // host like any plugin (same worker, limits and output checks), is never handed the rider's data, a
 // GPS route or a database, and is stopped when the screen closes. Nothing it publishes is kept.
 // Failures come back in Lactic's own words.
+import { readUnits } from "@/lib/units";
 import { fieldFromKit, PLUGIN_FIELD_WORDS, resolveOptions, type PluginFieldValue } from "@/lib/sdk/plugin-fields";
 import type { KitNode } from "@shared/sdk";
 import { isRiding } from "@/lib/live-ride";
@@ -147,7 +148,7 @@ export async function runPreview(
             p.failed = r.reason === "disabled" ? PLUGIN_FIELD_WORDS.failed : words(r);
             continue;
           }
-          const v = r.output.tree ? fieldFromKit(r.output.tree) : null;
+          const v = r.output.tree ? fieldFromKit(r.output.tree, readUnits()) : null;
           if (v) p.field = v;
         }
         state.at = Math.min(until, t + step);

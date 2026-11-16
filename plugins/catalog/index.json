@@ -157,6 +157,26 @@
       "sha256": "0a5dcc7a5eac50ee198da3dca1312ff088755135d30d31ee52d4e9e3fbf273ba"
     },
     {
+      "id": "speedometer",
+      "name": "Speedometer",
+      "version": "1.0.0",
+      "description": "The speed your power would carry you on a flat road, on a dial like a speedometer.",
+      "reads": [
+        "live",
+        "profile"
+      ],
+      "adds": {
+        "fields": [
+          "Road speed"
+        ],
+        "analyses": []
+      },
+      "source": "speedometer/src/plugin.ts",
+      "file": "dist/speedometer-1.0.0.lacticplugin",
+      "bytes": 1925,
+      "sha256": "dace0e916764638db9c615223c45b321cf0318cedfd8f9711fc1220de8b5d9eb"
+    },
+    {
       "id": "w-prime",
       "name": "W′ Balance",
       "version": "1.0.1",

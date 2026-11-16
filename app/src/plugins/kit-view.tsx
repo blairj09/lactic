@@ -1,10 +1,13 @@
 // Draws a checked kit tree (web/lib/sdk/kit.ts) with Lactic's own styles, and the frame every piece
 // of plugin content sits in: a purple band naming the plugin that the plugin can't draw over (S8).
 // Text is rendered as text only; nothing from a plugin becomes HTML, a link or a style.
-import type { KitNode, Tone } from "@shared/sdk";
+import type { KitChange, KitNode, Tone } from "@shared/sdk";
+import { shownNumber, type BlockNode } from "@shared/sdk/blocks";
+import { BlockView, zoneStyle } from "@/app/ride/blocks";
+import { useUnits } from "@/lib/use-units";
 
-const TONE: Record<Tone, string> = { default: "text-ink", good: "text-positive", warn: "text-warning", bad: "text-negative", muted: "text-muted" };
-const STROKE: Record<Tone, string> = { default: "var(--plugin)", good: "var(--positive)", warn: "var(--warning)", bad: "var(--negative)", muted: "var(--faint)" };
+const TONE: Record<Tone, string> = { default: "text-ink", good: "text-positive", warn: "text-warning", bad: "text-negative", muted: "text-muted", accent: "text-accent" };
+const STROKE: Record<Tone, string> = { default: "var(--plugin)", good: "var(--positive)", warn: "var(--warning)", bad: "var(--negative)", muted: "var(--faint)", accent: "var(--accent)" };
 const tone = (t?: Tone) => TONE[t ?? "default"];
 
 export function PluginFrame({ name, label, dashed, children }: { name: string; label?: string; dashed?: boolean; children: React.ReactNode }) {
@@ -20,22 +23,49 @@ export function PluginFrame({ name, label, dashed, children }: { name: string; l
   );
 }
 
-function Line({ values, color, height = 32 }: { values: (number | null)[]; color: string; height?: number }) {
+function Line({ node, color, height = 32 }: { node: Extract<KitNode, { type: "sparkline" }>; color: string; height?: number }) {
+  const { values } = node;
   const nums = values.filter((v): v is number => v !== null);
   if (nums.length < 2) return null;
-  const min = Math.min(...nums);
-  const span = Math.max(...nums) - min || 1;
+  const extra = [...(node.band ?? []), ...(node.ref !== undefined ? [node.ref] : [])];
+  const min = node.min ?? Math.min(...nums, ...extra);
+  const span = (node.max ?? Math.max(...nums, ...extra)) - min || 1;
+  const y = (v: number) => height - ((Math.min(min + span, Math.max(min, v)) - min) / span) * height;
+  const x = (i: number) => (i / (values.length - 1)) * 100;
   let d = "";
   values.forEach((v, i) => {
     if (v === null) return;
-    const x = (i / (values.length - 1)) * 100;
-    const y = height - ((v - min) / span) * height;
-    d += `${d && values[i - 1] !== null ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)}`;
+    d += `${d && values[i - 1] !== null ? "L" : "M"}${x(i).toFixed(2)},${y(v).toFixed(2)}`;
   });
+  const first = values.findIndex((v) => v !== null);
+  const last = values.findLastIndex((v) => v !== null);
   return (
-    <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" className="block w-full" style={{ height }}>
+    <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" className="block w-full overflow-visible" style={{ height }}>
+      {node.band && <rect x={0} width={100} y={y(node.band[1])} height={Math.max(0, y(node.band[0]) - y(node.band[1]))} fill="var(--positive)" opacity={0.14} />}
+      {node.fill && <path d={`${d}L${x(last)},${height}L${x(first)},${height}Z`} fill={color} opacity={0.2} />}
+      {node.ref !== undefined && <line x1={0} x2={100} y1={y(node.ref)} y2={y(node.ref)} stroke="var(--ink)" strokeOpacity={0.6} strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />}
       <path d={d} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+      {node.marker === "last" && <line x1={x(last)} x2={x(last)} y1={y(values[last]!)} y2={y(values[last]!)} stroke="var(--ink)" strokeWidth={7} strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
     </svg>
+  );
+}
+
+/** A field or stat's number: Lactic writes a number value (decimals, durations, the rider's units). */
+function Num({ node, className }: { node: Extract<KitNode, { type: "field" | "stat" }>; className: string }) {
+  const units = useUnits();
+  const shown = typeof node.value === "number" ? shownNumber(node.value, node.unit, node, units) : { text: node.value, unit: node.unit ?? "" };
+  const change: KitChange | undefined = node.type === "field" ? node.change : undefined;
+  const dir = change && change.by !== 0 ? (change.by > 0 ? "up" : "down") : null;
+  return (
+    <div className={`${className} tabular-nums ${node.zone ? "" : tone(node.tone)}`} style={zoneStyle(node.zone)}>
+      {shown.text}
+      {dir && (
+        <span className={`ml-1 align-[0.3em] text-[0.45em] ${change?.good ? (change.good === dir ? "text-positive" : "text-warning") : "text-muted"}`} aria-label={dir === "up" ? "rising" : "falling"}>
+          {dir === "up" ? "▲" : "▼"}
+        </span>
+      )}
+      {shown.unit ? <span className="ml-1 text-base font-normal text-muted">{shown.unit}</span> : null}
+    </div>
   );
 }
 
@@ -86,19 +116,16 @@ export function KitView({ node, onOpenDetail }: { node: KitNode; onOpenDetail?: 
       return (
         <div>
           <div className="text-xs text-muted">{node.label}</div>
-          <div className={`${node.lead ? "text-4xl" : "text-3xl"} font-semibold tabular-nums ${tone(node.tone)}`}>
-            {node.value}
-            {node.unit ? <span className="ml-1 text-base font-normal text-muted">{node.unit}</span> : null}
-          </div>
-          {node.sub ? <div className="text-xs text-muted">{node.sub}</div> : null}
+          <Num node={node} className={`${node.lead ? "text-4xl" : "text-3xl"} font-semibold`} />
+          {node.sub ? <div className={`text-xs ${node.subTone ? tone(node.subTone) : "text-muted"}`}>{node.sub}</div> : null}
         </div>
       );
     case "stat":
       return (
         <div>
           <div className="text-xs text-muted">{node.label}</div>
-          <div className={`text-2xl font-semibold tabular-nums ${tone(node.tone)}`}>{node.value}</div>
-          {node.sub ? <div className="text-xs text-muted">{node.sub}</div> : null}
+          <Num node={node} className="text-2xl font-semibold" />
+          {node.sub ? <div className={`text-xs ${node.subTone ? tone(node.subTone) : "text-muted"}`}>{node.sub}</div> : null}
         </div>
       );
     case "values":
@@ -118,14 +145,21 @@ export function KitView({ node, onOpenDetail }: { node: KitNode; onOpenDetail?: 
     case "text":
       return <p className={`${node.size === "lg" ? "text-base" : node.size === "sm" ? "text-xs" : "text-sm"} ${node.weight === "semibold" ? "font-semibold" : node.weight === "medium" ? "font-medium" : ""} ${tone(node.tone)}`}>{node.text}</p>;
     case "sparkline":
-      return <Line values={node.values} color={STROKE[node.tone ?? "default"]} />;
+      return <Line node={node} color={STROKE[node.tone ?? "default"]} />;
     case "bars": {
-      const max = Math.max(1, ...node.values.map((v) => v ?? 0));
+      const max = Math.max(1, ...node.values.map((v) => v ?? 0), node.target ?? 0);
+      const lit = node.highlight;
       return (
-        <div className="flex h-12 items-end gap-0.5">
+        <div className="relative flex h-12 items-end gap-0.5">
           {node.values.map((v, i) => (
-            <div key={i} className="flex-1 rounded-sm" style={{ height: `${((v ?? 0) / max) * 100}%`, background: node.palette === "zones" ? `var(--zone-${Math.min(7, i + 1)})` : STROKE[node.tone ?? "default"], opacity: v === null ? 0.2 : node.palette === "zones" ? 1 : 0.8 }} title={node.labels?.[i]} />
+            <div
+              key={i}
+              className="flex-1 rounded-sm"
+              style={{ height: `${((v ?? 0) / max) * 100}%`, background: node.palette === "zones" ? `var(--zone-${Math.min(7, i + 1)})` : STROKE[node.tone ?? "default"], opacity: v === null ? 0.2 : lit !== undefined && i !== lit ? 0.45 : node.palette === "zones" ? 1 : 0.8 }}
+              title={node.labels?.[i]}
+            />
           ))}
+          {node.target !== undefined && <div className="pointer-events-none absolute inset-x-0 border-t border-dashed border-ink/60" style={{ bottom: `${(node.target / max) * 100}%` }} />}
         </div>
       );
     }
@@ -175,6 +209,15 @@ export function KitView({ node, onOpenDetail }: { node: KitNode; onOpenDetail?: 
       );
     case "profile":
       return <Profile node={node} />;
+    case "gauge":
+    case "ring":
+    case "zonebar":
+    case "target":
+    case "list":
+    case "status":
+    case "countdown":
+    case "balance":
+      return <BlockView block={node as BlockNode} size="md" />;
     case "button":
       return (
         <button type="button" className="inline-flex h-8 items-center rounded-md border border-control px-3 text-sm hover:bg-raised" onClick={onOpenDetail} disabled={!onOpenDetail}>

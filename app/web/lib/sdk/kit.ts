@@ -6,23 +6,34 @@
 // long strings and odd numbers are refused, so a plugin can't smuggle markup, fake a Lactic
 // control or flood the screen (review items S3, S8). Plain data, no browser or Node APIs.
 
-export type Tone = "default" | "good" | "warn" | "bad" | "muted";
+import { checkBlock, checkDecimals, checkFormat, checkZone, isBlockType, type BlockNode, type NumberFormat, type Zone } from "./blocks";
+
+export type { BlockNode, GaugeBand, NumberFormat, StatusIcon, Zone } from "./blocks";
+
+/** What a value means, which Lactic turns into its own colours: accent is Lactic blue. */
+export type Tone = "default" | "good" | "warn" | "bad" | "muted" | "accent";
+
+/** How a number moved: `by` (signed) since `since`, and which way is good. Lactic draws the arrow and colour. */
+export type KitChange = { by: number; since?: string; good?: "up" | "down" };
+
+/** Options every number shares: Lactic formats a number value (decimals, durations, percent, the rider's units). */
+type NumberLook = { decimals?: number; format?: NumberFormat; subTone?: Tone; zone?: Zone };
 
 /** What a Button may do. Plugin buttons can only open the plugin's own detail view (review S8). */
 export type KitAction = { kind: "open-detail" } | { kind: "lactic"; to: "ride" | "plan" | "progress" | "health" | "settings" };
 
 export type KitNode =
   /** A big number with a label, like a bike computer field. */
-  | { type: "field"; label: string; value: string; unit?: string; sub?: string; tone?: Tone; lead?: boolean }
+  | ({ type: "field"; label: string; value: string | number; unit?: string; sub?: string; tone?: Tone; lead?: boolean; emphasis?: "flash" | "quiet"; change?: KitChange } & NumberLook)
   /** A smaller number with a label and a line under it. */
-  | { type: "stat"; label: string; value: string; sub?: string; tone?: Tone }
+  | ({ type: "stat"; label: string; value: string | number; unit?: string; sub?: string; tone?: Tone } & NumberLook)
   /** A few short labeled numbers side by side, e.g. best 5 s, 1 min, 5 min and 20 min power. One unit for all. */
   | { type: "values"; label?: string; unit?: string; items: { label: string; value: string; tone?: Tone }[] }
   | { type: "text"; text: string; tone?: Tone; size?: "sm" | "md" | "lg"; weight?: "normal" | "medium" | "semibold" }
   /** A small trend line; values only, scaled to fit. */
-  | { type: "sparkline"; values: (number | null)[]; tone?: Tone }
+  | { type: "sparkline"; values: (number | null)[]; tone?: Tone; fill?: boolean; band?: [number, number]; ref?: number; marker?: "last"; min?: number; max?: number }
   /** Simple bars, e.g. per day; labels optional. `palette: "zones"` colours bar 1 as zone 1, bar 2 as zone 2 and so on (up to 7). */
-  | { type: "bars"; values: (number | null)[]; labels?: string[]; tone?: Tone; palette?: "zones" }
+  | { type: "bars"; values: (number | null)[]; labels?: string[]; tone?: Tone; palette?: "zones"; target?: number; highlight?: number }
   /** A 0 to 1 bar, e.g. how much of the week is done. */
   | { type: "meter"; value: number; label?: string; tone?: Tone }
   | { type: "stack"; direction?: "row" | "column"; gap?: "sm" | "md"; children: KitNode[] }
@@ -30,7 +41,9 @@ export type KitNode =
   | { type: "table"; columns: string[]; rows: string[][]; align?: ("left" | "right")[] }
   /** A line over a ride (power, heart rate, a plugin's own series) against time or distance, with marked stretches. */
   | { type: "profile"; x: number[]; y: (number | null)[]; xUnit?: "s" | "km"; yUnit?: string; tone?: Tone; marks?: { from: number; to: number; label?: string; tone?: Tone }[] }
-  | { type: "button"; label: string; action: KitAction };
+  | { type: "button"; label: string; action: KitAction }
+  /** Gauge, ring, zone bar, target, list, status, countdown and balance (blocks.ts). */
+  | BlockNode;
 
 export type KitNodeType = KitNode["type"];
 
@@ -55,7 +68,7 @@ export const KIT_LIMITS = {
   cell: 60,
 } as const;
 
-const TONES: readonly Tone[] = ["default", "good", "warn", "bad", "muted"];
+const TONES: readonly Tone[] = ["default", "good", "warn", "bad", "muted", "accent"];
 const LACTIC_DESTINATIONS = ["ride", "plan", "progress", "health", "settings"] as const;
 
 export type KitResult = { ok: true; node: KitNode } | { ok: false; error: string };
@@ -102,6 +115,22 @@ export function validateKit(input: unknown, { fromPlugin = true }: { fromPlugin?
     return v as T;
   };
   const strip = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
+  const checks = { fail, str, tone, pick, strip };
+  const optNum = (v: unknown, name: string): number | undefined => (v === undefined ? undefined : typeof v === "number" && Number.isFinite(v) ? v : fail(`${name} must be a number`));
+  const numOrText = (v: unknown): string | number => (typeof v === "number" ? (Number.isFinite(v) ? v : fail("value must be a finite number")) : str(v, "value")!);
+  const look = (o: Record<string, unknown>) => ({ decimals: checkDecimals(checks, o.decimals), format: checkFormat(checks, o.format), subTone: tone(o.subTone), zone: checkZone(checks, o.zone) });
+  const change = (v: unknown): KitChange | undefined => {
+    if (v === undefined) return undefined;
+    const c = (typeof v === "object" && v !== null && !Array.isArray(v) ? v : fail("change must be an object")) as Record<string, unknown>;
+    return strip({ by: optNum(c.by, "change by") ?? fail("change needs by"), since: str(c.since, "since", true), good: pick(c.good, ["up", "down"] as const, "good") });
+  };
+  const band = (v: unknown): [number, number] | undefined => {
+    if (v === undefined) return undefined;
+    if (!Array.isArray(v) || v.length !== 2) return fail("band must be [low, high]");
+    const lo = optNum(v[0], "band") ?? fail("band must be [low, high]");
+    const hi = optNum(v[1], "band") ?? fail("band must be [low, high]");
+    return lo <= hi ? [lo, hi] : fail("band must be [low, high]");
+  };
 
   const walk = (n: unknown, depth: number): KitNode => {
     if (++count > KIT_LIMITS.nodes) fail(`more than ${KIT_LIMITS.nodes} nodes`);
@@ -110,9 +139,20 @@ export function validateKit(input: unknown, { fromPlugin = true }: { fromPlugin?
     const o = n as Record<string, unknown>;
     switch (o.type) {
       case "field":
-        return strip({ type: "field", label: str(o.label, "label")!, value: str(o.value, "value")!, unit: str(o.unit, "unit", true), sub: str(o.sub, "sub", true), tone: tone(o.tone), lead: o.lead === undefined ? undefined : Boolean(o.lead) });
+        return strip({
+          type: "field",
+          label: str(o.label, "label")!,
+          value: numOrText(o.value),
+          unit: str(o.unit, "unit", true),
+          sub: str(o.sub, "sub", true),
+          tone: tone(o.tone),
+          lead: o.lead === undefined ? undefined : Boolean(o.lead),
+          emphasis: pick(o.emphasis, ["flash", "quiet"] as const, "emphasis"),
+          change: change(o.change),
+          ...look(o),
+        });
       case "stat":
-        return strip({ type: "stat", label: str(o.label, "label")!, value: str(o.value, "value")!, sub: str(o.sub, "sub", true), tone: tone(o.tone) });
+        return strip({ type: "stat", label: str(o.label, "label")!, value: numOrText(o.value), unit: str(o.unit, "unit", true), sub: str(o.sub, "sub", true), tone: tone(o.tone), ...look(o) });
       case "values": {
         if (!Array.isArray(o.items) || o.items.length === 0 || o.items.length > KIT_LIMITS.values) return fail(`values needs 1 to ${KIT_LIMITS.values} items`);
         const items = o.items.map((it) => {
@@ -124,10 +164,11 @@ export function validateKit(input: unknown, { fromPlugin = true }: { fromPlugin?
       case "text":
         return strip({ type: "text", text: str(o.text, "text")!, tone: tone(o.tone), size: pick(o.size, ["sm", "md", "lg"] as const, "size"), weight: pick(o.weight, ["normal", "medium", "semibold"] as const, "weight") });
       case "sparkline":
-        return strip({ type: "sparkline", values: series(o.values, "values"), tone: tone(o.tone) });
+        return strip({ type: "sparkline", values: series(o.values, "values"), tone: tone(o.tone), fill: o.fill === undefined ? undefined : Boolean(o.fill), band: band(o.band), ref: optNum(o.ref, "ref"), marker: pick(o.marker, ["last"] as const, "marker"), min: optNum(o.min, "min"), max: optNum(o.max, "max") });
       case "bars": {
         const labels = o.labels === undefined ? undefined : Array.isArray(o.labels) && o.labels.length <= KIT_LIMITS.points ? o.labels.map((l) => str(l, "label")!) : fail("labels must be a short list");
-        return strip({ type: "bars", values: series(o.values, "values"), labels, tone: tone(o.tone), palette: pick(o.palette, ["zones"] as const, "palette") });
+        const highlight = o.highlight === undefined ? undefined : Number.isInteger(o.highlight) && (o.highlight as number) >= 0 ? (o.highlight as number) : fail("highlight must be a bar's index");
+        return strip({ type: "bars", values: series(o.values, "values"), labels, tone: tone(o.tone), palette: pick(o.palette, ["zones"] as const, "palette"), target: optNum(o.target, "target"), highlight });
       }
       case "meter": {
         if (typeof o.value !== "number" || !Number.isFinite(o.value)) return fail("meter value must be a number");
@@ -170,6 +211,7 @@ export function validateKit(input: unknown, { fromPlugin = true }: { fromPlugin?
         return { type: "button", label: str(o.label, "label")!, action };
       }
       default:
+        if (isBlockType(o.type)) return checkBlock(o, checks);
         return fail(`unknown node type ${String(o.type)}`);
     }
   };

@@ -1,0 +1,14 @@
+{
+  "apiVersion": 1,
+  "id": "speedometer",
+  "name": "Speedometer",
+  "version": "1.0.0",
+  "description": "The speed your power would carry you on a flat road, on a dial like a speedometer.",
+  "homepage": "https://github.com/blairj09/lactic/tree/main/plugins/catalog/speedometer",
+  "main": "main.js",
+  "permissions": { "read": ["live", "profile"] },
+  "publishes": [{ "id": "speed", "label": "Road speed", "unit": "km/h", "kind": "number" }],
+  "contributes": {
+    "fields": [{ "id": "speed", "title": "Road speed", "entry": "speed" }]
+  }
+}

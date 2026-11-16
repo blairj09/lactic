@@ -469,7 +469,7 @@ function FieldPage({ data, page, columns }: { data: PlayerData; page: RidePage; 
             onClick={() => setWhy(f.value === undefined && f.reason ? f : null)}
             aria-label={f.value === undefined && f.reason ? `${f.label}: ${f.reason}` : undefined}
           >
-            <Big label={f.label} value={f.value} unit={f.unit} sub={columns === 3 ? undefined : f.sub} tone={f.tone} size={size} plugin={f.plugin} chart={columns === 3 ? undefined : f.chart} values={f.values} wide={f.wide} />
+            <Big label={f.label} value={f.value} unit={f.unit} sub={columns === 3 ? undefined : f.sub} tone={f.tone} size={size} plugin={f.plugin} chart={f.chart} compact={columns === 3} values={f.values} wide={f.wide} look={f.look} />
           </button>
         ))}
       </div>
