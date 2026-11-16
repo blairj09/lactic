@@ -25,7 +25,8 @@ export interface ChartMarker {
  * Fitness and fatigue on one chart, form on its own below (it centers on zero, so it gets its own
  * axis rather than a second scale). One crosshair drives both. From `forecastFrom` on, lines are
  * dashed: a projection, not history. Markers (events) are labeled vertical lines. With `onZoom`,
- * dragging across either chart selects a span of days to zoom to.
+ * dragging across either chart with a mouse selects a span of days to zoom to. A finger reads the
+ * day under it; a double tap (or double click) calls `onReset`.
  */
 export default function FitnessChart({
   days,
@@ -33,6 +34,7 @@ export default function FitnessChart({
   forecastFrom,
   markers = [],
   onZoom,
+  onReset,
 }: {
   days: ChartDay[];
   label?: string;
@@ -40,11 +42,19 @@ export default function FitnessChart({
   markers?: ChartMarker[];
   /** Called with the first and last day (YYYY-MM-DD) of a dragged selection. */
   onZoom?: (from: string, to: string) => void;
+  /** Back to the full view, on a double tap or double click. */
+  onReset?: () => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [hoverIndex, setHover] = useState<number | null>(null);
   const plotWidth = width - MARGIN.left - MARGIN.right;
+  function onPointer(e: React.PointerEvent<Element>) {
+    const box = e.currentTarget.getBoundingClientRect();
+    const fraction = (e.clientX - box.left - MARGIN.left) / plotWidth;
+    const end = days.length - 1;
+    setHover(Math.min(end, Math.max(0, Math.round(fraction * end))));
+  }
   const brush = useBrush(
     MARGIN.left,
     plotWidth,
@@ -53,6 +63,7 @@ export default function FitnessChart({
         const last = days.length - 1;
         onZoom(days[Math.round(from * last)].date, days[Math.round(to * last)].date);
       }),
+    { onHover: onPointer, onLeave: () => setHover(null), onReset },
   );
 
   useEffect(() => {
@@ -109,17 +120,9 @@ export default function FitnessChart({
   const day = days[shown];
   const monthTicks = spaceTicks(axisTicks(days.map((d) => d.date)), x, (i) => tickLabel(days[i].date, days.length));
 
-  const onPointer = (e: React.PointerEvent<SVGSVGElement>) => {
-    const box = e.currentTarget.getBoundingClientRect();
-    const fraction = (e.clientX - box.left - MARGIN.left) / plotWidth;
-    setHover(Math.min(last, Math.max(0, Math.round(fraction * last))));
-    brush.handlers.onPointerMove?.(e);
-  };
   const pointerProps = {
     ...brush.handlers,
-    onPointerMove: onPointer,
-    onPointerLeave: () => setHover(null),
-    className: `touch-none select-none ${onZoom ? "cursor-crosshair" : ""}`,
+    className: `${brush.className} ${onZoom ? "cursor-crosshair" : ""}`,
   };
   const selectionBand = (height: number) =>
     brush.selection && (

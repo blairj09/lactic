@@ -23,7 +23,7 @@ const ZONE_NAMES = ["Active recovery", "Endurance", "Tempo", "Threshold", "VO2 m
 /**
  * Share of riding time per power bin. The first range is bars; a compared range is a step line over
  * them, so both read at once. Shares rather than hours, so ranges of different lengths compare.
- * Zone boundaries (from today's FTP) are marked; drag across to zoom into a span of watts.
+ * Zone boundaries (from today's FTP) are marked; drag across with a mouse to zoom into a span of watts; double click or double tap to show all.
  */
 export default function PowerDistributionChart({ series, ftp }: { series: DistributionSeries[]; ftp: number | null }) {
   const { ref, width } = useChartWidth();
@@ -36,11 +36,21 @@ export default function PowerDistributionChart({ series, ftp }: { series: Distri
   const dists = series.map((s) => powerDistribution(s.histogram, binWidth, { includeCoasting: coasting }));
   const full: [number, number] = [0, defaultMax(dists, binWidth)];
   const [w0, w1] = zoom ?? full;
-  const brush = useBrush(MARGIN.left, plotWidth, (from, to) => {
-    const a = Math.floor((w0 + from * (w1 - w0)) / binWidth) * binWidth;
-    const b = Math.ceil((w0 + to * (w1 - w0)) / binWidth) * binWidth;
-    if (b - a >= 3 * binWidth) setZoom([a, b]);
-  });
+  const onPointer = (e: React.PointerEvent<Element>) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const watts = w0 + ((e.clientX - box.left - MARGIN.left) / plotWidth) * (w1 - w0);
+    setHover(watts >= w0 && watts < w1 ? Math.floor(watts / binWidth) * binWidth : null);
+  };
+  const brush = useBrush(
+    MARGIN.left,
+    plotWidth,
+    (from, to) => {
+      const a = Math.floor((w0 + from * (w1 - w0)) / binWidth) * binWidth;
+      const b = Math.ceil((w0 + to * (w1 - w0)) / binWidth) * binWidth;
+      if (b - a >= 3 * binWidth) setZoom([a, b]);
+    },
+    { onHover: onPointer, onLeave: () => setHover(null), onReset: () => setZoom(null) },
+  );
 
   if (!series.some((s) => s.histogram.length)) {
     return (
@@ -68,12 +78,6 @@ export default function PowerDistributionChart({ series, ftp }: { series: Distri
   const zoneLines = ftp ? POWER_ZONE_LIMITS.map((f, i) => ({ watts: f * ftp, zone: i + 2 })).filter((z) => z.watts > w0 && z.watts < w1) : [];
   const ticks = wattTicks(w0, w1);
 
-  const onPointer = (e: React.PointerEvent<SVGSVGElement>) => {
-    const box = e.currentTarget.getBoundingClientRect();
-    const watts = w0 + ((e.clientX - box.left - MARGIN.left) / plotWidth) * (w1 - w0);
-    setHover(watts >= w0 && watts < w1 ? Math.floor(watts / binWidth) * binWidth : null);
-    brush.handlers.onPointerMove?.(e);
-  };
   const binAt = (d: DistributionBin[], from: number) => d.find((b) => b.from === from);
   const totalCounted = (d: DistributionBin[]) => d.reduce((sum, b) => sum + b.seconds, 0);
   const segment =
@@ -133,9 +137,7 @@ export default function PowerDistributionChart({ series, ftp }: { series: Distri
         role="img"
         aria-label="Power distribution: share of riding time in each power band"
         {...brush.handlers}
-        onPointerMove={onPointer}
-        onPointerLeave={() => setHover(null)}
-        className="cursor-crosshair touch-none select-none"
+        className={`cursor-crosshair ${brush.className}`}
       >
         {[0, yMax / 2, yMax].map((v) => (
           <g key={v}>

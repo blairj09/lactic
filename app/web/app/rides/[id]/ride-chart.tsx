@@ -44,7 +44,7 @@ export default function RideChart({
     const span = toSpan(from, to);
     // At least a few points, so a zoom never shows an empty chart.
     if (span[1] - span[0] >= 3 * stream.step) onZoom(span);
-  });
+  }, { touch: "brush" });
   const dragFrom = brush.selection?.from ?? null;
   const dragTo = brush.selection?.to ?? null;
   const dragSpan = dragFrom !== null && dragTo !== null && dragTo > dragFrom ? toSpan(dragFrom, dragTo) : null;
