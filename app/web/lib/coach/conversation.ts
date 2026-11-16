@@ -1,7 +1,7 @@
 // The coach's conversations, on the server: chat replies, the morning brief, and keeping each
 // conversation's running summary short. Shared by the chat and brief routes.
 
-import { briefInputs, briefStale, coachChat, HISTORY_MESSAGES, KEEP_MESSAGES, morningBrief, planWeek, summarize, type ChatHooks, type ChatReply } from "./chat";
+import { briefInputs, briefStale, briefWrapUp, coachChat, HISTORY_MESSAGES, KEEP_MESSAGES, morningBrief, planWeek, summarize, type ChatHooks, type ChatReply } from "./chat";
 import { holdsFavorite, unpickedKeyDays } from "../engine/picks";
 import { weekStart } from "../engine/plan";
 import { addDays } from "../engine/pmc";
@@ -96,7 +96,8 @@ export async function brief(supabase: Supabase, hooks: ChatHooks): Promise<Store
     content: reply.message,
     proposals,
     model: coach.model,
-    meta: { ...inputs, ...(inputs.recommended != null ? { today: reply.today ?? null } : {}) },
+    // A closing line saved as the brief is written again once, not on every visit.
+    meta: { ...inputs, ...(inputs.recommended != null ? { today: reply.today ?? null } : {}), ...(briefWrapUp(reply.message) ? { wrapUp: true } : {}) },
   });
 }
 

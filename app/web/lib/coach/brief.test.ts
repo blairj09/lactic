@@ -18,6 +18,12 @@ const day = { form: 3, session: "event:art-dye", signals: [] as string[] };
 const inputs = (i: Partial<BriefInputs>): BriefInputs => ({ recovery: false, weighed: false, checkin: null, ...day, ...i });
 
 describe("briefStale", () => {
+  it("rewrites a closing line saved in place of the brief, once", () => {
+    const wrap = { ...brief({ recovery: true, ...day }), content: "Brief's set — today's marked as planned. Anything else before you head out?" };
+    expect(briefStale(wrap, inputs({ recovery: true }))).toBe(true);
+    expect(briefStale({ ...wrap, meta: { ...wrap.meta, wrapUp: true } }, inputs({ recovery: true }))).toBe(false);
+  });
+
   it("writes a brief when there's none, and again when recovery or a weigh-in arrives", () => {
     expect(briefStale(null, inputs({}))).toBe(true);
     expect(briefStale(brief({ recovery: true, weighed: true, ...day }), inputs({ recovery: true, weighed: true }))).toBe(false);
