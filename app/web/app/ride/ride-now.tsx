@@ -3,11 +3,12 @@
 import { MAX_LEVEL, MIN_LEVEL, STARTING_LEVELS, ZONES, ZONE_LABELS, buildSession, isRampTest, rampTest, type Levels, type Session, type Zone } from "@/lib/engine/library";
 import { templateById, templatesFor } from "@/lib/engine/templates";
 import { plannedStress, workoutDuration } from "@/lib/engine/workout";
-import { customKey, libraryKey, LIBRARY_CATEGORIES, LIBRARY_CATEGORY_LABELS, WORKOUT_LIBRARY, libraryWorkout, type LibraryCategory, type LibraryWorkout } from "@/lib/engine/workout-library";
+import { customKey, customLibraryWorkout, libraryKey, LIBRARY_CATEGORIES, LIBRARY_CATEGORY_LABELS, WORKOUT_LIBRARY, libraryWorkout, type LibraryCategory, type LibraryWorkout } from "@/lib/engine/workout-library";
+import type { Workout } from "@/lib/engine/workout";
 import type { CustomWorkout } from "@/lib/custom-workouts";
 import FavoriteButton from "@/components/favorite-button";
 import { WorkoutRow, WorkoutSheet } from "@/components/workout-list";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Panel, Segmented, button, input } from "@/components/ui";
 import Select from "@/components/select";
 import { formatTime } from "./player";
@@ -38,7 +39,7 @@ export interface LibraryChoice {
 
 export const DEFAULT_LIBRARY: LibraryChoice = { kind: "endurance", minutes: 60, shift: 0 };
 
-const KINDS: { value: LibraryKind; label: string }[] = [...ZONES.map((z) => ({ value: z as LibraryKind, label: ZONE_LABELS[z] })), { value: "rampTest", label: "Ramp test" }];
+const KINDS: { value: LibraryKind; label: string }[] = [...ZONES.map((z) => ({ value: z as LibraryKind, label: ZONE_LABELS[z] })), { value: "rampTest", label: "FTP test" }];
 const MINUTES = [30, 45, 60, 75, 90, 120];
 
 /** The engine's workout for a library choice, at your level in the zone plus the shift. */
@@ -57,6 +58,71 @@ export function styleName(name: string, kind: LibraryKind): string {
   const short = rest.charAt(0).toUpperCase() + rest.slice(1);
   // "Endurance with tempo" would read as just "Tempo", another type: keep the full name.
   return (Object.values(ZONE_LABELS) as string[]).includes(short) ? name : short;
+}
+
+/** The Length menu entry a workout of `seconds` falls under: the nearest one, so each workout shows under one length. */
+export function lengthFor(seconds: number): number {
+  const m = seconds / 60;
+  return MINUTES.reduce((best, x) => (Math.abs(x - m) < Math.abs(best - m) ? x : best), MINUTES[0]);
+}
+
+/** A workout that fits the Type, Length and Level menus, and what picking it loads. */
+export interface Match {
+  key: string;
+  name: string;
+  workout: Workout;
+  duration: number;
+  stress: number;
+  /** Unset for recovery spins and tests, where levels don't move. */
+  level?: number;
+  pick: { library: LibraryChoice } | { starter: LibraryWorkout } | { custom: CustomWorkout };
+  /** One of My workouts. */
+  saved?: true;
+}
+
+/**
+ * Every workout that fits the menus: the engine's styles built at your level (plus the Level shift),
+ * starter library workouts and My workouts of the type whose length is nearest the one picked. Ones
+ * closest to the level come first. A style the engine can't fit in the length (it would fall back to
+ * another type or style) is left out, so nothing listed is a different workout from what you asked for.
+ */
+export function matchingWorkouts(choice: LibraryChoice, levels: Levels, saved: CustomWorkout[]): Match[] {
+  const kind = choice.kind;
+  const tests = kind === "rampTest";
+  const fits = (seconds: number) => tests || lengthFor(seconds) === choice.minutes;
+  const leveled = !tests && kind !== "recovery";
+  const target = tests ? 0 : Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, (levels[kind] ?? STARTING_LEVELS[kind]) + choice.shift));
+
+  const built: Match[] = [];
+  if (!tests) {
+    const styles: (string | undefined)[] =
+      kind === "recovery" ? [undefined] : [...(kind === "endurance" ? [undefined] : []), ...templatesFor(kind).map((t) => t.id as string)];
+    for (const template of styles) {
+      const s = librarySession({ ...choice, template }, levels);
+      if (s.zone !== kind || (s.template ?? undefined) !== template || Math.abs(s.duration - choice.minutes * 60) > 60) continue;
+      if (built.some((b) => b.name === s.workout.name)) continue;
+      built.push({ key: `built:${template ?? "steady"}`, name: s.workout.name, workout: s.workout, duration: s.duration, stress: s.stress, level: leveled ? s.level : undefined, pick: { library: { ...choice, template } } });
+    }
+  }
+  const starters: Match[] = WORKOUT_LIBRARY.filter((w) => (tests ? w.category === "tests" : w.zone === kind && w.category !== "tests") && fits(w.duration)).map((w) => ({
+    key: libraryKey(w.id),
+    name: w.workout.name,
+    workout: w.workout,
+    duration: w.duration,
+    stress: w.stress,
+    level: leveled ? w.level : undefined,
+    pick: { starter: w },
+  }));
+  const mine: Match[] = tests
+    ? []
+    : saved.flatMap((c) => {
+        const w = customLibraryWorkout(c.id, c.workout);
+        if (!w || w.zone !== kind || !fits(w.duration)) return [];
+        return [{ key: customKey(c.id), name: c.workout.name, workout: c.workout, duration: w.duration, stress: w.stress, level: leveled ? w.level : undefined, pick: { custom: c }, saved: true as const }];
+      });
+  const gap = (m: Match) => (m.level === undefined ? 0 : Math.abs(m.level - target));
+  // A stable sort keeps the engine's styles ahead of library ones at the same distance.
+  return [...built, ...starters, ...mine].sort((a, b) => gap(a) - gap(b));
 }
 
 /** A small label above a menu. */
@@ -151,31 +217,42 @@ export default function RideNow({
     { value: "erg", label: "Free ride" },
     { value: "headUnit", label: "Head unit" },
   ];
-  const session = librarySession(library, levels);
-  const leveled = library.kind !== "rampTest" && library.kind !== "recovery";
-  // Structures for the zone; endurance also rides steady, with no structure.
-  const structures =
-    library.kind === "rampTest" || library.kind === "recovery"
-      ? []
-      : [...(library.kind === "endurance" ? [{ id: undefined, name: "Steady" }] : []), ...templatesFor(library.kind).map((t) => ({ id: t.id as string | undefined, name: t.name }))];
-  const picked = templateById(session.template);
-  const style = library.template ?? (library.kind === "endurance" ? undefined : `${library.kind}-intervals`);
-  const stepper = <LevelStepper level={session.level} onChange={(d) => onLibrary({ ...library, shift: library.shift + d })} />;
-  const styleSelect = structures.length > 1 && (
-    <Select
-      aria-label="Style"
-      value={style ?? "steady"}
-      onChange={(id) => onLibrary({ ...library, template: id === "steady" ? undefined : id })}
-      className={`${input} w-full sm:w-48`}
-    >
-      {structures.map((t) => (
-        <option key={t.id ?? "steady"} value={t.id ?? "steady"}>
-          {styleName(t.name, library.kind)}
-        </option>
-      ))}
-    </Select>
-  );
-  const shelfOpen = source === "custom" || source === "starter";
+  // The menus here; picking a workout from the list below loads it (and a style of the engine's sets `library`).
+  const [filters, setFilters] = useState<LibraryChoice>(library);
+  // Library and my workouts open in place of the menus.
+  const [browsing, setBrowsing] = useState(source === "custom" || source === "starter");
+  const [showAll, setShowAll] = useState(false);
+  const matches = matchingWorkouts(filters, levels, saved);
+  const leveled = filters.kind !== "rampTest" && filters.kind !== "recovery";
+  const level = leveled ? Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, (levels[filters.kind as Zone] ?? STARTING_LEVELS[filters.kind as Zone]) + filters.shift)) : 0;
+  const loadedName = source === "library" ? librarySession(library, levels).workout.name : null;
+  const isLoaded = (m: Match) =>
+    "library" in m.pick ? m.name === loadedName : "starter" in m.pick ? source === "starter" && m.pick.starter.id === starterId : source === "custom" && m.pick.custom.id === customId;
+
+  const load = (m: Match) => {
+    if ("library" in m.pick) onLibrary(m.pick.library);
+    else if ("starter" in m.pick) onStarter(m.pick.starter);
+    else onCustom(m.pick.custom);
+  };
+  /** New menus: the list follows, and the best match loads so the player below matches them. */
+  const filter = (next: LibraryChoice) => {
+    setFilters(next);
+    setShowAll(false);
+    const first = matchingWorkouts(next, levels, saved)[0];
+    if (first) load(first);
+  };
+  // Ride opens on Pick a workout with the engine's default: keep the menus in step with what's loaded.
+  useEffect(() => setFilters((f) => (source === "library" ? { ...library, shift: library.shift } : f)), [library, source]);
+
+  const LIMIT = 5;
+  const shown = showAll ? matches : matches.slice(0, LIMIT);
+  // Nothing fits: point at the nearest length that has something.
+  const nearest = matches.length
+    ? null
+    : (MINUTES.filter((m) => m !== filters.minutes && matchingWorkouts({ ...filters, minutes: m }, levels, saved).length).sort((a, b) => Math.abs(a - filters.minutes) - Math.abs(b - filters.minutes))[0] ?? null);
+  const kindLabel = KINDS.find((k) => k.value === filters.kind)?.label ?? "";
+  const stepper = <LevelStepper level={level} onChange={(d) => filter({ ...filters, shift: filters.shift + d })} />;
+  const shelfOpen = browsing && (source === "custom" || source === "starter");
 
   return (
     <Panel>
@@ -184,7 +261,13 @@ export default function RideNow({
           label="What to ride"
           options={modes}
           value={mode}
-          onChange={(m) => onSource(m === "planned" ? "planned" : m === "erg" ? "erg" : m === "headUnit" ? "headUnit" : "library")}
+          onChange={(m) => {
+            if (m === "pick") {
+              setBrowsing(false);
+              if (matches[0]) return load(matches[0]);
+            }
+            onSource(m === "planned" ? "planned" : m === "erg" ? "erg" : m === "headUnit" ? "headUnit" : "library");
+          }}
         />
 
         {source === "planned" && planned && (
@@ -195,14 +278,14 @@ export default function RideNow({
         )}
         {source === "planned" && planned && isRampTest(planned.workout) && <RampTestHint />}
 
-        {source === "library" && (
+        {mode === "pick" && !shelfOpen && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
-              <Field label="Type">
+            <div className="flex flex-wrap items-end gap-2 sm:gap-3">
+              <Field label="Type" className="min-w-0 flex-1 sm:flex-none">
                 <Select
                   aria-label="Workout type"
-                  value={library.kind}
-                  onChange={(kind) => onLibrary({ ...library, kind: kind as LibraryKind, shift: 0, template: undefined })}
+                  value={filters.kind}
+                  onChange={(kind) => filter({ ...filters, kind: kind as LibraryKind, shift: 0, template: undefined })}
                   className={`${input} w-full sm:w-40`}
                 >
                   {KINDS.map((k) => (
@@ -212,14 +295,9 @@ export default function RideNow({
                   ))}
                 </Select>
               </Field>
-              {library.kind !== "rampTest" && (
-                <Field label="Length" className="sm:order-2">
-                  <Select
-                    aria-label="Length"
-                    value={library.minutes}
-                    onChange={(m) => onLibrary({ ...library, minutes: Number(m) })}
-                    className={`${input} w-full sm:w-28`}
-                  >
+              {filters.kind !== "rampTest" && (
+                <Field label="Length" className="min-w-0 flex-1 sm:flex-none">
+                  <Select aria-label="Length" value={filters.minutes} onChange={(m) => filter({ ...filters, minutes: Number(m) })} className={`${input} w-full sm:w-28`}>
                     {MINUTES.map((m) => (
                       <option key={m} value={m}>
                         {m} min
@@ -228,23 +306,60 @@ export default function RideNow({
                   </Select>
                 </Field>
               )}
-              {structures.length > 1 && (
-                <Field label="Style" className="col-span-2 sm:order-1">
-                  {styleSelect}
-                </Field>
-              )}
-              {leveled && <span className="hidden sm:order-3 sm:block">{stepper}</span>}
+              {leveled && <span className="hidden sm:block">{stepper}</span>}
             </div>
-            {/* The player below shows the workout's name, so this says only how long, how hard, and what it's for. */}
-            <div className="flex items-center justify-between gap-3">
-              <p className="num text-sm text-muted">{sessionLine(session, false)}</p>
-              {leveled && <span className="sm:hidden">{stepper}</span>}
+            {leveled && (
+              <div className="flex items-center justify-between gap-3 sm:hidden">
+                <p className="text-sm text-muted">{matches.length === 1 ? "1 workout" : `${matches.length} workouts`}</p>
+                {stepper}
+              </div>
+            )}
+
+            {matches.length > 0 ? (
+              <ul className="divide-y divide-rule border-y border-rule">
+                {shown.map((m) => {
+                  const loaded = isLoaded(m);
+                  return (
+                    <WorkoutRow
+                      key={m.key}
+                      name={m.name}
+                      line={`${m.saved ? "Saved · " : ""}${workoutLine(m.duration, m.stress, m.level)}`}
+                      workout={m.workout}
+                      current={loaded}
+                      onOpen={() => load(m)}
+                      actions={loaded ? <span className="text-sm text-accent">✓ Loaded</span> : undefined}
+                    />
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted">
+                No {kindLabel.toLowerCase()} workouts at {filters.minutes} min.{" "}
+                {nearest && (
+                  <button type="button" className={button.ghost} onClick={() => filter({ ...filters, minutes: nearest })}>
+                    Try {nearest} min
+                  </button>
+                )}
+              </p>
+            )}
+            {matches.length > LIMIT && (
+              <button type="button" className={button.ghost} onClick={() => setShowAll((v) => !v)}>
+                {showAll ? "Show fewer" : `Show all ${matches.length}`}
+              </button>
+            )}
+            {filters.kind === "rampTest" && source === "starter" && libraryWorkout(starterId)?.id === "test-ramp" && <RampTestHint />}
+            <div>
+              <button
+                type="button"
+                className={button.ghost}
+                onClick={() => {
+                  setBrowsing(true);
+                  onSource("custom");
+                }}
+              >
+                Library and my workouts
+              </button>
             </div>
-            {picked && <p className="-mt-2 text-sm text-muted">{picked.description}</p>}
-            {library.kind === "rampTest" && <RampTestHint />}
-            <button type="button" className={button.ghost} onClick={() => onSource("custom")}>
-              Library and my workouts
-            </button>
           </div>
         )}
 
@@ -256,8 +371,8 @@ export default function RideNow({
                 ‹ Back to {plannedLabel.charAt(0).toLowerCase() + plannedLabel.slice(1)}
               </button>
             )}
-            <button type="button" className={button.ghost} onClick={() => onSource("library")}>
-              Back to building a workout
+            <button type="button" className={button.ghost} onClick={() => setBrowsing(false)}>
+              ‹ Back to matches
             </button>
           </div>
         )}
