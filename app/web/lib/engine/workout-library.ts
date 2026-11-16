@@ -149,6 +149,7 @@ const ENTRIES: Entry[] = [
 
   // Sweet spot.
   { id: "sweetspot-3x10", category: "sweetSpot", name: "Sweet spot 3 × 10", description: "Three 10-minute sweet spot efforts: a good first sweet spot workout.", segments: [warmup(), ...reps(3, [at(10, 0.89)], [easy(5)]), at(5, 0.6), cooldown()] },
+  { id: "sweetspot-2x8", category: "sweetSpot", name: "Sweet spot 2 × 8", description: "Two 8-minute efforts just under FTP. Half an hour, start to finish.", segments: [warmup(8), ...reps(2, [at(8, 0.89)], [easy(4)]), cooldown(2)] },
   {
     id: "sweetspot-overunder",
     category: "sweetSpot",
@@ -177,6 +178,7 @@ const ENTRIES: Entry[] = [
 
   // Threshold.
   { id: "threshold-3x8", category: "threshold", name: "Threshold 3 × 8", description: "Three 8-minute efforts at FTP with plenty of rest.", segments: [warmup(), ...reps(3, [at(8, 1)], [easy(4)]), at(13, 0.6), cooldown()] },
+  { id: "threshold-3x5", category: "threshold", name: "Threshold 3 × 5", description: "Three 5-minute efforts at FTP in half an hour.", segments: [warmup(8), ...reps(3, [at(5, 1)], [easy(3)]), cooldown(1)] },
   {
     id: "threshold-overunder",
     category: "threshold",
@@ -198,6 +200,7 @@ const ENTRIES: Entry[] = [
 
   // VO2 max.
   { id: "vo2-6x2", category: "vo2max", name: "VO2 max 6 × 2", description: "Six 2-minute efforts well above FTP, with equal rest.", segments: [warmup(), ...reps(6, [at(2, 1.18)], [at(2, 0.5)]), at(8, 0.6), cooldown()] },
+  { id: "vo2-6x1", category: "vo2max", name: "VO2 max 6 × 1", description: "Six hard minutes, each followed by one easy. Half an hour.", segments: [warmup(), ...reps(6, [at(1, 1.2), at(1, 0.5)]), cooldown(8)] },
   {
     id: "vo2-30-30",
     category: "vo2max",
@@ -253,6 +256,15 @@ const ENTRIES: Entry[] = [
   },
 
   // Sprints: ridden all out, with ERG let go.
+  {
+    id: "sprints-8x10s",
+    category: "sprints",
+    zone: "anaerobic",
+    name: "Sprints 8 × 10 s",
+    description: "Eight 10-second sprints with two minutes easy between. Half an hour.",
+    segments: [warmup(8), ...reps(8, [sprint(10, 2), sec(110, 0.55)]), cooldown(6)],
+    level: 1,
+  },
   {
     id: "sprints-10x10s",
     category: "sprints",

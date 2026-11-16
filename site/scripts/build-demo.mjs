@@ -18,6 +18,8 @@ import { fileURLToPath } from "node:url";
 
 const SITE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(SITE, "demo");
+// The try-a-ride page (lactic.fit/ride/), from releases that have it (`build:ride`).
+const RIDE_OUT = join(SITE, "ride");
 const REPO = process.env.GITHUB_REPO || "blairj09/lactic";
 
 const run = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: "inherit" });
@@ -36,14 +38,27 @@ export function tagFromLocation(location) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+/** Builds the try-a-ride page when this app has it; `from` is where it lands, to copy here (null: already here). */
+function buildRide(app, from) {
+  if (!hasScript(app, "build:ride")) return console.log("This release has no try-a-ride page.");
+  run("npm", ["run", "build:ride"], app);
+  if (from) cpSync(from, RIDE_OUT, { recursive: true });
+}
+
+export function hasScript(app, name) {
+  return Boolean(JSON.parse(readFileSync(join(app, "package.json"), "utf8")).scripts?.[name]);
+}
+
 async function main() {
   const ref = process.env.DEMO_REF || (await latestTag());
   rmSync(OUT, { recursive: true, force: true });
+  rmSync(RIDE_OUT, { recursive: true, force: true });
 
   if (ref === "local") {
     const app = join(SITE, "..", "app");
     run("npm", ["ci", "--no-audit", "--no-fund"], app);
     run("npm", ["run", "build:demo"], app);
+    buildRide(app, null);
     const version = JSON.parse(readFileSync(join(app, "package.json"), "utf8")).version;
     writeFileSync(join(OUT, "release.json"), JSON.stringify({ version, tag: "local" }) + "\n");
     console.log(`Demo built from this checkout (app ${version}, unreleased).`);
@@ -67,6 +82,7 @@ async function main() {
     const built = join(src, "site", "demo");
     if (!existsSync(join(built, "index.html"))) throw new Error(`${ref} built no demo/index.html`);
     cpSync(built, OUT, { recursive: true });
+    buildRide(app, join(src, "site", "ride"));
     const version = JSON.parse(readFileSync(join(app, "package.json"), "utf8")).version;
     writeFileSync(join(OUT, "release.json"), JSON.stringify({ version, tag: ref }) + "\n");
     console.log(`Demo built from ${ref} (app ${version}).`);

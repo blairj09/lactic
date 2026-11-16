@@ -97,6 +97,21 @@ function writePref(key: string, value: string) {
 
 type RideScreenProps = Parameters<typeof RideOnThisDevice>[0];
 
+/** A ride's recording, handed to `onFinished` instead of being saved. */
+export interface FinishedRide {
+  name: string;
+  startedAt: string;
+  ftp: number;
+  watts: number[];
+  heartRate: number[];
+  cadence: number[];
+  /** The library's ramp test, unedited: its FTP can be worked out from the recording. */
+  rampTest: boolean;
+  workout: Workout;
+  /** What the chart drew: [position, watts, heart rate, cadence] each second. */
+  trace: TracePoint[];
+}
+
 /**
  * The Ride tab. On an iPhone paired with a computer whose Ride page is open, the computer holds the
  * trainer: the tab opens the remote for that ride instead of a second ride screen reaching for it.
@@ -134,7 +149,19 @@ function RideOnThisDevice({
   rideFields,
   initialSource,
   initialWorkout,
+  header,
+  hub: givenHub,
+  onFinished,
 }: {
+  /** Shown in place of the app's top bar (the website's try-a-ride page). */
+  header?: React.ReactNode;
+  /** A hub whose gear was paired before the ride screen opened. */
+  hub?: SensorHub;
+  /**
+   * A ride that is never saved (the website's try-a-ride page): End hands the recording here, and
+   * the parts of the page for riders with an account (picking, editing, saving) stay hidden.
+   */
+  onFinished?: (ride: FinishedRide) => void;
   /** A workout to load first, by key (`library:<id>` or `custom:<id>`): Ride now from a workout's page. */
   initialWorkout?: string;
   /** Weight from Settings, for W/kg fields. */
@@ -163,7 +190,9 @@ function RideOnThisDevice({
   /** Today in your time zone; set when signed in, so a workout can be sent to the Karoo. */
   today?: string;
 }) {
-  const hub = useMemo(() => new SensorHub(), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const hub = useMemo(() => givenHub ?? new SensorHub(), []);
+  const trial = !!onFinished;
   const state = useSyncExternalStore(hub.subscribe, hub.getState, hub.getState);
   const pip = usePipWindow();
   const [supported, setSupported] = useState(true);
@@ -838,6 +867,11 @@ function RideOnThisDevice({
     if (hub.getState().connected.trainer) hub.setSimulationGrade(0).catch(() => undefined);
     pip.close();
     window.focus();
+    if (onFinished) {
+      if (startedAt.current && samples.current.length)
+        onFinished({ name: workout.name, startedAt: startedAt.current, ftp, watts: [...samples.current], heartRate: [...hrSamples.current], cadence: [...cadenceSamples.current], rampTest: isRampTest(workout) && !edited, workout, trace: [...trace.current] });
+      return;
+    }
     if (canSave && elapsedRef.current >= 60 && saveState === "idle") void save();
     window.setTimeout(() => endPanel.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
@@ -1100,7 +1134,7 @@ function RideOnThisDevice({
   return (
     // The ride page is an instrument beside Zwift, so it's dark whatever the system setting.
     <div className="min-h-screen">
-      <Nav current="/ride" />
+      {header ?? <Nav current="/ride" />}
       <Page>
         <h1 className="sr-only">Ride</h1>
         {!supported && <Notice>This browser has no Web Bluetooth. Open the Lactic app to ride with your trainer.</Notice>}
@@ -1110,7 +1144,7 @@ function RideOnThisDevice({
           <SensorPanel hub={hub} state={state} supported={supported} onError={setError} headUnit={headUnit} />
         </div>
 
-        {elapsed === 0 && (
+        {elapsed === 0 && !trial && (
           <div data-tour="ride-pick">
             <RideNow
               ftp={ftp}
@@ -1140,7 +1174,7 @@ function RideOnThisDevice({
           </div>
         )}
 
-        {ended && (
+        {ended && !trial && (
           <div ref={endPanel} className="scroll-mt-4">
             <Panel title="Ride ended" meta={<span className="num">{formatTime(elapsed)}</span>}>
               <div className="space-y-4">
@@ -1234,7 +1268,7 @@ function RideOnThisDevice({
                     </button>
                   )}
                   {/* Fields are only customized before a ride, never mid-ride (review U6). */}
-                  {elapsed === 0 && !running && (
+                  {elapsed === 0 && !running && !trial && (
                     <button className={button.ghost} onClick={() => setEditingFields(true)}>
                       Customize fields
                     </button>
@@ -1258,7 +1292,7 @@ function RideOnThisDevice({
           )}
         </div>
 
-        {!open && (
+        {!open && !trial && (
           <div data-tour="ride-editor">
             <WorkoutEditor
               key={loads}
@@ -1277,7 +1311,7 @@ function RideOnThisDevice({
           </div>
         )}
 
-        {!open && today && !running && elapsed === 0 && (
+        {!open && !trial && today && !running && elapsed === 0 && (
           <div data-tour="ride-outside">
             <SendToKaroo workout={workout} today={today} />
           </div>
