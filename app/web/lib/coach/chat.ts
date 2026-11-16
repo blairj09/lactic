@@ -88,6 +88,7 @@ ${RULES}
   - Often the right answer is no change. Never propose something just to have a proposal.
 - Mention each proposal in the brief in a few words. The athlete accepts or dismisses each one with a button under it.
 - You can't see or change a ride while it's happening, and the athlete doesn't talk to you mid-ride, so never offer to adjust it then ("tell me and we'll drop a rep"). If they may need to back off, say what they can do themselves: choose an easier option under the brief now, or during the ride lower the intensity with the minus button or skip an interval.
+- Your final reply is the brief itself, shown word for word on Today. Never end with a note about what you did ("Brief's set", "I've marked today") or a question like "Anything else?".
 - On a race day (raceToday in the status), the brief is the race plan instead, 4 to 7 sentences: readiness in one line, then pacing and tactics for this kind of race, using their power numbers from get_power and FTP (for cyclocross: the start, the first lap, recovering on the straights, and run-ups; for a time trial or hill climb: target watts and not starting too hard; for long events: holding back early). Don't repeat the warm-up, timeline or fuelling, which the Today page already shows from raceToday. Don't propose changes to today; a change to the days after the race is fine if recovery calls for it.`;
 
 /** Added to the brief when the athlete has the Adaptive workouts experiment on. */
@@ -140,7 +141,7 @@ export async function morningBrief(complete: Complete, data: CoachData, history:
   ];
   // Today's options show under the brief with the coach's pick marked, so the brief must make one.
   const mustCall = todayOptions(data.state) ? "suggest_today" : undefined;
-  return run(complete, data, messages, [...forFeatures(TOOLS, data.features), ...TODAY_TOOLS], hooks, MAX_TURNS, mustCall);
+  return run(complete, data, messages, [...forFeatures(TOOLS, data.features), ...TODAY_TOOLS], hooks, MAX_TURNS, mustCall, true);
 }
 
 const PLAN_WEEK = `You are the cycling coach inside Lactic, a training app for one athlete. Choose the workout for each key day listed below, so every session has a purpose.
@@ -265,6 +266,8 @@ const SCORE_CHANGE = 10;
  */
 export function briefStale(existing: StoredMessage | null, inputs: BriefInputs) {
   if (!existing) return true;
+  // A closing line saved in place of the brief ("Brief's set. Anything else?"): written again.
+  if (briefWrapUp(existing.content) && !(existing.meta as { wrapUp?: boolean }).wrapUp) return true;
   const meta = existing.meta as Partial<BriefInputs>;
   if ((meta.checkin ?? null) !== inputs.checkin) return true;
   // Written before the brief had to mark one of today's options (so Today fell back to the engine's,
@@ -313,11 +316,19 @@ export async function completeWithRetry(complete: Complete, messages: ChatMessag
   }
 }
 
+/** A closing line about the brief ("Brief's set. Anything else?") rather than the brief itself. */
+export function briefWrapUp(text: string) {
+  const t = text.trim();
+  return /\bbrief\b/i.test(t) || (t.endsWith("?") && (t.match(/[.!?](\s|$)/g) ?? []).length < 3);
+}
+
 /**
  * Runs the model with its tools until it answers. `mustCall` names a tool it must call before its
- * answer counts: when it answers without it, it's asked once to call it and answer again.
+ * answer counts: when it answers without it, it's asked once to call it and answer again. For a
+ * `brief`, the answer is shown as-is on Today, so a closing line after the brief was written ("Brief's
+ * set") gives way to the brief written before it, and is asked to be the brief when there's none.
  */
-async function run(complete: Complete, data: CoachData, messages: ChatMessage[], tools: unknown[], hooks: ChatHooks, maxTurns = MAX_TURNS, mustCall?: string): Promise<ChatReply> {
+async function run(complete: Complete, data: CoachData, messages: ChatMessage[], tools: unknown[], hooks: ChatHooks, maxTurns = MAX_TURNS, mustCall?: string, brief = false): Promise<ChatReply> {
   const proposals: Proposal[] = [];
   const memory: MemoryOp[] = [];
   const picks: WorkoutPick[] = [];
@@ -328,21 +339,35 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
   const allowed = new Set((tools as { function: { name: string } }[]).map((t) => t.function.name));
   let required = mustCall === undefined;
   let asked = false;
+  let askedForBrief = false;
+  // The longest text written before the answer: the brief, when the answer only wraps it up.
+  let draft = "";
 
   for (let turn = 0; turn < maxTurns; turn++) {
     const reply = await completeWithRetry(complete, messages, turn === maxTurns - 1 ? [] : tools, hooks);
     messages.push({ role: "assistant", content: reply.content ?? null, tool_calls: reply.tool_calls });
     if (!reply.tool_calls?.length) {
-      const message = (reply.content ?? "").trim();
+      let message = (reply.content ?? "").trim();
       if (message && !required && !asked && turn < maxTurns - 2) {
         asked = true;
-        messages.push({ role: "user", content: `You haven't called ${mustCall} yet. Call it with the option your brief recommends, then reply with the brief again, changed if your choice changed it.` });
+        draft = message.length > draft.length ? message : draft;
+        messages.push({ role: "user", content: `You haven't called ${mustCall} yet. Call it with the option your brief recommends, then reply with the whole brief again, changed if your choice changed it.` });
         continue;
+      }
+      if (message && brief && briefWrapUp(message)) {
+        if (draft.length > message.length) message = draft;
+        else if (!askedForBrief && turn < maxTurns - 1) {
+          askedForBrief = true;
+          messages.push({ role: "user", content: "That's shown on Today as the brief. Reply with the brief itself: 3 to 6 sentences, no closing question." });
+          continue;
+        }
       }
       if (message) return { message, proposals, memory, picks, today, ...extras() };
       messages.push({ role: "user", content: "Please answer in a message." });
       continue;
     }
+    const said = (reply.content ?? "").trim();
+    if (said.length > draft.length) draft = said;
     for (const call of reply.tool_calls) {
       const name = call.function.name;
       const app = appTools();

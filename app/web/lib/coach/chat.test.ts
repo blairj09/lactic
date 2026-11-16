@@ -186,6 +186,24 @@ describe("morning brief", () => {
     expect((await morningBrief(async () => again.shift()!, data, [])).message).toBe("Ride it as planned.");
   });
 
+  it("keeps the brief, not the closing line the coach adds after marking today", async () => {
+    const written = "Recovery is normal at 54 and form is +4. Today's threshold set builds toward the State Champs. Ride it as planned.";
+    const withCall = (content: string): ChatMessage => ({ ...call("suggest_today", { option_id: "asPlanned" }), content });
+    const wrap = "Brief's set — today's marked as planned. Anything else before you head out?";
+    // Written alongside the tool call, then wrapped up.
+    let replies = [withCall(written), say(wrap)];
+    expect((await morningBrief(async () => replies.shift()!, data, [])).message).toBe(written);
+    // Written first, nudged to mark today, then wrapped up.
+    replies = [say(written), call("suggest_today", { option_id: "asPlanned" }), say(wrap)];
+    expect((await morningBrief(async () => replies.shift()!, data, [])).message).toBe(written);
+    // Never written: asked once for the brief itself.
+    const seen: ChatMessage[][] = [];
+    replies = [call("suggest_today", { option_id: "asPlanned" }), say(wrap), say(written)];
+    const asked = await morningBrief(async (m) => (seen.push([...m]), replies.shift()!), data, []);
+    expect(seen[2].at(-1)?.content).toMatch(/Reply with the brief itself/);
+    expect(asked.message).toBe(written);
+  });
+
   it("never offers mid-ride changes it can't make", async () => {
     let system = "";
     await morningBrief(async (m) => ((system = m[0].content!), call("suggest_today", { option_id: "asPlanned" })), data, []).catch(() => {});
