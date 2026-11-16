@@ -34,6 +34,7 @@ function NativeOverlay({ data, controls, onResize }: { data: PlayerData; control
   return null;
 }
 
-export default function OverlayPortal(props: { pip: Window; data: PlayerData; controls: PlayerControls; onResize: (step: 1 | -1) => void }) {
+/** In the desktop app the overlay window closes itself (see overlay-window.tsx), so `onClose` is for the browser's. */
+export default function OverlayPortal(props: { pip: Window; data: PlayerData; controls: PlayerControls; onResize: (step: 1 | -1) => void; onClose?: () => void }) {
   return isDesktop ? <NativeOverlay {...props} /> : <OverlayPortalWeb {...props} />;
 }

@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- The ride overlay has a close button in its top-left corner that brings Lactic back to the front.
+
 ## 0.3.1
 
 - Coach's brief on Today shows the brief itself again, not a closing line like "Brief's set. Anything else?".

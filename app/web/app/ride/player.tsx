@@ -878,7 +878,7 @@ const MINI_TEXT = "text-[clamp(12px,6vh,22px)]";
  * interval on the left, the workout in the middle, the ride so far on the right; the controls
  * live in a panel that a button at the right edge opens over the strip.
  */
-export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; controls: PlayerControls; onResize: (step: 1 | -1) => void }) {
+export function MiniPlayer({ data, controls, onResize, onClose }: { data: PlayerData; controls: PlayerControls; onResize: (step: 1 | -1) => void; onClose?: () => void }) {
   const { ftp } = data;
   const next = data.upcoming[0];
   const from = Math.max(0, data.position - MINI_BEHIND);
@@ -987,6 +987,20 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
         </dl>
       ) : (
         right.length > 0 && <section className={`flex shrink-0 gap-[6vh] ${twoRows ? "flex-wrap content-center" : ""}`}>{right.map((i) => mini(i))}</section>
+      )}
+
+      {/* Close: a small tab in the top-left corner shuts the overlay and brings Lactic back to the front. */}
+      {onClose && (
+        <button
+          className="absolute left-0 top-0 flex size-[clamp(22px,11vh,44px)] items-center justify-center rounded-br-[1.5vh] border-b border-r border-line bg-raised text-muted transition-colors hover:bg-active hover:text-ink"
+          onClick={() => onClose()}
+          aria-label="Close overlay"
+          title="Close overlay and show Lactic"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden className="size-[55%]" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
       )}
 
       {fields.overlay.length > 1 && (

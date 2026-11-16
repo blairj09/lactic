@@ -1395,7 +1395,16 @@ function RideOnThisDevice({
             )}
           </Panel>
         </div>
-        {pip.pip && <OverlayPortal pip={pip.pip} data={data} controls={controls} onResize={resizeOverlay} />}
+        {pip.pip && <OverlayPortal
+            pip={pip.pip}
+            data={data}
+            controls={controls}
+            onResize={resizeOverlay}
+            onClose={() => {
+              pip.close();
+              window.focus();
+            }}
+          />}
         {isDesktop && !isPhone() && <RemoteHost data={data} controls={controls} />}
         {isPhone() && <LiveActivityHost ride={data} />}
       </Page>

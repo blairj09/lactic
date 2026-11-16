@@ -2,12 +2,19 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MiniPlayer, type PlayerControls } from "@/app/ride/player";
-import { listen } from "~/platform/native";
+import { invoke, listen } from "~/platform/native";
 import { EV, sendableArgs, type ControlMessage, type ControlName, type OverlayPayload } from "./channel";
 
 async function control(name: ControlName, args: unknown[]) {
   const { emitTo } = await import("@tauri-apps/api/event");
   await emitTo("main", EV.control, { name, args: sendableArgs(args) } satisfies ControlMessage);
+}
+
+/** The overlay's close button: tell the Ride page it's gone, then the core shuts it and brings Lactic to the front. */
+async function backToLactic() {
+  const { emitTo } = await import("@tauri-apps/api/event");
+  await emitTo("main", EV.closed).catch(() => {});
+  await invoke("overlay_back");
 }
 
 export default function OverlayWindow() {
@@ -43,7 +50,7 @@ export default function OverlayWindow() {
   if (!payload) return <div className="grid h-screen place-items-center bg-ground text-sm text-muted" onMouseDown={drag}>Waiting for the ride…</div>;
   return (
     <div className="h-screen bg-ground" onMouseDown={drag}>
-      <MiniPlayer data={payload.data} controls={{ ...controls, canPlay: payload.canPlay }} onResize={(step) => void control("resize", [step])} />
+      <MiniPlayer data={payload.data} controls={{ ...controls, canPlay: payload.canPlay }} onResize={(step) => void control("resize", [step])} onClose={() => void backToLactic()} />
     </div>
   );
 }
