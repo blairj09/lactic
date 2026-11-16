@@ -31,3 +31,10 @@ export async function streamCoach(url: string, body: unknown, on: EventHandlers)
   }
   throw new Error("The coach stopped before answering");
 }
+
+/** What went wrong with the brief, in plain words: a dropped connection reads as one, not as the network library's message. */
+export function briefError(error: string): string {
+  if (/connection dropped|decoding response body|error sending request|couldn't connect|network|load failed|failed to fetch|timed out|stopped before answering/i.test(error))
+    return "The coach couldn't write today's brief: the connection dropped.";
+  return `The coach couldn't write today's brief. ${/[.!?]$/.test(error) ? error : `${error}.`}`;
+}

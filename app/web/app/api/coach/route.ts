@@ -17,7 +17,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** A conversation (?conversation=id, else the current one), the list of conversations, and the coach's name, for the drawer. */
 export async function GET(request: Request) {
-  if (!coachModel()) return Response.json({ error: "The coach needs OPENROUTER_API_KEY" }, { status: 503 });
+  if (!coachModel()) return Response.json({ error: "Finish setting up the coach first: pick a model and add its API key in Settings → Coach." }, { status: 503 });
   const supabase = await createClient();
   const {
     data: { user },
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!coachModel()) return Response.json({ error: "The coach needs OPENROUTER_API_KEY" }, { status: 503 });
+  if (!coachModel()) return Response.json({ error: "Finish setting up the coach first: pick a model and add its API key in Settings → Coach." }, { status: 503 });
   const body = await request.json().catch(() => null);
   const text = typeof body?.message === "string" ? body.message.trim() : "";
   const sentFiles = Array.isArray(body?.attachments) && body.attachments.length > 0;

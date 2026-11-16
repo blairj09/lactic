@@ -399,7 +399,7 @@ export default function FieldEditor({
         <div className="space-y-5 rounded-lg bg-surface p-5">
           <div className="space-y-2">
             <h3 className="text-sm font-semibold">Fields for</h3>
-            <Segmented fill label="Fields for" options={(phone ? (["workout", "free"] as const) : (["workout", "free", "overlay", "headUnit"] as const)).map((s) => ({ value: s, label: SET_NAMES[s] }))} value={set} onChange={(s) => (setSet(s), setPage(0), setSlotIndex(0))} />
+            <Segmented fill label="Fields for" options={(phone ? (["workout", "free", "headUnit"] as const) : (["workout", "free", "overlay", "headUnit"] as const)).map((s) => ({ value: s, label: SET_NAMES[s] }))} value={set} onChange={(s) => (setSet(s), setPage(0), setSlotIndex(0))} />
             {set !== "workout" &&
               (following ? (
                 <p className="text-sm text-muted">

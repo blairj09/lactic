@@ -3,6 +3,9 @@
 // the screens and Ride move to a tab bar along the bottom, within reach of a thumb.
 
 import Link from "next/link";
+import { useLocation } from "react-router";
+import { isRiding } from "@/lib/live-ride";
+import { retap, scrollToTop } from "./tab-retap";
 import CoachButton from "@/app/coach/coach-button";
 import { Wordmark } from "./brand";
 import { useCoachMode, useMcpOn } from "./coach-mode";
@@ -13,7 +16,6 @@ import { hasHealth } from "@/lib/features";
 import { useFeatures } from "@/lib/use-features";
 import { useTabs } from "@/lib/use-tabs";
 import type { TabId } from "@/lib/sdk/layout";
-import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 
 const LINKS: Record<TabId, { href: string; label: string }> = {
   today: { href: "/", label: "Today" },
@@ -21,7 +23,6 @@ const LINKS: Record<TabId, { href: string; label: string }> = {
   ride: { href: "/ride", label: "Ride" },
   progress: { href: "/progress", label: "Progress" },
   health: { href: "/health", label: "Health" },
-  plugins: { href: "/plugins", label: "Plugins" },
 };
 
 export default function Nav({ current }: { current: string }) {
@@ -31,11 +32,20 @@ export default function Nav({ current }: { current: string }) {
   // In the rider's order (Settings → Layout), Ride between Plan and Progress by default, in the bar and
   // the phone's tab bar alike. Hidden tabs stay out; Health also has nothing to show when the rider
   // tracks neither recovery nor weight.
-  // Plugins is always there in Lactic Modular (computer and iPhone): it's where plugins are added and managed.
   const tabs = useTabs()
-    .filter((t) => !t.hidden && (t.id !== "health" || hasHealth(tracking)) && (t.id !== "plugins" || pluginsAllowed))
+    .filter((t) => !t.hidden && (t.id !== "health" || hasHealth(tracking)))
     .map((t) => LINKS[t.id]);
   const coach = mode === "builtin" || mode === "external";
+  const { pathname, search } = useLocation();
+  // Tapping the tab you're on: back to its page, then to the top of it.
+  const onTab = (href: string) => (e: React.MouseEvent) => {
+    const what = retap({ href, current, pathname, search, riding: isRiding() });
+    if (what === "top") {
+      e.preventDefault();
+      scrollToTop();
+    } else if (what === "root") requestAnimationFrame(() => window.scrollTo({ top: 0 }));
+    else if (href === current) e.preventDefault();
+  };
   return (
     <>
     <header className="lactic-drag lactic-titlebar sticky top-0 z-30 border-b border-line bg-ground pt-[env(safe-area-inset-top)]">
@@ -91,6 +101,7 @@ export default function Nav({ current }: { current: string }) {
             href={href}
             data-tour={label.toLowerCase()}
             aria-current={current === href ? "page" : undefined}
+            onClick={onTab(href)}
             className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted aria-[current=page]:text-accent"
           >
             <TabIcon href={href} />
@@ -116,14 +127,6 @@ function TabIcon({ href }: { href: string }) {
     "/ride": <path d="M3 20V15h3v-4h3V7h3v13ZM12 15h9v5h-9" />,
     "/progress": <path d="M4 19h16M6 16l4-5 3 3 5-7" />,
     "/health": <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />,
-    "/plugins": (
-      <>
-        <rect x="4" y="4" width="7" height="7" rx="1.5" />
-        <rect x="13" y="4" width="7" height="7" rx="1.5" />
-        <rect x="4" y="13" width="7" height="7" rx="1.5" />
-        <rect x="13" y="13" width="7" height="7" rx="1.5" />
-      </>
-    ),
   };
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

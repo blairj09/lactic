@@ -39,6 +39,7 @@ import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type Ride
 import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
+import { LiveActivityHost } from "~/phone/live-activity";
 import { RemoteHost } from "~/ride/remote";
 import { pluginFieldOptions, usePluginFields, usePlugins } from "~/plugins/ride-fields";
 import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
@@ -54,6 +55,7 @@ import RampTestResult from "./ramp-test-result";
 const OVERLAY_PREF = "ride.overlayOnStart";
 /** What a head unit ride is called in Lactic: the other app names its own copy. */
 const HEAD_UNIT_NAME = "Head unit ride";
+const FREE_RIDE_NAME = "Free ride";
 
 /** The chart's x axis in a head unit ride: the ride so far and five minutes on, no targets. */
 function headUnitWorkout(position: number): Workout {
@@ -308,7 +310,11 @@ function RideOnThisDevice({
 
   useEffect(() => setSupported(isWebBluetoothAvailable()), []);
   // Hands off the trainer for a head unit ride, so nothing Lactic does can fight the other app.
-  useEffect(() => hub.setHandsOff(headUnit), [hub, headUnit]);
+  useEffect(() => {
+    hub.setHandsOff(headUnit);
+    // Leaving the Ride page gives the trainer back, so nothing else finds it still hands off.
+    return () => hub.setHandsOff(false);
+  }, [hub, headUnit]);
   const trainerApp = useTrainingApp(headUnit);
   useEffect(() => {
     // On unless turned off: clicking Start opens the overlay on top of other windows.
@@ -746,10 +752,12 @@ function RideOnThisDevice({
   const save = async () => {
     const started = startedAt.current;
     if (!started) return;
+    // A free ride or head unit ride follows no workout, so it isn't named after the one loaded beside it.
+    const rideName = headUnit ? HEAD_UNIT_NAME : erg ? FREE_RIDE_NAME : workout.name;
     setSaveState("saving");
     const result = await saveAppRide({
       startedAt: started,
-      name: headUnit ? HEAD_UNIT_NAME : workout.name,
+      name: rideName,
       watts: samples.current,
       heartRate: hrSamples.current,
       cadence: cadenceSamples.current,
@@ -771,7 +779,7 @@ function RideOnThisDevice({
       const libraryRide = intensity !== 100 || edited ? null : source === "library" ? librarySession(library, levels) : starter ? starterSession(starter) : null;
       setSurvey({
         appStartedAt: started,
-        name: workout.name,
+        name: rideName,
         session: libraryRide && { zone: libraryRide.zone, level: libraryRide.level, duration: libraryRide.duration, stress: libraryRide.stress },
       });
     } else setError(result.message);
@@ -1389,6 +1397,7 @@ function RideOnThisDevice({
         </div>
         {pip.pip && <OverlayPortal pip={pip.pip} data={data} controls={controls} onResize={resizeOverlay} />}
         {isDesktop && !isPhone() && <RemoteHost data={data} controls={controls} />}
+        {isPhone() && <LiveActivityHost ride={data} />}
       </Page>
     </div>
   );

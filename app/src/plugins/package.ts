@@ -5,7 +5,7 @@
 //   { "lacticplugin": 1, "manifest": { ... }, "main": "<the bundle's JavaScript>" }
 //
 // Plain data apart from crypto.subtle (present in browsers, workers and Node).
-import { parseManifestText, validateManifest, type PluginManifest } from "./manifest";
+import { packageHashText, parseManifestText, validateManifest, type PluginManifest } from "./manifest";
 
 export const PACKAGE_VERSION = 1;
 export const PACKAGE_EXTENSION = ".lacticplugin";
@@ -56,7 +56,7 @@ export async function parsePackage(text: string): Promise<PackageResult> {
   const checked = typeof o.manifest === "string" ? parseManifestText(o.manifest) : validateManifest(o.manifest);
   if (!checked.ok) return refuse(checked.errors);
   // Pin what will actually run and what was approved: the checked manifest plus the exact code.
-  const sha256 = await sha256Hex(JSON.stringify(checked.manifest) + "\n" + o.main);
+  const sha256 = await sha256Hex(packageHashText(checked.manifest, o.main));
   return { ok: true, pkg: { manifest: checked.manifest, source: o.main, sha256 } };
 }
 

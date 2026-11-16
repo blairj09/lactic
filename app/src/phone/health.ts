@@ -9,7 +9,8 @@ import { createClient } from "~/db/supabase-client";
 import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
 import { logEvent } from "~/support/log";
-import { ackPending, authorizeHealth, phoneStatus, readHealth, removeDuplicateWorkouts, saveWorkout, takePending } from "./plugin";
+import { os, phoneHealthName } from "~/platform/native";
+import { ackPending, authorizeHealth, phoneStatus, readHealth, removeDuplicateWorkouts, saveWeighIn, saveWorkout, takePending } from "./plugin";
 
 // Device-local settings ("phone." never syncs).
 const IMPORTED = "phone.health.imported";
@@ -22,6 +23,13 @@ const REREAD = "phone.health.reread.nights2";
 export const WRITE_RIDES = "phone.health.writeRides";
 const WRITE_SINCE = "phone.health.writeSince";
 const WRITTEN = "phone.health.written";
+const WEIGH_INS_WRITTEN = "phone.health.weighInsWritten";
+/** Which Health permissions were last asked for: asking again when this grows shows only the new ones. */
+const ASKED_TYPES = "phone.health.askedTypes";
+/** 2: weight and body fat, read and written. */
+const HEALTH_TYPES = 2;
+/** Weigh-ins from these never go to Health: it gave them to us, or intervals.icu's are a day's value, not a moment's. */
+const NOT_TO_HEALTH = ["apple_health", "intervals"];
 /** Set once the extra copies left by the old double save were taken out of Health. */
 const DEDUPED = "phone.health.duplicatesRemoved";
 /** Rides older than this are left alone (Health has them from elsewhere, or they're history). */
@@ -30,6 +38,7 @@ const WRITE_WINDOW_DAYS = 14;
 /** Shows Apple's Health permission sheet, then imports and starts listening for new data. */
 export async function connectHealth(): Promise<boolean> {
   const { granted } = await authorizeHealth();
+  await setSetting(ASKED_TYPES, HEALTH_TYPES);
   await setSetting(SOURCE_SETTING, "apple");
   if ((await getSetting<string | null>(WRITE_SINCE, null)) === null) {
     // Rides from the last few days count too, so today's ride shows up straight away.
@@ -48,6 +57,8 @@ const READ_MS = 45_000;
 const FIRST_READ_MS = 120_000;
 const SAVE_MS = 90_000;
 const CLEANUP_MS = 120_000;
+/** Time to answer Apple's Health permission sheet. */
+const ASK_MS = 120_000;
 /** The whole read and import: past this, the next ask starts afresh. */
 const RUN_MS = 3 * 60_000;
 
@@ -67,7 +78,7 @@ let lastError: string | null = null;
 export const healthError = () => lastError;
 
 /**
- * Imports Health (60 days the first time, then the last 3), then writes new rides to
+ * Imports Health (60 days the first time, then the last 3), then writes new rides and weigh-ins to
  * Health without waiting on them. Resolves with the latest night, or null when there was nothing
  * or the read failed (healthError says why).
  */
@@ -76,12 +87,16 @@ export function syncPhoneHealth(): Promise<string | null> {
   const run = within(importHealth(), RUN_MS, "Reading Apple Health")
     .then((latest) => {
       lastError = null;
-      void writeRides().catch(() => {});
+      void writeRides()
+        .then(() => writeWeighIns())
+        .catch(() => {});
       return latest;
     })
     .catch((e: unknown) => {
       lastError = e instanceof Error ? e.message : String(e);
-      logEvent("health", "error", `Apple Health: ${lastError}`);
+      // HealthKit's words for a type iOS hasn't asked the rider about yet.
+      if (/not determined/i.test(lastError)) lastError = `Lactic needs your OK to read ${phoneHealthName()}. Tap Connect ${phoneHealthName()}.`;
+      logEvent("health", "error", `${phoneHealthName()}: ${lastError}`);
       return null;
     })
     .finally(() => {
@@ -94,6 +109,12 @@ export function syncPhoneHealth(): Promise<string | null> {
 async function importHealth(): Promise<string | null> {
   const status = await within(phoneStatus(), READ_MS, "The iPhone app");
   if (!status.healthAvailable || !status.healthAsked) return null;
+  // iOS hasn't asked about some types yet (added since the rider answered, or the sheet never
+  // showed): Apple's sheet asks for just those. Only with the app on screen, where it can show.
+  if (status.healthToAsk && typeof document !== "undefined" && document.visibilityState === "visible") {
+    await within(authorizeHealth(), ASK_MS, "The permission sheet").catch(() => {});
+    await setSetting(ASKED_TYPES, HEALTH_TYPES);
+  }
   const first = !(await getSetting<boolean>(IMPORTED, false)) || !(await getSetting<boolean>(REREAD, false));
   const fresh = await within(readHealth(first ? 60 : 3), first ? FIRST_READ_MS : READ_MS, "Apple Health");
   let latest: string | null = null;
@@ -227,5 +248,40 @@ async function writeNewRides(): Promise<number> {
   }
   // Only recent ids matter; the window keeps the list short.
   await setSetting(WRITTEN, [...written].slice(-500));
+  return saved;
+}
+
+/** Writes each recent weigh-in from a scale (on this iPhone or synced from the computer) to Health. Each is tried once. */
+export async function writeWeighIns(): Promise<number> {
+  // Health Connect on Android takes rides only for now.
+  if (os() === "android") return 0;
+  if (!(await getSetting<boolean>(WRITE_RIDES, true))) return 0;
+  const since = await getSetting<string | null>(WRITE_SINCE, null);
+  if (!since) return 0;
+  const from = new Date(Math.max(Date.parse(since), Date.now() - WRITE_WINDOW_DAYS * 86_400_000)).toISOString();
+  const { data } = await createClient().from("body_measurements").select("id, measured_at, source, weight_kg, body_fat_pct").gte("measured_at", from).order("measured_at");
+  const written = new Set(await getSetting<string[]>(WEIGH_INS_WRITTEN, []));
+  const todo = ((data ?? []) as { id: string; measured_at: string; source: string; weight_kg: number | string; body_fat_pct: number | string | null }[]).filter(
+    (m) => !written.has(m.id) && !NOT_TO_HEALTH.includes(m.source),
+  );
+  let saved = 0;
+  for (const m of todo) {
+    try {
+      const r = await within(saveWeighIn({
+        id: m.id,
+        at: Date.parse(m.measured_at) / 1000,
+        kg: Number(m.weight_kg),
+        fatPercent: m.body_fat_pct === null ? null : Number(m.body_fat_pct),
+      }), SAVE_MS, "Saving a weigh-in to Health");
+      if (r.saved) saved++;
+      else logEvent("health", "info", `Weigh-in not written to Health: ${r.reason}`);
+      written.add(m.id);
+    } catch (e) {
+      // Not allowed to write weight, say: try again next time.
+      logEvent("health", "error", `Couldn't write a weigh-in to Health: ${e instanceof Error ? e.message : String(e)}`);
+      break;
+    }
+  }
+  await setSetting(WEIGH_INS_WRITTEN, [...written].slice(-500));
   return saved;
 }

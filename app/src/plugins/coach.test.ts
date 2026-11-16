@@ -16,7 +16,7 @@ const manifest = (() => {
       { id: "min_balance", label: "Lowest W prime", unit: "kJ", kind: "number" },
       { id: "state", label: "State", kind: "choice", choices: ["fresh", "spent"] },
     ],
-    contributes: { widgets: [{ id: "card", title: "W prime", entry: "card" }], fields: [] },
+    contributes: { fields: [{ id: "balance", title: "W prime", entry: "field" }] },
   });
   if (!r.ok) throw new Error(r.errors.join("; "));
   return r.manifest;
@@ -28,7 +28,6 @@ describe("plugins for the coach", () => {
     const shared = pluginList([installedPlugin(manifest, { enabled: true, coachVisible: true })], "chat").plugins[0];
     expect(shared.source).toBe("plugin:wprime-tools@0.4.0-beta.1");
     expect(shared.metrics.map((m) => m.id)).toEqual(["plugin.wprime-tools.min_balance", "plugin.wprime-tools.state"]);
-    expect(shared.cards).toEqual([{ id: "plugin.wprime-tools.card", untrusted: { name: "W prime" } }]);
   });
 
   it("pass fixed choices through but no other text", async () => {

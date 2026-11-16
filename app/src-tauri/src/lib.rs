@@ -4,6 +4,9 @@
 
 #[cfg(desktop)]
 pub mod apps;
+// On Android, Bluetooth is the phone plugin's (Kotlin, plugins/lactic-phone/android): the same
+// commands answer there with a pointer to it.
+#[cfg_attr(target_os = "android", path = "ble_android.rs")]
 pub mod ble;
 pub mod db;
 pub mod files;
@@ -118,8 +121,8 @@ pub fn run() {
                 let _ = app.emit_to("main", "lactic:check-updates", ());
             }
         });
-    // The iPhone app: Apple Health, the pairing key and the encrypted link to the computer
-    // (plugins/lactic-phone), and the camera for the pairing QR code.
+    // The phone apps: Apple Health or Health Connect, the pairing key and the encrypted link to the
+    // computer (plugins/lactic-phone), and the camera for the pairing QR code.
     #[cfg(mobile)]
     let builder = builder.plugin(tauri_plugin_barcode_scanner::init()).plugin(tauri_plugin_lactic_phone::init());
     let builder = builder

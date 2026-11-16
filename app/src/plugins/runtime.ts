@@ -137,9 +137,16 @@ export class SandboxRuntime {
     this.deadline = start + (budget?.tickMs ?? this.limits.tickMs);
     let result;
     let overBudget = false;
+    let failure: Failure | null = null;
     try {
       result = ctx.callFunction(fn, ctx.undefined, name, arg, max);
       overBudget = this.now() > this.deadline;
+      // Reading what was thrown can run the plugin's code again (a getter on the thrown object), so
+      // it happens inside the same time limit, and running out there is a timeout like any other.
+      if (result.error) {
+        failure = this.failure(result.error, overBudget);
+        if (!overBudget && this.now() > this.deadline) failure = { kind: "timeout", message: "took too long" };
+      }
     } finally {
       this.deadline = Infinity;
       fn.dispose();
@@ -148,7 +155,7 @@ export class SandboxRuntime {
       max.dispose();
     }
     if (result.error) {
-      const failure = this.failure(result.error, overBudget);
+      failure ??= { kind: "error", message: "unreadable error" };
       result.error.dispose();
       let restarted = false;
       if (failure.kind === "memory" || failure.kind === "stack") {

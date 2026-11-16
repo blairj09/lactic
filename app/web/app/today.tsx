@@ -255,7 +255,22 @@ export default function TodayView({
     // Today's form, with the fitness and fatigue it comes from. On a phone, form takes the top row.
     // Small shows just the form number; Fitness and Fatigue come with Medium and Large.
     "lactic.form":
-      layout.today.find((c) => c.widget === "lactic.form")?.size === "small" ? (
+      rides.length === 0 ? (
+        // Before the first ride, one line instead of form, fitness and fatigue at zero.
+        <section aria-label="Fitness" className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line">
+          <div className="space-y-1 bg-surface p-4 sm:p-5">
+            <p className="text-[15px]">Your fitness, fatigue and form start with your first ride.</p>
+            <p className="text-sm text-muted">
+              Have older rides?{" "}
+              <Link href="/settings#connections" className="text-ink underline underline-offset-4">
+                Bring them in
+              </Link>{" "}
+              and they start from there.
+            </p>
+          </div>
+          <FtpNudge ftp={athlete.ftp} hasPowerRides={false} />
+        </section>
+      ) : layout.today.find((c) => c.widget === "lactic.form")?.size === "small" ? (
         <section
           aria-label="Form"
           className="overflow-hidden rounded-lg border border-line bg-line"
@@ -301,8 +316,9 @@ export default function TodayView({
           />
         </section>
       ),
+    // Nothing before the first ride: the Form card's line covers it, with any FTP nudge.
     "lactic.last-ride":
-      !ridden || !athlete.ftp ? (
+      rides.length > 0 && (!ridden || !athlete.ftp) ? (
         <section
           aria-label="Training"
           className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-line bg-line"

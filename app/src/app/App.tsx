@@ -8,7 +8,6 @@ import DrawerBoundary from "@/app/coach/drawer-boundary";
 import NewDayRefresh from "@/components/new-day-refresh";
 import PullToRefresh from "@/components/pull-to-refresh";
 import { ServerPage } from "./server-page";
-import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { setNavigator } from "~/shims/next-navigation";
 import { refreshCoachMode, useCoachMode, useMcpOn } from "./coach-mode";
 import { getSetting } from "~/settings/store";
@@ -30,6 +29,7 @@ import { isPhone } from "~/platform/native";
 import { startPhoneBridge } from "~/phone/computer";
 import { PhoneWelcome, SOLO } from "~/phone/welcome";
 import { ComputerRide } from "~/phone/remote";
+import { SettingsShortcut } from "~/settings/shell";
 
 // The coach's tools for checking and fixing the app itself (gear, intervals.icu, its own setup).
 installSupportTools();
@@ -39,7 +39,6 @@ const plan = () => import("@/app/plan/page");
 const progress = () => import("@/app/progress/page");
 const vo2max = () => import("@/app/progress/vo2max/page");
 const health = () => import("@/app/health/page");
-const plugins = () => import("@/app/plugins/page");
 const metric = () => import("@/app/health/[metric]/page");
 const ride = () => import("@/app/ride/page");
 const rideDetail = () => import("@/app/rides/[id]/page");
@@ -93,6 +92,8 @@ function Shell() {
       const key = (e as CustomEvent<string>).detail;
       if (key === "onboarding.done") void getSetting("onboarding.done", false).then(setOnboarded);
       if (key === "coach.setup") void refreshCoachMode();
+      // A coach setup or key that arrives from the paired computer or phone turns the built-in coach on or off.
+      if (key === "coach.setup" || key === "secrets") void import("~/boot/env").then((m) => m.applyEnv());
       if (key === SOLO && isPhone()) void getSetting<boolean>(SOLO, false).then(setSolo);
     };
     window.addEventListener("lactic:settings", onSettings);
@@ -123,6 +124,7 @@ function Shell() {
     <>
       <NavigatorBridge />
       {onboarded && <HeadUnitWatcher />}
+      {onboarded && <SettingsShortcut />}
       <Routes>
         <Route path="/overlay" element={<Lazy load={overlay} />} />
         <Route path="/welcome/*" element={<Lazy load={onboarding} />} />
@@ -136,7 +138,6 @@ function Shell() {
         <Route path="/progress" element={<ServerPage load={progress} />} />
         <Route path="/progress/vo2max" element={<ServerPage load={vo2max} />} />
         <Route path="/health" element={<ServerPage load={health} />} />
-        {pluginsAllowed && <Route path="/plugins" element={<ServerPage load={plugins} />} />}
         <Route path="/health/:metric" element={<ServerPage load={metric} />} />
         <Route path="/ride" element={<ServerPage load={ride} />} />
         <Route path="/rides/:id" element={<ServerPage load={rideDetail} />} />
@@ -144,6 +145,7 @@ function Shell() {
         <Route path="/settings" element={<ServerPage load={settings} />} />
         <Route path="/analysis" element={<Navigate to="/progress" replace />} />
         <Route path="/rides" element={<Navigate to="/progress?tab=rides" replace />} />
+        <Route path="/plugins" element={<Navigate to="/settings?section=plugins" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}

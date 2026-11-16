@@ -27,10 +27,10 @@ const manifest = (over: Record<string, unknown> = {}) => ({
     { id: "balance", label: "W′ balance", unit: "kJ", kind: "number" },
     { id: "state", label: "State", kind: "choice", choices: ["fresh", "empty"] },
   ],
-  contributes: { widgets: [{ id: "week", title: "W′ this week", entry: "week" }], fields: [{ id: "balance", title: "W′ balance", entry: "field" }] },
+  contributes: { fields: [{ id: "count", title: "W′ count", entry: "count" }, { id: "balance", title: "W′ balance", entry: "field" }] },
   ...over,
 });
-const CODE = "lactic.register({ week() { return {} }, field() { return {} } });";
+const CODE = "lactic.register({ count() { return {} }, field() { return {} } });";
 
 async function pkg(over: Record<string, unknown> = {}, code = CODE): Promise<PluginPackage> {
   const r = await parsePackage(packagePlugin(manifest(over), code));
@@ -209,12 +209,12 @@ describe("running", () => {
     const { pluginHost } = await import("./running");
     const { InProcessWorker, quickjs } = await import("./test-utils");
     const mod = await quickjs();
-    const code = `lactic.register({ week(input) { return { metrics: { balance: Object.keys(input.metrics).length } } }, field() { throw new Error("boom") } });`;
+    const code = `lactic.register({ count(input) { return { metrics: { balance: Object.keys(input.metrics).length } } }, field() { throw new Error("boom") } });`;
     await installPlugin(await pkg({}, code));
     const [p] = await listPlugins();
     const host = await pluginHost(p, () => new InProcessWorker(mod));
     expect(host).not.toBeNull();
-    const r = await host!.call("week", { "power.3s": 200, "location.lat": 51.5 } as never);
+    const r = await host!.call("count", { "power.3s": 200, "location.lat": 51.5 } as never);
     expect(r.ok && r.output.metrics).toEqual({ "plugin.wprime-tools.balance": 1 });
     for (let i = 0; i < 3; i++) await host!.call("field", {});
     await new Promise((res) => setTimeout(res, 20));

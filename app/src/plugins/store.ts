@@ -3,7 +3,7 @@
 // back is checked again, so a row edited by hand, by sync or by a restored backup can't skip the gate.
 import { sql, type Row } from "~/db/sql";
 import type { MetricGroup } from "@shared/sdk";
-import { validateManifest, type PluginManifest } from "./manifest";
+import { packageHashText, validateManifest, type PluginManifest } from "./manifest";
 import { deviceId } from "./device";
 import { stableId } from "./ids";
 import { isPhone } from "~/platform/native";
@@ -55,7 +55,7 @@ function toGrant(r: Row | undefined): Grant | null {
 // restored row with new code under the old hash must not run on the old approval (review S6, S7).
 const hashes = new Map<string, string>();
 async function packageHash(manifest: PluginManifest, source: string): Promise<string> {
-  const text = JSON.stringify(manifest) + "\n" + source;
+  const text = packageHashText(manifest, source);
   let h = hashes.get(text);
   if (!h) {
     h = await sha256Hex(text);
@@ -128,6 +128,13 @@ async function savePackage(pkg: PluginPackage, origin: string | null) {
   notify();
 }
 
+/** True when this exact .lacticplugin file is the added version of its plugin (a coach draft the rider added). */
+export async function draftIsAdded(file: string): Promise<boolean> {
+  const parsed = await parsePackage(file);
+  if (!parsed.ok) return false;
+  return (await getPlugin(parsed.pkg.manifest.id))?.sha256 === parsed.pkg.sha256;
+}
+
 /** Add a new plugin, approved and switched on for this device with the rider's choices. */
 export async function installPlugin(pkg: PluginPackage, choices: InstallChoices = {}, origin: string | null = null) {
   if (await getPlugin(pkg.manifest.id)) throw new Error(`${pkg.manifest.name} is already added; add it as an update instead`);
@@ -180,7 +187,7 @@ export async function markSwitchedOff(pluginId: string, reason: string) {
   notify();
 }
 
-/** Remove a plugin and everything it published, on every device. Its cards become placeholders (review U12). */
+/** Remove a plugin and everything it published, on every device. Its ride fields become placeholders (review U12). */
 export async function removePlugin(pluginId: string) {
   await sql().batch([
     { sql: `DELETE FROM plugin_values WHERE plugin_id = ?`, params: [pluginId] },

@@ -1,4 +1,4 @@
-// Lactic's own plugins (plugins/catalog in the repo), shipped inside the app: Plugins tab →
+// Lactic's own plugins (plugins/catalog in the repo), shipped inside the app: Settings → Plugins →
 // Browse lists them and adds them through the same permission screen as any plugin. Nothing is
 // downloaded. Every version ever published is bundled, so "from Lactic" can be decided by the
 // package's hash alone (isCatalogPackage), never by anything a plugin or a stored row says.
@@ -9,6 +9,9 @@ import { compareVersions } from "./permissions";
 /** Stored as a plugin's origin when it's added from the catalog. Shown as "Lactic" only for a bundled package. */
 export const CATALOG_ORIGIN = "lactic:catalog";
 
+/** Stored as the origin of a plugin added from a coach draft (coach-draft.ts). Shown as "your coach". */
+export const COACH_ORIGIN = "lactic:coach";
+
 /** Where riders can read the code. */
 export const CATALOG_CODE_URL = "https://github.com/blairj09/lactic/tree/modular-ui/plugins/catalog";
 
@@ -18,7 +21,7 @@ export interface CatalogEntry {
   version: string;
   description: string;
   reads: string[];
-  adds: { fields: string[]; analyses: string[]; widgets: string[] };
+  adds: { fields: string[]; analyses: string[] };
   file: string;
   sha256: string;
 }

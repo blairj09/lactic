@@ -9,7 +9,7 @@ import { BUILTIN_TODAY_WIDGETS, todayCard } from "./builtin-widgets";
 import { MetricRegistry } from "./metrics";
 import type { CardSize } from "./widgets";
 
-/** Lactic's own cards and metrics; plugin cards join when plugins can be installed. */
+/** Lactic's own cards and metrics. Plugins never add cards. */
 const BUILTIN: LayoutContext = { widgets: BUILTIN_TODAY_WIDGETS, metrics: new MetricRegistry() };
 
 function edit(layout: Layout, change: LayoutChange, ctx: LayoutContext = BUILTIN): Layout {

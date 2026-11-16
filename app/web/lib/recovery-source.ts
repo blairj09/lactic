@@ -8,6 +8,8 @@ export interface RecoverySetup {
   picked: RecoverySource | null;
   /** Apple Health files have been imported before. */
   appleReceiving: boolean;
+  /** What the phone's health store is called, when "apple" means the Android app's Health Connect. */
+  appleName?: "Apple Health" | "Health Connect";
   /** Lactic on the iPhone reads Health: when it last did, and whether this is that iPhone. */
   iphone?: IphoneReads | null;
 }
@@ -35,7 +37,7 @@ export async function loadRecoverySetup(): Promise<RecoverySetup> {
 }
 
 export interface RecoverySourceInfo {
-  name: "Apple Health" | "intervals.icu";
+  name: "Apple Health" | "Health Connect" | "intervals.icu";
   /** Set up to send nights, so last night is worth waiting for. */
   connected: boolean;
   /** Health comes from Lactic on the iPhone. */
@@ -45,7 +47,7 @@ export interface RecoverySourceInfo {
 /** The name to show for the rider's recovery source, and whether it's set up to send nights. */
 export function recoverySourceInfo(setup: RecoverySetup, intervalsConnected: boolean): RecoverySourceInfo | null {
   const picked = setup.picked ?? (setup.appleReceiving ? "apple" : null);
-  if (picked === "apple") return { name: "Apple Health", connected: setup.appleReceiving, ...(setup.iphone ? { iphone: setup.iphone } : {}) };
+  if (picked === "apple") return { name: setup.appleName ?? "Apple Health", connected: setup.appleReceiving, ...(setup.iphone ? { iphone: setup.iphone } : {}) };
   if (picked === "intervals") return { name: "intervals.icu", connected: intervalsConnected };
   return null;
 }

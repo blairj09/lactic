@@ -71,7 +71,6 @@ export interface UpdateChanges {
   author: { from: string; to: string } | null;
   newReads: MetricGroup[];
   droppedReads: MetricGroup[];
-  newWidgets: string[];
   newFields: string[];
   newMetrics: string[];
   /** Nothing the rider needs to look at beyond the version. */
@@ -105,7 +104,6 @@ export function updateChanges(prev: PluginManifest, next: PluginManifest): Updat
     author: prevAuthor !== nextAuthor ? { from: prevAuthor || "no one named", to: nextAuthor || "no one named" } : null,
     newReads: next.permissions.read.filter((g) => !prev.permissions.read.includes(g)),
     droppedReads: prev.permissions.read.filter((g) => !next.permissions.read.includes(g)),
-    newWidgets: titles(next.contributes.widgets, prev.contributes.widgets),
     newFields: titles(next.contributes.fields, prev.contributes.fields),
     newMetrics: next.publishes.filter((p) => !prev.publishes.some((o) => o.id === p.id)).map((p) => p.label),
     quiet: false,

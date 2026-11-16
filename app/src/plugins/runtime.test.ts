@@ -140,6 +140,25 @@ describe("plugin runtime: limits", () => {
     rt.dispose();
   });
 
+  it("holds the time limit while reading what a plugin threw (a getter that loops)", async () => {
+    const rt = new SandboxRuntime(await quickjs(), DEFAULT_LIMITS);
+    const loop = "get: function () { for (;;) {} }";
+    const source = `lactic.register({
+      plain: function () { var e = {}; Object.defineProperty(e, "message", { enumerable: true, ${loop} }); throw e; },
+      error: function () { var e = new Error("x"); Object.defineProperty(e, "message", { ${loop} }); throw e; },
+      fine: function () { return { metrics: {} }; }
+    });`;
+    expect(rt.load(source, ["plain", "error", "fine"])).toMatchObject({ ok: true });
+    for (const entry of ["plain", "error"]) {
+      const started = Date.now();
+      const r = rt.call(entry, input);
+      expect(r).toMatchObject({ ok: false, failure: { kind: "timeout" } });
+      expect(Date.now() - started).toBeLessThan(1000);
+    }
+    expect(rt.call("fine", input)).toMatchObject({ ok: true });
+    rt.dispose();
+  });
+
   it("times out a plugin whose top-level code never finishes", async () => {
     const rt = new SandboxRuntime(await quickjs(), DEFAULT_LIMITS);
     const r = rt.load("for(;;){}", ["x"]);

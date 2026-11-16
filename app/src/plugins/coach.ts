@@ -27,6 +27,5 @@ export function installedPlugin(m: PluginManifest, state: { enabled: boolean; co
       description: p.label,
       ...(p.kind === "choice" ? { choices: [...p.choices] } : {}),
     })),
-    widgets: m.contributes.widgets.map((w) => ({ id: `plugin.${m.id}.${w.id}`, name: w.title })),
   };
 }

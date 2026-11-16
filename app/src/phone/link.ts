@@ -31,9 +31,11 @@ export interface LinkState {
   error: string | null;
   /** Rows brought in from the computer last time (a first sync can be thousands). */
   received: number;
+  /** Why the API keys didn't come across last time (the rows may still have). */
+  keysError: string | null;
 }
 
-let state: LinkState = { running: false, at: null, error: null, received: 0 };
+let state: LinkState = { running: false, at: null, error: null, received: 0, keysError: null };
 const listeners = new Set<(s: LinkState) => void>();
 const publish = (next: Partial<LinkState>) => {
   state = { ...state, ...next };
@@ -55,22 +57,34 @@ export function syncWithComputer(): Promise<void> {
     let received = 0;
     try {
       if (!(await phoneStatus()).paired) return;
-      for (let round = 0; round < 500; round++) {
-        const out = await invoke<Outgoing>("sync_outgoing");
-        const reply = await send<Reply>("sync", { cursor: out.cursor, changes: out.changes }, 120);
-        received += await invoke<number>("sync_incoming", { upto: out.upto, reply });
-        if (!reply.more && !out.more) break;
+      let reached = false;
+      let error: string | null = null;
+      try {
+        for (let round = 0; round < 500; round++) {
+          const out = await invoke<Outgoing>("sync_outgoing");
+          const reply = await send<Reply>("sync", { cursor: out.cursor, changes: out.changes }, 120);
+          reached = true;
+          received += await invoke<number>("sync_incoming", { upto: out.upto, reply });
+          if (!reply.more && !out.more) break;
+        }
+      } catch (e) {
+        error = message(e);
       }
-      // API keys after the rows, so a fresh phone has its intervals.icu connection row first. A
-      // computer on an older Lactic doesn't know "keys" yet: that's not worth an error here.
-      const keys = await syncKeys().catch((e: unknown) => {
-        console.warn("Key sync:", e);
-        return 0;
-      });
-      if (keys) window.dispatchEvent(new CustomEvent("lactic:settings", { detail: "secrets" }));
-      publish({ at: Date.now(), error: null, received });
+      // API keys after the rows, so a fresh phone has its intervals.icu connection row first. They
+      // don't wait on the rows finishing, though: a first sync that stops partway still brings the
+      // keys, as long as the computer answered.
+      let keysError = state.keysError;
+      if (reached) {
+        keysError = null;
+        const keys = await syncKeys().catch((e: unknown) => {
+          keysError = message(e);
+          return 0;
+        });
+        if (keys) window.dispatchEvent(new CustomEvent("lactic:settings", { detail: "secrets" }));
+      }
+      publish({ at: Date.now(), error, received, keysError });
     } catch (e) {
-      publish({ at: Date.now(), error: e instanceof Error ? e.message : String(e), received });
+      publish({ at: Date.now(), error: message(e), received });
     } finally {
       publish({ running: false });
       if (received) {
@@ -84,6 +98,8 @@ export function syncWithComputer(): Promise<void> {
   })();
   return running;
 }
+
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** Forgets where the phone was in the computer's history (unpairing, or pairing anew). */
 export async function resetLink() {
