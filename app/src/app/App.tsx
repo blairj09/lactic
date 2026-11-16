@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
-import { HEAD_UNIT_EVENT, useHeadUnitWatch } from "~/ride/head-unit-auto";
+import { APP_START_EVENT, useAppStartWatch } from "~/ride/app-start";
 import CoachDrawer from "@/app/coach/coach-drawer";
 import DrawerBoundary from "@/app/coach/drawer-boundary";
 import NewDayRefresh from "@/components/new-day-refresh";
@@ -54,15 +54,15 @@ function NavigatorBridge() {
   return null;
 }
 
-/** Head unit with Zwift: when Zwift, Rouvy or MyWhoosh opens, the Ride page gets the head unit ready. */
-function HeadUnitWatcher() {
+/** Start with Zwift: when Zwift, Rouvy or MyWhoosh opens, the Ride page gets a free ride ready. */
+function AppStartWatcher() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const go = useCallback(() => {
-    if (pathname === "/ride") window.dispatchEvent(new CustomEvent(HEAD_UNIT_EVENT));
-    else navigate("/ride?source=headUnit");
+    if (pathname === "/ride") window.dispatchEvent(new CustomEvent(APP_START_EVENT));
+    else navigate("/ride?source=free&trainer=app");
   }, [navigate, pathname]);
-  useHeadUnitWatch(go);
+  useAppStartWatch(go);
   return null;
 }
 
@@ -123,7 +123,7 @@ function Shell() {
   return (
     <>
       <NavigatorBridge />
-      {onboarded && <HeadUnitWatcher />}
+      {onboarded && <AppStartWatcher />}
       {onboarded && <SettingsShortcut />}
       <Routes>
         <Route path="/overlay" element={<Lazy load={overlay} />} />

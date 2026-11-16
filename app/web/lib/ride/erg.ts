@@ -52,5 +52,5 @@ export function ergWorkout(changes: ErgChange[], position: number, ftp: number, 
     .map((c, i) => ({ c, until: Math.min(changes[i + 1]?.at ?? end, end) }))
     .filter(({ c, until }) => until > c.at)
     .map(({ c, until }) => steady(until - c.at, c.watts / scale));
-  return { name: "Free ERG", segments };
+  return { name: "Free ride", segments };
 }

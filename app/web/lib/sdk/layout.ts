@@ -52,7 +52,7 @@ export const CUSTOM_AGGS = ["avg", "max", "lap-avg", "last-lap-avg", "ride-avg"]
 export type CustomAgg = (typeof CUSTOM_AGGS)[number];
 
 /**
- * Page shapes, as on a head unit (mock 2). The number is how many fields it holds. "standard" is
+ * Page shapes, as on a bike computer (mock 2). The number is how many fields it holds. "standard" is
  * the ride screen as it was before layouts: five big fields for this interval, the workout chart,
  * and five smaller ones for the ride so far.
  */
@@ -72,8 +72,8 @@ export interface Layout {
   v: number;
   tabs: TabEntry[];
   today: CardEntry[];
-  /** Head unit: the pages a head unit ride shows on the Ride page and the overlay; its own from the start. */
-  ride: { workout: { pages: RidePage[] }; free: FieldSet; overlay: FieldSet; headUnit: FieldSet };
+  /** Free ride: the pages a free ride shows on the Ride page and the overlay; its own from the start. */
+  ride: { workout: { pages: RidePage[] }; free: FieldSet; overlay: FieldSet };
 }
 
 
@@ -110,11 +110,11 @@ export const DEFAULT_RIDE_PAGE: RidePage = {
 };
 
 /**
- * A head unit ride's page (over Zwift, Rouvy or any app): no workout, so no target or interval, just
- * the ride as it goes.
+ * A free ride's page (Lactic holding watts, or Zwift or another app driving the trainer): no workout,
+ * so no interval, just the ride as it goes.
  */
-export const DEFAULT_HEAD_UNIT_PAGE: RidePage = {
-  name: "Head unit",
+export const DEFAULT_FREE_RIDE_PAGE: RidePage = {
+  name: "Free ride",
   template: "eight",
   fields: [
     { metric: "ride.elapsed" },
@@ -133,7 +133,7 @@ export function defaultLayout(): Layout {
     v: LAYOUT_VERSION,
     tabs: TAB_IDS.map((id) => ({ id, hidden: false })),
     today: DEFAULT_TODAY.map((c) => ({ ...c })),
-    ride: { workout: { pages: [structuredClone(DEFAULT_RIDE_PAGE)] }, free: "follow", overlay: "follow", headUnit: { pages: [structuredClone(DEFAULT_HEAD_UNIT_PAGE)] } },
+    ride: { workout: { pages: [structuredClone(DEFAULT_RIDE_PAGE)] }, free: { pages: [structuredClone(DEFAULT_FREE_RIDE_PAGE)] }, overlay: "follow" },
   };
 }
 
@@ -183,6 +183,18 @@ function parseSet(v: unknown, fallback: FieldSet = "follow"): FieldSet {
 }
 
 /**
+ * The free ride set. Layouts saved before Free ride took in riding beside another app kept those
+ * pages under `headUnit`: unless free ride had pages of its own, they become free ride's.
+ */
+function parseFree(ride: Record<string, unknown> | null): FieldSet {
+  const free = parseSet(ride?.free, "follow");
+  if (free !== "follow") return free;
+  const older = parseSet(ride?.headUnit, "follow");
+  if (older !== "follow") return older;
+  return ride && ride.free === "follow" && !("headUnit" in ride) ? "follow" : { pages: [structuredClone(DEFAULT_FREE_RIDE_PAGE)] };
+}
+
+/**
  * A layout from storage, sync or a backup, checked field by field. Whatever is missing or wrong
  * falls back to the default for that part; the result is always a usable layout.
  */
@@ -221,10 +233,8 @@ export function parseLayout(input: unknown): Layout {
     today: today.length ? today : base.today,
     ride: {
       workout: { pages: parsePages(obj(ride?.workout)?.pages) ?? base.ride.workout.pages },
-      free: parseSet(ride?.free),
+      free: parseFree(ride),
       overlay: parseSet(ride?.overlay),
-      // Layouts saved before head units have none: they get the head unit page.
-      headUnit: parseSet(ride?.headUnit, base.ride.headUnit),
     },
   };
 }
@@ -238,7 +248,7 @@ function safeJson(s: string): unknown {
 }
 
 /** The pages a ride shows: a set that follows uses the workout pages (review U4). */
-export function ridePages(layout: Layout, kind: "workout" | "free" | "overlay" | "headUnit"): RidePage[] {
+export function ridePages(layout: Layout, kind: "workout" | "free" | "overlay"): RidePage[] {
   const set = kind === "workout" ? layout.ride.workout : layout.ride[kind];
   return set === "follow" ? layout.ride.workout.pages : set.pages;
 }

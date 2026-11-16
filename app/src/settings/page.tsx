@@ -21,8 +21,8 @@ import { CoachSetupPanel } from "~/setup/coach";
 import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
 import { DataPanel, SimulatorSwitch } from "./panels";
-import HeadUnitAuto from "~/ride/head-unit-switch";
-import { canWatchApps } from "~/ride/head-unit-auto";
+import AppStartSwitch from "~/ride/app-start-switch";
+import { canWatchApps } from "~/ride/app-start";
 import { StravaSection } from "./strava-panel";
 import { TakeTour } from "~/tour/take-tour";
 import { FeedbackSetting } from "~/feedback/dialog";
@@ -115,13 +115,13 @@ export default async function SettingsPage() {
       ),
     },
     canWatchApps() && {
-      key: "head-unit",
+      key: "free-ride",
       section: "devices",
-      text: "Head unit fields over Zwift Rouvy MyWhoosh any app overlay",
+      text: "Free ride start with Zwift Rouvy MyWhoosh any app overlay fields trainer",
       node: (
-        <Section id="head-unit" title="Head unit" description="Your fields over Zwift, Rouvy or any app.">
+        <Section id="free-ride" title="Free ride" description="Ride with Zwift, Rouvy or any app, your fields on top.">
           <div className="sm:col-span-2">
-            <HeadUnitAuto className="" />
+            <AppStartSwitch className="" />
           </div>
         </Section>
       ),

@@ -37,7 +37,7 @@ export type LivePhase = "ready" | "riding" | "paused" | "done";
 /** Matches `LacticRideAttributes.ContentState` in RideActivity.swift, field for field. */
 export interface LiveActivityState {
   phase: LivePhase;
-  /** The workout's name, or "Free ERG". */
+  /** The workout's name, or "Free ride". */
   title: string;
   /** "On MacBook" for the computer's ride; null for the phone's own. */
   place: string | null;
@@ -138,7 +138,7 @@ export function liveActivity(ride: LiveRide | null, now: number, place: string |
   const tss = ride.totals.tss;
   return {
     phase,
-    title: free ? "Free ERG" : ride.workout.name,
+    title: free ? "Free ride" : ride.workout.name,
     place,
     interval: current ? (roles[current.index] ?? null) : null,
     step: current ? stepOf(current) || null : null,

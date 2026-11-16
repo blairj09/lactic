@@ -33,9 +33,9 @@ export interface PlayerData {
   intensity: number;
   /** Free ERG: no workout, a target in watts you move while riding. */
   erg: { watts: number } | null;
-  /** Head unit: another app drives the trainer; no targets, ERG, grade or intensity here. */
-  headUnit: boolean;
-  /** Head unit: the training app seen open on the computer (Zwift, Rouvy, MyWhoosh), if any. */
+  /** Free ride with another app on the trainer: no targets, ERG, grade or intensity here. */
+  appTrainer: boolean;
+  /** Free ride: the training app seen open on the computer (Zwift, Rouvy, MyWhoosh), if any. */
   trainerApp?: string | null;
   /** Paused because you stopped pedaling; pedaling again resumes it. */
   autoPaused: boolean;
@@ -256,7 +256,7 @@ function HoverChart({ data }: { data: PlayerData }) {
         highlight={interval?.index}
         className="h-44 w-full text-ink sm:h-52"
       />
-      {interval && hover !== null && !data.headUnit && (
+      {interval && hover !== null && !data.appTrainer && (
         <div
           role="tooltip"
           className="pointer-events-none absolute top-2 z-10 w-max max-w-72 -translate-x-1/2 space-y-1 rounded-md border border-line bg-raised px-3 py-2 text-sm shadow-lg"
@@ -301,9 +301,9 @@ const ZoneDot = ({ zone }: { zone: number | null }) => (
 
 /** Time left in the interval, or ride time in free ERG. */
 const intervalTime = (data: PlayerData) =>
-  data.erg || data.headUnit ? formatTime(data.elapsed) : data.current ? formatTime(data.current.end - data.position) : undefined;
+  data.erg || data.appTrainer ? formatTime(data.elapsed) : data.current ? formatTime(data.current.end - data.position) : undefined;
 const intervalLabel = (data: PlayerData, short = false) =>
-  data.erg || data.headUnit
+  data.erg || data.appTrainer
     ? "Ride time"
     : data.current
       ? short
@@ -342,7 +342,7 @@ export const fieldsOf = (data: PlayerData): RideFields =>
 export const pageShown = (page: RidePage, data: PlayerData, short = false): (Shown | undefined)[] =>
   Array.from({ length: PAGE_TEMPLATES[page.template] }, (_, i) => (page.fields[i] ? shownField(page.fields[i], data, short) : undefined));
 
-/** Head unit: who has the trainer, by name when a known training app is open. */
+/** Free ride with another app: who has the trainer, by name when a known training app is open. */
 const trainerOwner = (data: PlayerData) => `${data.trainerApp ?? "Another app"} controls the trainer`;
 
 /** The page on screen, wrapped to the set's page count (the overlay's set may have fewer pages). */
@@ -367,12 +367,12 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
             ? `Ride ended · ${formatTime(data.elapsed)}`
             : erg
               ? "Holds the target until you move it"
-              : data.headUnit
+              : data.appTrainer
                 ? trainerOwner(data)
                 : `${formatTime(data.position)} of ${formatTime(data.duration)}`}
           {!erg && !data.ended && data.intensity !== 100 && ` · ${data.intensity}% intensity`}
           {!data.ended &&
-            !data.headUnit &&
+            !data.appTrainer &&
             (data.sprintGrade !== null
               ? ` · Sprint: ERG off, ${data.sprintGrade}% grade`
               : !data.ergOn
@@ -411,7 +411,7 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
           <ExtendOrEnd data={data} controls={controls} />
         ) : data.ended ? (
           <div />
-        ) : data.headUnit ? (
+        ) : data.appTrainer ? (
           <p className="text-[15px] text-muted">Lactic reads your sensors and records the ride.</p>
         ) : (
           <UpNext data={data} />
@@ -465,7 +465,7 @@ export function RemoteView({ data, controls, extra, notice }: { data: PlayerData
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="truncate text-lg font-semibold tracking-tight">{data.workout.name}</h2>
           <span className="num flex-none text-sm text-muted">
-            {data.ended ? `Ended · ${formatTime(data.elapsed)}` : erg ? "ERG" : data.headUnit ? "Head unit" : `${formatTime(data.position)} of ${formatTime(data.duration)}`}
+            {data.ended ? `Ended · ${formatTime(data.elapsed)}` : erg ? "ERG" : data.appTrainer ? (data.trainerApp ?? "Free ride") : `${formatTime(data.position)} of ${formatTime(data.duration)}`}
           </span>
         </div>
         {(data.startIn !== null || data.autoPaused) && (
@@ -505,7 +505,7 @@ export function RemoteView({ data, controls, extra, notice }: { data: PlayerData
             </div>
           )}
         </div>
-        {!erg && !data.headUnit && !data.finished && !data.ended && <UpNext data={data} />}
+        {!erg && !data.appTrainer && !data.finished && !data.ended && <UpNext data={data} />}
       </div>
       <div className="space-y-3 border-t border-line bg-ground px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)]">
         {erg && !data.ended ? <ErgAdjuster watts={erg.watts} ftp={data.ftp} onErg={controls.onErg} /> : data.finished ? <ExtendOrEnd data={data} controls={controls} /> : null}
@@ -738,7 +738,7 @@ const ICON_PLUS = "M10.5 5h3v5.5H19v3h-5.5V19h-3v-5.5H5v-3h5.5z";
 
 /** What the play button does now, for its icon and its label for screen readers and hover. */
 const playLabel = (data: PlayerData) =>
-  data.running ? "Pause" : data.elapsed > 0 ? "Resume" : data.startIn !== null ? `Starting in ${data.startIn}` : data.erg || data.headUnit ? "Start ride" : "Start workout";
+  data.running ? "Pause" : data.elapsed > 0 ? "Resume" : data.startIn !== null ? `Starting in ${data.startIn}` : data.erg || data.appTrainer ? "Start ride" : "Start workout";
 
 /** A − value + group with its name, for intensity, grade and the ERG target. */
 function Stepper({ label, value, onDown, onUp, downLabel, upLabel }: { label: string; value: string; onDown: () => void; onUp: () => void; downLabel: string; upLabel: string }) {
@@ -767,7 +767,7 @@ function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData;
     "inline-flex size-14 shrink-0 items-center justify-center rounded-lg bg-raised text-ink transition-colors hover:bg-active disabled:opacity-40";
   const showGrade = !data.erg && (!data.ergOn || data.sprintGrade !== null || data.freeRide);
   /** No workout: no intervals to step through. */
-  const noWorkout = !!data.erg || data.headUnit;
+  const noWorkout = !!data.erg || data.appTrainer;
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -781,7 +781,7 @@ function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData;
           disabled={!controls.canPlay}
           onClick={() => controls.onPlayPause()}
           aria-label={playLabel(data)}
-          title={!controls.canPlay ? (data.headUnit ? "Connect a sensor first" : "Connect the trainer first") : data.autoStart && data.elapsed === 0 ? `${playLabel(data)}, or just start pedaling` : playLabel(data)}
+          title={!controls.canPlay ? (data.appTrainer ? "Connect a sensor first" : "Connect the trainer first") : data.autoStart && data.elapsed === 0 ? `${playLabel(data)}, or just start pedaling` : playLabel(data)}
         >
           <span className="inline-flex items-center gap-2">
             <Icon d={data.running ? ICON_PAUSE : ICON_PLAY} className="size-7" />
@@ -900,7 +900,7 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
     const f = shown[i]!;
     const ref = page.fields[i];
     const isInterval = "metric" in ref && ref.metric === "interval.left";
-    const label = "metric" in ref && ref.metric === "heart_rate" ? "HR" : isInterval ? (data.erg || data.headUnit ? "Ride time" : data.current ? f.label : data.position > 0 ? "Done" : "Ready") : f.label;
+    const label = "metric" in ref && ref.metric === "heart_rate" ? "HR" : isInterval ? (data.erg || data.appTrainer ? "Ride time" : data.current ? f.label : data.position > 0 ? "Done" : "Ready") : f.label;
     const sub = isInterval
       ? data.autoPaused
         ? "Paused · pedal on"
@@ -909,9 +909,9 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
           : data.autoStart
             ? "Pedal to start"
             : data.erg
-              ? "Free ERG"
-              : data.headUnit
-                ? "Head unit"
+              ? "Free ride"
+              : data.appTrainer
+                ? "Free ride"
                 : data.current
                 ? `of ${formatTime(data.current.end - data.current.start)}`
                 : null
@@ -953,7 +953,7 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
             <div className={`num truncate pt-[1.5vh] text-muted ${MINI_LABEL}`}>
               {data.erg ? (
                 ftp > 0 && `${Math.round((data.erg.watts / ftp) * 100)}% FTP · zone ${powerZone(data.erg.watts / ftp)}`
-              ) : data.headUnit ? (
+              ) : data.appTrainer ? (
                 trainerOwner(data)
               ) : next ? (
                 <span className="inline-flex items-center gap-[0.4em]">
@@ -1076,7 +1076,7 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
   const step = (delta: number) =>
     data.erg ? controls.onErg(data.erg.watts + delta * ERG_STEP) : data.holding ? controls.onHold(delta) : controls.onIntensity(delta);
   const showGrade = !data.erg && (!data.ergOn || data.sprintGrade !== null || data.freeRide);
-  const noWorkout = !!data.erg || data.headUnit;
+  const noWorkout = !!data.erg || data.appTrainer;
   // End mid-ride takes a second tap, so a sweaty miss doesn't end the ride.
   const [confirmEnd, setConfirmEnd] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -1090,14 +1090,14 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
   return (
     <div ref={ref} className="flex flex-col gap-[4vh]">
       <div className="flex gap-[5vh]">
-      <Group label={data.headUnit ? "Head unit" : data.erg ? "Ride" : "Workout"}>
+      <Group label={data.erg || data.appTrainer ? "Ride" : "Workout"}>
         <div className="flex gap-1.5">
           {!noWorkout && (
             <button className={button} disabled={data.position <= 0} onClick={() => controls.onBack()} aria-label="Back" title="Back to the previous interval">
               <Icon d={ICON_BACK} className={D_ICON} />
             </button>
           )}
-          <button className={primary} disabled={!controls.canPlay} onClick={() => controls.onPlayPause()} aria-label={playLabel(data)} title={controls.canPlay ? playLabel(data) : data.headUnit ? "Connect a sensor first" : "Connect the trainer first"}>
+          <button className={primary} disabled={!controls.canPlay} onClick={() => controls.onPlayPause()} aria-label={playLabel(data)} title={controls.canPlay ? playLabel(data) : data.appTrainer ? "Connect a sensor first" : "Connect the trainer first"}>
             <Icon d={data.running ? ICON_PAUSE : ICON_PLAY} className={D_ICON} />
             {data.startIn !== null && <span className={`num ml-[0.3em] ${D_TEXT}`}>{data.startIn}</span>}
           </button>
@@ -1109,7 +1109,7 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
         </div>
       </Group>
 
-      {data.headUnit ? (
+      {data.appTrainer ? (
         <Group label="Trainer">
           <span className={`inline-flex ${D_H} ${D_TEXT} items-center rounded-md bg-raised px-[0.7em] text-muted`}>{data.trainerApp ?? "Other app"}</span>
         </Group>

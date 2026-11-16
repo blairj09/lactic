@@ -47,14 +47,14 @@ export default function SensorPanel({
   state,
   supported,
   onError,
-  headUnit = false,
+  appTrainer = false,
 }: {
   hub: SensorHub;
   state: SensorState;
   supported: boolean;
   onError: (message: string | null) => void;
-  /** A head unit ride: the trainer may be busy with the other app, and a power meter or heart rate alone will do. */
-  headUnit?: boolean;
+  /** Another app has the trainer: it may hold the trainer's only connection, and a power meter or heart rate alone will do. */
+  appTrainer?: boolean;
 }) {
   const [pairing, setPairing] = useState<SensorKind | null>(null);
   const [silent, setSilent] = useState(true);
@@ -87,11 +87,11 @@ export default function SensorPanel({
   const reading = (kind: SensorKind) => (kind === "heartRate" ? state.heartRate : kind === "trainer" ? state.trainerWatts : state.meterWatts);
 
   const sensor = SENSORS.find((s) => s.kind === pairing);
-  const riding = !!state.connected.trainer || (headUnit && !!state.connected.powerMeter);
+  const riding = !!state.connected.trainer || (appTrainer && !!state.connected.powerMeter);
   const ready = riding && !Object.values(state.links).some((l) => l.status === "lost");
   const trainer = state.links.trainer;
-  // The trainer's known but not here: in a head unit ride the other app may hold its only connection.
-  const busy = headUnit && !!trainer.name && (trainer.status === "idle" || trainer.status === "lost");
+  // The trainer's known but not here: the other app may hold its only connection.
+  const busy = appTrainer && !!trainer.name && (trainer.status === "idle" || trainer.status === "lost");
   const note = busy && (
     <TrainerBusy
       trainer={trainer.name!}
@@ -191,7 +191,7 @@ export default function SensorPanel({
 }
 
 /**
- * Head unit: the trainer didn't connect, most likely because the other app has it and it takes one
+ * Another app has the trainer, and it didn't connect here, most likely because the other app has it and it takes one
  * connection. Power comes from the power meter instead, or the ride goes on with heart rate only.
  */
 function TrainerBusy({ trainer, meter, meterKnown, onMeter, onRetry }: { trainer: string; meter: string | null; meterKnown: boolean; onMeter: () => void; onRetry: () => void }) {

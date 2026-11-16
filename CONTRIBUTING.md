@@ -33,7 +33,7 @@ These keep Lactic trustworthy:
 - **The engine owns every number.** The AI coach reads engine outputs through tools and proposes changes; it never computes metrics.
 - **Keep the core portable.** `web/lib/engine`, `web/lib/fit`, `web/lib/ride`, `web/lib/sdk` and the Bluetooth protocol code stay free of browser and Node APIs, so they run anywhere and test in Vitest.
 - **One GATT write at a time,** through `SensorHub`'s queue.
-- **Lactic holds the trainer.** With Zwift open, Zwift only reads power, cadence and heart rate (except in Head unit mode, where Lactic never touches the trainer).
+- **Lactic holds the trainer.** With Zwift open, Zwift only reads power, cadence and heart rate (except a free ride with Zwift on the trainer, where Lactic never touches it).
 - **Migrations only add.** New tables and columns, never drops or renames. Every table has a UUID `id` and `updated_at`.
 - **Plugin code stays in the sandbox.** Third-party code runs only in `app/src/plugins`' QuickJS worker. Never `eval` it anywhere else, and validate everything a plugin returns.
 - **Secrets stay in the OS keychain.** The UI only ever sends `keychain:<name>` placeholders.
