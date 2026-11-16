@@ -7,6 +7,8 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Head unit is now part of Free ride. Pick who has the trainer: Lactic, holding the watts you set, or Zwift (or another app) while Lactic records and floats your fields on top. Free ride starts on Zwift when it's open, your head unit fields carry over, and "Start with Zwift" now opens a free ride.
+- Rides posted to Strava show the workout's shape as a line of bars, signed "Trained with Lactic · lactic.fit", instead of a list of numbers.
+- On iPhone, a ride fills the screen and stays put: the workout map, this interval, ride totals and controls are always in view. Swipe for your field pages and what's up next, or turn the phone sideways for an overlay-style layout. The same screen controls a ride on your computer.
 - Pick a workout lists every workout that fits the type, length and level you set, so you can pick one. It no longer swaps in an endurance ride when a type doesn't fit the length.
 - Cards side by side on Today, like Form and Last ride, now line up along the bottom.
 - Ride screen: the "W under" and "W over" under Power now match the power number shown beside them, with no lag.
