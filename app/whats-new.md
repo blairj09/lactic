@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+## 0.3.2
+
 - Head unit is now part of Free ride. Pick who has the trainer: Lactic, holding the watts you set, or Zwift (or another app) while Lactic records and floats your fields on top. Free ride starts on Zwift when it's open, your head unit fields carry over, and "Start with Zwift" now opens a free ride.
 - Rides posted to Strava show the workout's shape as a line of bars, signed "Trained with Lactic · lactic.fit", instead of a list of numbers.
 - On iPhone, a ride fills the screen and stays put: the workout map, this interval, ride totals and controls are always in view. Swipe for your field pages and what's up next, or turn the phone sideways for an overlay-style layout. The same screen controls a ride on your computer.
