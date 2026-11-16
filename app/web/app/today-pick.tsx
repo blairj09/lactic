@@ -16,7 +16,7 @@ import type { TodayChoice } from "./morning";
 const ELSEWHERE = [
   { value: "library", label: "From the library…" },
   { value: "custom", label: "My workouts…" },
-  { value: "erg", label: "Free ride" },
+  { value: "free", label: "Free ride" },
 ] as const;
 
 /**

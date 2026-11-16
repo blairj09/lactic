@@ -14,7 +14,7 @@ import {
   moveTab,
   nudgeCard,
   parseLayout,
-  DEFAULT_HEAD_UNIT_PAGE,
+  DEFAULT_FREE_RIDE_PAGE,
   pluginMetricId,
   removeCard,
   ridePages,
@@ -108,18 +108,21 @@ describe("layouts", () => {
     expect(parseLayout(JSON.stringify(l))).toEqual(l);
   });
 
-  it("gives a layout saved before head units the head unit page, and keeps the rider's own", () => {
-    const old = defaultLayout() as unknown as { ride: Record<string, unknown> };
-    delete old.ride.headUnit;
-    const parsed = parseLayout(JSON.stringify(old));
-    expect(parsed.ride.headUnit).toEqual({ pages: [DEFAULT_HEAD_UNIT_PAGE] });
-    expect(parsed.ride.free).toBe("follow");
+  it("gives free ride its own page, carries over pages saved under headUnit, and keeps the rider's own", () => {
+    const bare = defaultLayout() as unknown as { ride: Record<string, unknown> };
+    delete bare.ride.free;
+    expect(parseLayout(JSON.stringify(bare)).ride.free).toEqual({ pages: [DEFAULT_FREE_RIDE_PAGE] });
+
+    const climb = { pages: [{ name: "Climb", template: "two", fields: [{ metric: "power.3s" }, { metric: "heart_rate" }] }] };
+    const older = { ...bare, ride: { ...bare.ride, free: "follow", headUnit: climb } };
+    expect(parseLayout(JSON.stringify(older)).ride.free).toEqual(climb);
+    expect("headUnit" in parseLayout(JSON.stringify(older)).ride).toBe(false);
 
     const mine = defaultLayout();
-    mine.ride.headUnit = { pages: [{ name: "Climb", template: "two", fields: [{ metric: "power.3s" }, { metric: "heart_rate" }] }] };
-    expect(parseLayout(JSON.stringify(mine)).ride.headUnit).toEqual(mine.ride.headUnit);
-    mine.ride.headUnit = "follow";
-    expect(parseLayout(JSON.stringify(mine)).ride.headUnit).toBe("follow");
+    mine.ride.free = climb as typeof mine.ride.free;
+    expect(parseLayout(JSON.stringify(mine)).ride.free).toEqual(climb);
+    mine.ride.free = "follow";
+    expect(parseLayout(JSON.stringify(mine)).ride.free).toBe("follow");
   });
 
   it("falls back to the default for anything it can't read", () => {
@@ -170,7 +173,7 @@ describe("layouts", () => {
       { custom: { metric: "power", window: 0, agg: "avg", asPercentOf: "ftp", label: "%FTP" } },
       { metric: "heart_rate" },
     ]);
-    expect(l.ride.free).toBe("follow");
+    expect(l.ride.free).toEqual({ pages: [DEFAULT_FREE_RIDE_PAGE] });
     expect(ridePages(l, "overlay")[0].name).toBe("Mini");
   });
 

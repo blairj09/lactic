@@ -75,7 +75,7 @@ describe("ride Live Activity", () => {
 
   it("shows free ERG's target and clock with no workout bar", () => {
     const s = liveActivity(at(600, { erg: { watts: 210 }, powerAverage: 212, elapsed: 1445 }), NOW)!;
-    expect(s).toMatchObject({ title: "Free ERG", target: "210 W", tone: "on", interval: null, counter: null, rideEnd: null, bar: [], next: null });
+    expect(s).toMatchObject({ title: "Free ride", target: "210 W", tone: "on", interval: null, counter: null, rideEnd: null, bar: [], next: null });
     expect(s.started).toBe(NOW / 1000 - 1445);
   });
 

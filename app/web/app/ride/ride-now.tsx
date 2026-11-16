@@ -12,19 +12,22 @@ import { useEffect, useState } from "react";
 import { Panel, Segmented, button, input } from "@/components/ui";
 import Select from "@/components/select";
 import { formatTime } from "./player";
-import HeadUnitAuto from "~/ride/head-unit-switch";
+import AppStartSwitch from "~/ride/app-start-switch";
 
 /**
  * What the player is set up to ride: the plan's session, a generated workout, a starter library
- * workout, one of My workouts, free ERG, or a head unit ride (another app drives the trainer).
+ * workout, one of My workouts, or a free ride (Lactic holding watts, or another app on the trainer).
  */
-export type RideSource = "planned" | "library" | "starter" | "custom" | "erg" | "headUnit";
+export type RideSource = "planned" | "library" | "starter" | "custom" | "free";
+
+/** Who has the trainer in a free ride: Lactic, at one ERG target, or another app (Zwift, Rouvy). */
+export type Trainer = "lactic" | "app";
 
 /** My workouts' shelves: the starter library, your saved workouts, and favorites from both. */
 type Shelf = "library" | "saved" | "favorites";
 
-/** The ways to pick a ride: the day's session, a workout (library or your own), a free ride, or a head unit over another app. */
-type Mode = "planned" | "pick" | "erg" | "headUnit";
+/** The ways to pick a ride: the day's session, a workout (library or your own), or a free ride. */
+type Mode = "planned" | "pick" | "free";
 
 export type LibraryKind = Zone | "rampTest";
 
@@ -157,11 +160,14 @@ const sessionLine = (s: Session, showLevel: boolean) => `${formatTime(s.duration
 
 /**
  * What to ride: the day's planned session, a workout (from the engine's library or My workouts,
- * where a .zwo, .erg or .mrc file can be imported), or a free ride at one ERG target. Picking loads it into the
+ * where a .zwo, .erg or .mrc file can be imported), or a free ride: Lactic at one ERG target, or Zwift or another app on the trainer. Picking loads it into the
  * player and the workout editor. Shown only before a ride starts.
  */
 export default function RideNow({
   source,
+  trainer,
+  trainerApp,
+  onTrainer,
   planned,
   plannedLabel,
   library,
@@ -183,6 +189,10 @@ export default function RideNow({
   ftp,
 }: {
   source: RideSource;
+  /** Free ride: who has the trainer, and the training app open on this computer (Zwift), if any. */
+  trainer: Trainer;
+  trainerApp: string | null;
+  onTrainer: (trainer: Trainer) => void;
   planned: Session | null;
   plannedLabel: string;
   library: LibraryChoice;
@@ -210,12 +220,11 @@ export default function RideNow({
   /** Watts for the workout sheet's targets. */
   ftp?: number;
 }) {
-  const mode: Mode = source === "planned" ? "planned" : source === "erg" ? "erg" : source === "headUnit" ? "headUnit" : "pick";
+  const mode: Mode = source === "planned" ? "planned" : source === "free" ? "free" : "pick";
   const modes: { value: Mode; label: string }[] = [
     ...(planned ? [{ value: "planned" as const, label: plannedLabel }] : []),
     { value: "pick", label: "Pick a workout" },
-    { value: "erg", label: "Free ride" },
-    { value: "headUnit", label: "Head unit" },
+    { value: "free", label: "Free ride" },
   ];
   // The menus here; picking a workout from the list below loads it (and a style of the engine's sets `library`).
   const [filters, setFilters] = useState<LibraryChoice>(library);
@@ -266,7 +275,7 @@ export default function RideNow({
               setBrowsing(false);
               if (matches[0]) return load(matches[0]);
             }
-            onSource(m === "planned" ? "planned" : m === "erg" ? "erg" : m === "headUnit" ? "headUnit" : "library");
+            onSource(m === "planned" ? "planned" : m === "free" ? "free" : "library");
           }}
         />
 
@@ -395,15 +404,24 @@ export default function RideNow({
           />
         )}
 
-        {source === "erg" && (
-          <p className="text-sm text-muted">One ERG target you change as you go. The ride runs until you pause and save it.</p>
-        )}
-
-        {source === "headUnit" && (
-          <div>
-            <p className="text-[15px] font-medium text-ink">Your fields over Zwift, Rouvy or any app</p>
-            <p className="text-sm text-muted">Lactic reads your sensors and leaves the trainer to the other app.</p>
-            <HeadUnitAuto />
+        {source === "free" && (
+          <div className="space-y-2">
+            <p className="text-sm text-muted">Trainer</p>
+            <Segmented
+              label="Trainer"
+              options={[
+                { value: "lactic" as const, label: "Lactic" },
+                { value: "app" as const, label: trainerApp ?? "Another app" },
+              ]}
+              value={trainer}
+              onChange={onTrainer}
+            />
+            <p className="text-sm text-muted">
+              {trainer === "lactic"
+                ? "Holds the watts you set. Your fields float over any window."
+                : `${trainerApp ?? "The other app"} drives the trainer. Lactic records and floats your fields on top.`}
+            </p>
+            <AppStartSwitch />
           </div>
         )}
       </div>

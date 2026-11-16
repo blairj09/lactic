@@ -1,5 +1,5 @@
-// Head unit with Zwift: which training app (Zwift, Rouvy, MyWhoosh) is open on this computer, so
-// Lactic can get the head unit ready by itself, and the menu bar icon that keeps Lactic running
+// Start with Zwift: which training app (Zwift, Rouvy, MyWhoosh) is open on this computer, so
+// Lactic can get a free ride ready by itself, and the menu bar icon that keeps Lactic running
 // with its window closed so it's there when the app opens.
 //
 // Lactic can't see inside the other app, so it reads the names of running programs and nothing

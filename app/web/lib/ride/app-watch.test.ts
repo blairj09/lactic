@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AppWatch } from "./app-watch";
 
 describe("AppWatch", () => {
-  it("gets the head unit ready once each time a training app opens", () => {
+  it("gets a free ride ready once each time a training app opens", () => {
     const w = new AppWatch();
     expect(w.update(null, false)).toBe(false);
     expect(w.update("Zwift", false)).toBe(true);

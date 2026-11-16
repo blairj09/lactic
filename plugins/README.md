@@ -1,6 +1,6 @@
 # Lactic plugins
 
-Plugins add two things to Lactic on Mac, Windows and Linux: live fields on the ride screen (the overlay and head unit rides included) and sections on a ride's page. Nothing else: no pages or tabs of their own, and never anything on Today, Plan or Health. Riders manage them in Settings → Plugins.
+Plugins add two things to Lactic on Mac, Windows and Linux: live fields on the ride screen (the overlay and free rides included) and sections on a ride's page. Nothing else: no pages or tabs of their own, and never anything on Today, Plan or Health. Riders manage them in Settings → Plugins.
 
 - `sdk/` is `@lactic/sdk`: TypeScript types for the plugin API, the kit, metric ids and the manifest, `definePlugin()`, and `lactic-pack`, which turns a manifest and a built bundle into a `.lacticplugin` file.
 - `starter/` is a small working plugin (Sweet Spot) to copy from.
@@ -11,7 +11,7 @@ Plugins add two things to Lactic on Mac, Windows and Linux: live fields on the r
 
 There are two kinds of contribution:
 
-- **fields**: ride fields, on the ride screen, the overlay and head unit rides. The rider picks them under Plugins in Customize fields. Each ride second the field's entry gets the live numbers it was granted; Lactic draws the first `field` (or `stat`) in the tree: its value, unit, line and tone, under the manifest's title. It can add one small live chart: the first `bars` (at most 10, labels of 4 characters or fewer; `palette: "zones"` for zone colours), `sparkline` (last 120 points) or `meter`. Other kit pieces aren't drawn in a ride field. A plugin's fields run one after another each second, sharing its 20 ms per call.
+- **fields**: ride fields, on the ride screen, the overlay and free rides. The rider picks them under Plugins in Customize fields. Each ride second the field's entry gets the live numbers it was granted; Lactic draws the first `field` (or `stat`) in the tree: its value, unit, line and tone, under the manifest's title. It can add one small live chart: the first `bars` (at most 10, labels of 4 characters or fewer; `palette: "zones"` for zone colours), `sparkline` (last 120 points) or `meter`. Other kit pieces aren't drawn in a ride field. A plugin's fields run one after another each second, sharing its 20 ms per call.
 - **analyses**: these run once on a saved ride (never during one) and draw on that ride's page. They get the whole ride as `input.ride`: power, heart rate, cadence and target samples, the intervals as ridden, and the GPS track only if the rider ticked "where you ride". They need `"rides"` in `permissions.read`. They have 2 seconds and can return up to 128 KB, and can use the `table` and `profile` kit pieces.
 
 A plugin is plain JavaScript that runs in a sandbox (QuickJS compiled to WebAssembly, in a worker). It has no internet, no storage, no timers, no DOM and no access to the app. It gets the metrics the rider approved, as numbers, and returns two things:

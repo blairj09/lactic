@@ -107,7 +107,7 @@ pub fn run() {
         // the public half is in tauri.conf.json. (The iPhone app updates through the App Store.)
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        // With the menu bar icon on (head unit with Zwift), closing the window hides it instead, so
+        // With the menu bar icon on (start with Zwift), closing the window hides it instead, so
         // Lactic is still running when Zwift opens.
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -204,6 +204,7 @@ pub fn run() {
         apps::training_app_open,
         apps::menu_bar_set,
         window::overlay_close,
+        window::overlay_back,
         window::overlay_support,
         mcp::mcp_respond,
         mcp::mcp_set_enabled,

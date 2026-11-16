@@ -39,7 +39,7 @@ export function SettingsShell({ blocks }: { blocks: SettingBlock[] }) {
     if (section) navigate(`/settings#${section}`, { replace: true });
   }, [params, navigate]);
 
-  // Opening a section starts at its top, or at the block an anchor named (#head-unit).
+  // Opening a section starts at its top, or at the block an anchor named (#free-ride).
   useEffect(() => {
     if (!anchor || anchor === active) {
       window.scrollTo({ top: 0 });

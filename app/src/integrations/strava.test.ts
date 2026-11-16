@@ -78,7 +78,7 @@ describe("posting rides to Strava", () => {
     expect(calls[0].url).toBe("https://www.strava.com/api/v3/uploads");
     const form = calls[0].form!;
     expect(form.get("name")).toBe("Sweet Spot 3×12");
-    expect(String(form.get("description"))).toContain("NP 241 W · TSS 82");
+    expect(String(form.get("description"))).not.toContain("NP 241 W");
     expect(String(form.get("description"))).toContain("Trained with Lactic");
     expect(form.get("trainer")).toBe("1");
     expect(form.get("data_type")).toBe("fit");

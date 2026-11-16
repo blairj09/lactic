@@ -101,8 +101,8 @@ export async function saveAppRide(input: {
   plannedWorkoutId?: string;
   /** What adaptive workouts changed mid-ride. */
   adaptations?: unknown;
-  /** A head unit ride: another app (Zwift, Rouvy) drove the trainer and usually posts the ride itself. */
-  headUnit?: boolean;
+  /** A free ride with another app (Zwift, Rouvy) on the trainer: that app usually posts the ride itself. */
+  appTrainer?: boolean;
 }): Promise<ActionResult & { rideId?: string }> {
   let rideId: string | undefined;
   const result = await attempt(async () => {
@@ -146,12 +146,12 @@ export async function saveAppRide(input: {
       console.error("Couldn't queue the ride for intervals.icu:", e);
     }
     // Posted to Strava as a Lactic activity, when Strava is connected (an experiment for now). Not a
-    // head unit ride: the other app usually posts it, and two would be one too many. Post to Strava
+    // ride with another app on the trainer: that app usually posts it, and two would be one too many. Post to Strava
     // on its page still sends it.
     let skippedStrava = false;
     try {
       const strava = await import("~/integrations/strava");
-      if (input.headUnit === true) skippedStrava = strava.stravaOn() && (await strava.loadStrava())?.uploadRides === true;
+      if (input.appTrainer === true) skippedStrava = strava.stravaOn() && (await strava.loadStrava())?.uploadRides === true;
       else if (ids[0]) await strava.queueStravaRide(ids[0], fit());
     } catch (e) {
       console.error("Couldn't queue the ride for Strava:", e);

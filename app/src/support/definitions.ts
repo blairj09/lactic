@@ -17,7 +17,7 @@ const fn = (name: string, description: string, properties: Record<string, unknow
 const device = { type: "string", enum: DEVICE_KEYS, description: "trainer, powerMeter, heartRate or scale" };
 
 const cardId = { type: "string", description: "A card's widget id from get_layout, like lactic.form" };
-const fieldSet = { type: "string", enum: [...FIELD_SETS], description: "Which ride fields: workout (default; free ride and the overlay follow it until changed), free, overlay, or headUnit (a head unit ride over Zwift or another app, its own pages)" };
+const fieldSet = { type: "string", enum: [...FIELD_SETS], description: "Which ride fields: workout (default; the overlay follows it until changed), free (a free ride with no workout, Lactic holding watts or Zwift or another app on the trainer; its own pages, on the Ride page and the overlay), or overlay (the overlay during a workout)" };
 const field = {
   description:
     'A live metric id from get_layout\'s liveMetrics, like "power.3s", or a custom field: { metric, window (seconds, 0 = now), agg (avg, max, lap-avg = this interval, last-lap-avg = the interval before, or ride-avg), label (up to 24 characters), asPercentOf (ftp or max-hr, optional), as (wkg or zone, power only, optional) }',

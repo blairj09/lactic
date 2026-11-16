@@ -33,9 +33,9 @@ export interface PlayerData {
   intensity: number;
   /** Free ERG: no workout, a target in watts you move while riding. */
   erg: { watts: number } | null;
-  /** Head unit: another app drives the trainer; no targets, ERG, grade or intensity here. */
-  headUnit: boolean;
-  /** Head unit: the training app seen open on the computer (Zwift, Rouvy, MyWhoosh), if any. */
+  /** Free ride with another app on the trainer: no targets, ERG, grade or intensity here. */
+  appTrainer: boolean;
+  /** Free ride: the training app seen open on the computer (Zwift, Rouvy, MyWhoosh), if any. */
   trainerApp?: string | null;
   /** Paused because you stopped pedaling; pedaling again resumes it. */
   autoPaused: boolean;
@@ -139,7 +139,7 @@ export function adaptTitle(a: AdaptNotice): string {
  * Adaptive workouts' notice on the page and the phone: what changed and why, with Undo for an ease,
  * or yes and no for a harder suggestion (no answer keeps the plan).
  */
-function AdaptBanner({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
+export function AdaptBanner({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
   const a = data.adapt;
   if (!a) return null;
   const btn = "inline-flex h-11 items-center justify-center rounded-lg px-4 text-[15px] font-medium transition-opacity hover:opacity-85";
@@ -171,7 +171,7 @@ function AdaptBanner({ data, controls }: { data: PlayerData; controls: PlayerCon
 }
 
 /** Adaptive workouts on or off for this ride. */
-function AdaptiveSwitch({ on, onChange, className }: { on: boolean; onChange: (on: boolean) => void; className: string }) {
+export function AdaptiveSwitch({ on, onChange, className }: { on: boolean; onChange: (on: boolean) => void; className: string }) {
   return (
     <button
       role="switch"
@@ -191,9 +191,9 @@ function AdaptiveSwitch({ on, onChange, className }: { on: boolean; onChange: (o
 export { describeTarget, formatTime };
 
 /** The Target figure: watts, "All out" in a sprint, "Free" in free ride. */
-const targetShown = (data: PlayerData) => data.targetWatts ?? (data.allOut ? "All out" : data.current ? "Free" : undefined);
+export const targetShown = (data: PlayerData) => data.targetWatts ?? (data.allOut ? "All out" : data.current ? "Free" : undefined);
 
-function zoneOf(interval: Interval | null) {
+export function zoneOf(interval: Interval | null) {
   const range = interval && segmentRange(interval.segment);
   return range ? powerZone((range.low + range.high) / 2) : null;
 }
@@ -256,7 +256,7 @@ function HoverChart({ data }: { data: PlayerData }) {
         highlight={interval?.index}
         className="h-44 w-full text-ink sm:h-52"
       />
-      {interval && hover !== null && !data.headUnit && (
+      {interval && hover !== null && !data.appTrainer && (
         <div
           role="tooltip"
           className="pointer-events-none absolute top-2 z-10 w-max max-w-72 -translate-x-1/2 space-y-1 rounded-md border border-line bg-raised px-3 py-2 text-sm shadow-lg"
@@ -295,15 +295,15 @@ const Key = ({ color, children }: { color: string; children: React.ReactNode }) 
   </span>
 );
 
-const ZoneDot = ({ zone }: { zone: number | null }) => (
+export const ZoneDot = ({ zone }: { zone: number | null }) => (
   <span className="inline-block size-2.5 shrink-0 rounded-sm" style={{ background: zone ? `var(--zone-${zone})` : "var(--zone-free)" }} />
 );
 
 /** Time left in the interval, or ride time in free ERG. */
-const intervalTime = (data: PlayerData) =>
-  data.erg || data.headUnit ? formatTime(data.elapsed) : data.current ? formatTime(data.current.end - data.position) : undefined;
-const intervalLabel = (data: PlayerData, short = false) =>
-  data.erg || data.headUnit
+export const intervalTime = (data: PlayerData) =>
+  data.erg || data.appTrainer ? formatTime(data.elapsed) : data.current ? formatTime(data.current.end - data.position) : undefined;
+export const intervalLabel = (data: PlayerData, short = false) =>
+  data.erg || data.appTrainer
     ? "Ride time"
     : data.current
       ? short
@@ -342,8 +342,8 @@ export const fieldsOf = (data: PlayerData): RideFields =>
 export const pageShown = (page: RidePage, data: PlayerData, short = false): (Shown | undefined)[] =>
   Array.from({ length: PAGE_TEMPLATES[page.template] }, (_, i) => (page.fields[i] ? shownField(page.fields[i], data, short) : undefined));
 
-/** Head unit: who has the trainer, by name when a known training app is open. */
-const trainerOwner = (data: PlayerData) => `${data.trainerApp ?? "Another app"} controls the trainer`;
+/** Free ride with another app: who has the trainer, by name when a known training app is open. */
+export const trainerOwner = (data: PlayerData) => `${data.trainerApp ?? "Another app"} controls the trainer`;
 
 /** The page on screen, wrapped to the set's page count (the overlay's set may have fewer pages). */
 export const pageOf = (pages: RidePage[], page: number): RidePage => pages[((page % pages.length) + pages.length) % pages.length];
@@ -367,12 +367,12 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
             ? `Ride ended · ${formatTime(data.elapsed)}`
             : erg
               ? "Holds the target until you move it"
-              : data.headUnit
+              : data.appTrainer
                 ? trainerOwner(data)
                 : `${formatTime(data.position)} of ${formatTime(data.duration)}`}
           {!erg && !data.ended && data.intensity !== 100 && ` · ${data.intensity}% intensity`}
           {!data.ended &&
-            !data.headUnit &&
+            !data.appTrainer &&
             (data.sprintGrade !== null
               ? ` · Sprint: ERG off, ${data.sprintGrade}% grade`
               : !data.ergOn
@@ -411,7 +411,7 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
           <ExtendOrEnd data={data} controls={controls} />
         ) : data.ended ? (
           <div />
-        ) : data.headUnit ? (
+        ) : data.appTrainer ? (
           <p className="text-[15px] text-muted">Lactic reads your sensors and records the ride.</p>
         ) : (
           <UpNext data={data} />
@@ -440,79 +440,6 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
         </>
       )}
     </section>
-  );
-}
-
-/**
- * The ride on a phone held in one hand (the iPhone's remote for the computer's ride): the numbers
- * on top, what's next in the middle (it scrolls), and the controls pinned at the bottom within
- * reach of a thumb. Intensity moves in 5% steps, so a big change is a couple of taps. No chart:
- * the computer's screen has it.
- */
-export function RemoteView({ data, controls, extra, notice }: { data: PlayerData; controls: PlayerControls; extra?: React.ReactNode; notice?: React.ReactNode }) {
-  const { erg } = data;
-  const fields = fieldsOf(data);
-  const page = pageOf(fields.pages, fields.page);
-  // The phone shows a page's big fields two across; the standard page's ride-so-far column stays on the computer.
-  const shown = pageShown(page, { ...data, fields }).slice(0, page.template === "standard" ? 5 : undefined);
-  /** A field showing "–" that was tapped, to say why. */
-  const [why, setWhy] = useState<Shown | null>(null);
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pb-4">
-        {notice}
-        <AdaptBanner data={data} controls={controls} />
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="truncate text-lg font-semibold tracking-tight">{data.workout.name}</h2>
-          <span className="num flex-none text-sm text-muted">
-            {data.ended ? `Ended · ${formatTime(data.elapsed)}` : erg ? "ERG" : data.headUnit ? "Head unit" : `${formatTime(data.position)} of ${formatTime(data.duration)}`}
-          </span>
-        </div>
-        {(data.startIn !== null || data.autoPaused) && (
-          <p className="text-sm text-warning">{data.startIn !== null ? `Starting in ${data.startIn}` : "Paused. Pedal to resume"}</p>
-        )}
-        <div className="space-y-3" {...swipeHandlers(fields.pages.length > 1 ? controls.onPage : undefined)}>
-          <div aria-label="Ride fields" className="grid grid-cols-2 gap-x-6 gap-y-3">
-            {shown.map((f, i) =>
-              f ? (
-                <button
-                  type="button"
-                  key={i}
-                  className={`min-w-0 text-left ${i === 0 && shown.length % 2 === 1 ? "col-span-2" : ""}`}
-                  onClick={() => setWhy(f.value === undefined && f.reason ? f : null)}
-                  aria-label={f.value === undefined && f.reason ? `${f.label}: ${f.reason}` : undefined}
-                >
-                  <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} lead={i < 3} plugin={f.plugin} chart={f.chart} />
-                </button>
-              ) : null,
-            )}
-          </div>
-          {why && (
-            <div role="status" className="flex items-start justify-between gap-3 rounded-lg bg-raised px-3 py-2 text-sm">
-              <span>
-                <span className="font-medium">{why.label}:</span> {why.reason}
-              </span>
-              <button type="button" className="text-muted underline underline-offset-2" onClick={() => setWhy(null)}>
-                OK
-              </button>
-            </div>
-          )}
-          {fields.pages.length > 1 && (
-            <div className="flex justify-center gap-1.5" aria-label={`Page ${fields.pages.indexOf(page) + 1} of ${fields.pages.length}: ${page.name}`}>
-              {fields.pages.map((p, i) => (
-                <span key={i} className={`size-2 rounded-full ${p === page ? "bg-ink" : "bg-control"}`} />
-              ))}
-            </div>
-          )}
-        </div>
-        {!erg && !data.headUnit && !data.finished && !data.ended && <UpNext data={data} />}
-      </div>
-      <div className="space-y-3 border-t border-line bg-ground px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)]">
-        {erg && !data.ended ? <ErgAdjuster watts={erg.watts} ftp={data.ftp} onErg={controls.onErg} /> : data.finished ? <ExtendOrEnd data={data} controls={controls} /> : null}
-        <PageControls data={data} controls={controls} intensityStep={5} />
-        {extra}
-      </div>
-    </div>
   );
 }
 
@@ -554,7 +481,7 @@ function UpNext({ data }: { data: PlayerData }) {
 }
 
 /** At the workout's end: extend it with a free ride, an ERG hold or a workout block, or end the ride. */
-function ExtendOrEnd({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
+export function ExtendOrEnd({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
   const { ftp, extend } = data;
   const fraction = ftp > 0 ? extend.watts / ftp : null;
   const step = "inline-flex size-10 items-center justify-center rounded-md text-lg text-ink transition-colors hover:bg-active";
@@ -716,13 +643,13 @@ function ErgAdjuster({ watts, ftp, onErg }: { watts: number; ftp: number; onErg:
 /** Top of the ERG slider: well past VO2 max, and never under 500 W. */
 export const ergSliderMax = (ftp: number) => Math.min(ERG_MAX, Math.max(500, Math.round((ftp * 1.6) / 50) * 50));
 
-const Icon = ({ d, className = "size-5" }: { d: string; className?: string }) => (
+export const Icon = ({ d, className = "size-5" }: { d: string; className?: string }) => (
   <svg viewBox="0 0 24 24" aria-hidden className={className} fill="currentColor">
     <path d={d} />
   </svg>
 );
-const ICON_BACK = "M6 6h2v12H6zM9.5 12 18 6v12z";
-const ICON_SKIP = "M16 6h2v12h-2zM6 18l8.5-6L6 6z";
+export const ICON_BACK = "M6 6h2v12H6zM9.5 12 18 6v12z";
+export const ICON_SKIP = "M16 6h2v12h-2zM6 18l8.5-6L6 6z";
 // Arrows out to the corners (bigger) and in from them (smaller), as for a window or full screen.
 const ICON_GROW = "M14 4h6v6M20 4l-6 6M10 20H4v-6M4 20l6-6";
 const ICON_SHRINK = "M20 10h-6V4M14 10l6-6M4 14h6v6M10 14l-6 6";
@@ -731,20 +658,20 @@ const StrokeIcon = ({ d, className = "size-[clamp(14px,6vh,24px)]" }: { d: strin
     <path d={d} />
   </svg>
 );
-const ICON_PLAY = "M8 5v14l11-7z";
-const ICON_PAUSE = "M6 5h4v14H6zM14 5h4v14h-4z";
+export const ICON_PLAY = "M8 5v14l11-7z";
+export const ICON_PAUSE = "M6 5h4v14H6zM14 5h4v14h-4z";
 const ICON_MINUS = "M5 10.5h14v3H5z";
 const ICON_PLUS = "M10.5 5h3v5.5H19v3h-5.5V19h-3v-5.5H5v-3h5.5z";
 
 /** What the play button does now, for its icon and its label for screen readers and hover. */
-const playLabel = (data: PlayerData) =>
-  data.running ? "Pause" : data.elapsed > 0 ? "Resume" : data.startIn !== null ? `Starting in ${data.startIn}` : data.erg || data.headUnit ? "Start ride" : "Start workout";
+export const playLabel = (data: PlayerData) =>
+  data.running ? "Pause" : data.elapsed > 0 ? "Resume" : data.startIn !== null ? `Starting in ${data.startIn}` : data.erg || data.appTrainer ? "Start ride" : "Start workout";
 
 /** A − value + group with its name, for intensity, grade and the ERG target. */
-function Stepper({ label, value, onDown, onUp, downLabel, upLabel }: { label: string; value: string; onDown: () => void; onUp: () => void; downLabel: string; upLabel: string }) {
+export function Stepper({ label, value, onDown, onUp, downLabel, upLabel }: { label: string; value: string; onDown: () => void; onUp: () => void; downLabel: string; upLabel: string }) {
   const step = "inline-flex size-10 items-center justify-center rounded-md text-lg text-ink transition-colors hover:bg-active";
   return (
-    <div className="flex items-center gap-1 rounded-lg bg-raised py-1 pl-3 pr-1">
+    <div className="flex items-center gap-1 rounded-lg bg-raised py-1 pl-3 pr-1 hc:outline hc:outline-1 hc:outline-line">
       <span className="mr-1 text-sm text-muted">{label}</span>
       <button className={step} onClick={onDown} aria-label={downLabel} title={downLabel}>
         <Icon d={ICON_MINUS} className="size-4" />
@@ -767,7 +694,7 @@ function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData;
     "inline-flex size-14 shrink-0 items-center justify-center rounded-lg bg-raised text-ink transition-colors hover:bg-active disabled:opacity-40";
   const showGrade = !data.erg && (!data.ergOn || data.sprintGrade !== null || data.freeRide);
   /** No workout: no intervals to step through. */
-  const noWorkout = !!data.erg || data.headUnit;
+  const noWorkout = !!data.erg || data.appTrainer;
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -781,7 +708,7 @@ function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData;
           disabled={!controls.canPlay}
           onClick={() => controls.onPlayPause()}
           aria-label={playLabel(data)}
-          title={!controls.canPlay ? (data.headUnit ? "Connect a sensor first" : "Connect the trainer first") : data.autoStart && data.elapsed === 0 ? `${playLabel(data)}, or just start pedaling` : playLabel(data)}
+          title={!controls.canPlay ? (data.appTrainer ? "Connect a sensor first" : "Connect the trainer first") : data.autoStart && data.elapsed === 0 ? `${playLabel(data)}, or just start pedaling` : playLabel(data)}
         >
           <span className="inline-flex items-center gap-2">
             <Icon d={data.running ? ICON_PAUSE : ICON_PLAY} className="size-7" />
@@ -879,7 +806,7 @@ const MINI_TEXT = "text-[clamp(12px,6vh,22px)]";
  * interval on the left, the workout in the middle, the ride so far on the right; the controls
  * live in a panel that a button at the right edge opens over the strip.
  */
-export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; controls: PlayerControls; onResize: (step: 1 | -1) => void }) {
+export function MiniPlayer({ data, controls, onResize, onClose }: { data: PlayerData; controls: PlayerControls; onResize: (step: 1 | -1) => void; onClose?: () => void }) {
   const { ftp } = data;
   const next = data.upcoming[0];
   const from = Math.max(0, data.position - MINI_BEHIND);
@@ -900,7 +827,7 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
     const f = shown[i]!;
     const ref = page.fields[i];
     const isInterval = "metric" in ref && ref.metric === "interval.left";
-    const label = "metric" in ref && ref.metric === "heart_rate" ? "HR" : isInterval ? (data.erg || data.headUnit ? "Ride time" : data.current ? f.label : data.position > 0 ? "Done" : "Ready") : f.label;
+    const label = "metric" in ref && ref.metric === "heart_rate" ? "HR" : isInterval ? (data.erg || data.appTrainer ? "Ride time" : data.current ? f.label : data.position > 0 ? "Done" : "Ready") : f.label;
     const sub = isInterval
       ? data.autoPaused
         ? "Paused · pedal on"
@@ -909,9 +836,9 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
           : data.autoStart
             ? "Pedal to start"
             : data.erg
-              ? "Free ERG"
-              : data.headUnit
-                ? "Head unit"
+              ? "Free ride"
+              : data.appTrainer
+                ? "Free ride"
                 : data.current
                 ? `of ${formatTime(data.current.end - data.current.start)}`
                 : null
@@ -953,7 +880,7 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
             <div className={`num truncate pt-[1.5vh] text-muted ${MINI_LABEL}`}>
               {data.erg ? (
                 ftp > 0 && `${Math.round((data.erg.watts / ftp) * 100)}% FTP · zone ${powerZone(data.erg.watts / ftp)}`
-              ) : data.headUnit ? (
+              ) : data.appTrainer ? (
                 trainerOwner(data)
               ) : next ? (
                 <span className="inline-flex items-center gap-[0.4em]">
@@ -988,6 +915,18 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
         </dl>
       ) : (
         right.length > 0 && <section className={`flex shrink-0 gap-[6vh] ${twoRows ? "flex-wrap content-center" : ""}`}>{right.map((i) => mini(i))}</section>
+      )}
+
+      {/* Back to Lactic: a small tab in the top-left corner shuts the overlay and brings Lactic back to the front; the ride keeps going. */}
+      {onClose && (
+        <button
+          className="absolute left-0 top-0 flex size-[clamp(22px,11vh,44px)] items-center justify-center rounded-br-[1.5vh] border-b border-r border-line bg-raised text-muted transition-colors hover:bg-active hover:text-ink"
+          onClick={() => onClose()}
+          aria-label="Back to Lactic"
+          title="Back to Lactic (the ride keeps going)"
+        >
+          <BackToAppIcon />
+        </button>
       )}
 
       {fields.overlay.length > 1 && (
@@ -1040,6 +979,13 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
   );
 }
 
+/** Back to Lactic: an arrow heading out of the box, the usual sign for going to another window (not ✕, which reads as ending the ride). */
+const BackToAppIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden className="size-[60%]" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4M20 4l-8 8M14 4h6v6" />
+  </svg>
+);
+
 /** Sliders: the usual sign for controls you adjust. */
 const SlidersIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden className={MINI_ICON} fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round">
@@ -1076,7 +1022,7 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
   const step = (delta: number) =>
     data.erg ? controls.onErg(data.erg.watts + delta * ERG_STEP) : data.holding ? controls.onHold(delta) : controls.onIntensity(delta);
   const showGrade = !data.erg && (!data.ergOn || data.sprintGrade !== null || data.freeRide);
-  const noWorkout = !!data.erg || data.headUnit;
+  const noWorkout = !!data.erg || data.appTrainer;
   // End mid-ride takes a second tap, so a sweaty miss doesn't end the ride.
   const [confirmEnd, setConfirmEnd] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -1090,14 +1036,14 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
   return (
     <div ref={ref} className="flex flex-col gap-[4vh]">
       <div className="flex gap-[5vh]">
-      <Group label={data.headUnit ? "Head unit" : data.erg ? "Ride" : "Workout"}>
+      <Group label={data.erg || data.appTrainer ? "Ride" : "Workout"}>
         <div className="flex gap-1.5">
           {!noWorkout && (
             <button className={button} disabled={data.position <= 0} onClick={() => controls.onBack()} aria-label="Back" title="Back to the previous interval">
               <Icon d={ICON_BACK} className={D_ICON} />
             </button>
           )}
-          <button className={primary} disabled={!controls.canPlay} onClick={() => controls.onPlayPause()} aria-label={playLabel(data)} title={controls.canPlay ? playLabel(data) : data.headUnit ? "Connect a sensor first" : "Connect the trainer first"}>
+          <button className={primary} disabled={!controls.canPlay} onClick={() => controls.onPlayPause()} aria-label={playLabel(data)} title={controls.canPlay ? playLabel(data) : data.appTrainer ? "Connect a sensor first" : "Connect the trainer first"}>
             <Icon d={data.running ? ICON_PAUSE : ICON_PLAY} className={D_ICON} />
             {data.startIn !== null && <span className={`num ml-[0.3em] ${D_TEXT}`}>{data.startIn}</span>}
           </button>
@@ -1109,7 +1055,7 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
         </div>
       </Group>
 
-      {data.headUnit ? (
+      {data.appTrainer ? (
         <Group label="Trainer">
           <span className={`inline-flex ${D_H} ${D_TEXT} items-center rounded-md bg-raised px-[0.7em] text-muted`}>{data.trainerApp ?? "Other app"}</span>
         </Group>

@@ -66,7 +66,7 @@ export interface SensorState {
   /** Most recent R-R intervals in ms, newest last. */
   rrIntervalsMs: number[];
   /**
-   * Head unit: another app (Zwift, Rouvy) drives the trainer, so Lactic only reads it. No control
+   * Another app (Zwift, Rouvy) drives the trainer, so Lactic only reads it. No control
    * request, ERG target or grade ever goes to the trainer while this is on.
    */
   handsOff: boolean;
@@ -145,7 +145,7 @@ export class SensorHub {
   }
 
   /**
-   * Hands off the trainer (head unit), or back on. On, nothing more is written to the trainer's
+   * Hands off the trainer (another app has it), or back on. On, nothing more is written to the trainer's
    * control point: targets and grades are dropped, even the ones a reconnect would put back.
    */
   setHandsOff(on: boolean) {

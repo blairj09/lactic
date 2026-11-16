@@ -3,6 +3,9 @@
 /* The ride overlay's end panel when the overlay is stretched short and wide: one row, not three. */
 @custom-variant end-wide (@container end (min-aspect-ratio: 4/1));
 
+/* High contrast on (Settings → Appearance → Contrast, or the system's when that's left on System). */
+@custom-variant hc (&:where([data-contrast="more"] *));
+
 /*
  * Design tokens. Every colour in the app comes from here; components use the Tailwind names in
  * @theme below (bg-surface, text-muted, border-line...), never raw neutrals.

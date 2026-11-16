@@ -12,7 +12,7 @@ export type Tone = "default" | "good" | "warn" | "bad" | "muted";
 export type KitAction = { kind: "open-detail" } | { kind: "lactic"; to: "ride" | "plan" | "progress" | "health" | "settings" };
 
 export type KitNode =
-  /** A big number with a label, like a head-unit field. */
+  /** A big number with a label, like a bike computer field. */
   | { type: "field"; label: string; value: string; unit?: string; sub?: string; tone?: Tone; lead?: boolean }
   /** A smaller number with a label and a line under it. */
   | { type: "stat"; label: string; value: string; sub?: string; tone?: Tone }

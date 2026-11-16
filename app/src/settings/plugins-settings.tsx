@@ -1,5 +1,5 @@
 // Settings → Plugins: the one place plugins are managed. Plugins add ride fields (ride screen, overlay
-// and head unit) and sections on a ride's page, nothing else. Added is where plugins are switched on or
+// and free rides) and sections on a ride's page, nothing else. Added is where plugins are switched on or
 // off, updated, approved and removed; Browse lists Lactic's own plugins. Adding from GitHub or a file
 // starts here too. Updates are only ever offered.
 import { useCallback, useEffect, useRef, useState } from "react";
