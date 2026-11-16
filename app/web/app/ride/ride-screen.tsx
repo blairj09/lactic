@@ -40,6 +40,7 @@ import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
 import { LiveActivityHost } from "~/phone/live-activity";
+import { PhoneRide } from "./phone-ride";
 import { RemoteHost } from "~/ride/remote";
 import { pluginFieldOptions, usePluginFields, usePlugins } from "~/plugins/ride-fields";
 import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
@@ -503,6 +504,12 @@ function RideOnThisDevice({
 
   // Keep the screen awake mid-ride, and while the trainer's connected (a ride waiting for the first pedal stroke).
   useKeepAwake(midRide || !!state.connected.trainer);
+  /** On a phone, a ride under way fills the screen; ⌄ tucks it away until the next ride or "Ride screen". */
+  const [phoneHidden, setPhoneHidden] = useState(false);
+  const phoneLive = isPhone() && !ended && (running || elapsed > 0);
+  useEffect(() => {
+    if (!running && elapsed === 0) setPhoneHidden(false);
+  }, [running, elapsed]);
 
   const openOverlay = () => {
     const { width, height } = OVERLAY_SIZES[overlaySize];
@@ -1243,9 +1250,20 @@ function RideOnThisDevice({
             data={data}
             controls={controls}
             dock={
-              <button className={`${button.secondary} w-full`} onClick={end}>
-                End ride
-              </button>
+              isPhone() ? (
+                <div className="flex gap-2">
+                  <button className={`${button.primary} flex-1`} onClick={() => setPhoneHidden(false)}>
+                    Ride screen
+                  </button>
+                  <button className={`${button.secondary} flex-1`} onClick={end}>
+                    End ride
+                  </button>
+                </div>
+              ) : (
+                <button className={`${button.secondary} w-full`} onClick={end}>
+                  End ride
+                </button>
+              )
             }
             extra={
               <>
@@ -1429,6 +1447,7 @@ function RideOnThisDevice({
             )}
           </Panel>
         </div>
+        {phoneLive && !phoneHidden && <PhoneRide data={data} controls={controls} onHide={() => setPhoneHidden(true)} />}
         {pip.pip && <OverlayPortal pip={pip.pip} data={data} controls={controls} onResize={resizeOverlay} />}
         {isDesktop && !isPhone() && <RemoteHost data={data} controls={controls} />}
         {isPhone() && <LiveActivityHost ride={data} />}
