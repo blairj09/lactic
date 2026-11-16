@@ -76,11 +76,7 @@ export default function Nav({ current }: { current: string }) {
           {mode === "external" && <ExternalCoachButton />}
           {coach && <span aria-hidden className="mx-1 hidden h-5 w-px bg-line md:block" />}
           {/* The website demo has no feedback to send. */}
-          {!isDemo && (
-            <span className="hidden md:contents">
-              <FeedbackButton />
-            </span>
-          )}
+          {!isDemo && <FeedbackButton className="hidden md:inline-flex" />}
           <Link
             href="/settings"
             aria-label="Settings"

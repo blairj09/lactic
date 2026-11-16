@@ -7,7 +7,7 @@ import type { MetricGroup } from "@shared/sdk";
 import type { PluginManifest } from "~/plugins/manifest";
 import { GROUP_WORDS, OPT_IN_GROUPS, type InstallChoices, type UpdateChanges } from "~/plugins/permissions";
 import { CATALOG_CODE_URL, CATALOG_ORIGIN, COACH_ORIGIN, catalogEntries, catalogState, catalogText, type CatalogEntry } from "~/plugins/catalog";
-import { openExternal } from "~/platform/native";
+import { isPhone, openExternal } from "~/platform/native";
 import { PluginPreview } from "./plugin-preview";
 import { GitHubError, fetchFromGitHub, originOf, parseRepoLink, sourceChange, sourceLabel } from "~/plugins/github";
 
@@ -191,14 +191,14 @@ export function PermissionDialog({
       {manifest.permissions.read.includes("location") && <Checkbox checked={location} onChange={setLocation} label="Also let it see where you ride" hint="GPS routes can show where you live. It works without them." />}
       {manifest.publishes.length > 0 && <Checkbox checked={coach} onChange={setCoach} label="Let your coach see its numbers" hint="Numbers only. You can change this later." />}
       <p className="text-muted">{CANT}</p>
-      {coachWrote ? <CoachWritten source={source} /> : <p className="text-xs text-faint">{ours ? "Approved on this computer only." : "Lactic doesn't check plugins. Approved on this computer only."}</p>}
+      {coachWrote ? <CoachWritten source={source} /> : <p className="text-xs text-faint">{`${ours ? "" : "Lactic doesn't check plugins. "}Approved on this ${isPhone() ? "iPhone" : "computer"} only.`}</p>}
       {error && <Result ok={false}>{error}</Result>}
       <div className="flex justify-end gap-2">
         <button type="button" className={button.secondary} disabled={busy} onClick={onClose}>
           Cancel
         </button>
         <button type="button" className={button.primary} disabled={busy} onClick={() => void go()}>
-          {mode === "add" ? "Add plugin" : "Turn on"}
+          {mode === "add" ? "Add plugin" : isPhone() ? "Turn on for this iPhone" : "Turn on"}
         </button>
       </div>
     </Dialog>
