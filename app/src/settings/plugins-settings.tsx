@@ -15,7 +15,7 @@ import { PACKAGE_EXTENSION, packagePlugin } from "~/plugins/package";
 import { adds, BrowseList, CANT, GitHubDialog, PermissionDialog, PluginIcon, ReadLine, RefusedDialog, sourceChange, sourceLabel, UpdateDialog } from "./plugin-dialogs";
 import { PluginPreview } from "./plugin-preview";
 import { SandboxCheck } from "./sandbox-check";
-import { isDesktop, isPhone } from "~/platform/native";
+import { isPhone } from "~/platform/native";
 import { phoneStatus } from "~/phone/plugin";
 import { openFeedback } from "~/feedback/dialog";
 
