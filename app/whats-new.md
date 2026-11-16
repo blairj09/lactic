@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+## 0.3.1
+
 - Coach's brief on Today shows the brief itself again, not a closing line like "Brief's set. Anything else?".
 - Coach's brief is rewritten whenever last night's recovery numbers change, so it always matches the Recovery card.
 - Mac: drag the window by its top bar again, and double-click the bar to zoom it.
