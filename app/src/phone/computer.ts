@@ -9,7 +9,7 @@ import { invoke, isDesktop, isPhone, listen } from "~/platform/native";
 import { applySharedPrefs } from "~/settings/shared-prefs";
 import { getSetting, setSetting } from "~/settings/store";
 import { revalidatePath } from "~/shims/next-cache";
-import { remoteRide, runRemoteControl } from "~/ride/remote";
+import { remoteActivity, remoteRide, runRemoteControl } from "~/ride/remote";
 import type { ControlMessage } from "~/ride/channel";
 import { logEvent } from "~/support/log";
 
@@ -31,7 +31,7 @@ export function startPhoneBridge(): () => void {
           // only counts if the workout really is at its end (not paused short of it since).
           const due = !req.body.whenFinished || remoteRide()?.data.finished === true;
           if (control && due && runRemoteControl(control)) await new Promise((r) => setTimeout(r, 150));
-          await invoke("phone_respond", { requestId: req.requestId, result: { ride: remoteRide() }, error: null });
+          await invoke("phone_respond", { requestId: req.requestId, result: { ride: remoteRide(), activity: remoteActivity() }, error: null });
           return;
         }
         if (req.kind !== "health") throw new Error(`Unknown request ${req.kind}`);

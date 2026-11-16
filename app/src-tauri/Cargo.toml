@@ -55,6 +55,10 @@ tauri-plugin-lactic-phone = { path = "plugins/lactic-phone" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder"] }
+# The ride beacon (beacon.rs): a Bluetooth LE nudge that wakes a locked, paired iPhone.
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSString", "NSArray", "NSData", "NSDictionary"] }
+objc2-core-bluetooth = { version = "0.3", features = ["dispatch2", "CBPeripheralManager", "CBManager", "CBAttribute", "CBService", "CBCharacteristic", "CBUUID", "CBAdvertisementData"] }
 # The iPhone's direct Wi-Fi link (AirDrop-style, phone.rs `direct`): a socket that also takes
 # peer-to-peer Wi-Fi, advertised over Bonjour.
 libc = "0.2"
