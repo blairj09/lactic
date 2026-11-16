@@ -103,7 +103,7 @@ export default function TodayView({
   ftpWindowDays: number;
   coachEnabled: boolean;
   /** Today's morning brief, and whether it needs writing (again). Null when the coach is off. */
-  brief: { message: StoredMessage | null; stale: boolean } | null;
+  brief: { message: StoredMessage | null; stale: boolean; night?: string | null } | null;
   /** The coach has written last week's review (on Progress), in the first days of a week. */
   review?: boolean;
   /** This week's ridden days: each main ride's power, in even slices (rideShape). */

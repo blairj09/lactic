@@ -83,7 +83,8 @@ export async function brief(supabase: Supabase, hooks: ChatHooks): Promise<Store
   if (existing && !briefStale(existing, inputs)) return existing;
   // A rewrite stays in the brief's conversation; a new brief goes to the current one.
   const conversation = existing?.conversationId ? await loadConversation(supabase, existing.conversationId) : await currentConversation(supabase);
-  const history = await loadUnsummarized(supabase, conversation, 6);
+  // The brief being replaced is left out: it quotes the numbers that changed.
+  const history = (await loadUnsummarized(supabase, conversation, 7)).filter((m) => m.id !== existing?.id).slice(-6);
   const reply = await morningBrief(coach.complete, data, history, conversation.summary, hooks);
   // Changes you've already applied or dismissed stay with the rewritten brief.
   const settled = existing?.proposals.filter((p) => p.status !== "pending") ?? [];
