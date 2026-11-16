@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Cards side by side on Today, like Form and Last ride, now line up along the bottom.
+
 ## 0.3.1
 
 - Coach's brief on Today shows the brief itself again, not a closing line like "Brief's set. Anything else?".

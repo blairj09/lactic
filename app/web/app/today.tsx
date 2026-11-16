@@ -8,16 +8,17 @@ import { rowColumns } from "@/lib/sdk/layout-editor";
 
 // Rows of Medium or Small cards by how many columns they take (rowColumns): a lone Medium card
 // takes the full width instead of leaving half the row empty. Phones stack Mediums and pair Smalls.
+// Cards side by side stretch to the row's height so their bottom edges line up.
 const ROW_GRID = {
   medium: {
-    1: "grid grid-cols-1 items-start gap-4",
-    2: "grid grid-cols-1 items-start gap-4 lg:grid-cols-2",
+    1: "grid grid-cols-1 items-stretch gap-4",
+    2: "grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2",
     3: "",
   },
   small: {
-    1: "grid grid-cols-1 items-start gap-4",
-    2: "grid grid-cols-2 items-start gap-4",
-    3: "grid grid-cols-2 items-start gap-4 lg:grid-cols-3",
+    1: "grid grid-cols-1 items-stretch gap-4",
+    2: "grid grid-cols-2 items-stretch gap-4",
+    3: "grid grid-cols-2 items-stretch gap-4 lg:grid-cols-3",
   },
 } as const;
 import WorkoutProfile from "@/components/workout-profile";
@@ -273,7 +274,7 @@ export default function TodayView({
       ) : layout.today.find((c) => c.widget === "lactic.form")?.size === "small" ? (
         <section
           aria-label="Form"
-          className="overflow-hidden rounded-lg border border-line bg-line"
+          className="grid overflow-hidden rounded-lg border border-line bg-line"
         >
           <Stat
             label="Form"
