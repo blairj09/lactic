@@ -200,11 +200,12 @@ function zoneOf(interval: Interval | null) {
 
 
 /**
- * Power against target, on a 3 second average so it doesn't flicker with each stroke: within 5%
- * is on target (green), under is amber, over is red, each with a word.
+ * Power against target, from the same reading the Power field shows, so the number and its
+ * "W under" never disagree: within 5% is on target (green), under is amber, over is red, each with
+ * a word.
  */
-function powerVsTarget(data: PlayerData): { tone: Tone; text: string } | null {
-  const power = data.powerAverage;
+export function powerVsTarget(data: Pick<PlayerData, "power" | "targetWatts" | "running">): { tone: Tone; text: string } | null {
+  const power = data.power;
   const target = data.targetWatts;
   if (power === undefined || target === null || target === 0 || !data.running) return null;
   const ratio = power / target;

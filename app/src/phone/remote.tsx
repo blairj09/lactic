@@ -6,7 +6,8 @@
 // The workout's end: a notification with Extend and End buttons. The phone hears nothing from the
 // computer while it's locked, so each answer moves a notification scheduled for the end (Swift
 // keeps it, and runs the buttons from the lock screen or a watch); paused or ended, it's dropped.
-// Open at the end, the remote opens itself on the Extend panel.
+// Open at the end, the remote opens itself on the Extend panel. Opening Lactic (launched or brought
+// back) while a ride is open on the computer goes straight to its controls.
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useLocation } from "react-router";
@@ -92,6 +93,8 @@ export function ComputerRide() {
   computerRef.current = computer;
   /** Set while a request is out, so polls and presses never overlap. */
   const asking = useRef(false);
+  /** Lactic was just opened: the next answer with a ride open on the computer opens its controls. */
+  const justOpened = useRef(true);
 
   useEffect(() => {
     void phoneStatus()
@@ -106,6 +109,11 @@ export function ComputerRide() {
       const reply = await send<Reply>("ride", control ? { control } : {}, 5);
       setRide(reply.ride);
       setLost(false);
+      // Opening Lactic mid-ride means wanting the controls, not the Today screen.
+      if (justOpened.current && !control) {
+        justOpened.current = false;
+        if (reply.ride && !reply.ride.data.ended && !isRiding()) setOpen(true);
+      }
       syncEndAlert(reply.ride, computerRef.current, lastAlert);
       // On the lock screen and in the Dynamic Island too, from the moment the ride shows up here.
       if (!isRiding()) showRide(reply.ride?.data ?? null, `On ${computerRef.current ?? "your computer"}`);
@@ -132,6 +140,7 @@ export function ComputerRide() {
     void loop();
     const wake = () => {
       if (document.hidden) return;
+      justOpened.current = true;
       clearTimeout(timer);
       void loop();
     };

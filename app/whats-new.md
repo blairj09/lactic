@@ -7,6 +7,8 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Cards side by side on Today, like Form and Last ride, now line up along the bottom.
+- Ride screen: the "W under" and "W over" under Power now match the power number shown beside them, with no lag.
+- iPhone: opening Lactic while a ride is going on your computer goes straight to its controls.
 - Four new half-hour workouts in the library: Sweet spot 2 × 8, Threshold 3 × 5, VO2 max 6 × 1 and Sprints 8 × 10 s.
 
 ## 0.3.1
