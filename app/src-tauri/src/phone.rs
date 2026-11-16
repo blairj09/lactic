@@ -88,6 +88,11 @@ impl Phone {
         Phone { saved: Mutex::new(saved), offer: Mutex::new(None), listening: AtomicBool::new(false), port: AtomicU64::new(0), waiting: Mutex::new(HashMap::new()), next: AtomicU64::new(1), file }
     }
 
+    /// Whether any iPhone is paired with this computer.
+    pub async fn has_phone(&self) -> bool {
+        !self.saved.lock().await.devices.is_empty()
+    }
+
     async fn write(&self, saved: &Saved) {
         let _ = std::fs::write(&self.file, serde_json::to_string_pretty(saved).unwrap_or_default());
     }
