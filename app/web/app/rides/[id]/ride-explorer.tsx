@@ -101,6 +101,7 @@ export default function RideExplorer({
               series={[{ label: "This ride", curve }, ...(best ? [{ label: bestLabel, curve: best }] : [])]}
               picked={picked}
               onPick={(d) => pick(d === picked ? null : d)}
+              touch="brush"
             />
           ) : (
             <p className="text-sm text-muted">No power on this ride.</p>

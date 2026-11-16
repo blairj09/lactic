@@ -8,7 +8,7 @@ import PowerDistributionChart from "@/components/power-distribution-chart";
 import PowerProfile from "@/components/power-profile";
 import RangePicker, { formatRange } from "@/components/range-picker";
 import { hoursMinutes } from "@/components/chart-utils";
-import { clampRange, compareRange, inRange, presetRange, summarizeRange, type CompareMode, type DateRange } from "@/lib/engine/analysis";
+import { clampRange, compareRange, inRange, matchingPreset, presetRange, summarizeRange, type CompareMode, type DateRange } from "@/lib/engine/analysis";
 import type { AnalysisData } from "@/lib/analysis-data";
 import { PageHeader, Panel } from "@/components/ui";
 import { useFeatures } from "@/lib/use-features";
@@ -45,6 +45,9 @@ export default function ProgressView({
       ? clampRange({ from: initial.from, to: initial.to }, bounds)
       : presetRange("3m", today, earliest),
   );
+  // The range a chart zoom started from, which a double tap goes back to. A custom range in the URL
+  // is most likely a zoom, so the full view for it is the default three months.
+  const [fullRange, setFullRange] = useState<DateRange>(() => (matchingPreset(range, today, earliest) ? range : presetRange("3m", today, earliest)));
   const [compare, setCompareState] = useState<CompareMode | null>(
     initial.compare === "previous" || initial.compare === "lastYear" ? initial.compare : null,
   );
@@ -57,6 +60,11 @@ export default function ProgressView({
     const next = clampRange(r, bounds);
     setRangeState(next);
     remember(next, compare);
+  };
+  /** A range picked in the picker becomes the full view a double tap returns to; a chart zoom doesn't. */
+  const pickRange = (r: DateRange) => {
+    setRange(r);
+    setFullRange(clampRange(r, bounds));
   };
   const setCompare = (c: CompareMode | null) => {
     setCompareState(c);
@@ -76,7 +84,9 @@ export default function ProgressView({
         title="Progress"
         line={
           <>
-            Fitness and power over time. Drag across a chart to zoom in.
+            Fitness and power over time.{" "}
+            <span className="pointer-coarse:hidden">Drag across a chart to zoom in, double-click to zoom out.</span>
+            <span className="hidden pointer-coarse:inline">Touch a chart to read it, double tap to zoom out.</span>
             {tracking.recovery && (
               <>
                 {" "}Recovery and sleep are on{" "}
@@ -95,7 +105,7 @@ export default function ProgressView({
       {review}
 
       <div className="sticky top-12 z-10 -mx-4 space-y-2 border-b border-line bg-ground px-4 py-3 sm:-mx-6 sm:px-6">
-        <RangePicker range={range} onChange={setRange} today={today} earliest={earliest} compare={compare} onCompareChange={setCompare} />
+        <RangePicker range={range} onChange={pickRange} today={today} earliest={earliest} compare={compare} onCompareChange={setCompare} />
       </div>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -112,7 +122,12 @@ export default function ProgressView({
       )}
 
       <Panel title="Fitness, fatigue and form" className="min-w-0">
-        <FitnessChart days={days} label={formatRange(range)} onZoom={(from, to) => setRange({ from, to })} />
+        <FitnessChart
+          days={days}
+          label={formatRange(range)}
+          onZoom={(from, to) => setRange({ from, to })}
+          onReset={() => setRange(fullRange)}
+        />
       </Panel>
 
       <Panel title="Power curve" className="min-w-0">

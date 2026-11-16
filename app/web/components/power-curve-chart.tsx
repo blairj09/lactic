@@ -19,18 +19,22 @@ const COLORS = ["var(--series-1)", "var(--series-2)"];
 
 /**
  * Best power for each duration, on a log time axis, for a range and optionally a range to compare
- * against. Hover reads both at a duration; drag across to zoom into a span of durations.
+ * against. Hover (or a finger) reads both at a duration; drag across with a mouse to zoom into a
+ * span of durations, and double click or double tap to show them all again.
  */
 export default function PowerCurveChart({
   series,
   picked = null,
   onPick,
+  touch = "inspect",
 }: {
   series: CurveSeries[];
   /** A duration chosen with a click, marked on the chart. */
   picked?: number | null;
   /** With this, a click (not a drag) picks the duration under the pointer. */
   onPick?: (duration: number) => void;
+  /** "brush" lets a finger drag to zoom too, as on a ride's page. */
+  touch?: "inspect" | "brush";
 }) {
   const downX = useRef<number | null>(null);
   const { ref, width } = useChartWidth();
@@ -38,13 +42,23 @@ export default function PowerCurveChart({
   const [hover, setHover] = useState<number | null>(null);
   const plotWidth = width - MARGIN.left - MARGIN.right;
   const [lo, hi] = domain.map(Math.log);
-  const brush = useBrush(MARGIN.left, plotWidth, (from, to) => {
-    const next: [number, number] = [Math.exp(lo + from * (hi - lo)), Math.exp(lo + to * (hi - lo))];
-    // Keep at least two standard durations in view.
-    if (durationsIn(series, next).length >= 2) setDomain(next);
-  });
-
   const durations = durationsIn(series, domain);
+  const onPointer = (e: React.PointerEvent<Element>) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const at = Math.exp(lo + ((e.clientX - box.left - MARGIN.left) / plotWidth) * (hi - lo));
+    setHover(durations.reduce((best, d) => (Math.abs(Math.log(d / at)) < Math.abs(Math.log(best / at)) ? d : best), durations[0]));
+  };
+  const brush = useBrush(
+    MARGIN.left,
+    plotWidth,
+    (from, to) => {
+      const next: [number, number] = [Math.exp(lo + from * (hi - lo)), Math.exp(lo + to * (hi - lo))];
+      // Keep at least two standard durations in view.
+      if (durationsIn(series, next).length >= 2) setDomain(next);
+    },
+    { touch, onHover: onPointer, onLeave: () => setHover(null), onReset: () => setDomain(FULL) },
+  );
+
   if (!series.some((s) => Object.keys(s.curve).length)) {
     return <p className="text-sm text-muted">No rides with power in this range.</p>;
   }
@@ -59,13 +73,6 @@ export default function PowerCurveChart({
       .join("");
   const shown = hover ?? durations.find((d) => d >= 1200) ?? durations.at(-1)!;
   const zoomed = domain[0] !== FULL[0] || domain[1] !== FULL[1];
-
-  const onPointer = (e: React.PointerEvent<SVGSVGElement>) => {
-    const box = e.currentTarget.getBoundingClientRect();
-    const at = Math.exp(lo + ((e.clientX - box.left - MARGIN.left) / plotWidth) * (hi - lo));
-    setHover(durations.reduce((best, d) => (Math.abs(Math.log(d / at)) < Math.abs(Math.log(best / at)) ? d : best), durations[0]));
-    brush.handlers.onPointerMove?.(e);
-  };
 
   const [a, b] = series;
   const va = a?.curve[shown];
@@ -108,9 +115,7 @@ export default function PowerCurveChart({
         onClick={(e) => {
           if (onPick && hover !== null && downX.current !== null && Math.abs(e.clientX - downX.current) < 6) onPick(hover);
         }}
-        onPointerMove={onPointer}
-        onPointerLeave={() => setHover(null)}
-        className="cursor-crosshair touch-none select-none"
+        className={`cursor-crosshair ${brush.className}`}
       >
         {[0, yMax / 2, yMax].map((v) => (
           <g key={v}>

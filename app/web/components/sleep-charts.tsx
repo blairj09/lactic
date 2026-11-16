@@ -98,7 +98,7 @@ export function Hypnogram({ segments, timeZone }: { segments: SleepSegment[]; ti
             {hourLabel(t)}
           </text>
         ))}
-        <rect x={H_MARGIN.left} y={0} width={plotWidth} height={height} fill="transparent" onPointerMove={onMove} onPointerLeave={() => setHover(null)} />
+        <rect x={H_MARGIN.left} y={0} width={plotWidth} height={height} fill="transparent" className="touch-pan-y" onPointerDown={onMove} onPointerMove={onMove} onPointerLeave={(e) => e.pointerType === "touch" || setHover(null)} />
       </svg>
       <Legend stages={(["deep", "core", "rem", "asleep", "awake"] as SleepStage[]).filter((s) => shown.has(s))} />
       {hovered && (
@@ -193,7 +193,7 @@ export function StageBars({ days, nights, sleepNeedHours }: { days: string[]; ni
             {shortDay(days[i])}
           </text>
         ))}
-        <rect x={B_MARGIN.left} y={0} width={plotWidth} height={B_HEIGHT} fill="transparent" onPointerMove={onMove} onPointerLeave={() => setHover(null)} />
+        <rect x={B_MARGIN.left} y={0} width={plotWidth} height={B_HEIGHT} fill="transparent" className="touch-pan-y" onPointerDown={onMove} onPointerMove={onMove} onPointerLeave={(e) => e.pointerType === "touch" || setHover(null)} />
       </svg>
       <div className="flex flex-wrap items-center justify-between gap-x-4">
         <Legend stages={["deep", "core", "rem", "awake"]} />

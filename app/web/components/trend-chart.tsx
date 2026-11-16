@@ -132,8 +132,10 @@ export default function TrendChart({
           width={plotWidth}
           height={HEIGHT}
           fill="transparent"
+          className="touch-pan-y"
+          onPointerDown={onMove}
           onPointerMove={onMove}
-          onPointerLeave={() => setHover(null)}
+          onPointerLeave={(e) => e.pointerType === "touch" || setHover(null)}
         />
       </svg>
       {normal != null && (
