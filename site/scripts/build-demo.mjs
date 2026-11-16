@@ -4,6 +4,7 @@
 //   node scripts/build-demo.mjs            the latest GitHub release (what Vercel runs)
 //   DEMO_REF=v0.1.5 node scripts/...       a given tag
 //   DEMO_REF=local node scripts/...        this checkout's app/, for trying demo changes before release
+//                                          (Vercel's pull request previews do this on their own)
 //
 // It downloads that tag's source, runs the tag's own `npm run build:demo`, and copies the result
 // here with demo/release.json ({ version, tag }), which scripts/should-build.mjs reads back from
@@ -50,7 +51,9 @@ export function hasScript(app, name) {
 }
 
 async function main() {
-  const ref = process.env.DEMO_REF || (await latestTag());
+  // Pull request previews show the branch's own app, so app changes to the demo or the try-a-ride
+  // page can be checked there before they ship; lactic.fit itself always shows the latest release.
+  const ref = process.env.DEMO_REF || (process.env.VERCEL_ENV === "preview" ? "local" : await latestTag());
   rmSync(OUT, { recursive: true, force: true });
   rmSync(RIDE_OUT, { recursive: true, force: true });
 
