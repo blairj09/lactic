@@ -10,8 +10,9 @@
 //
 // One device posts, so no ride goes twice: the computer, or an iPhone used on its own. A paired
 // iPhone still queues the rides it records (and "Post to Strava" from a ride page), but the queue
-// syncs to the computer and the computer sends them. The sign-in stays on the device that posts
-// (two devices refreshing one sign-in would sign each other out).
+// syncs to the computer and the computer sends them. The sign-in follows the rider between the two
+// (secrets.rs SYNCED, newer sign-in wins) so connecting on a phone used alone carries over when a
+// computer is paired, but only the device that posts refreshes it.
 
 import { experiments } from "@/lib/experiments";
 import { lapStarts, type RideInterval } from "@/lib/engine/ride-detail";
