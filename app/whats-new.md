@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - After you ride, the Coach's brief on Today turns into a short take on how the ride went against the plan and what it means for tomorrow. This morning's brief is still there under it.
+- iPhone: you can now turn on Post rides to Strava and connect Strava right on the phone, no computer needed. A phone paired with a computer leaves posting to the computer.
 
 ## 0.3.2
 

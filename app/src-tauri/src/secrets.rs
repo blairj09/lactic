@@ -19,11 +19,13 @@ use tauri::State;
 
 /// The keychain item (account) that holds every key.
 const BUNDLE: &str = "keys";
-/// Keys that follow the rider to a paired iPhone (and back): the coach's AI key and the
-/// intervals.icu key. The phone's pairing keys stay on their own computer, and Strava's sign-in
-/// stays with the computer that runs the Strava uploads (two devices refreshing one sign-in would
-/// sign each other out).
-pub const SYNCED: &[&str] = &["ai", "intervals"];
+/// Keys that follow the rider to a paired iPhone (and back): the coach's AI key, the
+/// intervals.icu key and Strava's sign-in. The phone's pairing keys stay on their own computer.
+/// Strava's sign-in follows so a rider who connected Strava on the phone alone keeps posting once
+/// a computer is paired; only one device refreshes and posts at a time (src/integrations/strava.ts
+/// `stravaPoster`), so the two never sign each other out. Its three parts are saved together, so
+/// the newer save wins all three.
+pub const SYNCED: &[&str] = &["ai", "intervals", "strava", "strava.refresh", "strava.expires"];
 /// Inside the bundle: when each synced key was last saved or deleted here (ms since 1970), so a
 /// paired phone and computer can tell whose copy is newer. Not a valid key name, so no clash.
 const STAMPS: &str = "~at";
@@ -586,6 +588,19 @@ mod tests {
         assert!(want.is_empty());
         let (give, want) = plan(&mac, &mac);
         assert!(give.is_empty() && want.is_empty());
+    }
+
+    #[test]
+    fn a_strava_sign_in_made_on_the_phone_comes_to_the_computer_whole() {
+        let phone = map(&[("strava", st(50, true)), ("strava.refresh", st(50, true)), ("strava.expires", st(50, true))]);
+        let (give, want) = plan(&HashMap::new(), &phone);
+        assert!(give.is_empty());
+        assert_eq!(want, vec!["strava", "strava.refresh", "strava.expires"]);
+        // Signing in again on the computer later wins on both.
+        let mac = map(&[("strava", st(90, true)), ("strava.refresh", st(90, true)), ("strava.expires", st(90, true))]);
+        let (give, want) = plan(&mac, &phone);
+        assert_eq!(give, vec!["strava", "strava.refresh", "strava.expires"]);
+        assert!(want.is_empty());
     }
 
     #[test]
