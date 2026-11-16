@@ -1,7 +1,7 @@
 "use client";
 
 import { MAX_LEVEL, MIN_LEVEL, STARTING_LEVELS, ZONES, ZONE_LABELS, buildSession, isRampTest, rampTest, type Levels, type Session, type Zone } from "@/lib/engine/library";
-import { templateById, templatesFor } from "@/lib/engine/templates";
+import { templatesFor } from "@/lib/engine/templates";
 import { plannedStress, workoutDuration } from "@/lib/engine/workout";
 import { customKey, customLibraryWorkout, libraryKey, LIBRARY_CATEGORIES, LIBRARY_CATEGORY_LABELS, WORKOUT_LIBRARY, libraryWorkout, type LibraryCategory, type LibraryWorkout } from "@/lib/engine/workout-library";
 import type { Workout } from "@/lib/engine/workout";

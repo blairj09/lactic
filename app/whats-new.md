@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Pick a workout lists every workout that fits the type, length and level you set, so you can pick one. It no longer swaps in an endurance ride when a type doesn't fit the length.
 - Cards side by side on Today, like Form and Last ride, now line up along the bottom.
 - Four new half-hour workouts in the library: Sweet spot 2 × 8, Threshold 3 × 5, VO2 max 6 × 1 and Sprints 8 × 10 s.
 
