@@ -18,6 +18,22 @@ const day = { form: 3, session: "event:art-dye", signals: [] as string[] };
 const inputs = (i: Partial<BriefInputs>): BriefInputs => ({ recovery: false, weighed: false, checkin: null, ...day, ...i });
 
 describe("briefStale", () => {
+  it("turns into the after-ride brief once you've ridden, and only a new ride or answer rewrites that", () => {
+    const night = "54|49|52|6.5|16.3";
+    const morning = brief({ recovery: true, ...day, night });
+    // A ride came in: the morning brief gives way.
+    expect(briefStale(morning, inputs({ recovery: true, night, after: "r1" }))).toBe(true);
+    const afterRide = brief({ recovery: true, ...day, night, after: "r1" });
+    expect(briefStale(afterRide, inputs({ recovery: true, night, after: "r1" }))).toBe(false);
+    // Opening the app again with other numbers moved (form, last night) costs nothing.
+    expect(briefStale(afterRide, inputs({ recovery: true, night: "61|55|50|7.2|16.1", form: -20, after: "r1" }))).toBe(false);
+    // You answered how it went, or rode again.
+    expect(briefStale(afterRide, inputs({ recovery: true, night, after: "r1:hard::0" }))).toBe(true);
+    expect(briefStale(afterRide, inputs({ recovery: true, night, after: "r1,r2" }))).toBe(true);
+    // The ride was taken off today: back to the morning brief.
+    expect(briefStale(afterRide, inputs({ recovery: true, night, after: null }))).toBe(true);
+  });
+
   it("rewrites when last night's numbers change, even after acting on its proposals", () => {
     const night = "54|49|52|6.5|16.3";
     expect(briefStale(brief({ recovery: true, ...day, night }), inputs({ recovery: true, night }))).toBe(false);

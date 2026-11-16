@@ -32,6 +32,9 @@ const INTRO =
 const BRIEF =
   "Your morning is in: recovery and sleep. Pick today's session below, ride it on the trainer or take it outside, and keep each interval steady on target. Ask me anything about it.";
 
+const AFTER_RIDE =
+  "Nice work getting it done. With your own AI connected, I'd say here how the ride went against the plan, effort by effort, and what it means for tomorrow.";
+
 const PLAN =
   "This week keeps building toward a higher FTP: one sustained threshold-style session, one shorter, harder day, and an easy long ride at the weekend. The rest days are there so the hard days land well.";
 
@@ -49,6 +52,7 @@ export function reply(body: Body): Reply {
     return { content: "Here's the swap. Apply it and both days move in your plan, or Dismiss to keep things as they are." };
   }
   if (/^Write today's morning brief/i.test(lastUser)) return { content: BRIEF };
+  if (/Write my brief now that I've ridden/i.test(lastUser)) return { content: AFTER_RIDE };
   if (/^(Key days to plan|No key days)/.test(lastUser)) return { content: PLAN };
   if (!tools.has("propose_swap")) return { content: "A demo conversation about training." };
   if (/\b(move|swap|switch|shift|busy|can't make|cannot make|saturday|sunday|weekend)\b/i.test(lastUser)) {

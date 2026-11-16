@@ -216,6 +216,14 @@ export async function loadBrief(supabase: Supabase, day: string): Promise<Stored
   return data.length ? toMessage(data[0]) : null;
 }
 
+/** This morning's brief for a day, once a brief after a ride has taken its place on Today; null when there wasn't one. */
+export async function loadMorningBrief(supabase: Supabase, day: string): Promise<StoredMessage | null> {
+  const { data, error } = await supabase.from("coach_messages").select(COLUMNS).eq("kind", "brief").eq("day", day).order("created_at", { ascending: true }).limit(5);
+  if (error) throw error;
+  const morning = data.map(toMessage).find((m) => !(m.meta as { after?: string | null }).after);
+  return morning ?? null;
+}
+
 export async function deleteMessage(supabase: Supabase, id: string) {
   const { error } = await supabase.from("coach_messages").delete().eq("id", id);
   if (error) throw error;

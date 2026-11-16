@@ -22,7 +22,15 @@ export interface MorningProps {
   /** Whether there's a weigh-in today, so the brief is rewritten when one lands (the weekly weigh-in is its own card on Today). */
   weighedToday?: boolean;
   /** Today's brief, and whether it needs writing (again). Null when the coach is off. */
-  brief: { message: StoredMessage | null; stale: boolean; night?: string | null } | null;
+  brief: {
+    message: StoredMessage | null;
+    stale: boolean;
+    night?: string | null;
+    /** Today's rides and answers about them (BriefInputs.after); set once you've ridden, when the brief is about the ride. */
+    after?: string | null;
+    /** This morning's brief, kept once the after-ride one has taken its place. */
+    morning?: StoredMessage | null;
+  } | null;
   /** How you feel today and the options it gives; a line about the day instead once it's settled. */
   today: TodayChoice | { settled: string };
   /** Last night in brief (RecoverySummary), shown as the first, done step once it's in. */
@@ -110,11 +118,25 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
   // Last night is in: the top of Today is just the recovery summary, no steps around it.
   if (part === "recovery" && recoveryDone && lastNight) return <Panel title="Recovery">{lastNight}</Panel>;
 
+  // After a ride the brief is about the ride, so it doesn't wait on the morning's steps.
+  const afterRide = Boolean(brief?.after);
+  const briefReady = mounted && (afterRide || waitingOn.length === 0);
+  const briefPending = mounted && !afterRide ? pending : "";
+  const briefKey = `${recovery.in}-${brief?.night ?? ""}-${weighedToday}-${"settled" in today ? "" : (today.answers?.at ?? "")}-${brief?.after ?? ""}`;
+
   if (part === "brief") {
     if (!brief) return null;
     return (
       <Panel
-        title="Coach's brief"
+        title={
+          afterRide ? (
+            <>
+              Coach&apos;s brief <span className="font-normal text-muted">· After your ride</span>
+            </>
+          ) : (
+            "Coach's brief"
+          )
+        }
         meta={
           <button type="button" onClick={() => openCoach()} className="hover:text-ink">
             Ask the coach
@@ -125,12 +147,13 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
           <Brief
             initial={brief.message}
             stale={brief.stale}
-            ready={mounted && waitingOn.length === 0}
-            inputs={`${recovery.in}-${brief.night ?? ""}-${weighedToday}-${"settled" in today ? "" : (today.answers?.at ?? "")}`}
-            pending={mounted ? pending : ""}
+            ready={briefReady}
+            inputs={briefKey}
+            pending={briefPending}
             onSkipPending={() => skip(...waitingOn)}
             today={null}
           />
+          {afterRide && brief.morning && <EarlierBrief message={brief.morning} />}
         </div>
       </Panel>
     );
@@ -195,15 +218,16 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
         <Brief
           initial={brief.message}
           stale={brief.stale}
-          ready={mounted && waitingOn.length === 0}
-          inputs={`${recovery.in}-${brief.night ?? ""}-${weighedToday}-${"settled" in today ? "" : (today.answers?.at ?? "")}`}
-          pending={mounted ? pending : ""}
+          ready={briefReady}
+          inputs={briefKey}
+          pending={briefPending}
           onSkipPending={() => skip(...waitingOn)}
           today={"settled" in today ? null : today}
         />
       ) : (
         !("settled" in today) && <TodayOptionsFor today={today} pick={null} className="mt-5" />
       )}
+      {part !== "recovery" && afterRide && brief?.morning && <EarlierBrief message={brief.morning} />}
     </Panel>
   );
 }
@@ -381,25 +405,56 @@ function Brief({
           </div>
         ))}
       {!status && today && <TodayOptionsFor today={today} pick={(message?.meta.today as OptionId | undefined) ?? null} />}
-      {!status && message && message.proposals.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {message.proposals.map((p, i) => (
-            <ProposalCard
-              key={i}
-              proposal={p}
-              onApply={async () => {
-                const result = await applyProposal(message.id, i);
-                if (!result.ok) return setError(result.message);
-                update(i, "applied");
-                router.refresh();
-              }}
-              onDismiss={async () => {
-                const result = await dismissProposal(message.id, i);
-                if (!result.ok) return setError(result.message);
-                update(i, "dismissed");
-              }}
-            />
-          ))}
+      {!status && message && <Proposals message={message} onSettled={update} onError={setError} />}
+    </div>
+  );
+}
+
+/** The plan changes a brief proposed, each with Apply and Dismiss. */
+function Proposals({ message, onSettled, onError }: { message: StoredMessage; onSettled: (index: number, status: "applied" | "dismissed") => void; onError: (error: string) => void }) {
+  const router = useRouter();
+  if (!message.proposals.length) return null;
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      {message.proposals.map((p, i) => (
+        <ProposalCard
+          key={i}
+          proposal={p}
+          onApply={async () => {
+            const result = await applyProposal(message.id, i);
+            if (!result.ok) return onError(result.message);
+            onSettled(i, "applied");
+            router.refresh();
+          }}
+          onDismiss={async () => {
+            const result = await dismissProposal(message.id, i);
+            if (!result.ok) return onError(result.message);
+            onSettled(i, "dismissed");
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** This morning's brief under the one written after the ride, folded away, with any changes it proposed still to answer. */
+function EarlierBrief({ message: initial }: { message: StoredMessage }) {
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState(initial);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => setMessage(initial), [initial]);
+  const pending = message.proposals.some((p) => p.status === "pending");
+  return (
+    <div className="mt-4 border-t border-line pt-3">
+      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} className="text-sm text-muted hover:text-ink">
+        This morning&apos;s brief {open ? "▴" : "▾"}
+        {!open && pending && <span className="ml-2 text-xs">· a change to answer</span>}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-3 text-muted">
+          <Prose text={message.content} />
+          <Proposals message={message} onSettled={(i, status) => setMessage((m) => ({ ...m, proposals: m.proposals.map((p, j) => (j === i ? { ...p, status } : p)) }))} onError={setError} />
+          {error && <Result ok={false}>{error}</Result>}
         </div>
       )}
     </div>
