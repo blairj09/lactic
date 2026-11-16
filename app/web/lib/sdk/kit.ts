@@ -16,6 +16,8 @@ export type KitNode =
   | { type: "field"; label: string; value: string; unit?: string; sub?: string; tone?: Tone; lead?: boolean }
   /** A smaller number with a label and a line under it. */
   | { type: "stat"; label: string; value: string; sub?: string; tone?: Tone }
+  /** A few short labeled numbers side by side, e.g. best 5 s, 1 min, 5 min and 20 min power. One unit for all. */
+  | { type: "values"; label?: string; unit?: string; items: { label: string; value: string; tone?: Tone }[] }
   | { type: "text"; text: string; tone?: Tone; size?: "sm" | "md" | "lg"; weight?: "normal" | "medium" | "semibold" }
   /** A small trend line; values only, scaled to fit. */
   | { type: "sparkline"; values: (number | null)[]; tone?: Tone }
@@ -45,6 +47,8 @@ export const KIT_LIMITS = {
   profilePoints: 2000,
   /** Marked stretches on a profile. */
   marks: 40,
+  /** Numbers in one values node. */
+  values: 8,
   /** Table columns and rows, and characters in one cell. */
   columns: 8,
   rows: 200,
@@ -77,6 +81,11 @@ export function validateKit(input: unknown, { fromPlugin = true }: { fromPlugin?
     if (v.length > KIT_LIMITS.cell) return fail(`a table ${name} is longer than ${KIT_LIMITS.cell} characters`);
     return v;
   };
+  const short = (v: unknown, name: string): string => {
+    if (typeof v !== "string") return fail(`${name} must be text`);
+    if (v.length > KIT_LIMITS.cell) return fail(`${name} is longer than ${KIT_LIMITS.cell} characters`);
+    return v;
+  };
   const tone = (v: unknown): Tone | undefined => {
     if (v === undefined) return undefined;
     if (!TONES.includes(v as Tone)) return fail(`unknown tone ${String(v)}`);
@@ -104,6 +113,14 @@ export function validateKit(input: unknown, { fromPlugin = true }: { fromPlugin?
         return strip({ type: "field", label: str(o.label, "label")!, value: str(o.value, "value")!, unit: str(o.unit, "unit", true), sub: str(o.sub, "sub", true), tone: tone(o.tone), lead: o.lead === undefined ? undefined : Boolean(o.lead) });
       case "stat":
         return strip({ type: "stat", label: str(o.label, "label")!, value: str(o.value, "value")!, sub: str(o.sub, "sub", true), tone: tone(o.tone) });
+      case "values": {
+        if (!Array.isArray(o.items) || o.items.length === 0 || o.items.length > KIT_LIMITS.values) return fail(`values needs 1 to ${KIT_LIMITS.values} items`);
+        const items = o.items.map((it) => {
+          const i = (typeof it === "object" && it !== null && !Array.isArray(it) ? it : fail("each values item must be an object")) as Record<string, unknown>;
+          return strip({ label: short(i.label, "values label"), value: short(i.value, "values value"), tone: tone(i.tone) });
+        });
+        return strip({ type: "values", label: str(o.label, "label", true), unit: str(o.unit, "unit", true), items });
+      }
       case "text":
         return strip({ type: "text", text: str(o.text, "text")!, tone: tone(o.tone), size: pick(o.size, ["sm", "md", "lg"] as const, "size"), weight: pick(o.weight, ["normal", "medium", "semibold"] as const, "weight") });
       case "sparkline":

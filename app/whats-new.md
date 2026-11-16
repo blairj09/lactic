@@ -6,6 +6,9 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Plugin ride fields can show several numbers in one field, like Best Efforts with your best 5 s, 1 min, 5 min and 20 min so far. Pick the durations in the field editor.
+- Any ride field can be wide, taking two slots side by side: select it in the field editor and choose Wide.
+
 ## 0.3.2
 
 - Head unit is now part of Free ride. Pick who has the trainer: Lactic, holding the watts you set, or Zwift (or another app) while Lactic records and floats your fields on top. Free ride starts on Zwift when it's open, your head unit fields carry over, and "Start with Zwift" now opens a free ride.

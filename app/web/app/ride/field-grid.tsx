@@ -3,7 +3,7 @@
 // Knows nothing about the ride itself: it draws the fields it's given.
 
 import type { PageTemplate } from "@/lib/sdk/layout";
-import type { RideChart } from "@/lib/sdk/plugin-fields";
+import type { FieldValue, RideChart } from "@/lib/sdk/plugin-fields";
 
 export type Tone = "positive" | "warning" | "negative";
 export const TONE: Record<Tone, string> = { positive: "text-positive", warning: "text-warning", negative: "text-negative" };
@@ -20,6 +20,10 @@ export interface Shown {
   plugin?: boolean;
   /** A plugin field's small live chart, drawn under the number. */
   chart?: RideChart;
+  /** A plugin field's few labeled numbers, drawn instead of one. */
+  values?: FieldValue[];
+  /** Takes two slots side by side. */
+  wide?: boolean;
 }
 
 /** The small purple mark beside a plugin field's name, which the plugin can't draw or hide. */
@@ -67,6 +71,38 @@ export function FieldChart({ chart, small }: { chart: RideChart; small?: boolean
   );
 }
 
+/**
+ * A plugin field's labeled numbers, in the field's own number size (`size`) scaled down: a 2×2
+ * block in a normal field, one row in a wide one.
+ */
+export function FieldValues({ values, wide, size }: { values: FieldValue[]; wide?: boolean; size: string }) {
+  const cols = wide || values.length <= 2 ? ["", "", "grid-cols-2", "grid-cols-3", "grid-cols-4"][values.length] : "grid-cols-2";
+  return (
+    <div className={`num grid gap-x-4 gap-y-1 font-medium tracking-tight ${cols} ${size}`}>
+      {values.map((v, i) => (
+        <div key={i} className="min-w-0">
+          <div className="truncate text-sm font-normal tracking-normal text-muted">{v.label}</div>
+          <div className={`${wide ? "text-[0.7em]" : "text-[0.55em]"} leading-[1.1] ${v.tone ? TONE[v.tone] : ""}`}>{v.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Labeled numbers in a short row or block, for the narrow lists (the standard page's ride so far, the overlay). */
+export function FieldValuesCompact({ values, valueSize, labelSize }: { values: FieldValue[]; valueSize: string; labelSize: string }) {
+  return (
+    <div className={`num grid gap-x-[0.6em] ${values.length === 1 ? "grid-cols-1" : "grid-cols-2"} items-baseline`}>
+      {values.map((v, i) => (
+        <span key={i} className="whitespace-nowrap">
+          <span className={`mr-[0.3em] text-muted ${labelSize}`}>{v.label}</span>
+          <span className={`font-medium tracking-tight ${valueSize} ${v.tone ? TONE[v.tone] : ""}`}>{v.value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function Big({
   label,
   value,
@@ -78,6 +114,8 @@ export function Big({
   reason,
   plugin,
   chart,
+  values,
+  wide,
 }: {
   label: string;
   value: number | string | undefined;
@@ -90,21 +128,28 @@ export function Big({
   reason?: string;
   plugin?: boolean;
   chart?: RideChart;
+  values?: FieldValue[];
+  wide?: boolean;
 }) {
   const valueSize = size ?? (lead ? "text-5xl leading-[1.1] sm:text-6xl" : "text-4xl leading-[1.15]");
   return (
     <div className="min-w-0" title={value === undefined ? reason : undefined}>
       <div className="flex items-center gap-1.5 text-sm text-muted">
         {plugin && <PluginMark />}
-        <span className="truncate">{label}</span>
+        <span className="truncate">
+          {label}
+          {values && unit ? ` · ${unit}` : ""}
+        </span>
       </div>
-      {(value !== undefined || !chart) && (
+      {values ? (
+        <FieldValues values={values} wide={wide} size={valueSize} />
+      ) : (value !== undefined || !chart) && (
         <div className={`num font-medium tracking-tight ${valueSize} ${tone ? TONE[tone] : ""}`}>
           {value ?? <span className="text-2xl text-faint">–</span>}
           {unit && value !== undefined && <span className="ml-1.5 text-base font-normal tracking-normal text-muted">{unit}</span>}
         </div>
       )}
-      {chart && <FieldChart chart={chart} />}
+      {chart && !values && <FieldChart chart={chart} />}
       {sub !== undefined && <div className={`h-5 text-sm ${tone ? TONE[tone] : "text-muted"}`}>{sub}</div>}
     </div>
   );
@@ -120,6 +165,9 @@ const GRID: Record<Exclude<PageTemplate, "standard">, { cols: string; size: stri
   eight: { cols: "grid-cols-2 sm:grid-cols-4", size: "text-5xl leading-[1.1]" },
   ten: { cols: "grid-cols-2 sm:grid-cols-5", size: "text-4xl leading-[1.15] lg:text-5xl" },
 };
+
+/** A wide field's span: two columns wherever the page has two or more. */
+const WIDE: Partial<Record<PageTemplate, string>> = { two: "sm:col-span-2", four: "col-span-2", six: "col-span-2", "six-chart": "col-span-2", eight: "col-span-2", ten: "col-span-2" };
 
 export const hasChart = (template: PageTemplate) => template === "standard" || template === "six-chart";
 
@@ -148,7 +196,7 @@ export function FieldGrid({
     // both columns), the workout in the middle, the ride so far on the right.
     const big = (i: number, lead: boolean) => {
       const f = at(i);
-      return slot(i, f ? <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} lead={lead} reason={f.reason} plugin={f.plugin} chart={f.chart} /> : null);
+      return slot(i, f ? <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} lead={lead} reason={f.reason} plugin={f.plugin} chart={f.chart} values={f.values} /> : null);
     };
     return (
       <div className="grid gap-x-8 gap-y-6 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-start">
@@ -173,7 +221,7 @@ export function FieldGrid({
                     <>
                       <dt className="truncate text-sm text-muted">{f.label}</dt>
                       <dd className="num text-2xl font-medium tracking-tight" title={f.value === undefined ? f.reason : undefined}>
-                        {f.value ?? <span className="text-faint">–</span>}
+                        {f.values ? <FieldValuesCompact values={f.values} valueSize="text-lg" labelSize="text-xs font-normal" /> : (f.value ?? <span className="text-faint">–</span>)}
                         {f.unit && f.value !== undefined && <span className="ml-1 text-sm font-normal tracking-normal text-muted">{f.unit}</span>}
                       </dd>
                     </>
@@ -189,12 +237,12 @@ export function FieldGrid({
   const g = GRID[template];
   return (
     <div className="space-y-6">
-      <div aria-label="Ride fields" className={`grid gap-x-8 gap-y-6 ${g.cols}`}>
+      <div aria-label="Ride fields" className={`grid grid-flow-row-dense gap-x-8 gap-y-6 ${g.cols}`}>
         {Array.from({ length: slots }, (_, i) => {
           const f = at(i);
           return (
-            <div key={i} className={template === "one" ? "text-center" : undefined}>
-              {slot(i, f ? <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} size={g.size} reason={f.reason} plugin={f.plugin} chart={f.chart} /> : null)}
+            <div key={i} className={template === "one" ? "text-center" : f?.wide ? WIDE[template] : undefined}>
+              {slot(i, f ? <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} size={g.size} reason={f.reason} plugin={f.plugin} chart={f.chart} values={f.values} wide={f.wide} /> : null)}
             </div>
           );
         })}

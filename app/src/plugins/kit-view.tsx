@@ -101,6 +101,20 @@ export function KitView({ node, onOpenDetail }: { node: KitNode; onOpenDetail?: 
           {node.sub ? <div className="text-xs text-muted">{node.sub}</div> : null}
         </div>
       );
+    case "values":
+      return (
+        <div>
+          {node.label || node.unit ? <div className="text-xs text-muted">{[node.label, node.unit].filter(Boolean).join(" · ")}</div> : null}
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {node.items.map((it, i) => (
+              <div key={i}>
+                <div className="text-xs text-muted">{it.label}</div>
+                <div className={`text-2xl font-semibold tabular-nums ${tone(it.tone)}`}>{it.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
     case "text":
       return <p className={`${node.size === "lg" ? "text-base" : node.size === "sm" ? "text-xs" : "text-sm"} ${node.weight === "semibold" ? "font-semibold" : node.weight === "medium" ? "font-medium" : ""} ${tone(node.tone)}`}>{node.text}</p>;
     case "sparkline":

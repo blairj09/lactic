@@ -6,6 +6,7 @@
 // parseLayout() is strict: a layout restored from a backup, synced from the phone or hand-edited
 // is checked field by field, and anything unknown is dropped (review S7). Plain data, no browser APIs.
 
+import { parseOptionPicks, type FieldOptionPicks } from "./plugin-fields";
 import { isTodayWidgetId, type CardSize } from "./widgets";
 
 export const LAYOUT_VERSION = 1;
@@ -31,10 +32,11 @@ export interface CardEntry {
   hidden: boolean;
 }
 
-/** What a ride field shows: a registered metric, or a custom field built from one (review U3). */
-export type FieldRef =
-  | { metric: string }
-  | {
+/**
+ * What a ride field shows: a registered metric, or a custom field built from one (review U3).
+ * `wide` fields take two slots side by side on a grid page (not the standard or one-field page).
+ */
+export type FieldRef = ({ metric: string } | {
       custom: {
         metric: string;
         /** Seconds, for a rolling avg or max; 0 = right now. Ignored by the interval and ride aggregates. */
@@ -46,7 +48,7 @@ export type FieldRef =
         as?: "wkg" | "zone";
         label: string;
       };
-    };
+    }) & { wide?: true };
 
 export const CUSTOM_AGGS = ["avg", "max", "lap-avg", "last-lap-avg", "ride-avg"] as const;
 export type CustomAgg = (typeof CUSTOM_AGGS)[number];
@@ -72,8 +74,11 @@ export interface Layout {
   v: number;
   tabs: TabEntry[];
   today: CardEntry[];
-  /** Free ride: the pages a free ride shows on the Ride page and the overlay; its own from the start. */
-  ride: { workout: { pages: RidePage[] }; free: FieldSet; overlay: FieldSet };
+  /**
+   * Free ride: the pages a free ride shows on the Ride page and the overlay; its own from the start.
+   * `options`: the rider's picks for plugin fields that offer choices, by field id (plugin-fields.ts).
+   */
+  ride: { workout: { pages: RidePage[] }; free: FieldSet; overlay: FieldSet; options?: FieldOptionPicks };
 }
 
 
@@ -150,6 +155,11 @@ const text = (v: unknown, max = 40): string | null => (typeof v === "string" && 
 export function parseField(v: unknown): FieldRef | null {
   const o = obj(v);
   if (!o) return null;
+  const f = parseFieldOnly(o);
+  return f && o.wide === true ? { ...f, wide: true } : f;
+}
+
+function parseFieldOnly(o: Record<string, unknown>): FieldRef | null {
   if (typeof o.metric === "string" && METRIC_ID.test(o.metric)) return { metric: o.metric };
   const c = obj(o.custom);
   if (!c || typeof c.metric !== "string" || !METRIC_ID.test(c.metric)) return null;
@@ -162,6 +172,39 @@ export function parseField(v: unknown): FieldRef | null {
   return { custom: { metric: c.metric, window, agg, label, ...(asPercentOf ? { asPercentOf } : {}), ...(as ? { as } : {}) } };
 }
 
+/** Whether fields on this page shape can be wide: grid pages with more than one field. */
+export const canBeWide = (template: PageTemplate) => template !== "standard" && template !== "one";
+
+/** Slots a field takes: 2 for a wide one. */
+export const slotsOf = (f: FieldRef) => (f.wide ? 2 : 1);
+
+/** Slots the fields take up. */
+export const slotsUsed = (fields: readonly FieldRef[]) => fields.reduce((n, f) => n + slotsOf(f), 0);
+
+/**
+ * The fields that fit a page shape, in order: wide only where the shape allows it, and no more slots
+ * than it has. A wide field that doesn't fit becomes a normal one if that fits.
+ */
+export function fitFields(template: PageTemplate, fields: readonly FieldRef[]): FieldRef[] {
+  const room = PAGE_TEMPLATES[template];
+  const out: FieldRef[] = [];
+  let used = 0;
+  for (const f of fields) {
+    let g = f;
+    if (g.wide && (!canBeWide(template) || used + 2 > room)) {
+      const { wide: _, ...plain } = g;
+      g = plain as FieldRef;
+    }
+    if (used + slotsOf(g) > room) break;
+    out.push(g);
+    used += slotsOf(g);
+  }
+  return out;
+}
+
+/** How many fields a page draws at most: its slots, less one for each wide field. */
+export const pageSlots = (page: Pick<RidePage, "template" | "fields">) => PAGE_TEMPLATES[page.template] - page.fields.filter((f) => f.wide).length;
+
 function parsePages(v: unknown): RidePage[] | null {
   if (!Array.isArray(v)) return null;
   const pages: RidePage[] = [];
@@ -170,7 +213,7 @@ function parsePages(v: unknown): RidePage[] | null {
     const template = o && typeof o.template === "string" && o.template in PAGE_TEMPLATES ? (o.template as PageTemplate) : null;
     const name = text(o?.name, 24);
     if (!o || !template || !name || !Array.isArray(o.fields)) continue;
-    const fields = o.fields.map(parseField).filter((f): f is FieldRef => f !== null).slice(0, PAGE_TEMPLATES[template]);
+    const fields = fitFields(template, o.fields.map(parseField).filter((f): f is FieldRef => f !== null));
     pages.push({ name, template, fields });
   }
   return pages.length ? pages : null;
@@ -235,9 +278,12 @@ export function parseLayout(input: unknown): Layout {
       workout: { pages: parsePages(obj(ride?.workout)?.pages) ?? base.ride.workout.pages },
       free: parseFree(ride),
       overlay: parseSet(ride?.overlay),
+      ...withOptions(parseOptionPicks(ride?.options)),
     },
   };
 }
+
+const withOptions = (o: FieldOptionPicks | null) => (o ? { options: o } : {});
 
 function safeJson(s: string): unknown {
   try {

@@ -4,8 +4,8 @@
     {
       "id": "best-efforts",
       "name": "Best Efforts",
-      "version": "1.0.1",
-      "description": "Your best 5-minute power so far during a ride, and your best 5 seconds to 60 minutes after it.",
+      "version": "1.1.0",
+      "description": "Your best efforts so far during a ride (pick up to four durations), and your best 5 seconds to 60 minutes after it.",
       "reads": [
         "live",
         "rides",
@@ -13,16 +13,17 @@
       ],
       "adds": {
         "fields": [
-          "Best 5 min"
+          "Best 5 min",
+          "Best efforts"
         ],
         "analyses": [
           "Best efforts"
         ]
       },
       "source": "best-efforts/src/plugin.ts",
-      "file": "dist/best-efforts-1.0.1.lacticplugin",
-      "bytes": 4077,
-      "sha256": "024755fab1e9206d0e40fad0e31ae5af8770b61480de932d4bef6d183ade98e7"
+      "file": "dist/best-efforts-1.1.0.lacticplugin",
+      "bytes": 6010,
+      "sha256": "e457900537e41d5734e008df8b56f5714ce4456665a5d4a22684f52c3a80eeaf"
     },
     {
       "id": "cadence-bands",

@@ -10,7 +10,7 @@ import { powerZone } from "../engine/workout";
 import { hrZones } from "../engine/zones";
 import type { CustomAgg, FieldRef } from "../sdk/layout";
 import { formatMetric, type MetricDef, type MetricRegistry } from "../sdk/metrics";
-import type { FieldTone, RideChart } from "../sdk/plugin-fields";
+import type { FieldTone, FieldValue, RideChart } from "../sdk/plugin-fields";
 
 /** The ride so far, one value per ride second. `interval` is the workout interval's index, -1 for none. */
 export interface RideStreams {
@@ -49,6 +49,8 @@ export interface FieldShown {
   plugin?: true;
   /** A plugin field's small live chart. */
   chart?: RideChart;
+  /** A plugin field's few labeled numbers, instead of one. */
+  values?: FieldValue[];
 }
 
 /** What a field needs to show anything, for greying it out in the picker (review U7). */

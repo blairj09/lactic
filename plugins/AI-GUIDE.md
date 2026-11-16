@@ -33,7 +33,25 @@ A plugin adds ride fields, ride page sections, or both. Nothing else: no cards, 
 | `fields` | A ride field (ride screen, overlay, free rides) | `input.metrics` (live numbers this second, plus profile) | 20 ms |
 | `analyses` | A section on a saved ride's page | `input.ride` (whole ride) + `input.metrics` | 2 s, 128 KB |
 
-Field handlers keep state between calls in ordinary variables (the starter counts seconds this way). An analysis gets the whole ride at once: `ride.watts[i]` is the power at second `i * ride.stepSeconds`.
+Field handlers keep state between calls in ordinary variables (the starter counts seconds this way). All of a plugin's fields share one sandbox, so they can share that state.
+
+### What a ride field shows
+
+- **One number:** the first `field` (or `stat`) in the tree: value up to 12 characters, unit up to 8, `sub` line up to 40, plus at most one `bars`, `sparkline` or `meter` chart.
+- **A few numbers:** a `values` node, `{ type: "values", unit: "W", items: [{ label: "5 s", value: "612" }, { label: "1 min", value: "402", tone: "good" }] }`, with 2 to 4 items, labels up to 8 characters and values up to 7. It takes the whole field; Lactic lays the numbers out to fit (a 2×2 block, one row in a wide field, a compact block on the overlay). Use it instead of several fields that show the same kind of number.
+
+The rider can make any field wide (two slots) in the field editor; you don't need to do anything for that.
+
+### Field options
+
+A field can offer the rider simple choices in the field editor, so one field covers what would otherwise be several:
+
+```json
+{ "id": "efforts", "title": "Best efforts", "entry": "efforts",
+  "options": [{ "id": "durations", "label": "Durations", "choices": ["5 s", "1 min", "5 min", "20 min", "60 min"], "default": ["5 s", "1 min", "5 min", "20 min"], "max": 4 }] }
+```
+
+Up to 4 options a field; each has 2 to 12 `choices` (up to 16 characters), a `default` of 1 to `max` of them, and `max` (how many the rider may pick, 1 when left out). The handler gets the picks as `input.options.durations`, always an array of the choices, in the order listed. There's no free text. See `catalog/best-efforts` for a worked example. An analysis gets the whole ride at once: `ride.watts[i]` is the power at second `i * ride.stepSeconds`.
 
 ## Metric ids you can read
 

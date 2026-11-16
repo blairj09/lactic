@@ -46,7 +46,56 @@ function reset() {
   best = null;
 }
 
+// ---- Live field: several best efforts at once, the durations the rider picked ----
+// One ring of the last hour, and a running sum per duration, so each second costs the same however
+// many durations there are. Every duration is tracked, so changing the picks mid-ride loses nothing.
+const SPANS: Record<string, number> = { "5 s": 5, "15 s": 15, "30 s": 30, "1 min": 60, "5 min": 300, "10 min": 600, "20 min": 1200, "60 min": 3600 };
+const HOUR = 3600;
+const hour: number[] = new Array(HOUR).fill(0);
+let hourFilled = 0;
+let hourPos = 0;
+let hourElapsed = 0;
+const sums: Record<string, number> = {};
+const bests: Record<string, number | null> = {};
+
+function resetHour() {
+  hour.fill(0);
+  hourFilled = hourPos = 0;
+  for (const k of Object.keys(SPANS)) {
+    sums[k] = 0;
+    bests[k] = null;
+  }
+}
+resetHour();
+
 definePlugin({
+  efforts(input) {
+    const elapsed = input.metrics["ride.elapsed"] ?? 0;
+    if (elapsed < hourElapsed) resetHour(); // a new ride
+    hourElapsed = elapsed;
+    const power = input.metrics["power"];
+    if (power != null) {
+      for (const [k, n] of Object.entries(SPANS)) {
+        // The sample falling out of this duration's window, n seconds back.
+        const out = hourFilled >= n ? hour[(hourPos - n + HOUR) % HOUR] : 0;
+        sums[k] += power - out;
+        if (hourFilled + 1 >= n) bests[k] = Math.max(bests[k] ?? 0, sums[k] / n);
+      }
+      hour[hourPos] = power;
+      hourPos = (hourPos + 1) % HOUR;
+      hourFilled = Math.min(HOUR, hourFilled + 1);
+    }
+    const picked = (input.options?.durations ?? ["5 s", "1 min", "5 min", "20 min"]).filter((d) => d in SPANS);
+    const items = picked.map((d) => {
+      const best = bests[d];
+      if (best == null) return { label: d, value: "–", tone: "muted" as const };
+      // Green while you're on a new best right now.
+      const now = sums[d] / SPANS[d];
+      return { label: d, value: String(Math.round(best)), ...(now >= best - 0.5 ? { tone: "good" as const } : {}) };
+    });
+    return { tree: { type: "values", label: "Best efforts", unit: "W", items } };
+  },
+
   field(input) {
     const elapsed = input.metrics["ride.elapsed"] ?? 0;
     if (elapsed < lastElapsed) reset(); // a new ride

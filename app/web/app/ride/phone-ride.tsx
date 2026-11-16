@@ -465,11 +465,11 @@ function FieldPage({ data, page, columns }: { data: PlayerData; page: RidePage; 
           <button
             type="button"
             key={i}
-            className="min-w-0 text-left"
+            className={`min-w-0 text-left ${f.wide && !(few && columns === 2) ? "col-span-2" : ""}`}
             onClick={() => setWhy(f.value === undefined && f.reason ? f : null)}
             aria-label={f.value === undefined && f.reason ? `${f.label}: ${f.reason}` : undefined}
           >
-            <Big label={f.label} value={f.value} unit={f.unit} sub={columns === 3 ? undefined : f.sub} tone={f.tone} size={size} plugin={f.plugin} chart={columns === 3 ? undefined : f.chart} />
+            <Big label={f.label} value={f.value} unit={f.unit} sub={columns === 3 ? undefined : f.sub} tone={f.tone} size={size} plugin={f.plugin} chart={columns === 3 ? undefined : f.chart} values={f.values} wide={f.wide} />
           </button>
         ))}
       </div>

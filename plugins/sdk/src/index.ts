@@ -13,6 +13,11 @@ export type KitNode =
   | { type: "field"; label: string; value: string; unit?: string; sub?: string; tone?: Tone; lead?: boolean }
   /** A smaller number with a label and a line under it. */
   | { type: "stat"; label: string; value: string; sub?: string; tone?: Tone }
+  /**
+   * A few short labeled numbers in one ride field, e.g. best 5 s, 1 min, 5 min and 20 min power. One
+   * unit for all. As a ride field: 2 to 4 items, labels up to 8 characters, values up to 7.
+   */
+  | { type: "values"; label?: string; unit?: string; items: { label: string; value: string; tone?: Tone }[] }
   | { type: "text"; text: string; tone?: Tone; size?: "sm" | "md" | "lg"; weight?: "normal" | "medium" | "semibold" }
   /** A small trend line; values only, scaled to fit. */
   | { type: "sparkline"; values: (number | null)[]; tone?: Tone }
@@ -29,7 +34,7 @@ export type KitNode =
   | { type: "button"; label: string; action: KitAction };
 
 /** Limits Lactic enforces on a tree; anything over them is refused for that call. */
-export const KIT_LIMITS = { nodes: 200, depth: 6, text: 280, points: 400, profilePoints: 2000, marks: 40, columns: 8, rows: 200, cell: 60 } as const;
+export const KIT_LIMITS = { nodes: 200, depth: 6, text: 280, points: 400, profilePoints: 2000, marks: 40, values: 8, columns: 8, rows: 200, cell: 60 } as const;
 
 // ---- Metrics ----
 
@@ -97,6 +102,8 @@ export interface HandlerInput {
   now: number;
   /** Only for ride analyses: the saved ride. */
   ride?: RideInput;
+  /** Only for ride fields with `options`: the rider's picks by option id, always from its `choices` (the default until changed). */
+  options?: Record<string, string[]>;
 }
 
 export interface HandlerOutput {
@@ -129,12 +136,28 @@ export type PublishedMetric =
   | { id: string; label: string; unit?: string; kind: "number" }
   | { id: string; label: string; kind: "choice"; choices: string[] };
 
+/**
+ * A choice the rider makes for a ride field in Lactic's field editor, e.g. which durations to show.
+ * Up to 4 per field; 2 to 12 choices of up to 16 characters; the rider picks 1 to `max` (default 1).
+ */
+export interface FieldOption {
+  /** Lowercase letters, digits and underscores, starting with a letter. */
+  id: string;
+  label: string;
+  choices: string[];
+  /** 1 to `max` of the choices, used until the rider picks. */
+  default: string[];
+  max?: number;
+}
+
 export interface Contribution {
   /** Lowercase letters, digits and dashes. */
   id: string;
   title: string;
   /** The handler name passed to definePlugin. */
   entry: string;
+  /** Ride fields only: choices the rider picks, handed to the handler as `input.options`. */
+  options?: FieldOption[];
 }
 
 export interface PluginManifest {

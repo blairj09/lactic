@@ -27,6 +27,8 @@ export interface PluginFieldOption {
   title: string;
   pluginName: string;
   on: boolean;
+  /** The choices it offers, shown under the picker when the field is selected. */
+  options?: FieldOption[];
 }
 
 /** What a plugin field shows when there's no number: Lactic's words, never the plugin's. */
@@ -51,17 +53,26 @@ export type RideChart =
   | { kind: "line"; values: (number | null)[]; tone?: FieldTone }
   | { kind: "meter"; value: number; tone?: FieldTone };
 
+/** One of a few labeled numbers in a field (a plugin's `values` node), e.g. "1 min" 402. */
+export interface FieldValue {
+  label: string;
+  value: string;
+  tone?: FieldTone;
+}
+
 export interface PluginFieldValue {
-  /** Null when the plugin draws only a chart. */
+  /** Null when the plugin draws only a chart, or several numbers (`values`). */
   value: string | null;
   unit: string;
   sub?: string;
   tone?: FieldTone;
   chart?: RideChart;
+  /** 2 to 4 labeled numbers in one field, drawn by Lactic to fit the field's size. */
+  values?: FieldValue[];
 }
 
 /** A ride field is read from the saddle: a short number, a short line and a small chart, never a paragraph. */
-export const RIDE_FIELD_LIMITS = { value: 12, unit: 8, sub: 40, bars: 10, barLabel: 4, linePoints: 120 };
+export const RIDE_FIELD_LIMITS = { value: 12, unit: 8, sub: 40, bars: 10, barLabel: 4, linePoints: 120, values: 4, valuesLabel: 8, valuesValue: 7 };
 
 const toneOf = (t: KitTone | undefined) => (t ? TONES[t] : undefined);
 
@@ -80,7 +91,8 @@ function rideChart(n: KitNode): RideChart | null {
 }
 
 /**
- * A checked kit tree as a ride field: the first field (or stat) for the number and the first bars,
+ * A checked kit tree as a ride field. A `values` node, if there is one, makes the field several
+ * labeled numbers (up to 4) and nothing else. Otherwise: the first field (or stat) for the number and the first bars,
  * sparkline or meter for the chart. Null if it has neither, or its number is too long for a ride
  * field. The line under it is cut to fit.
  */
@@ -88,11 +100,21 @@ export function fieldFromKit(tree: KitNode): PluginFieldValue | null {
   const queue: KitNode[] = [tree];
   let num: Extract<KitNode, { type: "field" | "stat" }> | null = null;
   let chart: RideChart | null = null;
+  let several: Extract<KitNode, { type: "values" }> | null = null;
   while (queue.length) {
     const n = queue.shift()!;
-    if ((n.type === "field" || n.type === "stat") && !num) num = n;
+    if (n.type === "values" && !several) several = n;
+    else if ((n.type === "field" || n.type === "stat") && !num) num = n;
     else if ((n.type === "bars" || n.type === "sparkline" || n.type === "meter") && !chart) chart = rideChart(n);
     else if (n.type === "stack") queue.push(...n.children);
+  }
+  // Several numbers take the whole field: the first 4, each short enough to read from the saddle.
+  if (several) {
+    const L = RIDE_FIELD_LIMITS;
+    const unit = several.unit ?? "";
+    const items = several.items.slice(0, L.values);
+    if (unit.length > L.unit || items.some((it) => it.label.length > L.valuesLabel || it.value.length > L.valuesValue)) return null;
+    return { value: null, unit, values: items.map((it) => ({ label: it.label, value: it.value, ...(toneOf(it.tone) ? { tone: toneOf(it.tone) } : {}) })) };
   }
   if (!num) return chart ? { value: null, unit: "", chart } : null;
   const unit = num.type === "field" ? (num.unit ?? "") : "";
@@ -100,4 +122,65 @@ export function fieldFromKit(tree: KitNode): PluginFieldValue | null {
   const sub = num.sub ? (num.sub.length > RIDE_FIELD_LIMITS.sub ? `${num.sub.slice(0, RIDE_FIELD_LIMITS.sub - 1)}…` : num.sub) : "";
   const tone = toneOf(num.tone);
   return { value: num.value, unit, ...(sub ? { sub } : {}), ...(tone ? { tone } : {}), ...(chart ? { chart } : {}) };
+}
+
+// ---- Field options: simple choices a plugin offers for a field, picked in the field editor ----
+
+/**
+ * One option a plugin field offers, from its manifest: a few fixed choices, of which the rider picks
+ * up to `max` (1 when left out). Never free text, so nothing the rider types reaches the plugin.
+ */
+export interface FieldOption {
+  id: string;
+  label: string;
+  choices: string[];
+  /** What a field starts with: 1 to `max` of the choices. */
+  default: string[];
+  max?: number;
+}
+
+export const FIELD_OPTION_LIMITS = { options: 4, choices: 12, choice: 16, label: 24, max: 8 } as const;
+export const OPTION_ID = /^[a-z][a-z0-9_]{0,23}$/;
+
+/** The rider's picks, by plugin field id, then option id. Kept in the layout (`ride.options`). */
+export type FieldOptionPicks = Record<string, Record<string, string[]>>;
+
+/**
+ * What a field's handler gets as `input.options`: for each option the rider's picks still on offer,
+ * in the manifest's order and no more than `max`, or its default when there are none.
+ */
+export function resolveOptions(options: readonly FieldOption[] | undefined, picked: Record<string, string[]> | undefined): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const o of options ?? []) {
+    const mine = picked?.[o.id] ?? [];
+    const kept = o.choices.filter((c) => mine.includes(c)).slice(0, o.max ?? 1);
+    out[o.id] = kept.length ? kept : [...o.default];
+  }
+  return out;
+}
+
+/** Turns one choice on or off. With `max` 1 a pick replaces the old one; past `max` nothing changes. */
+export function toggleChoice(option: FieldOption, current: readonly string[], choice: string): string[] {
+  const max = option.max ?? 1;
+  if (max === 1) return [choice];
+  if (current.includes(choice)) return current.length > 1 ? current.filter((c) => c !== choice) : [...current];
+  if (current.length >= max) return [...current];
+  return option.choices.filter((c) => c === choice || current.includes(c));
+}
+
+/** Picks from untrusted input (a saved or synced layout): plugin field ids, option ids, short choices. */
+export function parseOptionPicks(v: unknown): FieldOptionPicks | null {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
+  const out: FieldOptionPicks = {};
+  for (const [field, opts] of Object.entries(v).slice(0, 64)) {
+    if (!isPluginFieldId(field) || typeof opts !== "object" || opts === null || Array.isArray(opts)) continue;
+    const o: Record<string, string[]> = {};
+    for (const [id, picks] of Object.entries(opts).slice(0, FIELD_OPTION_LIMITS.options)) {
+      if (!OPTION_ID.test(id) || !Array.isArray(picks)) continue;
+      const ok = picks.filter((c): c is string => typeof c === "string" && c.length > 0 && c.length <= FIELD_OPTION_LIMITS.choice).slice(0, FIELD_OPTION_LIMITS.max);
+      if (ok.length) o[id] = ok;
+    }
+    if (Object.keys(o).length) out[field] = o;
+  }
+  return Object.keys(out).length ? out : null;
 }

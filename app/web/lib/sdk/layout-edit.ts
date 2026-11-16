@@ -5,7 +5,7 @@
 //
 // Plain data, no browser APIs.
 
-import { PAGE_TEMPLATES, parseField, TAB_IDS, type CardEntry, type FieldRef, type Layout, type PageTemplate, type RidePage, type TabId } from "./layout";
+import { PAGE_TEMPLATES, parseField, slotsOf, slotsUsed, TAB_IDS, type CardEntry, type FieldRef, type Layout, type PageTemplate, type RidePage, type TabId } from "./layout";
 import type { MetricRegistry } from "./metrics";
 import { isTodayWidgetId, type CardSize, type WidgetManifest } from "./widgets";
 
@@ -219,7 +219,7 @@ export function applyLayoutChange(input: Layout, change: LayoutChange, ctx: Layo
       checkFieldMetric(ctx, change.field);
       const p = pageAt(pagesFor(layout, change.set), change.page);
       const room = PAGE_TEMPLATES[p.template];
-      if (p.fields.length >= room) throw new Error(`Page ${change.page} (${p.name}) is full with ${room} fields. Ask whether to replace one (replace_field) or add a page (add_page); don't replace without asking`);
+      if (slotsUsed(p.fields) + slotsOf(change.field) > room) throw new Error(`Page ${change.page} (${p.name}) is full with ${room} fields. Ask whether to replace one (replace_field) or add a page (add_page); don't replace without asking`);
       p.fields.push(change.field);
       return layout;
     }
@@ -228,6 +228,7 @@ export function applyLayoutChange(input: Layout, change: LayoutChange, ctx: Layo
       const p = pageAt(pagesFor(layout, change.set), change.page);
       if (!p.fields[change.slot - 1]) throw new Error(`Page ${change.page} has ${p.fields.length} fields; there's no field ${change.slot}`);
       p.fields[change.slot - 1] = change.field;
+      if (slotsUsed(p.fields) > PAGE_TEMPLATES[p.template]) throw new Error(`A wide field doesn't fit on page ${change.page} (${p.name}); it's full`);
       return layout;
     }
     case "remove_field": {
@@ -240,7 +241,7 @@ export function applyLayoutChange(input: Layout, change: LayoutChange, ctx: Layo
       const pages = pagesFor(layout, change.set);
       if (pages.length >= MAX_PAGES) throw new Error(`A set holds at most ${MAX_PAGES} pages`);
       const room = PAGE_TEMPLATES[change.template];
-      if (change.fields.length > room) throw new Error(`A ${change.template} page holds ${room} fields`);
+      if (slotsUsed(change.fields) > room) throw new Error(`A ${change.template} page holds ${room} fields`);
       change.fields.forEach((f) => checkFieldMetric(ctx, f));
       pages.push({ name: change.name, template: change.template, fields: structuredClone(change.fields) });
       return layout;

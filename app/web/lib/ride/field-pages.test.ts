@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addPage, allFields, deletePage, follow, follows, movePage, pagesOf, renamePage, setSlot, setTemplate, splitOff, standardSets, swapSlots } from "./field-pages";
+import { addPage, allFields, canWiden, deletePage, follow, follows, movePage, pagesOf, renamePage, setOption, setSlot, setTemplate, setWide, splitOff, standardSets, swapSlots } from "./field-pages";
 
 describe("ride field pages", () => {
   it("starts with one standard page that the overlay follows, and free ride's own page", () => {
@@ -48,5 +48,24 @@ describe("ride field pages", () => {
   it("lists every field across the sets", () => {
     // Workout and overlay share the standard 10; free ride has its own 8.
     expect(allFields(standardSets())).toHaveLength(28);
+  });
+
+  it("makes a field wide only where there's a slot to spare, and keeps it wide when its field changes", () => {
+    const four = setTemplate(standardSets(), "workout", 0, "four");
+    expect(canWiden(four.workout.pages[0], 0)).toBe(false);
+    expect(setWide(four, "workout", 0, 0, true)).toBe(four);
+    const three = setSlot(four, "workout", 0, 3, null);
+    const wide = setWide(three, "workout", 0, 1, true);
+    expect(wide.workout.pages[0].fields[1]).toEqual({ metric: "power", wide: true });
+    expect(setSlot(wide, "workout", 0, 3, { metric: "cadence" })).toEqual(wide);
+    expect(setSlot(wide, "workout", 0, 1, { metric: "cadence" }).workout.pages[0].fields[1]).toEqual({ metric: "cadence", wide: true });
+    expect(setWide(wide, "workout", 0, 1, false).workout.pages[0].fields[1]).toEqual({ metric: "power" });
+    expect(setTemplate(wide, "workout", 0, "two").workout.pages[0].fields).toEqual([{ metric: "interval.left" }, { metric: "power" }]);
+  });
+
+  it("keeps a plugin field's option picks with the pages", () => {
+    const r = setOption(standardSets(), "plugin_field.best-efforts.efforts", "durations", ["5 s", "1 min"]);
+    expect(r.options).toEqual({ "plugin_field.best-efforts.efforts": { durations: ["5 s", "1 min"] } });
+    expect(standardSets().options).toBeUndefined();
   });
 });

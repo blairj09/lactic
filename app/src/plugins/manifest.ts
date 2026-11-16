@@ -3,6 +3,7 @@
 // with a plain reason. Names and labels come only from here, are shown to the rider at install, and
 // reach the coach (if ever) marked untrusted; plugin code itself can only publish numbers.
 import { hasHiddenText, isMetricId, pluginMetricId, type MetricGroup } from "@shared/sdk";
+import { FIELD_OPTION_LIMITS, OPTION_ID, type FieldOption } from "@/lib/sdk/plugin-fields";
 
 /** Groups a plugin can ask to read (the SDK's MetricGroup). Race report data has no group, so it is
  *  never offered to plugins (review S5). */
@@ -19,6 +20,8 @@ export interface Contribution {
   title: string;
   /** Name of the handler the plugin passes to `lactic.register`. */
   entry: string;
+  /** Fields only: simple choices the rider picks in the field editor, handed in as `input.options`. Present only when non-empty. */
+  options?: FieldOption[];
 }
 
 /** The ids the rest of Lactic sees for a manifest's published metrics. */
@@ -149,6 +152,37 @@ function editDistance(a: string, b: string): number {
   return dp[a.length][b.length];
 }
 
+/** A field's options: a few fixed choices each, so the rider never types anything a plugin reads. */
+function fieldOptions(c: Checker, v: unknown, path: string): FieldOption[] {
+  const L = FIELD_OPTION_LIMITS;
+  const out: FieldOption[] = [];
+  const ids = new Set<string>();
+  c.arr(v, path, L.options).forEach((raw, i) => {
+    const p = `${path}[${i}]`;
+    const o = c.obj(raw, p, ["id", "label", "choices", "default", "max"], ["id", "label", "choices", "default"]);
+    if (!o) return;
+    const id = c.str(o.id, `${p}.id`, 24, OPTION_ID);
+    if (id && ids.has(id)) c.fail(`${p}.id`, "is listed twice");
+    if (id) ids.add(id);
+    const label = c.str(o.label, `${p}.label`, L.label);
+    const choices = c.arr(o.choices, `${p}.choices`, L.choices).map((ch, j) => c.str(ch, `${p}.choices[${j}]`, L.choice));
+    if (choices.length < 2) c.fail(`${p}.choices`, "needs at least two choices");
+    if (new Set(choices).size !== choices.length) c.fail(`${p}.choices`, "lists a choice twice");
+    let max = 1;
+    if (o.max !== undefined) {
+      if (typeof o.max !== "number" || !Number.isInteger(o.max) || o.max < 1 || o.max > Math.min(L.max, choices.length)) c.fail(`${p}.max`, `must be a whole number from 1 to ${Math.min(L.max, choices.length)}`);
+      else max = o.max;
+    }
+    const def = c.arr(o.default, `${p}.default`, L.max);
+    if (def.length < 1 || def.length > max) c.fail(`${p}.default`, `must pick 1 to ${max} of the choices`);
+    def.forEach((d, j) => {
+      if (typeof d !== "string" || !choices.includes(d)) c.fail(`${p}.default[${j}]`, "must be one of the choices");
+    });
+    if (id && label && choices.every((x): x is string => !!x) && c.errors.length === 0) out.push({ id, label, choices, default: def as string[], ...(o.max !== undefined ? { max } : {}) });
+  });
+  return out;
+}
+
 /** Validate a parsed manifest.json value. Pass the raw text through `parseManifestText` first. */
 export function validateManifest(raw: unknown): ManifestResult {
   const c = new Checker();
@@ -215,14 +249,15 @@ export function validateManifest(raw: unknown): ManifestResult {
     const ids = new Set<string>();
     c.arr(v ?? [], `manifest.contributes.${key}`, key === "analyses" ? 8 : 32).forEach((w, i) => {
       const p = `manifest.contributes.${key}[${i}]`;
-      const o = c.obj(w, p, ["id", "title", "entry"], ["id", "title", "entry"]);
+      const o = c.obj(w, p, key === "fields" ? ["id", "title", "entry", "options"] : ["id", "title", "entry"], ["id", "title", "entry"]);
       if (!o) return;
       const wid = c.str(o.id, `${p}.id`, 40, ID_RE);
       const title = c.str(o.title, `${p}.title`, 40);
       const entry = c.str(o.entry, `${p}.entry`, 40, ENTRY_RE);
       if (wid && ids.has(wid)) c.fail(`${p}.id`, "is listed twice");
       if (wid) ids.add(wid);
-      if (wid && title && entry) out.push({ id: wid, title, entry });
+      const options = o.options === undefined ? [] : fieldOptions(c, o.options, `${p}.options`);
+      if (wid && title && entry) out.push(options.length ? { id: wid, title, entry, options } : { id: wid, title, entry });
     });
     return out;
   };

@@ -30,6 +30,7 @@ function Fields({ name, parts }: { name: string; parts: PreviewPart[] }) {
             sub={p.field?.sub ?? p.failed ?? ""}
             tone={p.field?.tone}
             chart={p.field?.chart}
+            values={p.field?.values}
             size="text-3xl leading-[1.15]"
             plugin
           />
