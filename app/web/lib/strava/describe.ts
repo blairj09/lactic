@@ -1,17 +1,25 @@
-// The words on a ride posted to Strava: the workout's name as the title, and a description of how
-// it went (the work intervals against their targets, then the ride's totals), signed by Lactic.
-// It only formats numbers the engine already worked out; it never computes a metric itself.
+// The words on a ride posted to Strava: the workout's name as the title, and a description that is
+// just the workout's shape as a line of block bars (▂▅▅▂▅▅▇▃), signed by Lactic. Strava shows
+// descriptions as plain text in a normal font and can't take images, so the bars stand in for a chart.
+// It only draws the planned workout; it never computes a metric itself.
 // No browser or Node APIs, so it runs and tests anywhere.
 
 import type { RideInterval } from "../engine/ride-detail";
-import type { Workout } from "../engine/workout";
-import { formatDuration } from "../format";
+import type { Segment, Workout } from "../engine/workout";
 
-/** A steady block at this share of FTP or more counts as a work interval. */
-const WORK_FROM = 0.8;
-/** Strava cuts descriptions off somewhere past this. */
-const MAX_DESCRIPTION = 1800;
-export const LACTIC_SIGNATURE = "Trained with Lactic, the open-source training platform · lactic.fit";
+export const LACTIC_SIGNATURE = "Trained with Lactic · lactic.fit";
+
+/** Bars from easy to all out. */
+const BARS = "▁▂▃▄▅▆▇█";
+/** Share of FTP drawn as the lowest and the highest bar. */
+const FLOOR = 0.4;
+const CEILING = 1.2;
+/** How wide the shape is, so it fits a phone line without wrapping. */
+const WIDTH = 20;
+/** Up to this many bars, every segment gets at least one, so short reps still show. */
+const MAX_WIDTH = 24;
+/** Free ride segments are drawn as easy riding. */
+const FREE_RIDE = 0.5;
 
 export interface PostedRide {
   name: string | null;
@@ -30,46 +38,50 @@ export function stravaTitle(ride: Pick<PostedRide, "name" | "workout">): string 
   return (name || "Lactic ride").slice(0, 200);
 }
 
-const minutes = (seconds: number) => (seconds % 60 === 0 && seconds >= 60 ? `${seconds / 60} min` : seconds < 60 ? `${seconds} s` : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`);
+const bar = (fraction: number) => BARS[Math.max(0, Math.min(BARS.length - 1, Math.round(((fraction - FLOOR) / (CEILING - FLOOR)) * (BARS.length - 1))))];
 
-/** "3 × 12 min at 265 W: 268, 266, 263 W", one line per run of matching work intervals. */
-export function intervalLines(workout: Workout | null, intervals: RideInterval[] | null): string[] {
-  if (!workout || !intervals?.length) return [];
-  const work = intervals.filter((iv) => {
-    const segment = workout.segments[iv.index];
-    return segment?.kind === "steady" && !segment.hold && !segment.opener && segment.target >= WORK_FROM && iv.target !== null;
-  });
-  const groups: RideInterval[][] = [];
-  for (const iv of work) {
-    const last = groups.at(-1);
-    if (last && last[0].planned === iv.planned && last[0].target === iv.target) last.push(iv);
-    else groups.push([iv]);
+/** Target as a share of FTP, `at` (0 to 1) of the way through a segment. */
+function targetAt(segment: Segment, at: number): number {
+  switch (segment.kind) {
+    case "steady":
+      return segment.target;
+    case "ramp":
+      return segment.from + (segment.to - segment.from) * at;
+    case "freeRide":
+      return FREE_RIDE;
   }
-  return groups.map((g) => {
-    const head = `${g.length > 1 ? `${g.length} × ` : ""}${minutes(g[0].planned)} at ${g[0].target} W`;
-    const done = g.map((iv) => (iv.ridden === 0 ? "skipped" : iv.power === null ? "–" : `${iv.power}`));
-    return `${head}: ${done.join(", ")}${done.some((d) => d !== "skipped" && d !== "–") ? " W" : ""}`;
-  });
 }
 
-export function totalsLine(ride: PostedRide): string {
-  const parts = [formatDuration(ride.durationSeconds)];
-  if (ride.normalizedPower !== null) parts.push(`NP ${Math.round(ride.normalizedPower)} W`);
-  else if (ride.averagePower !== null) parts.push(`Avg ${Math.round(ride.averagePower)} W`);
-  if (ride.trainingStress !== null) parts.push(`TSS ${Math.round(ride.trainingStress)}`);
-  if (ride.intensityFactor !== null) parts.push(`IF ${ride.intensityFactor.toFixed(2)}`);
-  if (ride.averageHr !== null) parts.push(`Avg HR ${Math.round(ride.averageHr)}`);
-  return parts.join(" · ");
+/** The planned workout as one line of bars: each segment its share of the width (at least one bar while it fits), else even time slices. */
+export function workoutShape(workout: Workout | null): string {
+  const segments = workout?.segments.filter((s) => s.duration > 0) ?? [];
+  const total = segments.reduce((sum, s) => sum + s.duration, 0);
+  if (!total) return "";
+  const widths = segments.map((s) => Math.max(1, Math.round((s.duration / total) * WIDTH)));
+  if (widths.reduce((a, b) => a + b, 0) <= MAX_WIDTH) {
+    return segments.map((s, i) => Array.from({ length: widths[i] }, (_, k) => bar(targetAt(s, (k + 0.5) / widths[i])))).flat().join("");
+  }
+  // Too many segments for one bar each: average the target over even slices of the clock.
+  const at = (t: number) => {
+    let start = 0;
+    for (const s of segments) {
+      if (t < start + s.duration) return targetAt(s, (t - start) / s.duration);
+      start += s.duration;
+    }
+    return targetAt(segments[segments.length - 1], 1);
+  };
+  let line = "";
+  for (let c = 0; c < WIDTH; c++) {
+    const from = (c * total) / WIDTH;
+    const to = ((c + 1) * total) / WIDTH;
+    const steps = 12;
+    let sum = 0;
+    for (let k = 0; k < steps; k++) sum += at(from + ((k + 0.5) / steps) * (to - from));
+    line += bar(sum / steps);
+  }
+  return line;
 }
 
 export function stravaDescription(ride: PostedRide): string {
-  const lines = intervalLines(ride.workout, ride.intervals);
-  const blocks = [lines.join("\n"), totalsLine(ride), LACTIC_SIGNATURE].filter(Boolean);
-  let text = blocks.join("\n\n");
-  if (text.length > MAX_DESCRIPTION) {
-    // Keep the totals and the signature; trim the interval list.
-    const room = MAX_DESCRIPTION - totalsLine(ride).length - LACTIC_SIGNATURE.length - 6;
-    text = [`${lines.join("\n").slice(0, room).replace(/\n[^\n]*$/, "")}\n…`, totalsLine(ride), LACTIC_SIGNATURE].join("\n\n");
-  }
-  return text;
+  return [workoutShape(ride.workout), LACTIC_SIGNATURE].filter(Boolean).join("\n\n");
 }
