@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Coach's brief on Today shows the brief itself again, not a closing line like "Brief's set. Anything else?".
+- Coach's brief is rewritten whenever last night's recovery numbers change, so it always matches the Recovery card.
 - Mac: drag the window by its top bar again, and double-click the bar to zoom it.
 - Phone: touching a chart on Progress, Plan or Health shows the value at that point instead of zooming in, and a double tap zooms back out. Ride charts still zoom with a drag.
 - The built-in coach can search the web for things that change, like gear and prices. Turn it on in Settings → Coach (needs an OpenRouter key); only the search words leave Lactic, and sources show under the reply.

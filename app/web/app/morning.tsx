@@ -22,7 +22,7 @@ export interface MorningProps {
   /** Whether there's a weigh-in today, so the brief is rewritten when one lands (the weekly weigh-in is its own card on Today). */
   weighedToday?: boolean;
   /** Today's brief, and whether it needs writing (again). Null when the coach is off. */
-  brief: { message: StoredMessage | null; stale: boolean } | null;
+  brief: { message: StoredMessage | null; stale: boolean; night?: string | null } | null;
   /** How you feel today and the options it gives; a line about the day instead once it's settled. */
   today: TodayChoice | { settled: string };
   /** Last night in brief (RecoverySummary), shown as the first, done step once it's in. */
@@ -126,7 +126,7 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
             initial={brief.message}
             stale={brief.stale}
             ready={mounted && waitingOn.length === 0}
-            inputs={`${recovery.in}-${weighedToday}-${"settled" in today ? "" : (today.answers?.at ?? "")}`}
+            inputs={`${recovery.in}-${brief.night ?? ""}-${weighedToday}-${"settled" in today ? "" : (today.answers?.at ?? "")}`}
             pending={mounted ? pending : ""}
             onSkipPending={() => skip(...waitingOn)}
             today={null}
@@ -196,7 +196,7 @@ export default function Morning({ day, recovery, weighedToday = false, brief, to
           initial={brief.message}
           stale={brief.stale}
           ready={mounted && waitingOn.length === 0}
-          inputs={`${recovery.in}-${weighedToday}-${"settled" in today ? "" : (today.answers?.at ?? "")}`}
+          inputs={`${recovery.in}-${brief.night ?? ""}-${weighedToday}-${"settled" in today ? "" : (today.answers?.at ?? "")}`}
           pending={mounted ? pending : ""}
           onSkipPending={() => skip(...waitingOn)}
           today={"settled" in today ? null : today}

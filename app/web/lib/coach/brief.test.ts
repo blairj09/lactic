@@ -18,6 +18,18 @@ const day = { form: 3, session: "event:art-dye", signals: [] as string[] };
 const inputs = (i: Partial<BriefInputs>): BriefInputs => ({ recovery: false, weighed: false, checkin: null, ...day, ...i });
 
 describe("briefStale", () => {
+  it("rewrites when last night's numbers change, even after acting on its proposals", () => {
+    const night = "54|49|52|6.5|16.3";
+    expect(briefStale(brief({ recovery: true, ...day, night }), inputs({ recovery: true, night }))).toBe(false);
+    expect(briefStale(brief({ recovery: true, ...day, night }), inputs({ recovery: true, night: "61|55|50|7.2|16.1" }))).toBe(true);
+    // Written before this was kept: once, now that it is.
+    expect(briefStale(brief({ recovery: true, ...day }), inputs({ recovery: true, night }))).toBe(true);
+    expect(briefStale(brief({ recovery: false, ...day, night: null }), inputs({ night: null }))).toBe(false);
+    const acted = brief({ recovery: true, ...day, night }, [{ change: { kind: "reset", date: "2026-10-31" }, summary: "", reason: "", status: "applied" }]);
+    expect(briefStale(acted, inputs({ recovery: true, night: "40|38|60|5.1|17" }))).toBe(true);
+    expect(briefStale(brief({ recovery: false }, acted.proposals), inputs({ recovery: true, night }))).toBe(true);
+  });
+
   it("rewrites a closing line saved in place of the brief, once", () => {
     const wrap = { ...brief({ recovery: true, ...day }), content: "Brief's set — today's marked as planned. Anything else before you head out?" };
     expect(briefStale(wrap, inputs({ recovery: true }))).toBe(true);
@@ -46,9 +58,9 @@ describe("briefStale", () => {
     expect(briefStale(brief({ recovery: true, ...older }), inputs({ recovery: true }))).toBe(true);
   });
 
-  it("keeps a brief whose proposals you've acted on", () => {
-    const acted = brief({ recovery: false }, [{ change: { kind: "reset", date: "2026-10-31" }, summary: "", reason: "", status: "applied" }]);
-    expect(briefStale(acted, inputs({ recovery: true, weighed: true }))).toBe(false);
+  it("keeps a brief whose proposals you've acted on, unless last night changed", () => {
+    const acted = brief({ recovery: true }, [{ change: { kind: "reset", date: "2026-10-31" }, summary: "", reason: "", status: "applied" }]);
+    expect(briefStale(acted, inputs({ recovery: true, weighed: true, form: -19 }))).toBe(false);
   });
 
   it("rewrites when you say how you feel, even after acting on its proposals", () => {

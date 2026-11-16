@@ -79,7 +79,7 @@ ${RULES}
 - Look before you write: get_plan from two weeks ago shows what was ridden, the check-ins and how sessions felt; also check upcoming events. Use get_recovery, get_body or get_fitness when something stands out.
 - recentRideFeedback in the status is what they said after recent rides: too easy, about right, too hard or couldn't finish, effort (RPE 1-10) and a note. The engine already moves their levels from it, so a single answer needs no change; mention it when it matters, and act on a pattern (several too hard, or too easy, in a row).
 - todayOptions.checkin is how they say they feel, whether they're ill, the time they have and their note. When they've checked in, start from it: it matters more than any number, and the brief answers it. If it's "Not yet", don't ask; the page asks under the brief.
-- The brief is 3 to 6 sentences, no list: how recovered and fresh they are, today's weigh-in if there is one (the trend only when it matters for training), today's session and whether it suits them, and how recent training and the weeks ahead look against their goals. If recovery isn't in yet, say so in a few words and don't speculate about it. Weigh-ins are weekly, so don't mention a missing one. Recovery is in when recoveryToday is set, even while there's no score yet; then use its HRV, resting heart rate and sleep. When recoverySignals lists anything (a run of low HRV nights, signs of getting ill, short on sleep), say it plainly: it outweighs a single good score, and the engine's todayOptions already account for it. For sleep, give tonight's aim (sleepTonightHours) and never a weekly sleep debt total: Today doesn't show one. exertionToday is today's load so far against today's target from recovery; mention it when the planned ride would land well outside the target. Quote form, fatigue and fitness exactly as the status gives them: Today shows the same numbers.
+- The brief is 3 to 6 sentences, no list: how recovered and fresh they are, today's weigh-in if there is one (the trend only when it matters for training), today's session and whether it suits them, and how recent training and the weeks ahead look against their goals. If recovery isn't in yet, say so in a few words and don't speculate about it. Weigh-ins are weekly, so don't mention a missing one. Recovery is in when recoveryToday is set, even while there's no score yet; then use its HRV, resting heart rate and sleep. When recoverySignals lists anything (a run of low HRV nights, signs of getting ill, short on sleep), say it plainly: it outweighs a single good score, and the engine's todayOptions already account for it. For sleep, give tonight's aim (sleepTonightHours) and never a weekly sleep debt total: Today doesn't show one. exertionToday is today's load so far against today's target from recovery; mention it when the planned ride would land well outside the target. Quote form, fatigue and fitness exactly as the status gives them: Today shows the same numbers. Take recovery, sleep and form only from the status, never from earlier briefs or messages, which may be from before last night synced.
 - You choose each key day's workout once a week; whyThisWorkout on a day is your reason. Say in a few words what today's session is for.
 - Then propose changes, only where the data gives a reason:
   - Today: todayOptions in the status is what today could be (as planned, harder, easier, shorter, endurance, recovery, rest), built by the engine from recovery, form, recent rides and the athlete's check-in. Call suggest_today once with the option that suits them; the athlete sees it marked Suggested under the brief and chooses. The engine's recommended option is a sound default: pick another only for a reason in the data or their note, and say why. Don't use propose_day_change for today. When todayOptions is null, today is settled (chosen, ridden, a race, or riding outside): leave it alone.
@@ -240,6 +240,16 @@ export interface BriefInputs {
   recommended?: OptionId | null;
   /** Today's recovery score, so a brief that quoted one is rewritten when a later read of last night moves it a lot. */
   score?: number | null;
+  /** Last night's numbers as the brief read them (score, HRV, resting HR, sleep, breathing), so any change rewrites it. */
+  night?: string | null;
+}
+
+/** Last night's numbers, rounded to what the brief quotes; null until recovery is in. */
+export function nightKey(recovery: CoachData["state"]["recovery"]): string | null {
+  const t = recovery?.today;
+  if (!t) return null;
+  const r = (v: number | undefined, step = 1) => (v === undefined ? "" : String(Math.round(v / step) * step));
+  return [recovery.score?.score ?? "", r(t.hrv), r(t.restingHeartRate), r(t.sleepHours, 0.1), r(t.respiratoryRate, 0.1)].join("|");
 }
 
 /** What the brief was written from, so Today and the brief can't drift apart. */
@@ -251,7 +261,7 @@ export function briefInputs(state: CoachData["state"], weighed: boolean): BriefI
     : day?.role === "event" && day.goal
       ? `event:${day.goal.id}`
       : (day?.session?.workout.name ?? "rest");
-  return { recovery: Boolean(state.recovery?.today), weighed, form: Math.round(state.form), session, checkin: state.todayStored?.checkin?.at ?? null, signals: (state.recovery?.glance.signals ?? []).map((s) => s.id).sort(), recommended: todayOptions(state)?.recommended ?? null, score: state.recovery?.score?.score ?? null };
+  return { recovery: Boolean(state.recovery?.today), weighed, form: Math.round(state.form), session, checkin: state.todayStored?.checkin?.at ?? null, signals: (state.recovery?.glance.signals ?? []).map((s) => s.id).sort(), recommended: todayOptions(state)?.recommended ?? null, score: state.recovery?.score?.score ?? null, night: nightKey(state.recovery) };
 }
 
 /** Form moves a little with every ride; only a real change is worth a new brief. */
@@ -273,9 +283,12 @@ export function briefStale(existing: StoredMessage | null, inputs: BriefInputs) 
   // Written before the brief had to mark one of today's options (so Today fell back to the engine's,
   // which could disagree with it): written once more. A brief that marked none has today: null.
   if (inputs.recommended != null && !("today" in meta)) return true;
+  // Last night arrived or its numbers changed (a later sync, a corrected night): the brief quotes them, so it's
+  // rewritten even after acting on its proposals (they stay with it). Briefs from before this was kept, once.
+  if (inputs.recovery && !meta.recovery) return true;
+  if ((meta.night ?? null) !== (inputs.night ?? null)) return true;
   if (existing.proposals.some((p) => p.status !== "pending")) return false;
   return (
-    (inputs.recovery && !meta.recovery) ||
     (inputs.weighed && !meta.weighed) ||
     typeof meta.form !== "number" ||
     Math.abs(meta.form - inputs.form) >= FORM_CHANGE ||

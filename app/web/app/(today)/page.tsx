@@ -104,7 +104,10 @@ export default async function Today({ searchParams }: { searchParams?: Promise<R
           customize={customize}
           brief={
             coachEnabled
-              ? { message: brief, stale: briefStale(brief, briefInputs(state, Boolean(body && weighInOn(body, today, athlete.timezone)))) }
+              ? (() => {
+                  const inputs = briefInputs(state, Boolean(body && weighInOn(body, today, athlete.timezone)));
+                  return { message: brief, stale: briefStale(brief, inputs), night: inputs.night ?? null };
+                })()
               : null
           }
         />
