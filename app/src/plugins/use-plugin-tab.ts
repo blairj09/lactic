@@ -6,7 +6,7 @@ import { isDesktop } from "~/platform/native";
  * An iPhone, iPad or Android phone (an iPad can call itself a Mac, but has a touch screen). Read
  * from the browser so it's known before anything draws.
  */
-const onPhone =
+export const onPhone =
   typeof navigator !== "undefined" && (/iPhone|iPad|iPod|Android/.test(navigator.userAgent) || (/^Mac/.test(navigator.platform) && navigator.maxTouchPoints > 1));
 
 /**

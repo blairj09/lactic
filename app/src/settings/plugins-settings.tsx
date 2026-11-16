@@ -2,6 +2,8 @@
 // and head unit) and sections on a ride's page, nothing else. Added is where plugins are switched on or
 // off, updated, approved and removed; Browse lists Lactic's own plugins. Adding from GitHub or a file
 // starts here too. Updates are only ever offered.
+// On a phone: Lactic's own plugins can be added from Browse, and plugins added on the paired computer
+// arrive by sync, off until turned on here. GitHub links, files and coach drafts are for the computer.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { button, Result } from "@/components/ui";
 import { GROUP_WORDS, OPT_IN_GROUPS, type InstallChoices } from "~/plugins/permissions";
@@ -13,7 +15,9 @@ import { PACKAGE_EXTENSION, packagePlugin } from "~/plugins/package";
 import { adds, BrowseList, CANT, GitHubDialog, PermissionDialog, PluginIcon, ReadLine, RefusedDialog, sourceChange, sourceLabel, UpdateDialog } from "./plugin-dialogs";
 import { PluginPreview } from "./plugin-preview";
 import { SandboxCheck } from "./sandbox-check";
-import { isDesktop } from "~/platform/native";
+import { isPhone } from "~/platform/native";
+import { phoneStatus } from "~/phone/plugin";
+import { openFeedback } from "~/feedback/dialog";
 
 export type View = "added" | "browse";
 
@@ -39,7 +43,7 @@ export function startView(plugins: PluginRecord[]): View {
 
 function Switch({ on, onChange, label, disabled }: { on: boolean; onChange: (on: boolean) => void; label: string; disabled?: boolean }) {
   return (
-    <button type="button" role="switch" aria-checked={on} disabled={disabled} onClick={() => onChange(!on)} className="inline-flex items-center gap-2 text-sm text-muted disabled:opacity-50">
+    <button type="button" role="switch" aria-checked={on} aria-label={label || (on ? "On" : "Off")} disabled={disabled} onClick={() => onChange(!on)} className="inline-flex items-center gap-2 text-sm text-muted disabled:opacity-50">
       {label}
       <span className={`relative inline-block h-5 w-9 flex-none rounded-full transition-colors ${on ? "bg-primary" : "bg-active"}`}>
         <span className={`absolute top-0.5 size-4 rounded-full transition-all ${on ? "left-[1.125rem] bg-on-primary" : "left-0.5 bg-muted"}`} />
@@ -140,6 +144,9 @@ function Chips({ items }: { items: string[] }) {
   );
 }
 
+/** The device approvals belong to, in the rider's words. */
+const here = () => (isPhone() ? "iPhone" : "computer");
+
 function StateNotes({ p, offer, onOpen, run }: { p: PluginRecord; offer?: Offer; onOpen: (o: Open) => void; run: (f: () => Promise<unknown>) => void }) {
   return (
     <>
@@ -153,7 +160,7 @@ function StateNotes({ p, offer, onOpen, run }: { p: PluginRecord; offer?: Offer;
       )}
       {(p.state === "needs-approval" || p.state === "changed") && (
         <p className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-raised px-3 py-2 text-sm">
-          {p.state === "changed" ? "Changed since you approved it." : "Off on this computer until you approve it."}
+          {p.state === "changed" ? "Changed since you approved it." : `Off on this ${here()} until you approve it.`}
           <button type="button" className={button.small} onClick={() => onOpen({ kind: "approve", plugin: p })}>
             Review
           </button>
@@ -173,6 +180,40 @@ function StateNotes({ p, offer, onOpen, run }: { p: PluginRecord; offer?: Offer;
 
 const approved = (p: PluginRecord) => p.state === "on" || p.state === "off";
 
+/** Where a plugin came from and what it adds, on one short line. */
+function phoneLine(p: PluginRecord): string {
+  const from = `From ${sourceLabel(p.origin)}`;
+  const parts = where(p);
+  return parts.length ? `${from} · ${parts.map((w, i) => (i ? w.toLowerCase() : w)).join(", ")}` : from;
+}
+
+/** The iPhone's row: tap the name for its page; a switch once it's approved here, else Turn on. */
+function PhoneRow({ p, offer, onOpen, onDetails, run }: { p: PluginRecord; offer?: Offer; onOpen: (o: Open) => void; onDetails: (id: string) => void; run: (f: () => Promise<unknown>) => void }) {
+  return (
+    <li className="py-3">
+      <div className="flex items-center gap-3">
+        <button type="button" className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => onDetails(p.pluginId)}>
+          <PluginIcon name={p.manifest.name} />
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">
+              {p.manifest.name} <span className="text-sm font-normal text-faint">{p.manifest.version}</span>
+            </span>
+            <span className="mt-0.5 block truncate text-sm text-muted">{phoneLine(p)}</span>
+          </span>
+        </button>
+        {p.state === "needs-approval" ? (
+          <button type="button" className={button.small} onClick={() => onOpen({ kind: "approve", plugin: p })}>
+            Turn on
+          </button>
+        ) : (
+          <Switch on={p.state === "on"} disabled={!approved(p)} label="" onChange={(on) => run(() => setPluginEnabled(p.pluginId, on))} />
+        )}
+      </div>
+      {(offer || p.state === "changed" || p.state === "switched-off") && <StateNotes p={p} offer={offer} onOpen={onOpen} run={run} />}
+    </li>
+  );
+}
+
 function AddedList({
   plugins,
   offers,
@@ -189,6 +230,13 @@ function AddedList({
   onBrowse: () => void;
 }) {
   const [checking, setChecking] = useState(false);
+  const [paired, setPaired] = useState(false);
+  useEffect(() => {
+    if (isPhone())
+      void phoneStatus()
+        .then((s) => setPaired(Boolean(s.paired)))
+        .catch(() => undefined);
+  }, []);
   if (plugins.length === 0)
     return (
       <p className="text-sm text-muted">
@@ -201,7 +249,10 @@ function AddedList({
   return (
     <div className="space-y-4">
       <ul className="divide-y divide-line border-y border-line">
-        {plugins.map((p) => (
+        {plugins.map((p) =>
+          isPhone() ? (
+            <PhoneRow key={p.pluginId} p={p} offer={offers.get(p.pluginId)} onOpen={onOpen} onDetails={onDetails} run={run} />
+          ) : (
           <li key={p.pluginId} className="flex items-center gap-3 py-4">
             <PluginIcon name={p.manifest.name} />
             <div className="min-w-0 flex-1">
@@ -218,19 +269,24 @@ function AddedList({
               Details
             </button>
           </li>
-        ))}
+          ),
+        )}
       </ul>
+      {paired && <p className="text-sm text-faint">Plugins you add on your Mac show up here, off until you turn them on. To add from a GitHub link, use your Mac.</p>}
       <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-faint">
         Updates are never automatic.
-        {isDesktop && (
-          <button type="button" className="text-muted underline" onClick={() => setChecking((c) => !c)}>
-            {checking ? "Hide sandbox check" : "Run sandbox check"}
-          </button>
-        )}
+        <button type="button" className="text-muted underline" onClick={() => setChecking((c) => !c)}>
+          {checking ? "Hide sandbox check" : "Run sandbox check"}
+        </button>
       </p>
       {checking && <SandboxCheck />}
     </div>
   );
+}
+
+/** The feedback form's opening lines for a plugin report: which plugin, which version, from where. */
+export function reportText(p: Pick<PluginRecord, "manifest" | "origin" | "sha256">): string {
+  return `Plugin: ${p.manifest.name} ${p.manifest.version} (${p.manifest.id}), from ${sourceLabel(p.origin)}, package ${p.sha256.slice(0, 12)}\n\nWhat's wrong: `;
 }
 
 function Details({ p, offer, onOpen, onBack, run }: { p: PluginRecord; offer?: Offer; onOpen: (o: Open) => void; onBack: () => void; run: (f: () => Promise<unknown>) => void }) {
@@ -299,7 +355,7 @@ function Details({ p, offer, onOpen, onBack, run }: { p: PluginRecord; offer?: O
           <section className="flex flex-wrap items-center justify-end gap-2 pt-4">
             {removing ? (
               <>
-                <span className="mr-auto text-muted">Remove it and its numbers?</span>
+                <span className="mr-auto text-muted">{isPhone() ? "Remove it and its numbers, here and on your Mac?" : "Remove it and its numbers?"}</span>
                 <button type="button" className={`${button.small} text-negative`} onClick={() => run(() => removePlugin(p.pluginId).then(onBack))}>
                   Remove
                 </button>
@@ -309,6 +365,9 @@ function Details({ p, offer, onOpen, onBack, run }: { p: PluginRecord; offer?: O
               </>
             ) : (
               <>
+                <button type="button" className={button.small} onClick={() => openFeedback({ kind: "problem", message: reportText(p) })}>
+                  Report a problem
+                </button>
                 {p.origin === COACH_ORIGIN && (
                   <button
                     type="button"
@@ -348,7 +407,8 @@ export function PluginsSettings() {
     setView((v) => v ?? startView(list));
     if (!checked.current) {
       checked.current = true;
-      setOffers(await checkForUpdates(list));
+      // The phone never fetches plugin code from GitHub: only Lactic's own plugins get offers there.
+      setOffers(await checkForUpdates(isPhone() ? list.filter((p) => p.origin === CATALOG_ORIGIN) : list));
     } else setOffers((o) => new Map([...o].filter(([id, offer]) => list.find((p) => p.pluginId === id)?.sha256 === offer.current.sha256)));
   }, []);
 
@@ -398,7 +458,7 @@ export function PluginsSettings() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
         {view && <Segments view={view} count={plugins?.length ?? 0} onPick={pick} />}
         <span className="ml-auto flex flex-wrap items-center gap-2">
-          {none && view === "browse" ? (
+          {isPhone() ? null : none && view === "browse" ? (
             <>
               <button type="button" className={button.secondary} onClick={() => setOpen({ kind: "github" })}>
                 From GitHub…

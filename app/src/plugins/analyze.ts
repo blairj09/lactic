@@ -10,6 +10,7 @@ import { validateKit, type KitNode } from "@shared/sdk";
 import { FAILURE_WORDS, type TickFailure, type WorkerLike } from "./host";
 import { anyHiddenText } from "./validate";
 import { rideInput } from "./ride-input";
+import { stableId } from "./ids";
 import { pluginHost } from "./running";
 import { listPlugins, recordValues, type PluginRecord } from "./store";
 
@@ -65,7 +66,7 @@ async function save(p: PluginRecord, analysis: string, activityId: string, tree:
   await sql().execute(
     `INSERT INTO plugin_analyses (id, plugin_id, analysis, activity_id, sha256, tree, failed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (plugin_id, analysis, activity_id) DO UPDATE SET sha256 = excluded.sha256, tree = excluded.tree, failed = excluded.failed, updated_at = excluded.updated_at`,
-    [crypto.randomUUID(), p.pluginId, analysis, activityId, p.sha256, tree ? JSON.stringify(tree) : null, failed, now, now],
+    [await stableId("analysis", p.pluginId, analysis, activityId), p.pluginId, analysis, activityId, p.sha256, tree ? JSON.stringify(tree) : null, failed, now, now],
   );
 }
 

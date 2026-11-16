@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic Modular on iPhone: plugins. Settings → Plugins adds Lactic's own, and plugins you added on your Mac show up off until you turn them on for the phone. Their ride fields work when the phone runs the ride, and their sections show on ride pages. Adding from a GitHub link stays on the Mac.
+- "Report a problem" on each plugin in Settings → Plugins opens feedback with the plugin filled in.
 - The Ride screen says how a ramp test works: ride until you can't hold the target, then end the ride.
 - Windows and Linux: Head unit's "Start with Zwift" says Lactic stays in the system tray, and the coach shortcut shows as Ctrl+K.
 - A free ride is saved as "Free ride" instead of taking the name of the day's planned workout.

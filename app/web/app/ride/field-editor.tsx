@@ -103,7 +103,7 @@ export default function FieldEditor({
   onDone: (ride: RideSets, keepCopy: boolean) => void;
   /** The iPhone's layouts only (1, 2, 4, 6), plus the page's own if it came from the computer. */
   phone?: boolean;
-  /** Fields from the rider's plugins (Lactic Modular on a computer only). */
+  /** Fields from the rider's plugins (Lactic Modular only). */
   pluginFields?: readonly PluginFieldOption[];
 }) {
   const [draft, setDraft] = useState<RideSets>(initial);
