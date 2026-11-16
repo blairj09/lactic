@@ -11,7 +11,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useLocation } from "react-router";
-import { RemoteView, fieldsOf, formatTime, type PlayerControls } from "@/app/ride/player";
+import { fieldsOf, formatTime, type PlayerControls } from "@/app/ride/player";
+import { PhoneRide } from "@/app/ride/phone-ride";
 import { loadLayout } from "@/lib/layout-data";
 import { pagesOf, type RideSets } from "@/lib/ride/field-pages";
 import { createClient as createDb } from "~/db/supabase-client";
@@ -193,9 +194,8 @@ export function ComputerRide() {
   );
 
   // The phone's own ride pages (its layout, the computer's until changed here): the computer works
-  // out their numbers too. Swiping changes the page here only.
+  // out their numbers too. Swiping changes the page here only (phone-ride.tsx keeps it).
   const [mine, setMine] = useState<RideSets | null>(null);
-  const [page, setPage] = useState(0);
   useEffect(() => {
     if (open) void loadLayout(createDb() as never).then((l) => setMine(l.ride), () => {});
   }, [open]);
@@ -203,8 +203,8 @@ export function ComputerRide() {
   const data = useMemo(() => {
     if (!sent || !mine) return sent;
     const pages = pagesOf(mine, sent.headUnit ? "headUnit" : sent.erg ? "free" : "workout");
-    return pages.length ? { ...sent, fields: { ...fieldsOf(sent), pages, page } } : sent;
-  }, [sent, mine, page]);
+    return pages.length ? { ...sent, fields: { ...fieldsOf(sent), pages, page: 0 } } : sent;
+  }, [sent, mine]);
   const status = !data ? "" : data.ended ? "Ended" : data.running ? formatTime(data.position) : data.autoPaused ? "Paused" : data.elapsed > 0 ? "Paused" : "Ready";
   useEffect(() => setAway(ride && computer && data ? { computer, workout: data.workout.name, status } : null), [ride, computer, data, status]);
   // The remote's open (or the Ride tab's showing the computer's ride): the screen stays on until the ride ends.
@@ -230,26 +230,13 @@ export function ComputerRide() {
     );
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-ground pt-[env(safe-area-inset-top)]">
-      <div className="flex h-12 flex-none items-center justify-between px-4">
-        <p className="truncate text-sm text-muted">Riding on {computer}</p>
-        <button type="button" className={button.small} onClick={() => setOpen(false)}>
-          Done
-        </button>
-      </div>
-      <RemoteView
-        data={data}
-        controls={{ ...controls, canPlay: ride.canPlay, ...(mine && { onPage: (step: 1 | -1) => setPage((p) => p + step) }) }}
-        notice={lost && <Notice tone="warning">Can't reach {computer}. Check that Lactic is open there and Wi-Fi is on for both.</Notice>}
-        extra={
-          data.elapsed > 0 && !data.ended && !data.finished ? (
-            <button type="button" className={`${button.ghost} h-10 w-full`} onClick={() => controls.onEnd()}>
-              End ride
-            </button>
-          ) : undefined
-        }
-      />
-    </div>
+    <PhoneRide
+      data={data}
+      controls={{ ...controls, canPlay: ride.canPlay }}
+      sub={`On ${computer}`}
+      onHide={() => setOpen(false)}
+      notice={lost && <Notice tone="warning">Can't reach {computer}. Check that Lactic is open there and Wi-Fi is on for both.</Notice>}
+    />
   );
 }
 
