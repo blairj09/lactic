@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- After you ride, the Coach's brief on Today turns into a short take on how the ride went against the plan and what it means for tomorrow. This morning's brief is still there under it.
+
 ## 0.3.2
 
 - Head unit is now part of Free ride. Pick who has the trainer: Lactic, holding the watts you set, or Zwift (or another app) while Lactic records and floats your fields on top. Free ride starts on Zwift when it's open, your head unit fields carry over, and "Start with Zwift" now opens a free ride.

@@ -379,7 +379,7 @@ function Label({ message }: { message: StoredMessage }) {
     : "";
   return (
     <p className="text-xs font-medium tracking-wide text-muted uppercase">
-      {message.kind === "brief" ? "Morning brief" : "Check-in"} · {day}
+      {message.kind === "brief" ? ((message.meta as { after?: string | null }).after ? "After-ride brief" : "Morning brief") : "Check-in"} · {day}
     </p>
   );
 }

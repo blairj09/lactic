@@ -17,6 +17,9 @@ import { attachmentNames, turnsForModel, type Attachment } from "./attachments";
 import { appTools } from "./app-tools";
 import { cleanSources, type Source } from "./sources";
 import { todayOptions } from "../today-options";
+import { localDate } from "../engine/activity";
+import { dayRides } from "../engine/ride-detail";
+import { afterRideKey, type RideDebrief } from "../engine/ride-debrief";
 import { experiments } from "../experiments";
 import { APP_GUIDE } from "./app-guide";
 import { PLUGIN_DRAFT_GUIDE } from "./plugin-draft";
@@ -144,6 +147,24 @@ export async function morningBrief(complete: Complete, data: CoachData, history:
   return run(complete, data, messages, [...forFeatures(TOOLS, data.features), ...TODAY_TOOLS], hooks, MAX_TURNS, mustCall, true);
 }
 
+const AFTER_RIDE = `You are the cycling coach inside Lactic, a training app for one athlete. They've ridden today: write the brief they read on the Today page after the ride, in place of this morning's. It's written when the ride arrives and again when they answer how it went or another ride comes in.
+
+${RULES}
+- The message gives today's ride from the engine (rides): what was planned, the share of it ridden, the execution score and, when Lactic recorded the workout, each effort's target and the power held; then how they said it went (felt), when they've answered. Quote these numbers exactly; Today shows the same ride above your words. Use get_fitness for form tomorrow and get_plan for the days ahead when you need them.
+- The brief is 2 to 4 sentences, no list: how the ride went against the plan (name what stood out: efforts on target, a fade, cut short, a different session), what they said about it when they answered, and one note for tomorrow (tomorrowSession in the status: whether it still suits them, or what to do differently, and sleep when it matters). Don't repeat this morning's recovery numbers. Unplanned or easy rides get one or two sentences. If they haven't said how it went, don't ask; the page asks.
+- Propose a change (propose_day_change, propose_swap) only when the ride gives a reason: a hard session that went badly, a missed one, or signs they're run down. Mention each proposal in a few words; they accept or dismiss it with a button. Never change today.
+- Your final reply is the brief itself, shown word for word on Today. Never end with a note about what you did or a question like "Anything else?".`;
+
+/** The brief after today's ride: how it went against the plan and what it means for tomorrow, with any plan changes it proposes. */
+export async function afterRideBrief(complete: Complete, data: CoachData, rides: RideDebrief, history: ChatTurn[], summary = "", hooks: ChatHooks = {}): Promise<ChatReply> {
+  const messages: ChatMessage[] = [
+    { role: "system", content: system(AFTER_RIDE, data, summary) },
+    ...turnsForModel(history.slice(-6)).map((m) => ({ role: m.role, content: m.content })),
+    { role: "user", content: `Today's ride (from the engine):\n${JSON.stringify(rides)}\n\nWrite my brief now that I've ridden.` },
+  ];
+  return run(complete, data, messages, forFeatures(TOOLS, data.features), hooks, MAX_TURNS, undefined, true);
+}
+
 const PLAN_WEEK = `You are the cycling coach inside Lactic, a training app for one athlete. Choose the workout for each key day listed below, so every session has a purpose.
 
 ${RULES}
@@ -242,6 +263,8 @@ export interface BriefInputs {
   score?: number | null;
   /** Last night's numbers as the brief read them (score, HRV, resting HR, sleep, breathing), so any change rewrites it. */
   night?: string | null;
+  /** Today's rides and the answers about them (engine/ride-debrief.ts afterRideKey); null before a ride. Set, the brief is the after-ride one. */
+  after?: string | null;
 }
 
 /** Last night's numbers, rounded to what the brief quotes; null until recovery is in. */
@@ -254,6 +277,7 @@ export function nightKey(recovery: CoachData["state"]["recovery"]): string | nul
 
 /** What the brief was written from, so Today and the brief can't drift apart. */
 export function briefInputs(state: CoachData["state"], weighed: boolean): BriefInputs {
+  const ridden = ridesToday(state);
   const chosen = state.todayStored?.chosen;
   const day = state.todayPlan;
   const session = chosen
@@ -261,7 +285,16 @@ export function briefInputs(state: CoachData["state"], weighed: boolean): BriefI
     : day?.role === "event" && day.goal
       ? `event:${day.goal.id}`
       : (day?.session?.workout.name ?? "rest");
-  return { recovery: Boolean(state.recovery?.today), weighed, form: Math.round(state.form), session, checkin: state.todayStored?.checkin?.at ?? null, signals: (state.recovery?.glance.signals ?? []).map((s) => s.id).sort(), recommended: todayOptions(state)?.recommended ?? null, score: state.recovery?.score?.score ?? null, night: nightKey(state.recovery) };
+  return { recovery: Boolean(state.recovery?.today), weighed, form: Math.round(state.form), session, checkin: state.todayStored?.checkin?.at ?? null, signals: (state.recovery?.glance.signals ?? []).map((s) => s.id).sort(), recommended: todayOptions(state)?.recommended ?? null, score: state.recovery?.score?.score ?? null, night: nightKey(state.recovery), after: ridden ? afterRideKey([ridden.main, ...ridden.others], state.feedback) : null };
+}
+
+/** Today's rides that count (at least ten minutes, copies left out), the main one first; null before one is in. As Today's ridesOn. */
+export function ridesToday(state: CoachData["state"]) {
+  const tz = state.athlete.timezone;
+  return dayRides(
+    state.rides.filter((r) => (state.rideLinks?.get(r.id) ?? localDate(r.startedAt, tz)) === state.today),
+    state.storedDays.find((d) => d.day === state.today)?.activityId,
+  );
 }
 
 /** Form moves a little with every ride; only a real change is worth a new brief. */
@@ -271,6 +304,7 @@ const SCORE_CHANGE = 10;
 
 /**
  * True when there's no brief for today yet, or something it was written from has changed since:
+ * once you've ridden, only today's rides and your answers about them count (see BriefInputs.after);
  * recovery or a weigh-in arrived, rides synced and moved your form, or today's session changed.
  * A brief whose proposals you've applied or dismissed stays as it is, unless you've checked in since.
  */
@@ -279,6 +313,9 @@ export function briefStale(existing: StoredMessage | null, inputs: BriefInputs) 
   // A closing line saved in place of the brief ("Brief's set. Anything else?"): written again.
   if (briefWrapUp(existing.content) && !(existing.meta as { wrapUp?: boolean }).wrapUp) return true;
   const meta = existing.meta as Partial<BriefInputs>;
+  // After a ride the brief is about the ride: only a new ride or answer rewrites it, and a morning brief
+  // gives way to one. A ride taken off today puts the morning brief back.
+  if (inputs.after || meta.after) return (meta.after ?? null) !== (inputs.after ?? null);
   if ((meta.checkin ?? null) !== inputs.checkin) return true;
   // Written before the brief had to mark one of today's options (so Today fell back to the engine's,
   // which could disagree with it): written once more. A brief that marked none has today: null.
