@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Pick a workout lists every workout that fits the type, length and level you set, so you can pick one. It no longer swaps in an endurance ride when a type doesn't fit the length.
 - Cards side by side on Today, like Form and Last ride, now line up along the bottom.
 - Ride screen: the "W under" and "W over" under Power now match the power number shown beside them, with no lag.
 - iPhone: opening Lactic while a ride is going on your computer goes straight to its controls.
