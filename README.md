@@ -43,7 +43,7 @@ Lactic sets the watts for every interval. The workout starts with your first ped
 
 - **Your fields.** Pick a layout (1 to 10 big numbers, with or without the chart), choose what each shows, and add pages to swipe through. Build your own fields without code, like 10-second power or % of FTP.
 - **Overlay.** Keeps the ride on top of Zwift, a video or a browser, full screen included.
-- **Head unit.** Riding Zwift, Rouvy or MyWhoosh? Lactic shows your fields on the overlay and records the ride without touching the trainer.
+- **Free ride, with or without another app.** Hold watts in Lactic, or ride Zwift, Rouvy or MyWhoosh while Lactic floats your fields on top and records the ride without touching the trainer.
 
 ### Plans that adapt
 

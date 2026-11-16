@@ -17,7 +17,7 @@ describe("sectionFor", () => {
 });
 
 describe("matches", () => {
-  const head = { section: "devices" as const, text: "Head unit Your fields over Zwift, Rouvy or any app" };
+  const head = { section: "devices" as const, text: "Free ride Ride with Zwift, Rouvy or any app, your fields on top" };
   it("needs every word, in any order and case", () => {
     expect(matches(head, "zwift")).toBe(true);
     expect(matches(head, "ROUVY fields")).toBe(true);

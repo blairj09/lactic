@@ -1,4 +1,4 @@
-// The ride screen's data fields laid out by page template, head-unit style. Used by the Ride page
+// The ride screen's data fields laid out by page template, bike computer style. Used by the Ride page
 // while riding (live numbers) and by the field editor (sample numbers), so both look the same.
 // Knows nothing about the ride itself: it draws the fields it's given.
 

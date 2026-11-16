@@ -67,12 +67,17 @@ describe("layout edits", () => {
     expect(parseLayout(JSON.parse(JSON.stringify(page)))).toEqual(page);
   });
 
-  it("splits free ride off the workout set when it's edited on its own", () => {
+  it("splits the overlay off the workout set when it's edited on its own", () => {
+    const l = edit(defaultLayout(), { action: "remove_field", set: "overlay", page: 1, slot: 1 });
+    expect(l.ride.workout.pages[0].fields).toHaveLength(10);
+    expect(l.ride.overlay).not.toBe("follow");
+    expect((l.ride.overlay as { pages: { fields: unknown[] }[] }).pages[0].fields).toHaveLength(9);
+  });
+
+  it("edits free ride's own pages, leaving the workout's alone", () => {
     const l = edit(defaultLayout(), { action: "remove_field", set: "free", page: 1, slot: 1 });
     expect(l.ride.workout.pages[0].fields).toHaveLength(10);
-    expect(l.ride.free).not.toBe("follow");
-    expect((l.ride.free as { pages: { fields: unknown[] }[] }).pages[0].fields).toHaveLength(9);
-    expect(l.ride.overlay).toBe("follow");
+    expect((l.ride.free as { pages: { fields: unknown[] }[] }).pages[0].fields).toHaveLength(7);
   });
 
   it("rejects bad arguments with a reason", () => {

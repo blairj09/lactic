@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { addPage, allFields, deletePage, follow, follows, movePage, pagesOf, renamePage, setSlot, setTemplate, splitOff, standardSets, swapSlots } from "./field-pages";
 
 describe("ride field pages", () => {
-  it("starts with one standard page that free ride and the overlay follow", () => {
+  it("starts with one standard page that the overlay follows, and free ride's own page", () => {
     const r = standardSets();
     expect(r.workout.pages).toHaveLength(1);
-    expect(follows(r, "free") && follows(r, "overlay")).toBe(true);
+    expect(follows(r, "overlay")).toBe(true);
+    expect(follows(r, "free")).toBe(false);
     expect(pagesOf(r, "overlay")).toBe(r.workout.pages);
   });
 
@@ -28,7 +29,8 @@ describe("ride field pages", () => {
     expect(r.workout.pages[0].fields[0]).toEqual({ metric: "interval.left" });
     expect(pagesOf(r, "overlay")[0].fields[0]).toEqual({ metric: "power.zone" });
     expect(follows(follow(r, "overlay"), "overlay")).toBe(true);
-    expect(splitOff(standardSets(), "free").free).toEqual({ pages: standardSets().workout.pages });
+    const following = follow(standardSets(), "free");
+    expect(splitOff(following, "free").free).toEqual({ pages: standardSets().workout.pages });
   });
 
   it("adds, renames, moves and deletes pages, keeping at least one", () => {
@@ -44,7 +46,7 @@ describe("ride field pages", () => {
   });
 
   it("lists every field across the sets", () => {
-    // Workout, free ride and overlay share the standard 10; the head unit has its own 8.
-    expect(allFields(standardSets())).toHaveLength(38);
+    // Workout and overlay share the standard 10; free ride has its own 8.
+    expect(allFields(standardSets())).toHaveLength(28);
   });
 });

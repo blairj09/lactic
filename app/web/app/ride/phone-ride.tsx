@@ -41,7 +41,7 @@ type PhonePage = { kind: "ride"; name: string } | { kind: "fields"; name: string
 /** The phone's pages for this ride. The standard field page is the Ride page here, so it isn't repeated. */
 export function phonePages(data: PlayerData): PhonePage[] {
   const fields = fieldsOf(data).pages.filter((p) => p.template !== "standard");
-  const workout = !data.erg && !data.headUnit;
+  const workout = !data.erg && !data.appTrainer;
   return [
     { kind: "ride", name: "Ride" },
     ...fields.map((page) => ({ kind: "fields" as const, name: page.name, page })),
@@ -138,7 +138,7 @@ interface LayoutProps {
 
 /** Ride time against the workout's length, or the ride time with no workout. */
 const progress = (data: PlayerData) =>
-  data.ended ? `Ended · ${formatTime(data.elapsed)}` : data.erg || data.headUnit ? formatTime(data.elapsed) : `${formatTime(data.position)} of ${formatTime(data.duration)}`;
+  data.ended ? `Ended · ${formatTime(data.elapsed)}` : data.erg || data.appTrainer ? formatTime(data.elapsed) : `${formatTime(data.position)} of ${formatTime(data.duration)}`;
 
 function Portrait({ data, controls, pages, at, page, onHide, notice, sub, swipe, onDot }: LayoutProps) {
   return (
@@ -309,7 +309,7 @@ function NextLine({ data, className = "" }: { data: PlayerData; className?: stri
             {Math.round((data.erg.watts / ftp) * 100)}% FTP · zone {powerZone(data.erg.watts / ftp)}
           </>
         )
-      ) : data.headUnit ? (
+      ) : data.appTrainer ? (
         trainerOwner(data)
       ) : next ? (
         <>
@@ -336,7 +336,7 @@ const Dash = () => <span className="text-faint">–</span>;
 function IntervalBlock({ data, compact }: { data: PlayerData; compact?: boolean }) {
   const off = powerVsTarget(data);
   const status = data.startIn !== null ? `Starting in ${data.startIn}` : data.autoPaused ? "Paused · pedal to resume" : null;
-  const noTarget = data.headUnit;
+  const noTarget = data.appTrainer;
   const time = compact ? "text-[min(22vh,10vw,104px)]" : "text-[clamp(44px,11vh,112px)]";
   const main = compact ? "text-[min(13vh,5.6vw,64px)]" : "text-[clamp(32px,6.8vh,72px)]";
   const small = compact ? "text-[clamp(22px,8vh,36px)]" : "text-[clamp(22px,4vh,40px)]";
@@ -346,7 +346,7 @@ function IntervalBlock({ data, compact }: { data: PlayerData; compact?: boolean 
   return (
     <div className={`flex min-h-0 flex-col overflow-hidden ${compact ? "" : "flex-1 justify-center px-5 py-2"}`}>
       <div className="flex items-baseline gap-2 text-sm text-muted">
-        <span className="truncate">{data.current && !data.erg && !data.headUnit && roles[data.current.index] ? `${label} · ${roles[data.current.index]}` : label}</span>
+        <span className="truncate">{data.current && !data.erg && !data.appTrainer && roles[data.current.index] ? `${label} · ${roles[data.current.index]}` : label}</span>
       </div>
       <div className={`${num} ${time} mt-1`}>{intervalTime(data) ?? "0:00"}</div>
       {status && <div className="mt-1 text-sm text-warning">{status}</div>}
@@ -409,7 +409,7 @@ function IntervalStrip({ data }: { data: PlayerData }) {
       <span className="text-[28px] font-semibold tracking-tight">{intervalTime(data) ?? "0:00"}</span>
       <span className="flex-1" />
       <span className={`text-[28px] font-semibold tracking-tight ${off ? TONE[off.tone] : ""}`}>{data.power ?? "–"}</span>
-      {!data.headUnit && <span className="text-muted">/ {targetShown(data) ?? "–"}{data.targetWatts !== null && " W"}</span>}
+      {!data.appTrainer && <span className="text-muted">/ {targetShown(data) ?? "–"}{data.targetWatts !== null && " W"}</span>}
     </div>
   );
 }
@@ -417,7 +417,7 @@ function IntervalStrip({ data }: { data: PlayerData }) {
 /** The ride so far: averages, stress, and time to go in a workout. */
 function Totals({ data, column }: { data: PlayerData; column?: boolean }) {
   const t = data.totals;
-  const workout = !data.erg && !data.headUnit;
+  const workout = !data.erg && !data.appTrainer;
   const items: [string, string | number | null][] = [
     ["Avg power", t.power],
     ["Avg HR", t.heartRate],
@@ -543,7 +543,7 @@ const side =
 
 /** Back, play/pause and skip: big enough for a sweaty thumb. No workout: play/pause only. */
 function TransportRow({ data, controls, compact }: { data: PlayerData; controls: PlayerControls; compact?: boolean }) {
-  const noWorkout = !!data.erg || data.headUnit;
+  const noWorkout = !!data.erg || data.appTrainer;
   const h = compact ? "h-12" : "h-14";
   return (
     <div className={`flex items-center gap-2.5 ${compact ? "flex-none" : ""}`}>
@@ -579,7 +579,7 @@ function TransportRow({ data, controls, compact }: { data: PlayerData; controls:
  * sideways if it all doesn't fit.
  */
 function AdjustRow({ data, controls, compact }: { data: PlayerData; controls: PlayerControls; compact?: boolean }) {
-  if (data.headUnit) return null;
+  if (data.appTrainer) return null;
   const showGrade = !data.erg && (!data.ergOn || data.sprintGrade !== null || data.freeRide);
   const pill = `flex flex-none items-center gap-3 rounded-lg bg-raised px-3 text-sm text-muted transition-colors hover:bg-active hc:outline hc:outline-1 hc:outline-line h-12`;
   const stretch = compact ? "flex-none" : "flex-1 [&>div]:w-full [&>div]:justify-between";

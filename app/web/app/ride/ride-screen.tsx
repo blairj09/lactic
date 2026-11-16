@@ -35,7 +35,7 @@ import { holdCoachShortcut } from "../coach/open";
 import { holdNewDayRefresh } from "@/lib/new-day";
 import RideSurvey from "../ride-survey";
 import { OVERLAY_SIZES, PlayerView, formatTime, type AdaptNotice, type PlayerControls, type PlayerData } from "./player";
-import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type RideSource } from "./ride-now";
+import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type RideSource, type Trainer } from "./ride-now";
 import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
@@ -45,7 +45,7 @@ import { RemoteHost } from "~/ride/remote";
 import { pluginFieldOptions, usePluginFields, usePlugins } from "~/plugins/ride-fields";
 import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
 import { useKeepAwake } from "~/platform/keep-awake";
-import { HEAD_UNIT_EVENT, useTrainingApp } from "~/ride/head-unit-auto";
+import { APP_START_EVENT, useTrainingApp } from "~/ride/app-start";
 import { isDesktop, isPhone } from "~/platform/native";
 import { isDemo } from "~/demo/flag";
 import type { TracePoint } from "./workout-chart";
@@ -54,13 +54,11 @@ import SendToKaroo from "./send-to-karoo";
 import RampTestResult from "./ramp-test-result";
 
 const OVERLAY_PREF = "ride.overlayOnStart";
-/** What a head unit ride is called in Lactic: the other app names its own copy. */
-const HEAD_UNIT_NAME = "Head unit ride";
 const FREE_RIDE_NAME = "Free ride";
 
-/** The chart's x axis in a head unit ride: the ride so far and five minutes on, no targets. */
-function headUnitWorkout(position: number): Workout {
-  return { name: HEAD_UNIT_NAME, segments: [{ kind: "freeRide", duration: Math.max(600, position + ERG_AHEAD) }] };
+/** The chart's x axis in a free ride with another app on the trainer: the ride so far and five minutes on, no targets. */
+function appRideWorkout(position: number): Workout {
+  return { name: FREE_RIDE_NAME, segments: [{ kind: "freeRide", duration: Math.max(600, position + ERG_AHEAD) }] };
 }
 
 /** What the overlay does over full-screen apps on this computer (see OverlayFullScreen). */
@@ -149,6 +147,7 @@ function RideOnThisDevice({
   weightKg = null,
   rideFields,
   initialSource,
+  initialTrainer,
   initialWorkout,
   header,
   hub: givenHub,
@@ -171,6 +170,8 @@ function RideOnThisDevice({
   rideFields?: RideSets;
   /** Where the picker opens (Today's "Something else…" opens the library, My workouts or free ride); else the plan's session first. */
   initialSource?: RideSource;
+  /** A free ride opened for Zwift or another app (Start with Zwift): that app has the trainer. */
+  initialTrainer?: Trainer;
   /** Threshold heart rate from Settings, for adaptive workouts to judge an easy rep. */
   thresholdHr?: number | null;
   initialFtp: number | null;
@@ -326,26 +327,32 @@ function RideOnThisDevice({
   const bumpDeclined = useRef(false);
   const easeUndone = useRef(false);
 
-  const erg = source === "erg";
-  /** Head unit: another app (Zwift, Rouvy) drives the trainer; Lactic only reads and records. */
-  const headUnit = source === "headUnit";
-  const headUnitRef = useRef(headUnit);
-  headUnitRef.current = headUnit;
-  /** No workout to follow: free ERG or a head unit ride, which run until you end them. */
-  const open = erg || headUnit;
+  /** Free ride: no workout to follow, it runs until you end it. */
+  const free = source === "free";
+  /** Who has the trainer in a free ride: Lactic (ERG at watts you set) or another app (Zwift, Rouvy). */
+  const [trainer, setTrainer] = useState<Trainer>(initialTrainer ?? "lactic");
+  /** The rider picked the trainer themselves, so a training app opening doesn't change it. */
+  const trainerPicked = useRef(!!initialTrainer);
+  const trainerApp = useTrainingApp(free);
+  /** A free ride with another app on the trainer: Lactic only reads and records. */
+  const appTrainer = free && trainer === "app";
+  const appTrainerRef = useRef(appTrainer);
+  appTrainerRef.current = appTrainer;
+  /** A free ride with Lactic on the trainer: one ERG target you move as you go. */
+  const erg = free && !appTrainer;
+  const open = free;
   const workout = useMemo(() => scaleWorkout(applyFactors(baseWorkout, factors), intensity / 100), [baseWorkout, factors, intensity]);
   const reps = useMemo(() => workReps(baseWorkout), [baseWorkout]);
   const adaptive = adaptExperiment && !open && !isRampTest(baseWorkout) && !isTwentyMinuteTest(baseWorkout) && adaptable(baseWorkout) && reps.length > 1;
   const duration = workoutDuration(workout);
 
   useEffect(() => setSupported(isWebBluetoothAvailable()), []);
-  // Hands off the trainer for a head unit ride, so nothing Lactic does can fight the other app.
+  // Another app has the trainer: Lactic never writes to it, so nothing it does can fight that app.
   useEffect(() => {
-    hub.setHandsOff(headUnit);
+    hub.setHandsOff(appTrainer);
     // Leaving the Ride page gives the trainer back, so nothing else finds it still hands off.
     return () => hub.setHandsOff(false);
-  }, [hub, headUnit]);
-  const trainerApp = useTrainingApp(headUnit);
+  }, [hub, appTrainer]);
   useEffect(() => {
     // On unless turned off: clicking Start opens the overlay on top of other windows.
     setOverlayOnStart(readPref(OVERLAY_PREF) !== "0");
@@ -431,7 +438,7 @@ function RideOnThisDevice({
       samples.current.push(powerWatts ?? 0);
       hrSamples.current.push(heartRate ?? 0);
       cadenceSamples.current.push(Math.round(cadenceRpm ?? 0));
-      targetSamples.current.push(erg ? ergRef.current : headUnit ? null : targetWattsAt(workout, at, ftp));
+      targetSamples.current.push(erg ? ergRef.current : appTrainer ? null : targetWattsAt(workout, at, ftp));
       intervalSamples.current.push(open ? -1 : (intervalAt(workout, at)?.index ?? -1));
       trace.current.push([samples.current.length + offset.current, powerWatts ?? 0, heartRate ?? 0, Math.round(cadenceRpm ?? 0)]);
     }
@@ -441,8 +448,8 @@ function RideOnThisDevice({
     }
     const position = now + offset.current;
     checkAdapt.current(position, now);
-    // Nothing to send in a head unit ride: the other app has the trainer.
-    if (headUnit) return;
+    // Nothing to send while another app has the trainer.
+    if (appTrainer) return;
     const planned = erg ? ergRef.current : targetWattsAt(workout, position, ftp);
     if (!erg && planned === null && position >= duration) {
       clock.current.pause(Date.now());
@@ -596,8 +603,8 @@ function RideOnThisDevice({
           autoStart.current.reset();
           return setStartIn(null);
         }
-        // A head unit ride starts on the power meter too, when the trainer is busy with the other app.
-        if (!autoStartOnRef.current || !(connected.trainer || (headUnitRef.current && connected.powerMeter))) return;
+        // With another app on the trainer, a ride starts on the power meter too, when the trainer's busy with it.
+        if (!autoStartOnRef.current || !(connected.trainer || (appTrainerRef.current && connected.powerMeter))) return;
         const now = Date.now();
         if (autoStart.current.update(cadenceRpm, powerWatts, now)) startRef.current(true);
         else {
@@ -692,7 +699,6 @@ function RideOnThisDevice({
       if (saved.length) ride(next, saved[0].workout, saved[0].id);
       else pickStarter(libraryWorkout(starterId) ?? WORKOUT_LIBRARY.find((w) => w.category === "endurance") ?? WORKOUT_LIBRARY[0]);
     }
-    else if (next === "headUnit") ride(next);
     else {
       // Free ERG is nothing without ERG.
       if (!ergOnRef.current) setErgMode(true);
@@ -700,16 +706,28 @@ function RideOnThisDevice({
     }
   };
 
-  // Head unit with Zwift: Zwift (or Rouvy, MyWhoosh) opened while this page is up. Before a ride, get
-  // the head unit ready; pedaling starts it. A ride under way carries on as it is.
-  const toHeadUnit = useRef(() => {});
-  toHeadUnit.current = () => {
-    if (!startedAt.current && elapsedRef.current === 0 && !headUnit) pickSource("headUnit");
+  /** Free ride's Trainer choice, before the ride starts: Lactic holds watts, or another app has it. */
+  const pickTrainer = (next: Trainer) => {
+    trainerPicked.current = true;
+    setTrainer(next);
+  };
+  // Zwift (or Rouvy, MyWhoosh) is open before a free ride starts: unless you picked, it has the trainer.
+  useEffect(() => {
+    if (free && trainerApp && !trainerPicked.current && !startedAt.current) setTrainer("app");
+  }, [free, trainerApp]);
+
+  // Start with Zwift: Zwift (or Rouvy, MyWhoosh) opened while this page is up. Before a ride, get a
+  // free ride ready with that app on the trainer; pedaling starts it. A ride under way carries on.
+  const toAppStart = useRef(() => {});
+  toAppStart.current = () => {
+    if (startedAt.current || elapsedRef.current !== 0) return;
+    pickTrainer("app");
+    if (!free) pickSource("free");
   };
   useEffect(() => {
-    const on = () => toHeadUnit.current();
-    window.addEventListener(HEAD_UNIT_EVENT, on);
-    return () => window.removeEventListener(HEAD_UNIT_EVENT, on);
+    const on = () => toAppStart.current();
+    window.addEventListener(APP_START_EVENT, on);
+    return () => window.removeEventListener(APP_START_EVENT, on);
   }, []);
 
   const pickStarter = (entry: LibraryWorkout) => {
@@ -788,8 +806,8 @@ function RideOnThisDevice({
   const save = async () => {
     const started = startedAt.current;
     if (!started) return;
-    // A free ride or head unit ride follows no workout, so it isn't named after the one loaded beside it.
-    const rideName = headUnit ? HEAD_UNIT_NAME : erg ? FREE_RIDE_NAME : workout.name;
+    // A free ride follows no workout, so it isn't named after the one loaded beside it.
+    const rideName = free ? FREE_RIDE_NAME : workout.name;
     setSaveState("saving");
     const result = await saveAppRide({
       startedAt: started,
@@ -802,7 +820,7 @@ function RideOnThisDevice({
       workout: open ? undefined : workout,
       plannedWorkoutId: source === "planned" ? plannedDay : undefined,
       adaptations: adaptLog.current,
-      headUnit,
+      appTrainer,
     });
     setSaveState(result.ok ? "saved" : "idle");
     if (result.ok) {
@@ -889,7 +907,7 @@ function RideOnThisDevice({
   };
 
   const position = elapsed + offset.current;
-  const shown = erg ? ergWorkout(ergChanges.current, position, ftp, ERG_AHEAD) : headUnit ? headUnitWorkout(position) : workout;
+  const shown = erg ? ergWorkout(ergChanges.current, position, ftp, ERG_AHEAD) : appTrainer ? appRideWorkout(position) : workout;
   const current = open ? null : intervalAt(workout, position);
   const allOut = !open && allOutAt(workout, position);
   const freeRide = !open && freeRideAt(workout, position);
@@ -925,9 +943,9 @@ function RideOnThisDevice({
     };
   };
   const recent = samples.current.slice(-3);
-  const ridePages = pagesOf(fieldSets, headUnit ? "headUnit" : erg ? "free" : "workout");
-  // The head unit is the overlay, so it shows the head unit pages there too.
-  const overlayPages = headUnit ? ridePages : pagesOf(fieldSets, "overlay");
+  const ridePages = pagesOf(fieldSets, free ? "free" : "workout");
+  // A free ride shows its own pages on the overlay too: there, the overlay is what you ride by.
+  const overlayPages = free ? ridePages : pagesOf(fieldSets, "overlay");
   const fieldRefs = phoneSets ? [...allFields(fieldSets), ...allFields(phoneSets)] : allFields(fieldSets);
   const fieldInputs: FieldInputs = {
     streams: { power: samples.current, heartRate: hrSamples.current, cadence: cadenceSamples.current, interval: intervalSamples.current },
@@ -947,15 +965,15 @@ function RideOnThisDevice({
     fieldRefs.flatMap((r) => ("metric" in r ? [r.metric] : [])),
     {
       ...liveNumbers(fieldInputs),
-      "power.target": erg ? ergWatts : allOut || headUnit ? null : targetWattsAt(workout, position, ftp),
+      "power.target": erg ? ergWatts : allOut || appTrainer ? null : targetWattsAt(workout, position, ftp),
       "interval.left": current && !open ? Math.max(0, current.end - position) : null,
     },
     elapsed,
     running,
   );
   const fieldValues = { ...showFields(fieldRefs, fieldInputs, metrics), ...pluginValues };
-  /** Something to ride with: the trainer, or in a head unit ride the power meter when the trainer's busy. */
-  const canStart = !!state.connected.trainer || (headUnit && !!state.connected.powerMeter);
+  /** Something to ride with: the trainer, or with another app on it the power meter when the trainer's busy. */
+  const canStart = !!state.connected.trainer || (appTrainer && !!state.connected.powerMeter);
   const data: PlayerData = {
     workout: shown,
     ftp,
@@ -964,7 +982,7 @@ function RideOnThisDevice({
     current,
     upcoming: current ? all.slice(current.index + 1, current.index + 1 + UPCOMING) : [],
     intervalCount: all.length,
-    targetWatts: erg ? ergWatts : allOut || headUnit ? null : targetWattsAt(workout, position, ftp),
+    targetWatts: erg ? ergWatts : allOut || appTrainer ? null : targetWattsAt(workout, position, ftp),
     power: state.powerWatts,
     heartRate: state.heartRate,
     cadence: state.cadenceRpm === undefined ? undefined : Math.round(state.cadenceRpm),
@@ -973,11 +991,11 @@ function RideOnThisDevice({
     elapsed,
     intensity,
     erg: erg ? { watts: ergWatts } : null,
-    headUnit,
+    appTrainer,
     trainerApp,
     autoPaused,
     // Free ERG is ERG by definition.
-    ergOn: !headUnit && (erg || ergOn),
+    ergOn: !appTrainer && (erg || ergOn),
     grade,
     allOut,
     sprintGrade: allOut && ergOn ? sprintGrade : null,
@@ -1066,7 +1084,7 @@ function RideOnThisDevice({
   }, [pageCount, editingFields]);
 
   const controls: PlayerControls = {
-    canPlay: canStart || (headUnit && !!state.connected.heartRate),
+    canPlay: canStart || (appTrainer && !!state.connected.heartRate),
     onPage: stepPage,
     onPlayPause: () => (running ? pause() : start()),
     onExtend: extend,
@@ -1148,7 +1166,7 @@ function RideOnThisDevice({
         {error && <Notice tone="negative">{error}</Notice>}
 
         <div data-tour="ride-gear">
-          <SensorPanel hub={hub} state={state} supported={supported} onError={setError} headUnit={headUnit} />
+          <SensorPanel hub={hub} state={state} supported={supported} onError={setError} appTrainer={appTrainer} />
         </div>
 
         {elapsed === 0 && !trial && (
@@ -1156,6 +1174,9 @@ function RideOnThisDevice({
             <RideNow
               ftp={ftp}
               source={source}
+              trainer={trainer}
+              trainerApp={trainerApp}
+              onTrainer={pickTrainer}
               planned={planned}
               plannedLabel={plannedLabel}
               library={library}
@@ -1227,7 +1248,7 @@ function RideOnThisDevice({
           {editingFields && elapsed === 0 ? (
             <FieldEditor
               initial={fieldSets}
-              initialSet={headUnit ? "headUnit" : erg ? "free" : "workout"}
+              initialSet={free ? "free" : "workout"}
               ftp={ftp}
               weightKg={weightKg}
               thresholdHr={thresholdHr}

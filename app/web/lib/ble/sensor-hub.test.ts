@@ -251,7 +251,7 @@ describe("SensorHub with a trainer", () => {
   });
 });
 
-describe("SensorHub hands off (head unit)", () => {
+describe("SensorHub hands off (another app has the trainer)", () => {
   it("reads the trainer but never writes to its control point", async () => {
     const { writes, bikeData } = fakeTrainer();
     const hub = new SensorHub();

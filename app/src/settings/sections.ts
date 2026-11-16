@@ -42,7 +42,7 @@ const ALIASES: Record<string, SectionId> = {
   "coach-settings": "coach",
   gear: "devices",
   bluetooth: "devices",
-  "head-unit": "devices",
+  "free-ride": "devices",
   layout: "appearance",
   units: "appearance",
   tracking: "health",

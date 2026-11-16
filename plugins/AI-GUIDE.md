@@ -30,7 +30,7 @@ A plugin adds ride fields, ride page sections, or both. Nothing else: no cards, 
 
 | Kind | Where it shows | Input | Budget |
 |---|---|---|---|
-| `fields` | A ride field (ride screen, overlay, head unit rides) | `input.metrics` (live numbers this second, plus profile) | 20 ms |
+| `fields` | A ride field (ride screen, overlay, free rides) | `input.metrics` (live numbers this second, plus profile) | 20 ms |
 | `analyses` | A section on a saved ride's page | `input.ride` (whole ride) + `input.metrics` | 2 s, 128 KB |
 
 Field handlers keep state between calls in ordinary variables (the starter counts seconds this way). An analysis gets the whole ride at once: `ride.watts[i]` is the power at second `i * ride.stepSeconds`.
