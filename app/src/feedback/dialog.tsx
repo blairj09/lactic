@@ -80,7 +80,8 @@ function useOpen() {
   );
 }
 
-export function FeedbackButton() {
+/** The bar's feedback button, and the form wherever it was opened from (on a phone the button is hidden, but Settings and plugin pages still open the form). */
+export function FeedbackButton({ className = "" }: { className?: string }) {
   const isOpen = useOpen();
   return (
     <>
@@ -90,7 +91,7 @@ export function FeedbackButton() {
         title="Send feedback"
         data-tour="feedback"
         onClick={() => openFeedback()}
-        className="inline-flex size-8 items-center justify-center rounded-md text-muted transition-colors hover:text-ink"
+        className={`${className || "inline-flex"} size-8 items-center justify-center rounded-md text-muted transition-colors hover:text-ink`}
       >
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
