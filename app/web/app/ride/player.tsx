@@ -139,7 +139,7 @@ export function adaptTitle(a: AdaptNotice): string {
  * Adaptive workouts' notice on the page and the phone: what changed and why, with Undo for an ease,
  * or yes and no for a harder suggestion (no answer keeps the plan).
  */
-function AdaptBanner({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
+export function AdaptBanner({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
   const a = data.adapt;
   if (!a) return null;
   const btn = "inline-flex h-11 items-center justify-center rounded-lg px-4 text-[15px] font-medium transition-opacity hover:opacity-85";
@@ -171,7 +171,7 @@ function AdaptBanner({ data, controls }: { data: PlayerData; controls: PlayerCon
 }
 
 /** Adaptive workouts on or off for this ride. */
-function AdaptiveSwitch({ on, onChange, className }: { on: boolean; onChange: (on: boolean) => void; className: string }) {
+export function AdaptiveSwitch({ on, onChange, className }: { on: boolean; onChange: (on: boolean) => void; className: string }) {
   return (
     <button
       role="switch"
@@ -191,9 +191,9 @@ function AdaptiveSwitch({ on, onChange, className }: { on: boolean; onChange: (o
 export { describeTarget, formatTime };
 
 /** The Target figure: watts, "All out" in a sprint, "Free" in free ride. */
-const targetShown = (data: PlayerData) => data.targetWatts ?? (data.allOut ? "All out" : data.current ? "Free" : undefined);
+export const targetShown = (data: PlayerData) => data.targetWatts ?? (data.allOut ? "All out" : data.current ? "Free" : undefined);
 
-function zoneOf(interval: Interval | null) {
+export function zoneOf(interval: Interval | null) {
   const range = interval && segmentRange(interval.segment);
   return range ? powerZone((range.low + range.high) / 2) : null;
 }
@@ -203,7 +203,7 @@ function zoneOf(interval: Interval | null) {
  * Power against target, on a 3 second average so it doesn't flicker with each stroke: within 5%
  * is on target (green), under is amber, over is red, each with a word.
  */
-function powerVsTarget(data: PlayerData): { tone: Tone; text: string } | null {
+export function powerVsTarget(data: PlayerData): { tone: Tone; text: string } | null {
   const power = data.powerAverage;
   const target = data.targetWatts;
   if (power === undefined || target === null || target === 0 || !data.running) return null;
@@ -294,14 +294,14 @@ const Key = ({ color, children }: { color: string; children: React.ReactNode }) 
   </span>
 );
 
-const ZoneDot = ({ zone }: { zone: number | null }) => (
+export const ZoneDot = ({ zone }: { zone: number | null }) => (
   <span className="inline-block size-2.5 shrink-0 rounded-sm" style={{ background: zone ? `var(--zone-${zone})` : "var(--zone-free)" }} />
 );
 
 /** Time left in the interval, or ride time in free ERG. */
-const intervalTime = (data: PlayerData) =>
+export const intervalTime = (data: PlayerData) =>
   data.erg || data.headUnit ? formatTime(data.elapsed) : data.current ? formatTime(data.current.end - data.position) : undefined;
-const intervalLabel = (data: PlayerData, short = false) =>
+export const intervalLabel = (data: PlayerData, short = false) =>
   data.erg || data.headUnit
     ? "Ride time"
     : data.current
@@ -342,7 +342,7 @@ export const pageShown = (page: RidePage, data: PlayerData, short = false): (Sho
   Array.from({ length: PAGE_TEMPLATES[page.template] }, (_, i) => (page.fields[i] ? shownField(page.fields[i], data, short) : undefined));
 
 /** Head unit: who has the trainer, by name when a known training app is open. */
-const trainerOwner = (data: PlayerData) => `${data.trainerApp ?? "Another app"} controls the trainer`;
+export const trainerOwner = (data: PlayerData) => `${data.trainerApp ?? "Another app"} controls the trainer`;
 
 /** The page on screen, wrapped to the set's page count (the overlay's set may have fewer pages). */
 export const pageOf = (pages: RidePage[], page: number): RidePage => pages[((page % pages.length) + pages.length) % pages.length];
@@ -442,79 +442,6 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
   );
 }
 
-/**
- * The ride on a phone held in one hand (the iPhone's remote for the computer's ride): the numbers
- * on top, what's next in the middle (it scrolls), and the controls pinned at the bottom within
- * reach of a thumb. Intensity moves in 5% steps, so a big change is a couple of taps. No chart:
- * the computer's screen has it.
- */
-export function RemoteView({ data, controls, extra, notice }: { data: PlayerData; controls: PlayerControls; extra?: React.ReactNode; notice?: React.ReactNode }) {
-  const { erg } = data;
-  const fields = fieldsOf(data);
-  const page = pageOf(fields.pages, fields.page);
-  // The phone shows a page's big fields two across; the standard page's ride-so-far column stays on the computer.
-  const shown = pageShown(page, { ...data, fields }).slice(0, page.template === "standard" ? 5 : undefined);
-  /** A field showing "–" that was tapped, to say why. */
-  const [why, setWhy] = useState<Shown | null>(null);
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pb-4">
-        {notice}
-        <AdaptBanner data={data} controls={controls} />
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="truncate text-lg font-semibold tracking-tight">{data.workout.name}</h2>
-          <span className="num flex-none text-sm text-muted">
-            {data.ended ? `Ended · ${formatTime(data.elapsed)}` : erg ? "ERG" : data.headUnit ? "Head unit" : `${formatTime(data.position)} of ${formatTime(data.duration)}`}
-          </span>
-        </div>
-        {(data.startIn !== null || data.autoPaused) && (
-          <p className="text-sm text-warning">{data.startIn !== null ? `Starting in ${data.startIn}` : "Paused. Pedal to resume"}</p>
-        )}
-        <div className="space-y-3" {...swipeHandlers(fields.pages.length > 1 ? controls.onPage : undefined)}>
-          <div aria-label="Ride fields" className="grid grid-cols-2 gap-x-6 gap-y-3">
-            {shown.map((f, i) =>
-              f ? (
-                <button
-                  type="button"
-                  key={i}
-                  className={`min-w-0 text-left ${i === 0 && shown.length % 2 === 1 ? "col-span-2" : ""}`}
-                  onClick={() => setWhy(f.value === undefined && f.reason ? f : null)}
-                  aria-label={f.value === undefined && f.reason ? `${f.label}: ${f.reason}` : undefined}
-                >
-                  <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} lead={i < 3} plugin={f.plugin} chart={f.chart} />
-                </button>
-              ) : null,
-            )}
-          </div>
-          {why && (
-            <div role="status" className="flex items-start justify-between gap-3 rounded-lg bg-raised px-3 py-2 text-sm">
-              <span>
-                <span className="font-medium">{why.label}:</span> {why.reason}
-              </span>
-              <button type="button" className="text-muted underline underline-offset-2" onClick={() => setWhy(null)}>
-                OK
-              </button>
-            </div>
-          )}
-          {fields.pages.length > 1 && (
-            <div className="flex justify-center gap-1.5" aria-label={`Page ${fields.pages.indexOf(page) + 1} of ${fields.pages.length}: ${page.name}`}>
-              {fields.pages.map((p, i) => (
-                <span key={i} className={`size-2 rounded-full ${p === page ? "bg-ink" : "bg-control"}`} />
-              ))}
-            </div>
-          )}
-        </div>
-        {!erg && !data.headUnit && !data.finished && !data.ended && <UpNext data={data} />}
-      </div>
-      <div className="space-y-3 border-t border-line bg-ground px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)]">
-        {erg && !data.ended ? <ErgAdjuster watts={erg.watts} ftp={data.ftp} onErg={controls.onErg} /> : data.finished ? <ExtendOrEnd data={data} controls={controls} /> : null}
-        <PageControls data={data} controls={controls} intensityStep={5} />
-        {extra}
-      </div>
-    </div>
-  );
-}
-
 /** The current interval and the next few. */
 function UpNext({ data }: { data: PlayerData }) {
   const { current, ftp } = data;
@@ -553,7 +480,7 @@ function UpNext({ data }: { data: PlayerData }) {
 }
 
 /** At the workout's end: extend it with a free ride, an ERG hold or a workout block, or end the ride. */
-function ExtendOrEnd({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
+export function ExtendOrEnd({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
   const { ftp, extend } = data;
   const fraction = ftp > 0 ? extend.watts / ftp : null;
   const step = "inline-flex size-10 items-center justify-center rounded-md text-lg text-ink transition-colors hover:bg-active";
@@ -715,13 +642,13 @@ function ErgAdjuster({ watts, ftp, onErg }: { watts: number; ftp: number; onErg:
 /** Top of the ERG slider: well past VO2 max, and never under 500 W. */
 export const ergSliderMax = (ftp: number) => Math.min(ERG_MAX, Math.max(500, Math.round((ftp * 1.6) / 50) * 50));
 
-const Icon = ({ d, className = "size-5" }: { d: string; className?: string }) => (
+export const Icon = ({ d, className = "size-5" }: { d: string; className?: string }) => (
   <svg viewBox="0 0 24 24" aria-hidden className={className} fill="currentColor">
     <path d={d} />
   </svg>
 );
-const ICON_BACK = "M6 6h2v12H6zM9.5 12 18 6v12z";
-const ICON_SKIP = "M16 6h2v12h-2zM6 18l8.5-6L6 6z";
+export const ICON_BACK = "M6 6h2v12H6zM9.5 12 18 6v12z";
+export const ICON_SKIP = "M16 6h2v12h-2zM6 18l8.5-6L6 6z";
 // Arrows out to the corners (bigger) and in from them (smaller), as for a window or full screen.
 const ICON_GROW = "M14 4h6v6M20 4l-6 6M10 20H4v-6M4 20l6-6";
 const ICON_SHRINK = "M20 10h-6V4M14 10l6-6M4 14h6v6M10 14l-6 6";
@@ -730,20 +657,20 @@ const StrokeIcon = ({ d, className = "size-[clamp(14px,6vh,24px)]" }: { d: strin
     <path d={d} />
   </svg>
 );
-const ICON_PLAY = "M8 5v14l11-7z";
-const ICON_PAUSE = "M6 5h4v14H6zM14 5h4v14h-4z";
+export const ICON_PLAY = "M8 5v14l11-7z";
+export const ICON_PAUSE = "M6 5h4v14H6zM14 5h4v14h-4z";
 const ICON_MINUS = "M5 10.5h14v3H5z";
 const ICON_PLUS = "M10.5 5h3v5.5H19v3h-5.5V19h-3v-5.5H5v-3h5.5z";
 
 /** What the play button does now, for its icon and its label for screen readers and hover. */
-const playLabel = (data: PlayerData) =>
+export const playLabel = (data: PlayerData) =>
   data.running ? "Pause" : data.elapsed > 0 ? "Resume" : data.startIn !== null ? `Starting in ${data.startIn}` : data.erg || data.headUnit ? "Start ride" : "Start workout";
 
 /** A − value + group with its name, for intensity, grade and the ERG target. */
-function Stepper({ label, value, onDown, onUp, downLabel, upLabel }: { label: string; value: string; onDown: () => void; onUp: () => void; downLabel: string; upLabel: string }) {
+export function Stepper({ label, value, onDown, onUp, downLabel, upLabel }: { label: string; value: string; onDown: () => void; onUp: () => void; downLabel: string; upLabel: string }) {
   const step = "inline-flex size-10 items-center justify-center rounded-md text-lg text-ink transition-colors hover:bg-active";
   return (
-    <div className="flex items-center gap-1 rounded-lg bg-raised py-1 pl-3 pr-1">
+    <div className="flex items-center gap-1 rounded-lg bg-raised py-1 pl-3 pr-1 hc:outline hc:outline-1 hc:outline-line">
       <span className="mr-1 text-sm text-muted">{label}</span>
       <button className={step} onClick={onDown} aria-label={downLabel} title={downLabel}>
         <Icon d={ICON_MINUS} className="size-4" />

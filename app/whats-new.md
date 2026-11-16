@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- On iPhone, a ride fills the screen and stays put: the workout map, this interval, ride totals and controls are always in view. Swipe for your field pages and what's up next, or turn the phone sideways for an overlay-style layout. The same screen controls a ride on your computer.
 - Cards side by side on Today, like Form and Last ride, now line up along the bottom.
 - Four new half-hour workouts in the library: Sweet spot 2 × 8, Threshold 3 × 5, VO2 max 6 × 1 and Sprints 8 × 10 s.
 
