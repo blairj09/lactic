@@ -806,7 +806,7 @@ const MINI_TEXT = "text-[clamp(12px,6vh,22px)]";
  * interval on the left, the workout in the middle, the ride so far on the right; the controls
  * live in a panel that a button at the right edge opens over the strip.
  */
-export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; controls: PlayerControls; onResize: (step: 1 | -1) => void }) {
+export function MiniPlayer({ data, controls, onResize, onClose }: { data: PlayerData; controls: PlayerControls; onResize: (step: 1 | -1) => void; onClose?: () => void }) {
   const { ftp } = data;
   const next = data.upcoming[0];
   const from = Math.max(0, data.position - MINI_BEHIND);
@@ -917,6 +917,18 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
         right.length > 0 && <section className={`flex shrink-0 gap-[6vh] ${twoRows ? "flex-wrap content-center" : ""}`}>{right.map((i) => mini(i))}</section>
       )}
 
+      {/* Back to Lactic: a small tab in the top-left corner shuts the overlay and brings Lactic back to the front; the ride keeps going. */}
+      {onClose && (
+        <button
+          className="absolute left-0 top-0 flex size-[clamp(22px,11vh,44px)] items-center justify-center rounded-br-[1.5vh] border-b border-r border-line bg-raised text-muted transition-colors hover:bg-active hover:text-ink"
+          onClick={() => onClose()}
+          aria-label="Back to Lactic"
+          title="Back to Lactic (the ride keeps going)"
+        >
+          <BackToAppIcon />
+        </button>
+      )}
+
       {fields.overlay.length > 1 && (
         <div className="pointer-events-none absolute bottom-[1.5vh] left-1/2 flex -translate-x-1/2 gap-[1vh]" aria-label={`Page ${fields.overlay.indexOf(page) + 1} of ${fields.overlay.length}: ${page.name}`}>
           {fields.overlay.map((p, i) => (
@@ -966,6 +978,13 @@ export function MiniPlayer({ data, controls, onResize }: { data: PlayerData; con
     </div>
   );
 }
+
+/** Back to Lactic: an arrow heading out of the box, the usual sign for going to another window (not ✕, which reads as ending the ride). */
+const BackToAppIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden className="size-[60%]" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4M20 4l-8 8M14 4h6v6" />
+  </svg>
+);
 
 /** Sliders: the usual sign for controls you adjust. */
 const SlidersIcon = () => (

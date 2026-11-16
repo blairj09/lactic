@@ -204,6 +204,7 @@ pub fn run() {
         apps::training_app_open,
         apps::menu_bar_set,
         window::overlay_close,
+        window::overlay_back,
         window::overlay_support,
         mcp::mcp_respond,
         mcp::mcp_set_enabled,

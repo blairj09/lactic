@@ -15,6 +15,7 @@ Write for riders: what they can now do or what works better, one short line each
 - iPhone: opening Lactic while a ride is going on your computer goes straight to its controls.
 - iPhone: the lock screen keeps up with a ride on your computer, moving on to each new interval with fresh power and heart rate, instead of getting stuck. Your computer nudges the phone over Bluetooth while the Ride page is open.
 - Four new half-hour workouts in the library: Sweet spot 2 × 8, Threshold 3 × 5, VO2 max 6 × 1 and Sprints 8 × 10 s.
+- The ride overlay has a button in its top-left corner that closes it and brings Lactic back to the front; the ride keeps going.
 
 ## 0.3.1
 

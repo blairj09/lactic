@@ -161,6 +161,13 @@ pub fn overlay_close(app: AppHandle) {
     }
 }
 
+/// The overlay's own close button: Lactic's main window comes to the front and the overlay goes.
+#[tauri::command]
+pub fn overlay_back(app: AppHandle) {
+    crate::apps::show_main(&app);
+    overlay_close(app);
+}
+
 #[cfg(target_os = "macos")]
 fn float_over_full_screen(window: &tauri::WebviewWindow) {
     use objc2_app_kit::{NSWindow, NSWindowCollectionBehavior};
