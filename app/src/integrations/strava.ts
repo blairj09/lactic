@@ -11,8 +11,8 @@
 // One device posts, so no ride goes twice: the computer, or an iPhone used on its own. A paired
 // iPhone still queues the rides it records (and "Post to Strava" from a ride page), but the queue
 // syncs to the computer and the computer sends them. The sign-in follows the rider between the two
-// (secrets.rs SYNCED, newer sign-in wins) so connecting on a phone used alone carries over when a
-// computer is paired, but only the device that posts refreshes it.
+// (secrets.rs SYNCED, newer sign-in wins), so the rider can connect on either one, but only the
+// device that posts refreshes it.
 
 import { experiments } from "@/lib/experiments";
 import { lapStarts, type RideInterval } from "@/lib/engine/ride-detail";
@@ -23,7 +23,7 @@ import { loadStream } from "@/lib/activities";
 import { createClient } from "~/db/supabase-client";
 import { invoke, isDesktop, isPhone, os } from "~/platform/native";
 import { phoneStatus, webAuth } from "~/phone/plugin";
-import { placeholder } from "~/platform/secrets";
+import { placeholder, secretStatus } from "~/platform/secrets";
 import { revalidatePath } from "~/shims/next-cache";
 import { logEvent } from "~/support/log";
 import { notifyChanged, registerJob } from "./background";
@@ -125,7 +125,6 @@ export async function loadStrava(db: Db = createClient()): Promise<StravaConnect
 /** Opens Strava's sign-in (the browser on a computer, a sign-in sheet on the iPhone) and saves the connection once the rider allows Lactic. */
 export async function connectStrava(): Promise<StravaConnection> {
   const poster = await stravaPoster();
-  if (poster === "computer") throw new Error("Connect Strava in Lactic on your computer. It posts the rides you record on this iPhone.");
   if (poster === "nowhere") throw new Error(isDesktop ? "Strava connects in Lactic on your computer for now." : "Strava connects in the desktop app.");
   const clientId = await stravaClientId();
   if (!clientId) throw new Error("Strava isn't switched on for Lactic yet, or lactic.fit can't be reached. Try again later.");
@@ -140,6 +139,8 @@ export async function connectStrava(): Promise<StravaConnection> {
   if (error) throw error;
   logEvent("strava", "info", "Connected to Strava.");
   notifyChanged("strava");
+  // A paired iPhone hands the sign-in and the connection to the computer, which posts.
+  handOver();
   return (await loadStrava(db))!;
 }
 
@@ -155,7 +156,6 @@ async function connectOnPhone(clientId: string) {
 }
 
 export async function disconnectStrava() {
-  if ((await stravaPoster()) === "computer") throw new Error("Disconnect Strava in Lactic on your computer.");
   if (isDesktop) await invoke("strava_disconnect").catch((e) => logEvent("strava", "error", `Couldn't sign out of Strava: ${String(e)}`));
   const db = createClient();
   const { error } = await db.from("strava_connections").delete().eq("athlete_id", (await loadStrava(db))?.athleteId ?? "");
@@ -163,6 +163,7 @@ export async function disconnectStrava() {
   // Rides still waiting won't go anywhere now.
   await db.from("strava_uploads").update({ status: "skipped", fit_base64: null, error: "Strava was disconnected." }).in("status", ["pending", "sending"]);
   logEvent("strava", "info", "Disconnected from Strava.");
+  handOver();
 }
 
 export async function setStravaUploads(on: boolean) {
@@ -205,9 +206,8 @@ export async function postRideToStrava(activityId: string) {
   if (!stravaOn()) throw new Error("Turn on Post rides to Strava in Settings → Experimental features first.");
   const db = createClient();
   const connection = await loadStrava(db);
-  const viaComputer = (await stravaPoster()) === "computer";
-  if (!connection) throw new Error(viaComputer ? "Connect Strava in Lactic on your computer first." : "Connect Strava in Settings → Connections first.");
-  if (connection.needsReconnect) throw new Error(viaComputer ? "Strava signed Lactic out. Connect Strava again in Lactic on your computer." : "Strava signed Lactic out. Connect Strava again in Settings.");
+  if (!connection) throw new Error("Connect Strava in Settings → Connections first.");
+  if (connection.needsReconnect) throw new Error("Strava signed Lactic out. Connect Strava again in Settings.");
   const { data: ride, error } = await db.from("activities").select("started_at").eq("id", activityId).maybeSingle();
   if (error) throw error;
   const stream = await loadStream(db, activityId);
@@ -373,6 +373,9 @@ export async function syncStrava(): Promise<{ ok: boolean; message: string } | v
   const waiting = (data ?? []).filter((u) => !(u.status === "sending" && now - Date.parse(u.updated_at) < STALE_SEND_MS));
   if (!waiting.length) return;
 
+  // Connected on the paired iPhone, and its sign-in hasn't come across yet (it travels on the next
+  // sync over Wi-Fi): wait for it rather than calling the connection signed out.
+  if (!(await secretStatus("strava.refresh").catch(() => "unknown"))) return { ok: false, message: "Waiting for the Strava sign-in from your iPhone." };
   try {
     await invoke("strava_refresh");
   } catch (e) {
