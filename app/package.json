@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:demo": "vite build --mode demo --base /demo/ --outDir ../site/demo --emptyOutDir",
+    "build:ride": "vite build --mode ride --base /ride/ --outDir ../site/ride --emptyOutDir",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",

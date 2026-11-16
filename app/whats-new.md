@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Four new half-hour workouts in the library: Sweet spot 2 × 8, Threshold 3 × 5, VO2 max 6 × 1 and Sprints 8 × 10 s.
+
 ## 0.3.1
 
 - Coach's brief on Today shows the brief itself again, not a closing line like "Brief's set. Anything else?".

@@ -3,4 +3,5 @@ node_modules/
 .env*
 app/evals/results/
 site/demo/
+site/ride/
 app/src-tauri/tauri.version.conf.json
