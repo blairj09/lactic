@@ -44,6 +44,15 @@ function buildRide(app, from) {
   if (!hasScript(app, "build:ride")) return console.log("This release has no try-a-ride page.");
   run("npm", ["run", "build:ride"], app);
   if (from) cpSync(from, RIDE_OUT, { recursive: true });
+  const page = join(RIDE_OUT, "index.html");
+  if (existsSync(page)) writeFileSync(page, withAnalytics(readFileSync(page, "utf8")));
+}
+
+/** Adds the site's visit counting (analytics.js, with our own-traffic opt-out) to a built page. */
+export function withAnalytics(html) {
+  if (html.includes("/analytics.js")) return html;
+  const tag = '<script src="/analytics.js"></script>\n';
+  return html.includes("</body>") ? html.replace("</body>", tag + "</body>") : html + tag;
 }
 
 export function hasScript(app, name) {
