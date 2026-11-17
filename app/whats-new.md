@@ -6,13 +6,15 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
-- iPhone: plugins. Settings → Plugins adds Lactic's own, and plugins you added on your computer show up off until you turn them on for the phone. Their ride fields work when the phone runs the ride, and their sections show on ride pages. Adding from a GitHub link or a file stays on the computer.
-- "Report a problem" on each plugin in Settings → Plugins opens feedback with the plugin filled in.
-- After you ride, the Coach's brief on Today turns into a short take on how the ride went against the plan and what it means for tomorrow. This morning's brief is still there under it.
-- Posting rides to Strava is no longer an experiment: connect Strava in Settings → Connections on your computer or iPhone, no switch to turn on first. On a phone paired with a computer, your computer posts the rides.
-- Plugin ride fields can show several numbers in one field, like Best Efforts with your best 5 s, 1 min, 5 min and 20 min so far. Pick the durations in the field editor.
-- Any ride field can be wide, taking two slots side by side: select it in the field editor and choose Wide.
-- Plugin ride fields can now be dials, progress rings, zone bars, target bars, short lists, status words, countdowns and left/right balance, all drawn by Lactic to fit your phone, the big screen and the overlay. Try the new Speedometer plugin.
+## 0.3.3
+
+- After you ride, the Coach's brief on Today becomes a short take on how the ride went and what it means for tomorrow. The morning brief stays below it.
+- Strava is no longer an experiment: connect it in Settings → Connections on your computer or iPhone. A paired phone's rides post from your computer.
+- iPhone: plugins. Turn on Lactic's own or ones from your computer in Settings → Plugins; their ride fields and ride page sections work on the phone.
+- Plugin ride fields can be dials, progress rings, zone bars, target bars, lists, countdowns and more. Try the new Speedometer plugin.
+- A plugin field can show several numbers at once, like your best 5 s, 1 min, 5 min and 20 min.
+- Any ride field can be wide, filling two slots: choose Wide in the field editor.
+- Each plugin in Settings → Plugins has "Report a problem".
 
 ## 0.3.2
 
