@@ -329,7 +329,7 @@ function onOff(id: string, name: string, description: string, defaults: (l: numb
         if (i < x.count - 1) block.push(steady(x.off, x.rest));
       }
       const set = repeat(block, [steady(x.setRest, x.rest)], WORK_TOTAL.vo2max(l) / (x.count * x.on), s);
-      return set && { segments: set.segments, title: `${name} ${set.reps} sets of ${x.count} x ${x.on}/${x.off} s @ ${pct(x.work)}%` };
+      return set && { segments: set.segments, title: `${name} · ${set.reps} sets of ${x.count} @ ${pct(x.work)}%` };
     },
   };
 }
