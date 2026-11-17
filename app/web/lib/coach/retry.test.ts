@@ -51,6 +51,7 @@ describe("model calls that fail partway", () => {
 
 describe("the brief's error line", () => {
   it("says a dropped connection in plain words", () => {
+    expect(briefError("The model stopped answering (timed out)")).toContain("the model stopped answering");
     expect(briefError("error decoding response body")).toBe("The coach couldn't write today's brief: the connection dropped.");
   });
   it("keeps other reasons", () => {

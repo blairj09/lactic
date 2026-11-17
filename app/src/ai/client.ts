@@ -95,6 +95,34 @@ export async function record(job: string, t: Target, choice: ModelChoice, input:
   }
 }
 
+/** Aborts once nothing new has arrived for `ms`, and in any case after `STREAM_CAP`. */
+export function stallWatch(ms: number) {
+  const controller = new AbortController();
+  const abort = () => controller.abort(new DOMException("The model stopped answering (timed out)", "TimeoutError"));
+  let idle = setTimeout(abort, ms);
+  const cap = setTimeout(abort, Math.max(ms, STREAM_CAP));
+  return {
+    signal: controller.signal,
+    alive() {
+      clearTimeout(idle);
+      idle = setTimeout(abort, ms);
+    },
+    stop() {
+      clearTimeout(idle);
+      clearTimeout(cap);
+    },
+  };
+}
+
+/** The longest a single streamed reply may take, however steadily it arrives. */
+const STREAM_CAP = 300_000;
+
+/** An aborted request reads as a timeout, so the coach retries it and says so in plain words. */
+function timedOut(e: unknown): unknown {
+  const name = (e as { name?: string })?.name;
+  return name === "TimeoutError" || name === "AbortError" ? new Error("The model stopped answering (timed out)") : e;
+}
+
 async function failure(response: Response): Promise<Error> {
   const text = (await response.text()).slice(0, 300);
   if (response.status === 401 || response.status === 403) return new Error("The AI provider turned the key down. Check it in Settings → Coach.");
@@ -127,17 +155,34 @@ export function complete({ maxTokens = 800, job = "chat", model, setup: given }:
     if (stream && (t.provider === "openrouter" || t.provider === "openai")) body.stream_options = { include_usage: true };
     const payload = JSON.stringify(body);
     const headers = { ...t.headers, ...(stream ? { Accept: "text/event-stream" } : {}) };
-    const response = await fetch(t.url, { method: "POST", headers, body: payload, signal: AbortSignal.timeout(t.local ? 300_000 : 90_000) });
-    if (!response.ok) throw await failure(response);
+    const limit = t.local ? 300_000 : 90_000;
+    // A streamed reply can stall partway (the provider keeps the connection open, sending only
+    // keep-alive comments), so it times out when no data arrives for `limit`, not after a fixed total.
+    const watch = stream ? stallWatch(limit) : null;
+    const response = await fetch(t.url, { method: "POST", headers, body: payload, signal: watch?.signal ?? AbortSignal.timeout(limit) }).catch((e) => {
+      watch?.stop();
+      throw timedOut(e);
+    });
+    if (!response.ok) {
+      watch?.stop();
+      throw await failure(response);
+    }
     if (stream && response.body) {
       const reader = new StreamReader(onText);
       const decoder = response.body.pipeThrough(new TextDecoderStream()).getReader();
       let raw = "";
-      for (;;) {
-        const { value, done } = await decoder.read();
-        if (done) break;
-        raw += value;
-        reader.push(value);
+      try {
+        for (;;) {
+          const { value, done } = await decoder.read();
+          if (done) break;
+          raw += value;
+          if (value.includes("data:")) watch?.alive();
+          reader.push(value);
+        }
+      } catch (e) {
+        throw timedOut(e);
+      } finally {
+        watch?.stop();
       }
       const message = reader.message();
       const usage = lastUsage(raw);
