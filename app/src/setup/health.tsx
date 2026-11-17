@@ -3,7 +3,8 @@
 // folder here instead: where, how to get it sending, and what came in.
 
 import { useEffect, useState } from "react";
-import { button, Pill, Result, Segmented } from "@/components/ui";
+import { button, input, Pill, Result } from "@/components/ui";
+import Select from "@/components/select";
 import { healthFolder, importHealthFolder, IPHONE_SETTING, pairedPhone, setHealthFolder, SOURCE_SETTING, type IphoneHealth, type PairedPhone } from "~/integrations/apple-health";
 import { ago } from "~/phone/settings";
 import { isDesktop, openExternal, os } from "~/platform/native";
@@ -98,16 +99,14 @@ export function HealthSetup({ heading = true }: { heading?: boolean }) {
         </div>
         {receiving && <Pill tone="positive">Receiving</Pill>}
       </div>
-      <Segmented
-        label="Where your sleep is recorded"
-        value={source}
-        onChange={pick}
-        options={[
-          { value: "apple", label: "Apple Watch" },
-          { value: "watch", label: "Garmin, Oura, WHOOP" },
-          { value: "android", label: "Android" },
-        ]}
-      />
+      <div className="space-y-2">
+        <span className="block text-sm font-medium">Where it comes from</span>
+        <Select className={`${input} w-full sm:w-80`} aria-label="Where your sleep is recorded" value={source} onChange={(v) => pick(v as Source)}>
+          <option value="apple">Apple Watch</option>
+          <option value="watch">Garmin, Oura, WHOOP and others</option>
+          <option value="android">Android</option>
+        </Select>
+      </div>
       {source === "watch" ? (
         <p className="text-sm text-muted">Link your watch or ring to intervals.icu, then connect intervals.icu above. Works with Garmin, Oura, WHOOP, Polar, Coros and Suunto.</p>
       ) : source === "android" ? (

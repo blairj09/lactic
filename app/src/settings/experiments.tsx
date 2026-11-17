@@ -3,7 +3,7 @@
 
 import { EXPERIMENTS, EXPERIMENTS_SETTING, NO_EXPERIMENTS, parseExperiments, setCurrentExperiments, type Experiments } from "@/lib/experiments";
 import { useExperiments } from "@/lib/use-experiments";
-import { ExperimentalTag } from "@/components/experimental-tag";
+import { SwitchRow } from "@/components/switch";
 import { revalidatePath } from "~/shims/next-cache";
 import { getSetting, setSetting } from "./store";
 
@@ -24,29 +24,11 @@ export async function saveExperiments(next: Experiments) {
 export function ExperimentsSetting() {
   const values = useExperiments();
   return (
-    <div className="space-y-3 sm:col-span-2">
+    <div className="space-y-4 sm:col-span-2">
       {EXPERIMENTS.map((x) => (
-        <label
-          key={x.id}
-          className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-4 transition-colors hover:border-control has-[:checked]:border-ink"
-        >
-          <input
-            type="checkbox"
-            className="mt-1 size-4 accent-[var(--ink)]"
-            checked={values[x.id]}
-            onChange={(e) => void saveExperiments({ ...values, [x.id]: e.target.checked })}
-          />
-          <span className="space-y-0.5">
-            <span className="flex items-center gap-2 font-medium">
-              {x.title}
-              <ExperimentalTag />
-            </span>
-            <span className="block text-sm text-muted">{x.line}</span>
-          </span>
-        </label>
+        <SwitchRow key={x.id} label={x.title} hint={x.line} on={values[x.id]} onChange={(on) => void saveExperiments({ ...values, [x.id]: on })} />
       ))}
-      <p className="text-sm text-muted">Still being tried out, so they may change or go away. Turning one off hides it; anything already saved stays.</p>
+      <p className="text-sm text-faint">These may change or go away. Turning one off keeps what&apos;s saved.</p>
     </div>
   );
 }
-

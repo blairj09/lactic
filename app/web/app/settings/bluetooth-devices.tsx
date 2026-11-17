@@ -1,5 +1,6 @@
 "use client";
 
+import { MoreMenu } from "@/components/more-menu";
 import { useCallback, useEffect, useState } from "react";
 import { DEVICE_KINDS, type DeviceKind } from "@/lib/ble/catalog";
 import {
@@ -194,12 +195,6 @@ export default function BluetoothDevices() {
                       <button className={button.small} disabled={status?.state === "checking"} onClick={() => check(kind)}>
                         Reconnect
                       </button>
-                      <button className={button.small} onClick={() => setRenaming({ key: kind.key, value: saved.nickname ?? "" })}>
-                        Rename
-                      </button>
-                      <button className={button.small} onClick={() => setPairing(kind)}>
-                        Pair a different one
-                      </button>
                       {forgetting === kind.key ? (
                         <>
                           <button className={`${button.small} text-negative`} onClick={() => forget(kind.key)}>
@@ -210,9 +205,14 @@ export default function BluetoothDevices() {
                           </button>
                         </>
                       ) : (
-                        <button className={button.ghost} onClick={() => setForgetting(kind.key)}>
-                          Forget
-                        </button>
+                        <MoreMenu
+                          label={`More for the ${kind.label.toLowerCase()}`}
+                          items={[
+                            { label: "Rename", onSelect: () => setRenaming({ key: kind.key, value: saved.nickname ?? "" }) },
+                            { label: "Pair a different one", onSelect: () => setPairing(kind) },
+                            { label: "Forget", onSelect: () => setForgetting(kind.key), danger: true },
+                          ]}
+                        />
                       )}
                     </>
                   ) : (
