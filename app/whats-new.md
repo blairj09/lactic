@@ -8,6 +8,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 - The Coach's brief no longer gets stuck on "Writing your brief" when the AI model stops answering: it tries again, then tells you so you can retry or pick another model.
 - The Ride tab icon on the phone is now just the interval outline.
+- In Settings → Coach, the model test result now fits inside the card on narrow windows.
 
 ## 0.3.5
 
