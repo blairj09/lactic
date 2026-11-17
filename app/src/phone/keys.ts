@@ -1,4 +1,4 @@
-// The rider's API keys (the coach's AI key, intervals.icu) following them between the iPhone and
+// The rider's API keys (the coach's AI key, intervals.icu, the Strava sign-in) following them between the iPhone and
 // the computer, so they type each one once. The keys travel only inside the sealed link (phone.rs
 // answers "keys" in Rust, never over the iCloud mailbox) and land in each device's keychain; the
 // newer save or delete wins (secrets.rs `plan`). On the computer the web layer never sees a key;

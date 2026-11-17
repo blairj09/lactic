@@ -170,7 +170,8 @@ const PIECE = 1 << 20;
 
 /** What a phone used on its own brings to a computer that has its own plan: what it rode and measured. */
 const KEEP_TABLES = [
-  "activities", "activity_streams", "ride_feedback", "intervals_uploads", "strava_uploads", "ftp_history", "body_measurements", "health_days", "recovery_days", "custom_workouts", "workout_favorites",
+  "activities", "activity_streams", "ride_feedback", "intervals_uploads", "strava_uploads", "strava_connections", "ftp_history", "body_measurements", "health_days", "recovery_days", "custom_workouts", "workout_favorites",
+  // Strava connected on the phone (its sign-in follows with the keys), so the computer posts from now on.
   // Events and their courses, breaks and race reports set up on the phone, and its check-ins up to today.
   "training_goals", "event_courses", "plan_breaks", "race_reviews", "race_rivals", "plan_days",
 ];

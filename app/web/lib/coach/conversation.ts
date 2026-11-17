@@ -1,7 +1,7 @@
 // The coach's conversations, on the server: chat replies, the morning brief, and keeping each
 // conversation's running summary short. Shared by the chat and brief routes.
 
-import { briefInputs, briefStale, briefWrapUp, coachChat, HISTORY_MESSAGES, KEEP_MESSAGES, morningBrief, planWeek, summarize, type ChatHooks, type ChatReply } from "./chat";
+import { afterRideBrief, briefInputs, briefStale, briefWrapUp, coachChat, ridesToday, HISTORY_MESSAGES, KEEP_MESSAGES, morningBrief, planWeek, summarize, type ChatHooks, type ChatReply } from "./chat";
 import { holdsFavorite, unpickedKeyDays } from "../engine/picks";
 import { weekStart } from "../engine/plan";
 import { addDays } from "../engine/pmc";
@@ -23,7 +23,11 @@ import {
 } from "./store";
 import { weighInOn } from "../body-data";
 import { reviewTime, type SnapshotDay, type WeekReview } from "../engine/review";
-import { planSnapshot, reviewWeek, type TrainingState } from "../training";
+import { complianceDays, plannedOn, planSnapshot, reviewWeek, type TrainingState } from "../training";
+import { loadStream } from "../activities";
+import { markDays } from "../engine/compliance";
+import { DIFFICULTY_LABELS } from "../engine/feedback";
+import { rideDebrief, type RideDebrief } from "../engine/ride-debrief";
 import type { createClient } from "../supabase/server";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -79,17 +83,28 @@ export async function brief(supabase: Supabase, hooks: ChatHooks): Promise<Store
   const data = await loadCoachData(supabase);
   const today = data.state.today;
   const inputs = briefInputs(data.state, Boolean(weighInOn(data.body, today, data.state.athlete.timezone)));
-  const existing = await loadBrief(supabase, today);
+  let existing = await loadBrief(supabase, today);
   if (existing && !briefStale(existing, inputs)) return existing;
+  const afterBefore = Boolean((existing?.meta as { after?: string | null } | undefined)?.after);
+  // Today's ride was taken off the day: its brief goes, and this morning's is back (rewritten if it's out of date).
+  if (!inputs.after && existing && afterBefore) {
+    await deleteMessage(supabase, existing.id);
+    existing = await loadBrief(supabase, today);
+    if (existing && !briefStale(existing, inputs)) return existing;
+  }
+  // After a ride a new brief is written beside this morning's, which stays; only an earlier after-ride brief is replaced.
+  const replaced = inputs.after && !afterBefore ? null : existing;
   // A rewrite stays in the brief's conversation; a new brief goes to the current one.
   const conversation = existing?.conversationId ? await loadConversation(supabase, existing.conversationId) : await currentConversation(supabase);
   // The brief being replaced is left out: it quotes the numbers that changed.
-  const history = (await loadUnsummarized(supabase, conversation, 7)).filter((m) => m.id !== existing?.id).slice(-6);
-  const reply = await morningBrief(coach.complete, data, history, conversation.summary, hooks);
+  const history = (await loadUnsummarized(supabase, conversation, 7)).filter((m) => m.id !== replaced?.id).slice(-6);
+  const reply = inputs.after
+    ? await afterRideBrief(coach.complete, data, await todaysRide(supabase, data.state), history, conversation.summary, hooks)
+    : await morningBrief(coach.complete, data, history, conversation.summary, hooks);
   // Changes you've already applied or dismissed stay with the rewritten brief.
-  const settled = existing?.proposals.filter((p) => p.status !== "pending") ?? [];
+  const settled = replaced?.proposals.filter((p) => p.status !== "pending") ?? [];
   const proposals = [...settled, ...reply.proposals.filter((p) => !settled.some((s) => JSON.stringify(s.change) === JSON.stringify(p.change)))];
-  if (existing) await deleteMessage(supabase, existing.id);
+  if (replaced) await deleteMessage(supabase, replaced.id);
   return saveMessage(supabase, conversation, {
     role: "assistant",
     kind: "brief",
@@ -98,8 +113,25 @@ export async function brief(supabase: Supabase, hooks: ChatHooks): Promise<Store
     proposals,
     model: coach.model,
     // A closing line saved as the brief is written again once, not on every visit.
-    meta: { ...inputs, ...(inputs.recommended != null ? { today: reply.today ?? null } : {}), ...(briefWrapUp(reply.message) ? { wrapUp: true } : {}) },
+    meta: { ...inputs, ...(inputs.recommended != null && !inputs.after ? { today: reply.today ?? null } : {}), ...(briefWrapUp(reply.message) ? { wrapUp: true } : {}) },
   });
+}
+
+/** Today's main ride against its plan, from the engine, for the after-ride brief. */
+async function todaysRide(supabase: Supabase, state: TrainingState): Promise<RideDebrief> {
+  const ridden = ridesToday(state)!;
+  const { main, others } = ridden;
+  const stream = await loadStream(supabase, main.id).catch(() => null);
+  const mark = markDays(complianceDays(state, addDays(state.today, -1), state.today), state.today).get(state.today);
+  const planned = plannedOn(state, mark?.movedFrom ?? state.today);
+  const answer = state.feedback.find((f) => f.rideId === main.id);
+  return rideDebrief(
+    main,
+    planned ? { name: planned.session?.workout.name ?? null, duration: planned.duration, stress: planned.stress } : null,
+    stream ? { workout: stream.workout ?? null, intervals: stream.intervals ?? null } : null,
+    answer ? { difficulty: DIFFICULTY_LABELS[answer.difficulty], rpe: answer.rpe, note: answer.note } : null,
+    others,
+  );
 }
 
 /** Don't run the weekly planning more often than this on its own (a failed or partial run waits too). */

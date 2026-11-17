@@ -1,6 +1,6 @@
 // Settings → Connections → Strava: connect once, and rides recorded here post to Strava as Lactic
-// activities. Shown while the "Post rides to Strava" experiment is on. A paired iPhone shows the
-// computer's connection instead: the computer posts the rides recorded on the phone.
+// activities. Shown while the "Post rides to Strava" experiment is on. A paired iPhone can connect
+// too, but the computer posts: the sign-in goes to it on the next sync.
 
 import { useEffect, useState } from "react";
 import { button, Result } from "@/components/ui";
@@ -43,7 +43,7 @@ export function StravaSection() {
           Strava <ExperimentalTag className="ml-1 align-[2px]" />
         </>
       }
-      description="Posts rides you record here to your Strava as Lactic activities, with the workout and how each interval went."
+      description="Posts rides you record here to your Strava, with the workout's name and shape."
     >
       <div className="sm:col-span-2">
         <StravaPanel />
@@ -124,19 +124,11 @@ export function StravaPanel() {
     </button>
   );
 
-  if (!connection && viaComputer)
-    return (
-      <p className="text-sm text-muted">
-        Connect Strava in Lactic on your computer. Your computer then posts the rides you record on this iPhone too, once they sync, so none goes twice.
-      </p>
-    );
-
   if (!connection)
     return (
       <div className="space-y-3 text-sm">
         <p className="text-muted">
-          Each ride you record in Lactic shows on Strava as a Lactic activity: the workout&apos;s name as the title, and how each interval went, your
-          normalized power, TSS and heart rate in the description. Lactic only asks Strava for permission to upload; it can&apos;t read your Strava.
+          Lactic can only upload to your Strava. It can&apos;t read it.{viaComputer && " Your computer posts the rides once they sync."}
         </p>
         {connectButton}
         {available === false && <p className="text-muted">Strava isn&apos;t switched on for Lactic yet, or lactic.fit can&apos;t be reached right now.</p>}
@@ -147,17 +139,14 @@ export function StravaPanel() {
   return (
     <div className="space-y-4 text-sm">
       <p>
-        {viaComputer ? "Connected on your computer" : "Connected"}
-        {connection.athleteName ? ` as ${connection.athleteName}` : ""}.
-        {viaComputer && <span className="text-muted"> It posts the rides you record on this iPhone once they sync, so none goes twice.</span>}
+        Connected{connection.athleteName ? ` as ${connection.athleteName}` : ""}.
+        {viaComputer && <span className="text-muted"> Your computer posts this iPhone&apos;s rides once they sync.</span>}
       </p>
       {connection.needsReconnect && (
         <div role="alert" className="space-y-2 rounded-lg border border-line bg-raised p-3">
           <p className="font-medium">Strava signed Lactic out.</p>
-          <p className="text-muted">
-            {viaComputer ? "Connect Strava again in Lactic on your computer, and the rides waiting will go." : "Connect again and the rides waiting will go."}
-          </p>
-          {!viaComputer && connectButton}
+          <p className="text-muted">Connect again and the rides waiting will go.</p>
+          {connectButton}
         </div>
       )}
       <label className="flex items-start gap-3">
@@ -202,18 +191,16 @@ export function StravaPanel() {
           </ul>
         </div>
       )}
-      {!viaComputer && (
-        <div className="flex flex-wrap gap-2">
-          {uploads.some((u) => u.status === "pending" || u.status === "processing") && (
-            <button type="button" className={button.secondary} onClick={() => void retry()} disabled={busy}>
-              Send now
-            </button>
-          )}
-          <button type="button" className={button.ghost} onClick={() => void disconnect()} disabled={busy}>
-            Disconnect Strava
+      <div className="flex flex-wrap gap-2">
+        {!viaComputer && uploads.some((u) => u.status === "pending" || u.status === "processing") && (
+          <button type="button" className={button.secondary} onClick={() => void retry()} disabled={busy}>
+            Send now
           </button>
-        </div>
-      )}
+        )}
+        <button type="button" className={button.ghost} onClick={() => void disconnect()} disabled={busy}>
+          Disconnect Strava
+        </button>
+      </div>
       {result && <Result ok={result.ok}>{result.message}</Result>}
     </div>
   );

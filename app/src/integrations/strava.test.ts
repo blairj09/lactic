@@ -5,20 +5,24 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 const invoked: string[] = [];
 vi.mock("~/platform/native", () => ({
   isDesktop: true,
-  invoke: async (command: string) => {
+  invoke: async (command: string, args?: { name?: string; code?: string }) => {
     invoked.push(command);
     if (command === "strava_refresh" && refreshFails) throw "reconnect: Strava turned the sign-in down.";
+    if (command === "secret_status") return signedIn && args?.name?.startsWith("strava") ? "…abcd" : null;
+    if (command === "strava_finish") return { athleteId: "8", name: "J B", scope: "activity:write" };
   },
   openExternal: async () => {},
   isPhone: () => device !== "computer",
   os: () => (device === "computer" ? "macos" : "ios"),
 }));
 let refreshFails = false;
+/** Whether this device's keychain holds a Strava sign-in. */
+let signedIn = true;
 /** Which device the test runs as: a computer, an iPhone on its own, or one paired with a computer. */
 let device: "computer" | "phone" | "paired" = "computer";
 vi.mock("~/phone/plugin", () => ({
   phoneStatus: async () => ({ paired: device === "paired" ? { computer: "Mac", deviceId: "d", lastSentAt: null } : null }),
-  webAuth: async () => ({ url: "" }),
+  webAuth: async (url: string) => ({ url: `lactic://lactic.fit/strava?state=${new URL(url).searchParams.get("state")}&code=c1&scope=activity:write` }),
 }));
 const synced: string[] = [];
 vi.mock("~/phone/link", () => ({ syncWithComputer: async () => void synced.push("sync") }));
@@ -30,7 +34,7 @@ import { setSql } from "~/db/sql";
 import { migrate } from "~/db/migrate";
 import { localClient } from "~/db/supabase-client";
 import { setCurrentExperiments } from "@/lib/experiments";
-import { connectStrava, disconnectStrava, loadStrava, postRideToStrava, queueStravaRide, readStravaReturn, recentStravaUploads, stravaUploadFor, syncStrava } from "./strava";
+import { connectStrava, loadStrava, postRideToStrava, queueStravaRide, readStravaReturn, recentStravaUploads, stravaUploadFor, syncStrava } from "./strava";
 
 const RIDE = "00000000-0000-4000-8000-0000000000a1";
 type Call = { url: string; form: FormData | null };
@@ -46,6 +50,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   setCurrentExperiments({ race_report: false, strava_upload: true, course_prep: false, adaptive_workouts: false });
   refreshFails = false;
+  signedIn = true;
   device = "computer";
   synced.length = 0;
   calls = [];
@@ -148,8 +153,27 @@ describe("Strava on the iPhone", () => {
     // Still waiting, for the computer to send once it syncs; the phone hasn't marked the sign-in bad.
     expect(await stravaUploadFor(RIDE)).toMatchObject({ status: "pending" });
     expect((await loadStrava())?.needsReconnect).toBe(false);
-    await expect(connectStrava()).rejects.toThrow(/on your computer/);
-    await expect(disconnectStrava()).rejects.toThrow(/on your computer/);
+  });
+
+  it("connects on a paired iPhone and hands the sign-in to the computer, which posts", async () => {
+    device = "paired";
+    await localClient.from("strava_connections").delete().neq("athlete_id", "");
+    replies.push(json({ clientId: "138921" }));
+    expect(await connectStrava()).toMatchObject({ athleteId: "8", needsReconnect: false });
+    expect(invoked).toContain("strava_finish");
+    await vi.waitFor(() => expect(synced).toEqual(["sync"]));
+    // The phone itself never refreshes or posts.
+    expect(await syncStrava()).toBeUndefined();
+    expect(invoked).not.toContain("strava_refresh");
+  });
+
+  it("on the computer, waits for a sign-in that hasn't come across from the iPhone yet", async () => {
+    signedIn = false;
+    await queueStravaRide(RIDE, new Uint8Array([1]));
+    expect(await syncStrava()).toMatchObject({ ok: false, message: expect.stringMatching(/Waiting/) });
+    expect(invoked).not.toContain("strava_refresh");
+    expect((await loadStrava())?.needsReconnect).toBe(false);
+    expect(await stravaUploadFor(RIDE)).toMatchObject({ status: "pending" });
   });
 
   it("reads the code from where Strava's sign-in sent the iPhone back", () => {

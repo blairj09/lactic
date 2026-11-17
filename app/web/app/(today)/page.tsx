@@ -10,7 +10,7 @@ import { loadAthlete, loadStream, loadWatts } from "@/lib/activities";
 import { rideShape } from "@/lib/engine/week-glance";
 import { loadTrainingState } from "@/lib/training";
 import { briefInputs, briefStale } from "@/lib/coach/chat";
-import { loadBrief, loadReview } from "@/lib/coach/store";
+import { loadBrief, loadMorningBrief, loadReview } from "@/lib/coach/store";
 import { reviewTime } from "@/lib/engine/review";
 import { weekStart } from "@/lib/engine/plan";
 import { loadConnection as loadIntervals } from "@/lib/intervals/client";
@@ -76,6 +76,8 @@ export default async function Today({ searchParams }: { searchParams?: Promise<R
       : null,
     loadWatts(supabase, weekRides.map(([, id]) => id)),
   ]);
+  // Once a brief after today's ride has taken over, this morning's stays a click away under it.
+  const morningBrief = brief?.meta.after ? await optional(loadMorningBrief(supabase, today)) : null;
   const rideShapes = Object.fromEntries(weekRides.flatMap(([d, id]) => (weekWatts.get(id) ? [[d, rideShape(weekWatts.get(id)!)]] : [])));
   const review = Boolean(reviewMessage?.meta.review);
   const due = (c: { lastSyncedAt: Date | null } | null) => Boolean(c && (!c.lastSyncedAt || Date.now() - c.lastSyncedAt.getTime() > 30 * 60_000));
@@ -106,7 +108,7 @@ export default async function Today({ searchParams }: { searchParams?: Promise<R
             coachEnabled
               ? (() => {
                   const inputs = briefInputs(state, Boolean(body && weighInOn(body, today, athlete.timezone)));
-                  return { message: brief, stale: briefStale(brief, inputs), night: inputs.night ?? null };
+                  return { message: brief, stale: briefStale(brief, inputs), night: inputs.night ?? null, after: inputs.after ?? null, morning: morningBrief };
                 })()
               : null
           }
