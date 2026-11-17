@@ -14,7 +14,6 @@ import { saveBytes } from "~/data/export";
 import { PACKAGE_EXTENSION, packagePlugin } from "~/plugins/package";
 import { adds, BrowseList, CANT, GitHubDialog, PermissionDialog, PluginIcon, ReadLine, RefusedDialog, sourceChange, sourceLabel, UpdateDialog } from "./plugin-dialogs";
 import { PluginPreview } from "./plugin-preview";
-import { SandboxCheck } from "./sandbox-check";
 import { isPhone } from "~/platform/native";
 import { phoneStatus } from "~/phone/plugin";
 import { openFeedback } from "~/feedback/dialog";
@@ -229,7 +228,6 @@ function AddedList({
   run: (f: () => Promise<unknown>) => void;
   onBrowse: () => void;
 }) {
-  const [checking, setChecking] = useState(false);
   const [paired, setPaired] = useState(false);
   useEffect(() => {
     if (isPhone())
@@ -273,13 +271,7 @@ function AddedList({
         )}
       </ul>
       {paired && <p className="text-sm text-faint">Plugins you add on your Mac show up here, off until you turn them on. To add from a GitHub link, use your Mac.</p>}
-      <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-faint">
-        Updates are never automatic.
-        <button type="button" className="text-muted underline" onClick={() => setChecking((c) => !c)}>
-          {checking ? "Hide sandbox check" : "Run sandbox check"}
-        </button>
-      </p>
-      {checking && <SandboxCheck />}
+      <p className="text-sm text-faint">Updates are never automatic.</p>
     </div>
   );
 }

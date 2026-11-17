@@ -1,6 +1,6 @@
 // Lactic's Settings: the web app's panels where they fit (profile, appearance, coach voice and
 // memory, intervals.icu, Bluetooth, FIT import) and Lactic's own (coach setup, Apple Health,
-// your data; simulated gear in development builds). Rendered like the other pages, as an async page.
+// your data; simulated gear in development builds, the plugin sandbox check in development and Preview builds). Rendered like the other pages, as an async page.
 
 import Nav from "@/components/nav";
 import { Page } from "@/components/ui";
@@ -21,6 +21,8 @@ import { CoachSetupPanel } from "~/setup/coach";
 import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
 import { DataPanel, SimulatorSwitch } from "./panels";
+import { SandboxCheck } from "./sandbox-check";
+import { isPreview } from "~/app/beta";
 import AppStartSwitch from "~/ride/app-start-switch";
 import { canWatchApps } from "~/ride/app-start";
 import { StravaSection } from "./strava-panel";
@@ -263,7 +265,7 @@ export default async function SettingsPage() {
     pluginsAllowed && {
       key: "plugins",
       section: "plugins",
-      text: "Plugins add-ons install add GitHub catalog browse ride fields ride page sections sandbox update remove",
+      text: "Plugins add-ons install add GitHub catalog browse ride fields ride page sections update remove",
       node: (
         <Section id="plugins-list" title="Plugins" description="No internet, no changes, and they read only what you allow.">
           <div className="sm:col-span-2">
@@ -272,6 +274,17 @@ export default async function SettingsPage() {
         </Section>
       ),
     },
+    pluginsAllowed &&
+      (import.meta.env.DEV || isPreview) && {
+        key: "sandbox-check",
+        section: "plugins",
+        text: "Plugin sandbox check escape tests development",
+        node: (
+          <Section title="Sandbox check" description="Development and Preview builds only: tests that plugins can't escape their sandbox.">
+            <SandboxCheck />
+          </Section>
+        ),
+      },
     {
       key: "data",
       section: "data",

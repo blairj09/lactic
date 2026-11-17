@@ -1,5 +1,6 @@
-// Lactic Modular and development builds only: run the plugin sandbox self-check (src/plugins/
-// selfcheck.ts) inside this app's own webview, so the escape tests can be tried on a real Mac build.
+// Development and Preview builds only (Settings → Plugins, below the list): run the plugin sandbox
+// self-check (src/plugins/selfcheck.ts) inside this app's own webview, so the escape tests can be tried
+// on a real build. Passed on macOS and iOS; rerun on Windows and Linux, and whenever the plugin engine changes.
 
 import { useState } from "react";
 import { button, Result } from "@/components/ui";
