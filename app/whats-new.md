@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- AI apps connected to Lactic now show a friendly name, like "Claude connected", and clicking it lists each app and when it last read your training.
+
 ## 0.3.4
 
 - Simpler Settings: pick your coach, AI provider and model from dropdowns, health tracking uses switches, and less-used device actions sit in a ⋯ menu.

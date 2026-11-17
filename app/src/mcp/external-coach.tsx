@@ -9,30 +9,17 @@ import { shortcutHeld } from "@/app/coach/open";
 import { openFeedback } from "~/feedback/dialog";
 import { isDemo } from "~/demo/flag";
 import { modKey } from "~/platform/native";
-import { ago, appName, connection, useMcpStatus, type McpStatus } from "./status";
+import { ago, connection, pillLabel, useMcpStatus } from "./status";
 
-const ASK = ["How's my training going?", "Should I ride hard today, or take it easy?", "Plan my week around a long ride on Saturday."];
+const ASK = ["How's my training going?", "Should I ride hard today?", "Plan my week around a long Saturday ride."];
 
 const DOT = { active: "bg-positive", added: "bg-warning", none: "bg-faint" } as const;
-
-function statusLine(s: McpStatus | null): string {
-  const name = appName(s);
-  switch (connection(s)) {
-    case "active":
-      return `Connected. ${name} last read your training ${ago(s!.lastSeen!.at)}.`;
-    case "added":
-      return "Added to Claude Desktop. Quit and reopen Claude, then ask it something.";
-    default:
-      return "No AI app has connected yet.";
-  }
-}
 
 export function ExternalCoachButton({ alongside = false }: { alongside?: boolean }) {
   const [open, setOpen] = useState(false);
   const status = useMcpStatus();
   const box = useRef<HTMLDivElement>(null);
   const state = connection(status);
-  const name = appName(status);
 
   useEffect(() => {
     // With the built-in coach on too, ⌘K belongs to its drawer.
@@ -71,29 +58,42 @@ export function ExternalCoachButton({ alongside = false }: { alongside?: boolean
         aria-haspopup="dialog"
         onClick={() => setOpen((o) => !o)}
         className={`inline-flex h-8 items-center gap-2 rounded-md border border-control px-3 text-sm text-muted hover:text-ink ${open ? "bg-active text-ink" : ""}`}
-        title={alongside ? `${name} can also coach you, through Lactic's MCP server` : `${name} is your coach, through Lactic's MCP server (${modKey()}K)`}
+        title={alongside ? "AI apps connected to Lactic" : `Your AI coach (${modKey()}K)`}
       >
         <span className={`size-1.5 rounded-full ${DOT[state]}`} aria-hidden />
-        {alongside ? name : state === "none" ? "External coach" : `Coach in ${name}`}
+        {state === "active" ? pillLabel(status) : "External coach"}
       </button>
       {open && (
         <div role="dialog" aria-label="Your AI coach" className="absolute right-0 top-10 z-40 w-[min(22rem,calc(100vw-2rem))] space-y-4 rounded-lg border border-line bg-surface p-4 text-sm shadow-xl">
           <div className="space-y-1">
-            <p className="font-semibold">{alongside ? `${name} can coach you too` : `Your coach is ${name}`}</p>
+            <p className="font-semibold">{alongside ? "AI apps can coach you too" : "Your coach lives in your AI app"}</p>
             <p className="text-muted">
-              {alongside
-                ? `Alongside the built-in coach, ${name} can read your training from Lactic and suggest changes.`
-                : `Lactic has no chat of its own in this mode. Open ${name} and talk to it there: it reads your plan, rides, fitness and recovery from Lactic.`}{" "}
-              Changes it suggests show up in Lactic for you to apply or dismiss.
+              {alongside ? "They read your training and suggest changes for you to apply or dismiss." : "Talk to it there. It reads your training and suggests changes for you to apply or dismiss here."}
             </p>
           </div>
-          <p className="flex items-start gap-2">
-            <span className={`mt-1.5 size-1.5 flex-none rounded-full ${DOT[state]}`} aria-hidden />
-            <span>{statusLine(status)}</span>
-          </p>
+          {state === "active" && status?.apps?.length ? (
+            <div className="space-y-1.5">
+              <p className="font-medium">Connected</p>
+              <ul className="space-y-1">
+                {status.apps.map((a) => (
+                  <li key={a.name} className="flex items-center gap-2">
+                    <span className={`size-1.5 flex-none rounded-full ${DOT.active}`} aria-hidden />
+                    <span>
+                      {a.name} <span className="text-muted">· {ago(a.at)}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="flex items-start gap-2">
+              <span className={`mt-1.5 size-1.5 flex-none rounded-full ${DOT[state]}`} aria-hidden />
+              <span>{state === "added" ? "Added to Claude Desktop. Quit and reopen Claude, then ask it something." : "No AI app has connected yet."}</span>
+            </p>
+          )}
           {state !== "none" ? (
             <div className="space-y-1.5">
-              <p className="font-medium">Try asking {name}</p>
+              <p className="font-medium">Try asking</p>
               <ul className="space-y-1 text-muted">
                 {ASK.map((q) => (
                   <li key={q}>“{q}”</li>
