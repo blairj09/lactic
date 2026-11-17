@@ -33,7 +33,7 @@ import { FeatureSetting } from "~/setup/features";
 import { ExperimentsSetting } from "./experiments";
 import { features } from "@/lib/features";
 import { SettingsShell, type SettingBlock } from "./shell";
-import { isDesktop, isPhone, phoneHealthName, phoneWord, thisDevice } from "~/platform/native";
+import { isDesktop, isPhone, phoneHealthName, phoneWord } from "~/platform/native";
 import { ComputerLink, PairPhone, PhoneHealth } from "~/phone/settings";
 import { phoneStatus } from "~/phone/plugin";
 import { ftpSourceLine } from "@/lib/engine/provenance";
@@ -110,7 +110,7 @@ export default async function SettingsPage() {
       section: "devices",
       text: "Bluetooth pair trainer smart trainer KICKR heart rate strap power meter cadence scale sensors",
       node: (
-        <Section id="bluetooth" title="Bluetooth" description="Pair once and your gear reconnects on its own.">
+        <Section id="bluetooth" title="Bluetooth" description="Your trainer, sensors and scale.">
           <BluetoothDevices />
         </Section>
       ),
@@ -215,7 +215,7 @@ export default async function SettingsPage() {
       section: "health",
       text: "What you track sleep recovery weight turn off",
       node: (
-        <Section id="tracking" title="What you track" description="Besides rides and your plan. Turning one off hides it everywhere.">
+        <Section id="tracking" title="What you track" description="Besides rides and your plan. Off hides it; saved data stays.">
           <FeatureSetting />
         </Section>
       ),
@@ -267,7 +267,7 @@ export default async function SettingsPage() {
       section: "plugins",
       text: "Plugins add-ons install add GitHub catalog browse ride fields ride page sections update remove",
       node: (
-        <Section id="plugins-list" title="Plugins" description="No internet, no changes, and they read only what you allow.">
+        <Section id="plugins-list">
           <div className="sm:col-span-2">
             <PluginsSettings />
           </div>
@@ -290,7 +290,7 @@ export default async function SettingsPage() {
       section: "data",
       text: "Your data backup back up export restore delete everything file CSV",
       node: (
-        <Section title="Your data" description={`Everything is in one file on ${thisDevice()}.`}>
+        <Section>
           <DataPanel />
         </Section>
       ),
@@ -300,37 +300,21 @@ export default async function SettingsPage() {
       section: "experimental",
       text: "Experimental features race report course prep adaptive workouts beta",
       node: (
-        <Section title="Experimental features" description="Off until you turn them on, and labelled wherever they show.">
+        <Section>
           <ExperimentsSetting />
         </Section>
       ),
     },
     {
-      key: "tour",
+      key: "help",
       section: "help",
-      text: "Getting started tour walk through",
+      text: "Getting started tour walk through Feedback problem bug idea report About Lactic version update",
       node: (
-        <Section id="tour" title="Getting started" description="A short walk through each screen.">
-          <TakeTour />
-        </Section>
-      ),
-    },
-    {
-      key: "feedback",
-      section: "help",
-      text: "Feedback problem bug idea report",
-      node: (
-        <Section id="feedback" title="Feedback" description="A problem or an idea? No account needed.">
-          <FeedbackSetting />
-        </Section>
-      ),
-    },
-    {
-      key: "about",
-      section: "help",
-      text: "About Lactic version update",
-      node: (
-        <Section id="about" title="About Lactic" description="Your version, and whether there's a newer one.">
+        <Section id="about">
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            <TakeTour />
+            <FeedbackSetting />
+          </div>
           <AboutSetting />
         </Section>
       ),

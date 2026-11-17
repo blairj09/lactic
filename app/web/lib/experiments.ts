@@ -16,17 +16,17 @@ export const EXPERIMENTS: Experiment[] = [
   {
     id: "race_report",
     title: "Race reports",
-    line: "Line your race up against other riders' files, lap by lap and corner by corner, to see where you lost time and what to work on. Long races that aren't laps (a point-to-point road race, a gran fondo) get pacing, fade, climbs, stops and your past years instead. Opens from a race's ride page.",
+    line: "Compare a race with other riders' files, lap by lap. Opens from a race's ride page.",
   },
   {
     id: "course_prep",
     title: "Race courses",
-    line: "Attach a race's course file (GPX, TCX or FIT) to an event on the Plan. You get a pre-race report with the profile, the climbs and how hard to ride each one, fueling, and the forecast from two weeks out, and the plan's key workouts train for the course's climbs.",
+    line: "Add a course file to a Plan event for a pre-race report and climb-specific workouts.",
   },
   {
     id: "adaptive_workouts",
     title: "Adaptive workouts",
-    line: "During a workout, Lactic watches your cadence, heart rate and how you're riding. If a workout is clearly too hard, it eases the efforts still to come and offers Undo. If it looks too easy, it asks before making them harder. It never changes the effort you're in, FTP tests or race openers, and never more than 10%. Turn it off for one ride in the ride controls.",
+    line: "Eases a workout that's clearly too hard, and asks before making an easy one harder.",
   },
 ];
 
