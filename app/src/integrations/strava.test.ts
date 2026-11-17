@@ -33,7 +33,6 @@ import { openSqlJs } from "~/db/sqljs";
 import { setSql } from "~/db/sql";
 import { migrate } from "~/db/migrate";
 import { localClient } from "~/db/supabase-client";
-import { setCurrentExperiments } from "@/lib/experiments";
 import { connectStrava, loadStrava, postRideToStrava, queueStravaRide, readStravaReturn, recentStravaUploads, stravaUploadFor, syncStrava } from "./strava";
 
 const RIDE = "00000000-0000-4000-8000-0000000000a1";
@@ -48,7 +47,6 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  setCurrentExperiments({ race_report: false, strava_upload: true, course_prep: false, adaptive_workouts: false });
   refreshFails = false;
   signedIn = true;
   device = "computer";
@@ -113,10 +111,7 @@ describe("posting rides to Strava", () => {
     expect((await loadStrava())?.needsReconnect).toBe(true);
   });
 
-  it("queues nothing with the experiment off or posting turned off", async () => {
-    setCurrentExperiments({ race_report: false, strava_upload: false, course_prep: false, adaptive_workouts: false });
-    await queueStravaRide(RIDE, new Uint8Array([1]));
-    setCurrentExperiments({ race_report: false, strava_upload: true, course_prep: false, adaptive_workouts: false });
+  it("queues nothing with posting turned off", async () => {
     await localClient.from("strava_connections").update({ upload_rides: false }).neq("athlete_id", "");
     await queueStravaRide(RIDE, new Uint8Array([1]));
     expect(await recentStravaUploads()).toEqual([]);
