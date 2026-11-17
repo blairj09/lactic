@@ -96,6 +96,20 @@ async function nativeFetch(request: Request, wantsStream: boolean): Promise<Resp
     const channel = new Channel<{ status?: number; headers?: Record<string, string>; chunk?: string }>();
     return new Promise<Response>((resolve, reject) => {
       let started = false;
+      // The Rust core doesn't see the request's AbortSignal, so an abort (a timeout) cancels it here.
+      const signal = request.signal;
+      const abort = () => {
+        void invoke("http_cancel", { streamId });
+        const reason = signal.reason ?? new DOMException("Aborted", "AbortError");
+        if (!started) return reject(reason);
+        try {
+          controller.error(reason);
+        } catch {
+          // Already closed.
+        }
+      };
+      if (signal.aborted) return abort();
+      signal.addEventListener("abort", abort, { once: true });
       channel.onmessage = (m) => {
         if (m.status !== undefined) {
           started = true;
@@ -103,8 +117,14 @@ async function nativeFetch(request: Request, wantsStream: boolean): Promise<Resp
         } else if (m.chunk !== undefined) controller.enqueue(encoder.encode(m.chunk));
       };
       invoke("http_stream", { request: { ...req, streamId }, onChunk: channel })
-        .then(() => controller.close())
+        .then(() => {
+          signal.removeEventListener("abort", abort);
+          if (signal.aborted) return;
+          controller.close();
+        })
         .catch((e) => {
+          signal.removeEventListener("abort", abort);
+          if (signal.aborted) return;
           if (!started) return reject(new TypeError(String(e)));
           try {
             controller.error(new TypeError(String(e)));
@@ -114,9 +134,17 @@ async function nativeFetch(request: Request, wantsStream: boolean): Promise<Resp
         });
     });
   }
-  const res = await invoke<{ status: number; headers: Record<string, string>; bodyBase64: string | null }>("http_request", { request: { ...req, response: "binary" } }).catch((e) => {
+  const call = invoke<{ status: number; headers: Record<string, string>; bodyBase64: string | null }>("http_request", { request: { ...req, response: "binary" } }).catch((e) => {
     throw new TypeError(String(e));
   });
+  const signal = request.signal;
+  let onAbort = () => {};
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = () => reject(signal.reason ?? new DOMException("Aborted", "AbortError"));
+    if (signal.aborted) onAbort();
+    else signal.addEventListener("abort", onAbort, { once: true });
+  });
+  const res = await Promise.race([call, aborted]).finally(() => signal.removeEventListener("abort", onAbort));
   const bytes = res.bodyBase64 ? base64ToBytes(res.bodyBase64) : new Uint8Array();
   const nullBody = res.status === 204 || res.status === 304;
   return new Response(nullBody ? null : (bytes as BlobPart), { status: res.status, headers: res.headers });

@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- The Coach's brief no longer gets stuck on "Writing your brief" when the AI model stops answering: it tries again, then tells you so you can retry or pick another model.
+
 ## 0.3.5
 
 - Connected AI apps show a friendly name, like "Claude connected". Click it to see each app and when it last read your training.

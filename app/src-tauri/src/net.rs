@@ -144,14 +144,30 @@ pub async fn http_request(net: State<'_, Net>, secrets: State<'_, Secrets>, requ
 /// (server-sent events from a model). Resolves once the body ends.
 #[tauri::command]
 pub async fn http_stream(net: State<'_, Net>, secrets: State<'_, Secrets>, request: Request, on_chunk: Channel<serde_json::Value>) -> Result<Response, String> {
-    let res = build(&net, &secrets, &request)?.send().await.map_err(friendly)?;
-    let status = res.status().as_u16();
-    let headers = header_map(res.headers());
-    let _ = on_chunk.send(serde_json::json!({ "status": status, "headers": headers }));
+    // Cancellable from the start: a provider can hang before it sends any headers.
     let (tx, mut rx) = tokio::sync::oneshot::channel::<()>();
     if let Some(id) = &request.stream_id {
         net.cancels.lock().unwrap().insert(id.clone(), tx);
     }
+    let sent = tokio::select! {
+        _ = &mut rx => None,
+        res = build(&net, &secrets, &request)?.send() => Some(res),
+    };
+    let res = match sent {
+        Some(Ok(res)) => res,
+        other => {
+            if let Some(id) = &request.stream_id {
+                net.cancels.lock().unwrap().remove(id);
+            }
+            return Err(match other {
+                Some(Err(e)) => friendly(e),
+                _ => "cancelled".into(),
+            });
+        }
+    };
+    let status = res.status().as_u16();
+    let headers = header_map(res.headers());
+    let _ = on_chunk.send(serde_json::json!({ "status": status, "headers": headers }));
     let mut stream = res.bytes_stream();
     let mut pending: Vec<u8> = Vec::new();
     loop {
@@ -168,7 +184,12 @@ pub async fn http_stream(net: State<'_, Net>, secrets: State<'_, Secrets>, reque
                         let _ = on_chunk.send(serde_json::json!({ "chunk": text }));
                     }
                 }
-                Some(Err(e)) => return Err(friendly(e)),
+                Some(Err(e)) => {
+                    if let Some(id) = &request.stream_id {
+                        net.cancels.lock().unwrap().remove(id);
+                    }
+                    return Err(friendly(e));
+                }
                 None => break,
             }
         }

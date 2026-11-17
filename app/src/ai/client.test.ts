@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { BudgetReached, sampling } from "./client";
+import { describe, expect, it, vi } from "vitest";
+import { BudgetReached, sampling, stallWatch } from "./client";
 
 describe("BudgetReached", () => {
   it("says when the coach comes back", () => {
@@ -17,5 +17,32 @@ describe("sampling", () => {
     expect(sampling("anthropic", "claude-haiku-5-5", 800)).toEqual({ max_tokens: 4800 });
     expect(sampling("openrouter", "anthropic/claude-sonnet-5.5", 800)).toEqual({ max_tokens: 4800 });
     expect(sampling("openai", "gpt-6-luna", 800)).toEqual({ max_completion_tokens: 4800 });
+  });
+});
+
+describe("stallWatch", () => {
+  it("aborts a stream that goes quiet, not one that keeps sending", () => {
+    vi.useFakeTimers();
+    const watch = stallWatch(1000);
+    vi.advanceTimersByTime(900);
+    watch.alive();
+    vi.advanceTimersByTime(900);
+    expect(watch.signal.aborted).toBe(false);
+    vi.advanceTimersByTime(200);
+    expect(watch.signal.aborted).toBe(true);
+    expect((watch.signal.reason as DOMException).name).toBe("TimeoutError");
+    vi.useRealTimers();
+  });
+
+  it("caps a reply that never ends", () => {
+    vi.useFakeTimers();
+    const watch = stallWatch(1000);
+    for (let i = 0; i < 400; i++) {
+      vi.advanceTimersByTime(900);
+      watch.alive();
+    }
+    expect(watch.signal.aborted).toBe(true);
+    watch.stop();
+    vi.useRealTimers();
   });
 });
