@@ -6,7 +6,9 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
-- AI apps connected to Lactic now show a friendly name, like "Claude connected", and clicking it lists each app and when it last read your training.
+## 0.3.5
+
+- Connected AI apps show a friendly name, like "Claude connected". Click it to see each app and when it last read your training.
 
 ## 0.3.4
 
