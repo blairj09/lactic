@@ -9,7 +9,7 @@ Write for riders: what they can now do or what works better, one short line each
 - iPhone: plugins. Settings → Plugins adds Lactic's own, and plugins you added on your computer show up off until you turn them on for the phone. Their ride fields work when the phone runs the ride, and their sections show on ride pages. Adding from a GitHub link or a file stays on the computer.
 - "Report a problem" on each plugin in Settings → Plugins opens feedback with the plugin filled in.
 - After you ride, the Coach's brief on Today turns into a short take on how the ride went against the plan and what it means for tomorrow. This morning's brief is still there under it.
-- iPhone: you can now turn on Post rides to Strava and connect Strava right on the phone, no computer needed. On a phone paired with a computer, your computer posts the rides.
+- Posting rides to Strava is no longer an experiment: connect Strava in Settings → Connections on your computer or iPhone, no switch to turn on first. On a phone paired with a computer, your computer posts the rides.
 
 ## 0.3.2
 

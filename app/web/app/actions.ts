@@ -145,13 +145,13 @@ export async function saveAppRide(input: {
     } catch (e) {
       console.error("Couldn't queue the ride for intervals.icu:", e);
     }
-    // Posted to Strava as a Lactic activity, when Strava is connected (an experiment for now). Not a
+    // Posted to Strava as a Lactic activity, when Strava is connected. Not a
     // ride with another app on the trainer: that app usually posts it, and two would be one too many. Post to Strava
     // on its page still sends it.
     let skippedStrava = false;
     try {
       const strava = await import("~/integrations/strava");
-      if (input.appTrainer === true) skippedStrava = strava.stravaOn() && (await strava.loadStrava())?.uploadRides === true;
+      if (input.appTrainer === true) skippedStrava = (await strava.loadStrava())?.uploadRides === true;
       else if (ids[0]) await strava.queueStravaRide(ids[0], fit());
     } catch (e) {
       console.error("Couldn't queue the ride for Strava:", e);

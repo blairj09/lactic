@@ -31,7 +31,6 @@ import { FeatureSetting } from "~/setup/features";
 import { ExperimentsSetting } from "./experiments";
 import { features } from "@/lib/features";
 import { SettingsShell, type SettingBlock } from "./shell";
-import { experiments } from "@/lib/experiments";
 import { isDesktop, isPhone, phoneHealthName, phoneWord, thisDevice } from "~/platform/native";
 import { ComputerLink, PairPhone, PhoneHealth } from "~/phone/settings";
 import { phoneStatus } from "~/phone/plugin";
@@ -196,7 +195,7 @@ export default async function SettingsPage() {
         </Section>
       ),
     },
-    experiments().strava_upload && { key: "strava", section: "connections", text: "Strava post upload rides", node: <StravaSection /> },
+    { key: "strava", section: "connections", text: "Strava post upload rides", node: <StravaSection /> },
     {
       key: "import",
       section: "connections",
@@ -286,7 +285,7 @@ export default async function SettingsPage() {
     {
       key: "experimental",
       section: "experimental",
-      text: "Experimental features race report Strava course prep adaptive workouts beta",
+      text: "Experimental features race report course prep adaptive workouts beta",
       node: (
         <Section title="Experimental features" description="Off until you turn them on, and labelled wherever they show.">
           <ExperimentsSetting />
