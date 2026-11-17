@@ -214,6 +214,10 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .file .ic { width: 34px; height: 40px; border-radius: 5px; background: #e6ecfb; color: #2b55d6; display: grid; place-items: center; font: 600 10px var(--mono); }
 .btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .btns span { border: 1px solid #d6dbe4; border-radius: 7px; padding: 6px 11px; font-weight: 500; background: #fff; }
+.ui.chat { font-size: 14px; line-height: 1.5; gap: 14px; }
+.ui.narrow { max-width: 540px; margin-inline: auto; }
+.ui .you { justify-self: end; max-width: 85%; background: #e7e9ee; padding: 10px 14px; border-radius: 12px; }
+.ui .card .btns span { font-size: 13px; }
 .btns span.dark { background: #111318; color: #fff; border-color: #111318; }
 
 /* gear */
