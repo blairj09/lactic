@@ -142,7 +142,7 @@ export default async function SettingsPage() {
       section: "coach",
       text: "Coach AI built-in external Claude ChatGPT OpenRouter API key model none MCP",
       node: (
-        <Section id="coach-settings" title="Coach" description="Built-in, an AI app you already use, or none.">
+        <Section id="coach-settings" title="Your coach" description="Who coaches, and on which model.">
           <div className="sm:col-span-2">
             <CoachSetupPanel />
           </div>
