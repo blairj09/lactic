@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { hasScript, latestTag, tagFromLocation } from "../scripts/build-demo.mjs";
+import { hasScript, latestTag, tagFromLocation, withAnalytics } from "../scripts/build-demo.mjs";
 import { fileURLToPath } from "node:url";
 import { decide } from "../scripts/should-build.mjs";
 
@@ -42,4 +42,10 @@ test("builds the try-a-ride page only from apps that have it", () => {
   const app = fileURLToPath(new URL("../../app", import.meta.url));
   assert.equal(hasScript(app, "build:ride"), true);
   assert.equal(hasScript(app, "build:nothing-like-this"), false);
+});
+
+test("the try-a-ride page gets visit counting once", () => {
+  const out = withAnalytics("<html><body><div id=app></div></body></html>");
+  assert.match(out, /<script src="\/analytics.js"><\/script>\n<\/body>/);
+  assert.equal(withAnalytics(out), out);
 });
