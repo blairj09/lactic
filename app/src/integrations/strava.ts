@@ -14,7 +14,6 @@
 // (secrets.rs SYNCED, newer sign-in wins), so the rider can connect on either one, but only the
 // device that posts refreshes it.
 
-import { experiments } from "@/lib/experiments";
 import { lapStarts, type RideInterval } from "@/lib/engine/ride-detail";
 import type { Workout } from "@/lib/engine/workout";
 import { stravaDescription, stravaTitle } from "@/lib/strava/describe";
@@ -59,9 +58,6 @@ export interface StravaUpload {
   updatedAt: string;
   name: string | null;
 }
-
-/** On when the Strava experiment is on. */
-export const stravaOn = () => experiments().strava_upload === true;
 
 /** Where Strava's sign-in sends the iPhone back to (inside lactic.fit, the API app's callback domain). */
 export const STRAVA_PHONE_REDIRECT = "lactic://lactic.fit/strava";
@@ -174,7 +170,6 @@ export async function setStravaUploads(on: boolean) {
 
 /** Queues a ride recorded here for Strava, when Strava is connected and posting is on. */
 export async function queueStravaRide(activityId: string, fit: Uint8Array) {
-  if (!stravaOn()) return;
   const db = createClient();
   const connection = await loadStrava(db);
   if (!connection?.uploadRides) return;
@@ -203,7 +198,6 @@ export async function stravaUploadFor(activityId: string): Promise<StravaUpload 
 
 /** Sends an earlier ride recorded here to Strava (rides saved before Strava was connected, or one that failed). */
 export async function postRideToStrava(activityId: string) {
-  if (!stravaOn()) throw new Error("Turn on Post rides to Strava in Settings → Experimental features first.");
   const db = createClient();
   const connection = await loadStrava(db);
   if (!connection) throw new Error("Connect Strava in Settings → Connections first.");
@@ -361,7 +355,7 @@ async function check(db: Db, activityId: string, uploadId: string) {
 
 /** The background job: refresh the token, send what's waiting, and check on what Strava is processing. */
 export async function syncStrava(): Promise<{ ok: boolean; message: string } | void> {
-  if (!isDesktop || !stravaOn()) return;
+  if (!isDesktop) return;
   // A paired iPhone leaves posting to the computer: its queue goes there when it syncs.
   if ((await stravaPoster()) !== "here") return;
   const db = createClient();

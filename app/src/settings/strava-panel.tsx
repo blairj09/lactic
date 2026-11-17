@@ -1,12 +1,10 @@
 // Settings → Connections → Strava: connect once, and rides recorded here post to Strava as Lactic
-// activities. Shown while the "Post rides to Strava" experiment is on. A paired iPhone can connect
+// activities. A paired iPhone can connect
 // too, but the computer posts: the sign-in goes to it on the next sync.
 
 import { useEffect, useState } from "react";
 import { button, Result } from "@/components/ui";
-import { ExperimentalTag } from "@/components/experimental-tag";
 import { Section } from "@/app/settings/settings-form";
-import { useExperiments } from "@/lib/use-experiments";
 import { isDesktop, isPhone, openExternal } from "~/platform/native";
 import {
   connectStrava,
@@ -33,16 +31,10 @@ const STATUS: Record<StravaUpload["status"], string> = {
 };
 
 export function StravaSection() {
-  const { strava_upload } = useExperiments();
-  if (!strava_upload) return null;
   return (
     <Section
       id="strava"
-      title={
-        <>
-          Strava <ExperimentalTag className="ml-1 align-[2px]" />
-        </>
-      }
+      title="Strava"
       description="Posts rides you record here to your Strava, with the workout's name and shape."
     >
       <div className="sm:col-span-2">
