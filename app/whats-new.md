@@ -6,7 +6,9 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
-- Settings take less room: pick your coach, AI provider and model from dropdowns, and less-used device actions sit in a ⋯ menu.
+## 0.3.4
+
+- Simpler Settings: pick your coach, AI provider and model from dropdowns, health tracking uses switches, and less-used device actions sit in a ⋯ menu.
 
 ## 0.3.3
 
