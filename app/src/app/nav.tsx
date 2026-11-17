@@ -124,7 +124,7 @@ function TabIcon({ href }: { href: string }) {
         <path d="M4 10h16M9 3v4M15 3v4" />
       </>
     ),
-    "/ride": <path d="M3 20V15h3v-4h3V7h3v13ZM12 15h9v5h-9" />,
+    "/ride": <path d="M3 20V15h3v-4h3V7h3v8h9v5Z" />,
     "/progress": <path d="M4 19h16M6 16l4-5 3 3 5-7" />,
     "/health": <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" />,
   };
