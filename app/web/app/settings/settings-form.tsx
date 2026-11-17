@@ -156,9 +156,12 @@ export default function SettingsForm({ values, ftpSource = null }: { values: Val
 function Zones({ title, unit, zones, empty }: { title: string; unit: string; zones: ZoneRange[] | null; empty: string }) {
   if (!zones) return <p className="text-sm text-muted">{empty}</p>;
   return (
-    <div className="space-y-1.5">
-      <span className="block text-sm font-medium">{title}</span>
-      <ul className="divide-y divide-rule rounded-md border border-line text-sm">
+    <details className="group space-y-1.5 text-sm">
+      <summary className="cursor-pointer font-medium">
+        <span className="group-open:hidden">Show {title.toLowerCase()}</span>
+        <span className="hidden group-open:inline">{title}</span>
+      </summary>
+      <ul className="mt-1.5 divide-y divide-rule rounded-md border border-line">
         {zones.map((z) => (
           <li key={z.zone} className="flex items-center gap-2 px-3 py-1.5">
             <span className="size-2 shrink-0 rounded-full" style={{ background: `var(--zone-${z.zone})` }} />
@@ -170,18 +173,27 @@ function Zones({ title, unit, zones, empty }: { title: string; unit: string; zon
           </li>
         ))}
       </ul>
-    </div>
+    </details>
   );
 }
 
-export function Section({ id, title, description, children }: { id?: string; title: React.ReactNode; description: React.ReactNode; children: React.ReactNode }) {
+export function Section({ id, title, description, children }: { id?: string; title?: React.ReactNode; description?: React.ReactNode; children: React.ReactNode }) {
+  const card = "grid grid-cols-1 gap-5 rounded-lg border border-line bg-surface p-5 sm:grid-cols-2";
+  // No title: the section's own heading already says what this is, so the card takes the full width.
+  if (!title) {
+    return (
+      <section id={id} className={`scroll-mt-16 ${card}`}>
+        {children}
+      </section>
+    );
+  }
   return (
     <section id={id} className="scroll-mt-16 grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
       <div className="space-y-1 md:pt-5">
         <h2 className="text-base font-medium">{title}</h2>
-        <p className="text-sm text-muted">{description}</p>
+        {description && <p className="text-sm text-muted">{description}</p>}
       </div>
-      <div className="grid grid-cols-1 gap-5 rounded-lg border border-line bg-surface p-5 sm:grid-cols-2">{children}</div>
+      <div className={card}>{children}</div>
     </section>
   );
 }

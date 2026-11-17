@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { button, Field, input, Notice, Pill, Result } from "@/components/ui";
+import Select from "@/components/select";
 import { formatMonthly, monthlyEstimate } from "~/ai/cost";
 import { knownPrice, PROVIDERS, preset, type ProviderKind } from "~/ai/providers";
 import { coachSetup, saveCoachSetup, SECRET_AI, webSearchSupported, type CoachMode, type CoachSetup, type ModelChoice } from "~/ai/settings";
@@ -11,9 +12,21 @@ import { invoke, isDesktop, isPhone, openExternal } from "~/platform/native";
 import { deleteSecret, rebindSecret, saveSecret, secretStatus } from "~/platform/secrets";
 
 const MODES: { mode: CoachMode; title: string; line: string }[] = [
-  { mode: "builtin", title: "Built-in coach", line: "Chat with a coach inside Lactic, on an AI model you pick. Use a cloud key, or run a free model on this computer." },
-  { mode: "external", title: "An AI app you already use", line: "Coach through Claude Desktop (or another app that speaks MCP): you chat there, it reads your training from Lactic and suggests changes." },
-  { mode: "none", title: "No coach", line: "Just the plan, the workouts and your numbers. You can add a coach later." },
+  {
+    mode: "builtin",
+    title: "Built-in coach",
+    line: "Chat inside Lactic, on an AI model you pick.",
+  },
+  {
+    mode: "external",
+    title: "An AI app you already use",
+    line: "Chat in Claude Desktop or another MCP app. It reads your training here.",
+  },
+  {
+    mode: "none",
+    title: "No coach",
+    line: "Just the plan, workouts and your numbers.",
+  },
 ];
 
 /**
@@ -21,7 +34,6 @@ const MODES: { mode: CoachMode; title: string; line: string }[] = [
  * synced from the computer (an AI app, Ollama) keeps working there and is named here.
  */
 const PHONE_MODES = new Set<CoachMode>(["builtin", "none"]);
-const modeLine = (m: (typeof MODES)[number]) => (isPhone() && m.mode === "builtin" ? "Chat with a coach inside Lactic, on an AI model you pick, with a key from an AI provider." : m.line);
 
 export function useCoachSetup() {
   const [setup, setSetup] = useState<CoachSetup | null>(null);
@@ -46,33 +58,22 @@ function Group({ label, hint, children }: { label: React.ReactNode; hint?: React
   );
 }
 
-function ModeCard({ active, title, line, onPick }: { active: boolean; title: string; line: string; onPick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      aria-pressed={active}
-      className={`w-full rounded-lg border p-4 text-left transition-colors ${active ? "border-accent bg-accent/5 shadow-[0_0_0_1px_var(--accent)]" : "border-line hover:bg-raised"}`}
-    >
-      <span className="flex items-center gap-3">
-        <span className={`grid size-4 flex-none place-items-center rounded-full border ${active ? "border-accent" : "border-control"}`}>{active && <span className="size-2 rounded-full bg-accent" />}</span>
-        <span className="font-medium">{title}</span>
-      </span>
-      <span className="mt-1 block pl-7 text-sm text-muted">{line}</span>
-    </button>
-  );
-}
-
 export function CoachSetupPanel() {
   const [setup, update] = useCoachSetup();
   if (!setup) return null;
+  const modes = MODES.filter((m) => !isPhone() || PHONE_MODES.has(m.mode) || m.mode === setup.mode);
+  const current = MODES.find((m) => m.mode === setup.mode);
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        {MODES.filter((m) => !isPhone() || PHONE_MODES.has(m.mode)).map((m) => (
-          <ModeCard key={m.mode} active={setup.mode === m.mode} title={m.title} line={modeLine(m)} onPick={() => void update({ ...setup, mode: m.mode })} />
-        ))}
-      </div>
+      <Group label="Coach" hint={current?.line}>
+        <Select className={`${input} w-full sm:w-80`} aria-label="Coach" value={setup.mode} onChange={(mode) => void update({ ...setup, mode: mode as CoachMode })}>
+          {modes.map((m) => (
+            <option key={m.mode} value={m.mode}>
+              {m.title}
+            </option>
+          ))}
+        </Select>
+      </Group>
       {isPhone() && setup.mode === "external" && <Notice>Your coach is an AI app on your computer. Chat with it there; its suggestions show up here too.</Notice>}
       {setup.mode === "builtin" && <BuiltinSetup setup={setup} update={update} />}
       {setup.mode === "builtin" && !isPhone() && <AlongsideSetup on={Boolean(setup.alongside)} onChange={(alongside) => void update({ ...setup, alongside })} />}
@@ -118,7 +119,16 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
 
   const pickProvider = (k: ProviderKind) => {
     const p = preset(k);
-    void update({ ...setup, provider: { kind: k, baseUrl: p.baseUrl, hasKey: Boolean(keySaved) && !p.local && setup.provider?.kind === k }, chat: null, vision: null });
+    void update({
+      ...setup,
+      provider: {
+        kind: k,
+        baseUrl: p.baseUrl,
+        hasKey: Boolean(keySaved) && !p.local && setup.provider?.kind === k,
+      },
+      chat: null,
+      vision: null,
+    });
   };
 
   async function saveKey() {
@@ -131,7 +141,10 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
 
   const chooseModel = (id: string) => {
     const m = models?.find((x) => x.id === id);
-    const chat: ModelChoice = { model: id, price: m?.price ?? knownPrice(kind ?? undefined, id) };
+    const chat: ModelChoice = {
+      model: id,
+      price: m?.price ?? knownPrice(kind ?? undefined, id),
+    };
     void update({ ...setup, chat });
   };
 
@@ -150,25 +163,16 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
   const unpriced = Boolean(info && !info.local && setup.chat && !setup.chat.price && !priceOf(setup.chat.model));
 
   return (
-    <div className="space-y-6 rounded-lg border border-line p-5">
-      <Group label={isPhone() ? "AI provider" : "Where the model runs"}>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {PROVIDERS.filter((p) => !(isPhone() && p.local)).map((p) => (
-            <button
-              key={p.kind}
-              type="button"
-              onClick={() => pickProvider(p.kind)}
-              aria-pressed={kind === p.kind}
-              className={`rounded-md border px-3 py-2.5 text-left text-sm transition-colors ${kind === p.kind ? "border-accent shadow-[0_0_0_1px_var(--accent)]" : "border-line hover:bg-raised"}`}
-            >
-              <span className="flex items-center gap-2 font-medium">
-                {p.label}
-                {p.local && <Pill tone="positive">Free</Pill>}
-              </span>
-              <span className="mt-0.5 block text-muted">{p.blurb}</span>
-            </button>
+    <div className="space-y-6">
+      <Group label={isPhone() ? "AI provider" : "Where the model runs"} hint={info?.blurb}>
+        <Select className={`${input} w-full sm:w-80`} aria-label="Where the model runs" value={kind ?? ""} onChange={(k) => k && pickProvider(k as ProviderKind)}>
+          {!kind && <option value="">Pick one</option>}
+          {PROVIDERS.filter((p) => !(isPhone() && p.local) || p.kind === kind).map((p) => (
+            <option key={p.kind} value={p.kind}>
+              {p.local ? `${p.label} · Free` : p.label}
+            </option>
           ))}
-        </div>
+        </Select>
       </Group>
       {isPhone() && info?.local && <Notice>{info.label.replace(/ \(.*\)/, "")} runs on your computer, so this coach chats there. Pick a provider above to chat on this iPhone too.</Notice>}
 
@@ -197,7 +201,7 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
           label="API key"
           hint={
             <>
-              Kept in {isPhone() ? "this iPhone" : "your computer"}&apos;s keychain; Lactic never shows it again.{" "}
+              Kept in {isPhone() ? "this iPhone" : "your computer"}&apos;s keychain.{" "}
               {info.keyUrl && (
                 <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal(info.keyUrl!)}>
                   Get a {info.label} key
@@ -209,7 +213,17 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
           {setup.provider?.hasKey && keySaved ? (
             <div className="flex items-center gap-3 text-sm">
               <Pill tone="positive">Saved {keySaved}</Pill>
-              <button type="button" className={button.ghost} onClick={() => setup.provider && void update({ ...setup, provider: { ...setup.provider, hasKey: false } })}>
+              <button
+                type="button"
+                className={button.ghost}
+                onClick={() =>
+                  setup.provider &&
+                  void update({
+                    ...setup,
+                    provider: { ...setup.provider, hasKey: false },
+                  })
+                }
+              >
                 Replace
               </button>
               <button
@@ -218,7 +232,11 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
                 onClick={async () => {
                   await deleteSecret(SECRET_AI);
                   setKeySaved(null);
-                  if (setup.provider) await update({ ...setup, provider: { ...setup.provider, hasKey: false } });
+                  if (setup.provider)
+                    await update({
+                      ...setup,
+                      provider: { ...setup.provider, hasKey: false },
+                    });
                 }}
               >
                 Remove
@@ -226,7 +244,14 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
             </div>
           ) : (
             <div className="flex gap-2">
-              <input className={`${input} min-w-0 flex-1`} type="password" placeholder={info.keyHint ?? "Key"} value={key} onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void saveKey()} />
+              <input
+                className={`${input} min-w-0 flex-1`}
+                type="password"
+                placeholder={info.keyHint ?? "Key"}
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && void saveKey()}
+              />
               <button type="button" className={button.primary} disabled={!key.trim()} onClick={() => void saveKey()}>
                 Save key
               </button>
@@ -265,47 +290,45 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
       )}
 
       {ready && (
-        <Group label="Model" hint={modelsError && !info?.local ? `Couldn't list models (${modelsError}); pick a suggestion or type a name.` : undefined}>
-          <div className="space-y-2">
-            {(info?.local ? installed.map((m) => ({ ...suggested.find((s) => s.id === m.id), id: m.id, label: m.id })) : suggested).map((s) => {
-              const p = priceOf(s.id);
-              return (
-                <label key={s.id} className="flex cursor-pointer items-start gap-3 rounded-md border border-line px-3 py-2 text-sm hover:bg-raised">
-                  <input type="radio" className="mt-1" name="model" checked={setup.chat?.model === s.id} onChange={() => chooseModel(s.id)} />
-                  <span>
-                    <span className="flex items-center gap-2 font-medium">
-                      {s.label}
-                      {s.pick && <Pill tone="positive">Recommended</Pill>}
-                    </span>
-                    {s.note && <span className="block text-muted">{s.note}</span>}
-                    {p && (
-                      <span className="num block text-xs text-faint">
-                        {formatMonthly(monthlyEstimate(p))} a month for daily use · ${p.input.toFixed(2)} in · ${p.output.toFixed(2)} out per million tokens
-                      </span>
-                    )}
-                  </span>
-                </label>
-              );
-            })}
-            {!info?.local && (
-              <ModelSearch models={models ?? []} value={setup.chat?.model ?? ""} onPick={chooseModel} />
-            )}
-          </div>
-        </Group>
+        <ModelPicker
+          key={kind}
+          options={(info?.local
+            ? installed.map((m) => ({
+                ...suggested.find((s) => s.id === m.id),
+                id: m.id,
+                label: m.id,
+              }))
+            : suggested
+          ).map((s) => ({
+            id: s.id,
+            label: s.label,
+            note: s.note,
+            pick: s.pick,
+          }))}
+          models={models ?? []}
+          allowOther={!info?.local}
+          value={setup.chat?.model ?? ""}
+          priceOf={priceOf}
+          error={modelsError && !info?.local ? `Couldn't list models (${modelsError}); pick a suggestion or type a name.` : null}
+          onPick={chooseModel}
+        >
+          {setup.chat && (
+            <>
+              <button type="button" className={button.secondary} disabled={testing} onClick={() => void runTest()}>
+                {testing ? "Testing…" : "Test"}
+              </button>
+              {setup.chat.tested && !testing && (
+                <Pill tone={setup.chat.tested.ok ? (setup.chat.tested.tools ? "positive" : "warning") : "negative"}>
+                  {setup.chat.tested.ok ? (setup.chat.tested.tools ? `Works, uses tools · ${setup.chat.tested.seconds}s` : `Answers · ${setup.chat.tested.seconds}s`) : "Didn't work"}
+                </Pill>
+              )}
+            </>
+          )}
+        </ModelPicker>
       )}
 
-      {setup.chat && (
+      {setup.chat && (setup.chat.tested?.note || unpriced) && (
         <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <button type="button" className={button.secondary} disabled={testing} onClick={() => void runTest()}>
-              {testing ? "Testing…" : "Test this model"}
-            </button>
-            {setup.chat.tested && !testing && (
-              <Pill tone={setup.chat.tested.ok ? (setup.chat.tested.tools ? "positive" : "warning") : "negative"}>
-                {setup.chat.tested.ok ? (setup.chat.tested.tools ? `Works, uses tools · ${setup.chat.tested.seconds}s` : `Answers · ${setup.chat.tested.seconds}s`) : "Didn't work"}
-              </Pill>
-            )}
-          </div>
           {setup.chat.tested?.note && <Result ok={setup.chat.tested.ok}>{setup.chat.tested.note}</Result>}
           {unpriced && (
             <p className="text-sm text-muted">Lactic doesn&apos;t know this model&apos;s price, so the monthly limit can&apos;t count it. Set a spending limit with {info?.label} too.</p>
@@ -320,10 +343,7 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
       {info && <ModelGuide local={info.local} />}
 
       {info && !info.local && (
-        <Field
-          label="Monthly limit"
-          hint="Lactic adds up what each coach reply costs and pauses the coach for the rest of the month when it reaches this. It's kept in Lactic, not with your provider, so also set a spending or credit limit on the key itself as a backstop."
-        >
+        <Field label="Monthly limit" hint="The coach pauses for the month once replies cost this much. Set a limit on the key too.">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted">$</span>
             <input
@@ -333,7 +353,10 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
               placeholder="None"
               onBlur={(e) => {
                 const v = e.target.value.trim();
-                void update({ ...setup, monthlyCapUsd: v === "" ? null : Math.max(0, Number(v) || 0) });
+                void update({
+                  ...setup,
+                  monthlyCapUsd: v === "" ? null : Math.max(0, Number(v) || 0),
+                });
               }}
             />
           </div>
@@ -364,9 +387,7 @@ function WebSearchSetting({ on, supported, onChange }: { on: boolean; supported:
       <div className="text-sm">
         <span className="block font-medium">Search the web</span>
         <span className="block text-muted">
-          {supported
-            ? "For things that change, like gear and prices. Only the search words leave Lactic, never your rides or health data. 1 to 2¢ a search, counted in the monthly limit."
-            : "Needs an OpenRouter key."}
+          {supported ? "For gear, prices and other things that change. Only the search words leave Lactic. 1 to 2¢ a search." : "Needs an OpenRouter key."}
         </span>
       </div>
     </div>
@@ -380,27 +401,84 @@ function ModelGuide({ local }: { local: boolean }) {
       <summary className="cursor-pointer font-medium">Which model should I use?</summary>
       <div className="space-y-3 pt-3 text-muted">
         <p>
-          The coach looks up your plan, rides and recovery with tools, then explains what it found. So the model has to be good at calling tools and following
-          instructions; raw size matters less. &ldquo;Test this model&rdquo; checks exactly that.
+          The coach looks up your plan, rides and recovery with tools, then explains what it found. So the model has to be good at calling tools and following instructions; raw size matters
+          less. &ldquo;Test this model&rdquo; checks exactly that.
         </p>
         <p>
-          <span className="font-medium text-ink">Good picks.</span> Claude Haiku 5.5 is the best value: reliable with tools and under $1 a month for daily use.
-          Claude Sonnet 5.5 coaches most thoughtfully for about $14. Open models on OpenRouter (GLM 5.3, Kimi K2.6, DeepSeek V4.1 Flash) are cheap and solid.
-          On your own computer, Qwen 3 8B is the smallest that works; Qwen 3.8 27B is much better if you have 32 GB of memory.
+          <span className="font-medium text-ink">Good picks.</span> Claude Haiku 5.5 is the best value: reliable with tools and under $1 a month for daily use. Claude Sonnet 5.5 coaches most
+          thoughtfully for about $14. Open models on OpenRouter (GLM 5.3, Kimi K2.6, DeepSeek V4.1 Flash) are cheap and solid. On your own computer, Qwen 3 8B is the smallest that works;
+          Qwen 3.8 27B is much better if you have 32 GB of memory.
         </p>
         <p>
-          <span className="font-medium text-ink">Skip these.</span> Models under about 7B (Llama 3.2 3B, Phi, Gemma 2B): they garble tool calls and make numbers up.
-          Models without tool support, and heavily shrunk downloads (Q3, Q2). Top-end models like Claude Opus or Fable, GPT Pro or Gemini Argon: they cost
-          several times more and a training coach won&apos;t notice the difference.
+          <span className="font-medium text-ink">Skip these.</span> Models under about 7B (Llama 3.2 3B, Phi, Gemma 2B): they garble tool calls and make numbers up. Models without tool
+          support, and heavily shrunk downloads (Q3, Q2). Top-end models like Claude Opus or Fable, GPT Pro or Gemini Argon: they cost several times more and a training coach won&apos;t
+          notice the difference.
         </p>
         <p>
           <span className="font-medium text-ink">Privacy.</span>{" "}
           {local
             ? "This model runs on your computer, so your training data never leaves it."
-            : "Each reply sends the parts of your training the coach looked up (plan, rides, recovery, weight) to the provider you chose. Your API key stays in your keychain. On OpenRouter you can limit routing to providers that don't keep or train on prompts in its privacy settings." + (isPhone() ? "" : " For nothing to leave your computer, use Ollama or LM Studio.")}
+            : "Each reply sends the parts of your training the coach looked up (plan, rides, recovery, weight) to the provider you chose. Your API key stays in your keychain. On OpenRouter you can limit routing to providers that don't keep or train on prompts in its privacy settings." +
+              (isPhone() ? "" : " For nothing to leave your computer, use Ollama or LM Studio.")}
         </p>
       </div>
     </details>
+  );
+}
+
+const OTHER = "__other";
+
+/** The model as one dropdown: the suggestions (or the models on this computer), plus "Other model…" for any name. */
+function ModelPicker({
+  options,
+  models,
+  allowOther,
+  value,
+  priceOf,
+  error,
+  onPick,
+  children,
+}: {
+  options: { id: string; label: string; note?: string; pick?: boolean }[];
+  models: ModelInfo[];
+  allowOther: boolean;
+  value: string;
+  priceOf: (id: string) => { input: number; output: number } | null | undefined;
+  error: string | null;
+  onPick: (id: string) => void;
+  /** Beside the dropdown: the Test button and its result. */
+  children?: React.ReactNode;
+}) {
+  const listed = options.find((o) => o.id === value);
+  const [other, setOther] = useState(false);
+  const selected = listed ? value : other || value ? OTHER : "";
+  const p = value ? priceOf(value) : null;
+  const hint = [listed?.note, p ? `${formatMonthly(monthlyEstimate(p))} a month` : null].filter(Boolean).join(" · ");
+  return (
+    <Group label="Model" hint={error ?? (hint || undefined)}>
+      <div className="flex items-center gap-3">
+        <Select
+          className={`${input} min-w-0 flex-1 sm:w-80 sm:flex-none`}
+          aria-label="Model"
+          value={selected}
+          onChange={(id) => {
+            if (id === OTHER) return setOther(true);
+            setOther(false);
+            if (id) onPick(id);
+          }}
+        >
+          {!selected && <option value="">Pick a model</option>}
+          {options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.pick ? `${o.label} · Recommended` : o.label}
+            </option>
+          ))}
+          {allowOther && <option value={OTHER}>Other model…</option>}
+        </Select>
+        {children}
+      </div>
+      {selected === OTHER && <ModelSearch models={models} value={value} onPick={onPick} />}
+    </Group>
   );
 }
 
@@ -409,14 +487,24 @@ function ModelSearch({ models, value, onPick }: { models: ModelInfo[]; value: st
   const hits = q.length < 2 ? [] : models.filter((m) => `${m.id} ${m.name ?? ""}`.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
   return (
     <div className="space-y-1">
-      <input className={`${input} w-full`} placeholder={models.length ? `Or search ${models.length} models, or type a model name` : "Or type a model name"} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && q.trim() && (onPick(q.trim()), setQ(""))} />
+      <input
+        className={`${input} w-full`}
+        placeholder={models.length ? `Search ${models.length} models, or type a name` : "Type a model name"}
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && q.trim() && (onPick(q.trim()), setQ(""))}
+      />
       {hits.length > 0 && (
         <ul className="rounded-md border border-line text-sm">
           {hits.map((m) => (
             <li key={m.id}>
               <button type="button" className="flex w-full justify-between gap-3 px-3 py-1.5 text-left hover:bg-raised" onClick={() => (onPick(m.id), setQ(""))}>
                 <span className="truncate">{m.name ?? m.id}</span>
-                {m.price && <span className="num flex-none text-xs text-faint">${m.price.input.toFixed(2)} / ${m.price.output.toFixed(2)}</span>}
+                {m.price && (
+                  <span className="num flex-none text-xs text-faint">
+                    ${m.price.input.toFixed(2)} / ${m.price.output.toFixed(2)}
+                  </span>
+                )}
               </button>
             </li>
           ))}
@@ -458,14 +546,11 @@ function Copy({ text }: { text: string }) {
 function AlongsideSetup({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
   return (
     <div className="space-y-4">
-      <label className="flex items-start gap-3 rounded-lg border border-line p-4">
+      <label className="flex items-start gap-3">
         <input type="checkbox" className="mt-1 size-4 accent-[var(--accent)]" checked={on} onChange={(e) => onChange(e.target.checked)} />
         <span>
-          <span className="block font-medium">Let AI apps connect too</span>
-          <span className="block text-sm text-muted">
-            Keep the built-in coach and also let Claude Desktop (or another app that speaks MCP) read your training and suggest changes. Suggestions from both show up here
-            to apply or dismiss.
-          </span>
+          <span className="block text-sm font-medium">Let AI apps connect too</span>
+          <span className="block text-sm text-muted">Claude Desktop and other MCP apps can read your training and suggest changes.</span>
         </span>
       </label>
       {on && <ExternalSetup />}
@@ -484,7 +569,10 @@ export function ExternalSetup() {
     try {
       await invoke<string>("mcp_install_claude");
       void invoke<McpSetup>("mcp_setup").then(setMcp);
-      setClaude({ ok: true, message: "Added. Quit and reopen Claude Desktop, then ask it “How's my training going?”" });
+      setClaude({
+        ok: true,
+        message: "Added. Quit and reopen Claude Desktop, then ask it “How's my training going?”",
+      });
     } catch (e) {
       setClaude({ ok: false, message: String(e) });
     }
@@ -495,13 +583,14 @@ export function ExternalSetup() {
     <div className="space-y-5 rounded-lg border border-line p-5">
       {!isDesktop && <Notice>Connecting an AI app needs the Lactic desktop app.</Notice>}
       <p className="text-sm text-muted">
-        You talk to the coach in that app, not in Lactic. It reads your numbers from Lactic while Lactic is open, and anything it suggests waits here for you to apply
-        or dismiss.
+        You talk to the coach in that app, not in Lactic. It reads your numbers from Lactic while Lactic is open, and anything it suggests waits here for you to apply or dismiss.
       </p>
       <div className="space-y-3">
         <div>
           <p className="font-medium">Claude Desktop</p>
-          <p className="text-sm text-muted">One click adds Lactic to Claude Desktop. Claude can then read your plan, rides, fitness and recovery, and propose changes that you approve here.</p>
+          <p className="text-sm text-muted">
+            One click adds Lactic to Claude Desktop. Claude can then read your plan, rides, fitness and recovery, and propose changes that you approve here.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {mcp?.claudeAdded ? (
@@ -541,8 +630,8 @@ export function ExternalSetup() {
             )}
             <p className="text-muted">ChatGPT only connects to servers on the internet, so it can&apos;t reach Lactic on your computer yet.</p>
             <p className="text-muted">
-              Whichever app you use, pick a model that is good with tools: Claude Sonnet 5.5 or Opus 5.5 in Claude Desktop, or, in an app running a model on this
-              computer, something at least the size of Qwen 3 8B. Small local models garble tool calls.
+              Whichever app you use, pick a model that is good with tools: Claude Sonnet 5.5 or Opus 5.5 in Claude Desktop, or, in an app running a model on this computer, something at least
+              the size of Qwen 3 8B. Small local models garble tool calls.
             </p>
           </div>
         </details>

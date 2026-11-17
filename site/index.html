@@ -73,7 +73,7 @@
           <div class="buttons">
             <a class="btn btn-primary" href="https://github.com/blairj09/lactic/releases/latest" data-download><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg><span data-download-label>Download free</span></a>
             <a class="btn btn-secondary" href="/ride/" data-ride hidden>Ride a workout in your browser</a>
-            <p class="hero-sub desktop-only">Bring your rides from Zwift, Garmin, Strava and intervals.icu.</p>
+            <p class="hero-sub desktop-only">Connect your trainer and take Lactic for a test drive, no download required.</p>
             <p class="phone-note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg><span>Lactic runs on your Mac, Windows or Linux computer: open lactic.fit there to download it. The iPhone app is in beta on TestFlight.</span></p>
             <a class="btn btn-primary phone-testflight" href="https://testflight.apple.com/join/nDjt8pAG" data-testflight>Join the iPhone beta</a>
           </div>
@@ -114,134 +114,196 @@
 
   <section class="beliefs" id="why">
     <div class="wrap">
+  
       <div class="belief">
         <div class="belief-copy">
           <p class="eyebrow">Plans</p>
           <h2>A plan that fits your life.</h2>
-          <p>Tell Lactic&trade; your goal and the time you have each day. It builds the plan, the recovery weeks and the workouts, and shows where your fitness will be at the end. The plan adapts as you progress.</p>
+          <p class="lead">Tell Lactic&trade; your goal and the hours you have. It builds the weeks, the workouts and the rest, shows where your fitness will land, and adapts as you go.</p>
         </div>
-        <div class="belief-detail week" aria-label="Example week">
-          <div class="day"><span class="d">Mon</span><span class="w rest">Rest</span></div>
-          <div class="day"><span class="d">Tue</span><span class="w">Sweet spot 2 × 26</span><span class="t num">1:15</span></div>
-          <div class="day"><span class="d">Wed</span><span class="w">Endurance</span><span class="t num">1:00</span></div>
-          <div class="day"><span class="d">Thu</span><span class="w">VO2 max 5 × 4</span><span class="t num">1:00</span></div>
-          <div class="day"><span class="d">Fri</span><span class="w rest">Rest</span></div>
-          <div class="day"><span class="d">Sat</span><span class="w">Long endurance</span><span class="t num">2:00</span></div>
-          <div class="day"><span class="d">Sun</span><span class="w">Endurance with tempo</span><span class="t num">1:30</span></div>
-        </div>
+        <div class="belief-visual"><img class="shot narrow" src="/img/plan.webp" width="1400" height="1548" loading="lazy" decoding="async" alt="The Plan page: phases and fitness forecast"></div>
       </div>
-
-      <div class="belief" id="ride">
+  
+      <div class="belief flip" id="ride">
         <div class="belief-copy">
           <p class="eyebrow">Rides</p>
           <h2>Every interval, on target.</h2>
-          <p>Lactic sets the watts in ERG and drops to road mode for sprints, so you can give it all you&apos;ve got. Start pedaling and the workout starts. The overlay keeps it on top of Zwift, a video or anything else, and every interval becomes its own lap when the ride goes to Strava or intervals.icu.</p>
+          <p class="lead">ERG holds the watts, road mode frees you for sprints. Start pedaling and the workout starts.</p>
+          <ul class="points">
+            <li>Stays on top of other windows and training apps</li>
+            <li>Every interval is a lap on Strava and intervals.icu</li>
+          </ul>
         </div>
-        <div class="belief-detail metrics">
-          <div class="metric"><p class="label">Power</p><p class="value num">239 W</p></div>
-          <div class="metric"><p class="label">Target</p><p class="value num">237 W</p></div>
-          <div class="metric"><p class="label">Interval 2 of 6</p><p class="value num">25:15</p></div>
-          <div class="metric"><p class="label">Heart rate</p><p class="value num">137</p></div>
-          <p class="note">Sweet spot, ERG on.</p>
-        </div>
+        <div class="belief-visual"><img class="shot" src="/img/ride.webp" width="1400" height="878" loading="lazy" decoding="async" alt="The ride screen mid-workout"></div>
       </div>
-
+  
       <div class="belief">
         <div class="belief-copy">
           <p class="eyebrow">Recovery</p>
           <h2>Train for the day you&apos;re having.</h2>
-          <p>A recovery score each morning from your sleep, HRV and resting heart rate, measured against your own usual range. Lactic watches the pattern across nights, not just last night, and your plan adjusts to where you are today. Short on sleep? It tells you how long to aim for tonight.</p>
+          <p class="lead">A score each morning from sleep, HRV and resting heart rate, against your own usual range. Your plan adjusts to it.</p>
+          <ul class="points"><li>Apple Watch, Garmin, Oura, WHOOP, Polar, Coros or Suunto</li></ul>
         </div>
-        <div class="belief-detail metrics">
-          <div class="metric"><p class="label">Recovery</p><p class="value num">68</p></div>
-          <div class="metric"><p class="label">Sleep</p><p class="value num">7h 17m</p></div>
-          <div class="metric"><p class="label">HRV</p><p class="value num">71 ms</p></div>
-          <div class="metric"><p class="label">Resting HR</p><p class="value num">50</p></div>
-          <p class="note">Apple Watch, Garmin, Oura, WHOOP, Polar, Coros or Suunto.</p>
-        </div>
+        <div class="belief-visual"><img class="shot" src="/img/recovery.webp" width="1400" height="512" loading="lazy" decoding="async" alt="Recovery from last night"></div>
       </div>
-
-      <div class="belief" id="coach">
+  
+      <div class="belief flip" id="coach">
         <div class="belief-copy">
           <p class="eyebrow">Coach</p>
           <h2>A coach that knows your numbers.</h2>
-          <p>Ask why today is hard, or to move Saturday&apos;s ride. The coach reads your plan, rides and recovery, and suggests changes you apply with a click. Use the AI you like. Prefer to be AI free? No problem.</p>
+          <p class="lead">Ask why today is hard, or to move Saturday&apos;s ride. It reads your plan, rides and recovery, and you apply its changes with a click.</p>
+          <ul class="points">
+            <li><b>Built in</b>, with the AI you pick</li>
+            <li><b>Claude Desktop</b> or any MCP app</li>
+            <li><b>No coach</b>, just the plan</li>
+          </ul>
         </div>
-        <div class="belief-detail modes">
-          <div class="mode"><h3>Built-in coach</h3><p>OpenRouter, Anthropic, OpenAI, Gemini, or a free model on your computer. A monthly limit you set.</p></div>
-          <div class="mode"><h3>An AI app you already use</h3><p>One click adds Lactic to Claude Desktop. Any MCP app gets the same tools.</p></div>
-          <div class="mode"><h3>No coach</h3><p>Just the plan, the workouts and your numbers.</p></div>
+        <div class="belief-visual"><img class="shot narrow" src="/img/coach.webp" width="896" height="625" loading="lazy" decoding="async" alt="The coach proposing a swap"></div>
+      </div>
+  
+      <div class="belief" id="race">
+        <div class="belief-copy">
+          <p class="eyebrow">Race day <span class="exp">Experimental</span></p>
+          <h2>Race the course you trained for.</h2>
+          <p class="lead">Add your event&apos;s course and the plan trains for its climbs.</p>
+          <ul class="points">
+            <li><b>Before:</b> power for each climb, your likely time, fueling and the wind</li>
+            <li><b>After:</b> where you gained and lost time, against rivals or last year</li>
+          </ul>
+        </div>
+        <div class="belief-visual race-pair">
+          <div class="ui" aria-label="Pre-race report example">
+            <div><h4>Ridgeline Road Race</h4><div class="sub"><span class="tag">Experimental</span>Pre-race report · Saturday 09:30 · in 9 days</div></div>
+            <div class="stats">
+              <div><div class="l">Distance</div><div class="v">93 <small>km</small></div></div>
+              <div><div class="l">Climbing</div><div class="v">1,174 <small>m</small></div></div>
+              <div><div class="l">Your time</div><div class="v">2 h 56</div></div>
+              <div><div class="l">Race power</div><div class="v">210–220 <small>W</small></div></div>
+            </div>
+            <div class="card">
+              <svg viewBox="0 0 400 90" preserveAspectRatio="none" style="width:100%;height:80px" aria-hidden="true">
+                <rect x="64" y="0" width="56" height="90" fill="#e7e9ee"/><rect x="262" y="0" width="16" height="90" fill="#e7e9ee"/><rect x="372" y="0" width="22" height="90" fill="#e7e9ee"/>
+                <path d="M0 70 L64 66 L95 18 L120 30 L150 62 C165 72,175 58,190 66 S215 74,230 64 S250 70,262 66 L276 36 L330 40 L372 46 L394 22 L400 22 L400 90 L0 90Z" fill="#dfe5f7"/>
+                <path d="M0 70 L64 66 L95 18 L120 30 L150 62 C165 72,175 58,190 66 S215 74,230 64 S250 70,262 66 L276 36 L330 40 L372 46 L394 22 L400 22" fill="none" stroke="#2b55d6" stroke-width="2"/>
+                <text x="88" y="12" font-size="10" fill="#5d6573">1</text><text x="266" y="30" font-size="10" fill="#5d6573">2</text><text x="380" y="16" font-size="10" fill="#5d6573">3</text>
+              </svg>
+              <table><tr><th>Climb</th><th>Length</th><th>Grade</th><th>Hold</th></tr>
+                <tr><td>1</td><td>9.3 km</td><td>6.5%</td><td>240–250 W</td></tr>
+                <tr><td>2</td><td>2.4 km</td><td>7.3%</td><td>265–280 W</td></tr>
+              </table>
+            </div>
+          </div>
+          <div class="ui" aria-label="Race report example">
+            <div><h4>Salt Flats Cross</h4><div class="sub"><span class="tag">Experimental</span>Race report · 5 laps of 2.8 km</div></div>
+            <div class="stats">
+              <div><div class="l">Your race</div><div class="v">41:29</div><div class="sub">3rd of 8</div></div>
+              <div><div class="l">Gap to Sam O.</div><div class="v">+59 <small>s</small></div><div class="sub">Lap 1: +29 s</div></div>
+              <div><div class="l">Lost the most</div><div class="v">31 <small>s</small></div><div class="sub">Corner 7</div></div>
+              <div><div class="l">Fastest lap</div><div class="v good">8:03</div><div class="sub">Best in the field</div></div>
+            </div>
+            <div class="work"><div class="h">Drive the straights harder <span class="pill">32 s</span></div><div class="sub">Short, flat-out bursts out of each corner add up over a race.</div></div>
+          </div>
         </div>
       </div>
-
-      <div class="belief" id="your-way">
+  
+      <div class="belief flip" id="your-way">
         <div class="belief-copy">
           <p class="eyebrow">Make it yours</p>
           <h2>Arrange it how you like.</h2>
-          <p>Move, resize or hide any piece of any screen, and add more with plugins. Reset to the default any time.</p>
+          <p class="lead">Move, resize or hide any card. Reset any time.</p>
+          <ul class="points">
+            <li>Pick the fields on each ride page</li>
+            <li>Free ride with your fields on top of any training app</li>
+            <li>Plugins add ride fields and sections, sandboxed</li>
+          </ul>
         </div>
-        <div class="belief-detail modes">
-          <div class="mode"><h3>Your screens</h3><p>Reorder and resize the cards on Today. Reorder or hide tabs.</p></div>
-          <div class="mode"><h3>Your ride fields</h3><p>Pick the numbers on each ride page, like a head unit. Build your own, like best 20 minutes or average of this interval.</p></div>
-          <div class="mode"><h3>Free ride over any app</h3><p>Hold watts in Lactic, or ride Zwift, Rouvy or another app while your fields float on top and Lactic records.</p></div>
-          <div class="mode"><h3>Plugins</h3><p>Add ride fields and ride page sections from Lactic&apos;s list or a GitHub link, or ask the coach to write one. Each runs sandboxed and sees only what you allow.</p></div>
-        </div>
+        <div class="belief-visual"><img class="shot wide" src="/img/customize.webp" width="1400" height="896" loading="lazy" decoding="async" alt="Customizing the Today screen"></div>
       </div>
-
+  
       <div class="belief" id="your-data">
         <div class="belief-copy">
           <p class="eyebrow">Your data</p>
           <h2>Your training is yours.</h2>
-          <p>You&apos;re not starting from zero, and you&apos;re never stuck. Bring years of rides in on day one, keep them on your own computer, and take every one of them with you whenever you like.</p>
+          <p class="lead">Bring years of rides in on day one, keep them in one file on your computer, and take them anywhere.</p>
+          <ul class="points">
+            <li>From intervals.icu, your Strava archive, or FIT, GPX and TCX files</li>
+            <li>No account, nothing on a Lactic server</li>
+          </ul>
         </div>
-        <div class="belief-detail modes">
-          <div class="mode"><h3>Bring it in</h3><p>Up to two years of rides from Zwift, Garmin, Wahoo and more through intervals.icu, your whole Strava archive, or FIT, GPX and TCX files. Your fitness, FTP and plan start where you are.</p></div>
-          <div class="mode"><h3>Keep it here</h3><p>One file on your computer. No account, and nothing on a Lactic server. Back up or move to a new computer in a click.</p></div>
-          <div class="mode"><h3>Take it anywhere</h3><p>Every ride exports as a FIT file, the format every training app reads, or export everything in one zip. Rides can post to Strava and intervals.icu as you go.</p></div>
+        <div class="belief-visual">
+          <div class="ui" aria-label="Your data example">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between"><b>Bringing in your rides</b><span class="sub">intervals.icu</span></div>
+              <div class="bar"><i></i></div>
+              <div class="sub">412 of 571 rides · back to Nov 2024 · fitness, FTP and plan start where you are</div>
+            </div>
+            <div class="file"><div class="ic">DB</div><div><b>lactic.db</b><div class="sub">On this Mac · 571 rides, 2 years of sleep and weigh-ins</div></div></div>
+            <div class="btns"><span class="dark">Back up</span><span>Export all (.zip)</span><span>Ride as .fit</span><span>Post to Strava</span></div>
+          </div>
         </div>
       </div>
-
-      <div class="belief" id="iphone">
+  
+      <div class="belief flip" id="iphone">
         <div class="belief-copy">
           <p class="eyebrow">iPhone · beta</p>
           <h2>Lactic in your pocket.</h2>
-          <p>Scan a code to pair the iPhone app with Lactic on your computer, and the two keep each other up to date straight over your Wi-Fi, with no Lactic server in between. No computer? The iPhone app also works on its own. It&apos;s in beta on TestFlight, Apple&apos;s app for trying apps before they reach the App Store.</p>
+          <p class="lead">Pairs with Lactic on your computer over your Wi-Fi, or works on its own.</p>
+          <ul class="points">
+            <li>Apple Health built in</li>
+            <li>Widgets and an Apple Watch app</li>
+            <li>A remote on your bars</li>
+          </ul>
           <div class="buttons"><a class="btn btn-white" href="https://testflight.apple.com/join/nDjt8pAG" data-testflight>Join the iPhone beta</a></div>
         </div>
-        <div class="belief-detail modes">
-          <div class="mode"><h3>Apple Health, built in</h3><p>Sleep, HRV and resting heart rate come straight from Apple Health each morning. Your rides go back to Health as workouts.</p></div>
-          <div class="mode"><h3>At a glance</h3><p>Home and lock screen widgets for recovery and today&apos;s ride, plus an Apple Watch app and complications.</p></div>
-          <div class="mode"><h3>A remote on your bars</h3><p>Start, pause, skip and change intensity on the ride your computer is running. Extend or end it from the lock screen.</p></div>
-        </div>
+        <div class="belief-visual"><img class="shot phone-shot" src="/img/phone.webp" width="590" height="967" loading="lazy" decoding="async" alt="Today on iPhone"></div>
       </div>
-
-      <div class="belief stacked" id="gear">
+  
+      <div class="belief" id="gear">
         <div class="belief-copy">
           <p class="eyebrow">Works with what you own</p>
           <h2>Your gear is welcome.</h2>
+          <p class="lead">Bluetooth trainers, sensors and scales, your watch or ring, and the apps you already use.</p>
         </div>
-        <div class="gear">
-          <div class="gear-item"><h3>Trainers and sensors</h3><p>Smart trainers over Bluetooth in ERG or road mode. Heart rate straps, power meters and cadence sensors, or heart rate from your watch.</p></div>
-          <div class="gear-item"><h3>Your watch or ring</h3><p>Sleep, HRV and resting heart rate from Apple Watch through Apple Health, or from Garmin, Oura, WHOOP, Polar, Coros and Suunto through intervals.icu.</p></div>
-          <div class="gear-item"><h3>intervals.icu</h3><p>Your ride history from Zwift, Garmin, Wahoo and more. Rides and workouts sync back.</p></div>
-          <div class="gear-item"><h3>Strava</h3><p>Post your rides to Strava as Lactic activities, with how each interval went. Connect it in Settings on your computer or iPhone.</p></div>
-          <div class="gear-item"><h3>Head units and other apps</h3><p>Save any workout as a .fit file for your Garmin or other head unit, or as a .zwo for Zwift and most trainer apps.</p></div>
-          <div class="gear-item"><h3>Smart scales</h3><p>Hume Body Pod, Renpho, Xiaomi, Etekcity and other Bluetooth scales. Or weight from Apple Health or intervals.icu, or type it in.</p></div>
+        <div class="belief-visual">
+          <div class="ui" aria-label="Connected gear example">
+            <div class="row2">
+              <div class="dev"><span class="dot"></span><span class="n">Smart trainer</span><span class="k">ERG · 237 W</span></div>
+              <div class="dev"><span class="dot"></span><span class="n">Heart rate</span><span class="k">137 bpm</span></div>
+              <div class="dev"><span class="dot"></span><span class="n">Power meter</span><span class="k">239 W</span></div>
+              <div class="dev"><span class="dot"></span><span class="n">Smart scale</span><span class="k">73.8 kg</span></div>
+              <div class="dev"><span class="dot"></span><span class="n">Apple Health</span><span class="k">Sleep, HRV</span></div>
+              <div class="dev"><span class="dot"></span><span class="n">intervals.icu</span><span class="k">Synced</span></div>
+            </div>
+            <div class="sub">Also Garmin, Oura, WHOOP, Polar, Coros and Suunto through intervals.icu. Strava uploads. Workouts as .fit for head units, .zwo for Zwift.</div>
+          </div>
         </div>
       </div>
+  
     </div>
   </section>
-
+  
   <section class="features">
     <div class="wrap">
       <h2>And everything else a training app should do.</h2>
       <div class="feature-grid">
-        <div class="feature"><h3>Real progress</h3><p>Fitness, fatigue and form. FTP from critical power, your power curve and profile, VO2 max. Every ride scored out of 100 against the plan.</p></div>
-        <div class="feature"><h3>Any workout</h3><p>A library of 55 workouts, or make your own. Bring in .zwo, .erg and .mrc files, and make any workout easier or harder with one control.</p></div>
-        <div class="feature"><h3>Race day <span class="feature-tag">Experimental</span></h3><p>Add your race&apos;s course for a pre-race plan, climb by climb, with fueling and the wind. Afterwards, see where you gained and lost time.</p></div>
-        <div class="feature"><h3>A few minutes to start</h3><p>A few short steps find your gear, build your plan and bring in your history.</p></div>
-        <div class="feature"><h3>Math you can check</h3><p>Every number comes from an open engine. The AI explains it, never invents it.</p></div>
-        <div class="feature"><h3>Free and open source</h3><p>Free to use and change, MIT licensed. Every line is on GitHub, and anyone can write a plugin.</p></div>
+        <div class="feature">
+          <div class="viz"><svg viewBox="0 0 200 64" preserveAspectRatio="none"><path d="M6 8 C20 14,30 26,50 32 S100 42,130 46 S180 50,194 52" fill="none" stroke="#2b55d6" stroke-width="2.5"/><path d="M6 14 C20 20,30 30,50 36 S100 46,130 49 S180 53,194 55" fill="none" stroke="#a9b8ea" stroke-width="2" stroke-dasharray="4 3"/></svg></div>
+          <h3>Real progress</h3><p>Fitness, fatigue and form, FTP from your power curve, VO2 max, and every ride scored against the plan.</p></div>
+        <div class="feature">
+          <div class="viz"><svg viewBox="0 0 200 64" preserveAspectRatio="none"><path d="M6 58 L20 40 L20 58Z" fill="#c4cff3"/><rect x="24" y="30" width="18" height="28" fill="#6c8be3"/><rect x="44" y="46" width="10" height="12" fill="#d5dae3"/><rect x="56" y="30" width="18" height="28" fill="#6c8be3"/><rect x="76" y="46" width="10" height="12" fill="#d5dae3"/><rect x="88" y="14" width="10" height="44" fill="#2b55d6"/><rect x="100" y="46" width="10" height="12" fill="#d5dae3"/><rect x="112" y="14" width="10" height="44" fill="#2b55d6"/><rect x="124" y="46" width="10" height="12" fill="#d5dae3"/><rect x="136" y="14" width="10" height="44" fill="#2b55d6"/><path d="M148 40 L194 58 L148 58Z" fill="#c4cff3"/></svg></div>
+          <h3>Any workout</h3><p>55 built in, or make your own. Bring in .zwo, .erg and .mrc files.</p></div>
+        <div class="feature">
+          <div class="viz"><svg viewBox="0 0 200 64"><g font-family="JetBrains Mono" font-size="11" fill="#5d6573"><circle cx="40" cy="26" r="10" fill="#2b55d6"/><circle cx="100" cy="26" r="10" fill="#2b55d6"/><circle cx="160" cy="26" r="10" fill="none" stroke="#2b55d6" stroke-width="2"/><path d="M50 26 H90 M110 26 H150" stroke="#a9b8ea" stroke-width="2"/><text x="40" y="54" text-anchor="middle">gear</text><text x="100" y="54" text-anchor="middle">plan</text><text x="160" y="54" text-anchor="middle">history</text></g></svg></div>
+          <h3>A few minutes to start</h3><p>A few short steps find your gear, build your plan and bring in your history.</p></div>
+        <div class="feature">
+          <div class="viz" style="place-items:center start;padding:0 14px"><code style="font:12px/1.5 var(--mono);color:#3c4350">fitness += (tss − fitness) / 42<br><span style="color:#2b55d6">// engine/pmc.ts</span></code></div>
+          <h3>Math you can check</h3><p>Every number comes from an open engine. The AI explains it, never invents it.</p></div>
+        <div class="feature">
+          <div class="viz" style="place-items:center start;padding:0 14px"><code style="font:12px/1.5 var(--mono);color:#3c4350">MIT License<br><span style="color:#2b55d6">github.com/blairj09/lactic</span></code></div>
+          <h3>Free and open source</h3><p>Free to use and change. Every line is on GitHub, and anyone can write a plugin.</p></div>
+        <div class="feature">
+          <div class="viz"><svg viewBox="0 0 200 64"><rect x="74" y="6" width="52" height="52" rx="9" fill="#111318"/><rect x="80" y="12" width="40" height="34" rx="3" fill="#2b55d6"/><text x="100" y="34" text-anchor="middle" font-family="JetBrains Mono" font-size="11" fill="#fff">240W</text></svg></div>
+          <h3>Take it outside</h3><p>Send any workout to your Garmin, Karoo or Wahoo through intervals.icu, or save it as a .fit file.</p></div>
       </div>
     </div>
   </section>
@@ -316,22 +378,7 @@
   <p class="dl-links"><a id="dl-notes" href="https://github.com/blairj09/lactic/releases/latest">What&apos;s new</a> · <a href="https://github.com/blairj09/lactic/releases">All releases</a></p>
 </dialog>
 
-<script>
-  // Vercel Web Analytics (cookieless). Download clicks are sent as visits to /download/<system>.
-  // Visiting lactic.fit/?count=off once stops counting this browser (our own testing); ?count=on undoes it.
-  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-  (function () {
-    try {
-      var c = new URLSearchParams(location.search).get("count");
-      if (c === "off") localStorage.setItem("va-disable", "1");
-      if (c === "on") localStorage.removeItem("va-disable");
-    } catch (e) {}
-    window.va("beforeSend", function (event) {
-      try { if (localStorage.getItem("va-disable")) return null; } catch (e) {}
-      return event;
-    });
-  })();
-</script>
+<script src="/analytics.js"></script>
 <script>
   // The try-a-ride page ships with the app release that has it (scripts/build-demo.mjs): show its
   // links once lactic.fit/ride/ is there, so the site never links to a missing page.
@@ -341,6 +388,5 @@
 </script>
 <script src="/download.js"></script>
 <script src="/hero.js"></script>
-<script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>

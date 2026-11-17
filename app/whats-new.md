@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Settings take less room: pick your coach, AI provider and model from dropdowns, and less-used device actions sit in a ⋯ menu.
+
 ## 0.3.3
 
 - After you ride, the Coach's brief on Today becomes a short take on how the ride went and what it means for tomorrow. The morning brief stays below it.

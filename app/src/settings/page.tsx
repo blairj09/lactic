@@ -1,6 +1,6 @@
 // Lactic's Settings: the web app's panels where they fit (profile, appearance, coach voice and
 // memory, intervals.icu, Bluetooth, FIT import) and Lactic's own (coach setup, Apple Health,
-// your data; simulated gear in development builds). Rendered like the other pages, as an async page.
+// your data; simulated gear in development builds, the plugin sandbox check in development and Preview builds). Rendered like the other pages, as an async page.
 
 import Nav from "@/components/nav";
 import { Page } from "@/components/ui";
@@ -21,6 +21,8 @@ import { CoachSetupPanel } from "~/setup/coach";
 import { HealthSetup } from "~/setup/health";
 import { IntervalsConnect } from "~/setup/rides";
 import { DataPanel, SimulatorSwitch } from "./panels";
+import { SandboxCheck } from "./sandbox-check";
+import { isPreview } from "~/app/beta";
 import AppStartSwitch from "~/ride/app-start-switch";
 import { canWatchApps } from "~/ride/app-start";
 import { StravaSection } from "./strava-panel";
@@ -31,7 +33,7 @@ import { FeatureSetting } from "~/setup/features";
 import { ExperimentsSetting } from "./experiments";
 import { features } from "@/lib/features";
 import { SettingsShell, type SettingBlock } from "./shell";
-import { isDesktop, isPhone, phoneHealthName, phoneWord, thisDevice } from "~/platform/native";
+import { isDesktop, isPhone, phoneHealthName, phoneWord } from "~/platform/native";
 import { ComputerLink, PairPhone, PhoneHealth } from "~/phone/settings";
 import { phoneStatus } from "~/phone/plugin";
 import { ftpSourceLine } from "@/lib/engine/provenance";
@@ -108,7 +110,7 @@ export default async function SettingsPage() {
       section: "devices",
       text: "Bluetooth pair trainer smart trainer KICKR heart rate strap power meter cadence scale sensors",
       node: (
-        <Section id="bluetooth" title="Bluetooth" description="Pair once and your gear reconnects on its own.">
+        <Section id="bluetooth" title="Bluetooth" description="Your trainer, sensors and scale.">
           <BluetoothDevices />
         </Section>
       ),
@@ -140,7 +142,7 @@ export default async function SettingsPage() {
       section: "coach",
       text: "Coach AI built-in external Claude ChatGPT OpenRouter API key model none MCP",
       node: (
-        <Section id="coach-settings" title="Coach" description="Built-in, an AI app you already use, or none.">
+        <Section id="coach-settings" title="Your coach" description="Who coaches, and on which model.">
           <div className="sm:col-span-2">
             <CoachSetupPanel />
           </div>
@@ -213,7 +215,7 @@ export default async function SettingsPage() {
       section: "health",
       text: "What you track sleep recovery weight turn off",
       node: (
-        <Section id="tracking" title="What you track" description="Besides rides and your plan. Turning one off hides it everywhere.">
+        <Section id="tracking" title="What you track" description="Besides rides and your plan. Off hides it; saved data stays.">
           <FeatureSetting />
         </Section>
       ),
@@ -263,21 +265,32 @@ export default async function SettingsPage() {
     pluginsAllowed && {
       key: "plugins",
       section: "plugins",
-      text: "Plugins add-ons install add GitHub catalog browse ride fields ride page sections sandbox update remove",
+      text: "Plugins add-ons install add GitHub catalog browse ride fields ride page sections update remove",
       node: (
-        <Section id="plugins-list" title="Plugins" description="No internet, no changes, and they read only what you allow.">
+        <Section id="plugins-list">
           <div className="sm:col-span-2">
             <PluginsSettings />
           </div>
         </Section>
       ),
     },
+    pluginsAllowed &&
+      (import.meta.env.DEV || isPreview) && {
+        key: "sandbox-check",
+        section: "plugins",
+        text: "Plugin sandbox check escape tests development",
+        node: (
+          <Section title="Sandbox check" description="Development and Preview builds only: tests that plugins can't escape their sandbox.">
+            <SandboxCheck />
+          </Section>
+        ),
+      },
     {
       key: "data",
       section: "data",
       text: "Your data backup back up export restore delete everything file CSV",
       node: (
-        <Section title="Your data" description={`Everything is in one file on ${thisDevice()}.`}>
+        <Section>
           <DataPanel />
         </Section>
       ),
@@ -287,37 +300,21 @@ export default async function SettingsPage() {
       section: "experimental",
       text: "Experimental features race report course prep adaptive workouts beta",
       node: (
-        <Section title="Experimental features" description="Off until you turn them on, and labelled wherever they show.">
+        <Section>
           <ExperimentsSetting />
         </Section>
       ),
     },
     {
-      key: "tour",
+      key: "help",
       section: "help",
-      text: "Getting started tour walk through",
+      text: "Getting started tour walk through Feedback problem bug idea report About Lactic version update",
       node: (
-        <Section id="tour" title="Getting started" description="A short walk through each screen.">
-          <TakeTour />
-        </Section>
-      ),
-    },
-    {
-      key: "feedback",
-      section: "help",
-      text: "Feedback problem bug idea report",
-      node: (
-        <Section id="feedback" title="Feedback" description="A problem or an idea? No account needed.">
-          <FeedbackSetting />
-        </Section>
-      ),
-    },
-    {
-      key: "about",
-      section: "help",
-      text: "About Lactic version update",
-      node: (
-        <Section id="about" title="About Lactic" description="Your version, and whether there's a newer one.">
+        <Section id="about">
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            <TakeTour />
+            <FeedbackSetting />
+          </div>
           <AboutSetting />
         </Section>
       ),

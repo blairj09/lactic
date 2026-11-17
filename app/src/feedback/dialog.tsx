@@ -105,11 +105,9 @@ export function FeedbackButton({ className = "" }: { className?: string }) {
 /** Settings → Feedback. */
 export function FeedbackSetting() {
   return (
-    <div className="sm:col-span-2">
-      <button type="button" className={button.secondary} onClick={() => openFeedback()}>
-        Send feedback
-      </button>
-    </div>
+    <button type="button" className={button.secondary} onClick={() => openFeedback()}>
+      Send feedback
+    </button>
   );
 }
 

@@ -3,20 +3,23 @@
 
 import type { Feature, Features } from "@/lib/features";
 import { useFeatures } from "@/lib/use-features";
+import { SwitchRow } from "@/components/switch";
 import { saveFeatures } from "~/settings/features";
 
-const OPTIONS: { key: Feature; title: string; line: string; needs: string }[] = [
+const OPTIONS: { key: Feature; title: string; line: string; needs: string; short: string }[] = [
   {
     key: "recovery",
     title: "Sleep and recovery",
     line: "A daily recovery score from your sleep, HRV and resting heart rate.",
     needs: "Needs a watch or ring: Apple Watch, Garmin, Oura, WHOOP and others.",
+    short: "From a watch or ring.",
   },
   {
     key: "weight",
     title: "Weight",
     line: "A weekly weigh-in, your weight trend and body fat.",
     needs: "From a smart scale, or synced from another app.",
+    short: "From a smart scale or another app.",
   },
 ];
 
@@ -44,9 +47,10 @@ export function FeatureChoice({ values, onChange }: { values: Features; onChange
 export function FeatureSetting() {
   const values = useFeatures();
   return (
-    <div className="space-y-3 sm:col-span-2">
-      <FeatureChoice values={values} onChange={(next) => void saveFeatures(next)} />
-      <p className="text-sm text-muted">Rides and your plan are always on. Turning one off hides it; anything already saved stays.</p>
+    <div className="space-y-4 sm:col-span-2">
+      {OPTIONS.map((o) => (
+        <SwitchRow key={o.key} label={o.title} hint={o.short} on={values[o.key]} onChange={(on) => void saveFeatures({ ...values, [o.key]: on })} />
+      ))}
     </div>
   );
 }

@@ -68,16 +68,14 @@ export function DataPanel() {
       </dl>
       <div className="space-y-2">
         <p className="text-muted">
-          Export everything as a zip: each ride as a FIT file for Garmin Connect, Strava or any training app, a spreadsheet of your rides, and your plan,
-          recovery, weight and coach chats as JSON. API keys stay out.
+A zip of every ride as a FIT file, plus a spreadsheet and the rest as JSON. API keys stay out.
         </p>
         <ExportEverythingButton />
       </div>
       {isDesktop && (
         <div className="space-y-2 border-t border-line pt-4">
           <p className="text-muted">
-            Moving to a new computer? Back up here and copy the file across. On the new computer, install Lactic and choose Restore from a backup when it
-            opens, or here in Your data. A backup is also a good copy to keep.
+Moving computers? Back up here, then Restore on the new one.
           </p>
           <div className="flex flex-wrap gap-2">
             <button type="button" className={button.small} onClick={() => void backup()}>
@@ -92,7 +90,7 @@ export function DataPanel() {
         </div>
       )}
       <div className="space-y-2 border-t border-line pt-4">
-        <p className="text-muted">Starting over, or done with Lactic? Delete every ride, plan, setting and saved key from {thisDevice()}.</p>
+        <p className="text-muted">Delete every ride, plan, setting and saved key from {thisDevice()}.</p>
         <DeleteDataButton />
       </div>
     </div>
