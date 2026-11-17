@@ -204,7 +204,7 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
               Kept in {isPhone() ? "this iPhone" : "your computer"}&apos;s keychain.{" "}
               {info.keyUrl && (
                 <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal(info.keyUrl!)}>
-                  Get a {info.label} key
+                  {keyLinkText(info.label)}
                 </button>
               )}
             </>
@@ -428,6 +428,12 @@ function ModelGuide({ local }: { local: boolean }) {
 
 const OTHER = "__other";
 
+/** "Get an OpenRouter key", "Get a Google Gemini key": one text node so the underline runs unbroken. */
+function keyLinkText(label: string): string {
+  const name = label.replace(/\s*\(.*\)\s*$/, "");
+  return `Get ${/^[aeiou]/i.test(name) ? "an" : "a"} ${name} key`;
+}
+
 /** The model as one dropdown: the suggestions (or the models on this computer), plus "Other model…" for any name. */
 function ModelPicker({
   options,
@@ -456,7 +462,7 @@ function ModelPicker({
   const hint = [listed?.note, p ? `${formatMonthly(monthlyEstimate(p))} a month` : null].filter(Boolean).join(" · ");
   return (
     <Group label="Model" hint={error ?? (hint || undefined)}>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Select
           className={`${input} min-w-0 flex-1 sm:w-80 sm:flex-none`}
           aria-label="Model"

@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - The Coach's brief no longer gets stuck on "Writing your brief" when the AI model stops answering: it tries again, then tells you so you can retry or pick another model.
+- In Settings → Coach, the model test result now fits inside the card on narrow windows.
 
 ## 0.3.5
 
