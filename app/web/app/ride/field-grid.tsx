@@ -3,10 +3,12 @@
 // Knows nothing about the ride itself: it draws the fields it's given.
 
 import type { PageTemplate } from "@/lib/sdk/layout";
-import type { RideChart } from "@/lib/sdk/plugin-fields";
+import { useEffect, useRef, useState } from "react";
+import { blockOwnsNumber, type FieldLook, type FieldValue, type RideChart } from "@/lib/sdk/plugin-fields";
+import { BlockView, zoneStyle } from "./blocks";
 
-export type Tone = "positive" | "warning" | "negative";
-export const TONE: Record<Tone, string> = { positive: "text-positive", warning: "text-warning", negative: "text-negative" };
+export type Tone = "positive" | "warning" | "negative" | "accent";
+export const TONE: Record<Tone, string> = { positive: "text-positive", warning: "text-warning", negative: "text-negative", accent: "text-accent" };
 
 /** One field, ready to draw. `value` undefined shows "–"; `reason` says why on tap. */
 export interface Shown {
@@ -20,6 +22,44 @@ export interface Shown {
   plugin?: boolean;
   /** A plugin field's small live chart, drawn under the number. */
   chart?: RideChart;
+  /** A plugin field's few labeled numbers, drawn instead of one. */
+  values?: FieldValue[];
+  /** Takes two slots side by side. */
+  wide?: boolean;
+  /** A plugin field's zone colour, emphasis, change arrow and the line's own tone. */
+  look?: FieldLook;
+}
+
+/** Whether a field's chart draws the number itself (a gauge, a status word), so the field doesn't. */
+export const chartOwnsNumber = (chart: RideChart | undefined) => chart?.kind === "block" && blockOwnsNumber(chart.block);
+
+/**
+ * A plugin's "flash": a ring around the field for 3 s when it starts asking, at most once every 30 s
+ * however often the plugin asks.
+ */
+function useFlash(on: boolean): boolean {
+  const [lit, setLit] = useState(false);
+  const last = useRef(-Infinity);
+  const was = useRef(false);
+  useEffect(() => {
+    const rising = on && !was.current;
+    was.current = on;
+    if (!rising || Date.now() - last.current < 30_000) return;
+    last.current = Date.now();
+    setLit(true);
+    const id = setTimeout(() => setLit(false), 3000);
+    return () => clearTimeout(id);
+  }, [on]);
+  return lit;
+}
+
+/** The arrow after a number that moved: ▲ or ▼, coloured by whether that's good. */
+export function ChangeArrow({ change }: { change: NonNullable<FieldLook["change"]> }) {
+  return (
+    <span aria-label={change.dir === "up" ? "rising" : "falling"} className={`ml-1 inline-block align-[0.45em] text-[0.3em] ${change.tone ? TONE[change.tone] : "text-muted"}`}>
+      {change.dir === "up" ? "▲" : "▼"}
+    </span>
+  );
 }
 
 /** The small purple mark beside a plugin field's name, which the plugin can't draw or hide. */
@@ -31,7 +71,8 @@ export function PluginMark() {
  * A plugin field's live chart, drawn by Lactic in its own colours: bars (zone colours for zone
  * bars), a trend line or a gauge. `small` for the overlay strip, without bar labels.
  */
-export function FieldChart({ chart, small }: { chart: RideChart; small?: boolean }) {
+export function FieldChart({ chart, small, valueSize }: { chart: RideChart; small?: boolean; valueSize?: string }) {
+  if (chart.kind === "block") return <BlockView block={chart.block} size={small ? "sm" : valueSize && /text-(7xl|8xl|9xl|\[10rem\])/.test(valueSize) ? "lg" : "md"} valueSize={valueSize} />;
   const colour = chart.tone ? TONE[chart.tone] : "text-accent";
   const height = small ? "h-[1.4em]" : "h-12";
   if (chart.kind === "meter")
@@ -42,26 +83,78 @@ export function FieldChart({ chart, small }: { chart: RideChart; small?: boolean
     );
   if (chart.kind === "line") {
     const nums = chart.values.filter((v): v is number => v !== null);
-    const min = Math.min(...nums);
-    const span = Math.max(...nums) - min || 1;
+    const extra = [...(chart.band ?? []), ...(chart.ref !== undefined ? [chart.ref] : [])];
+    const min = chart.min ?? Math.min(...nums, ...extra);
+    const span = (chart.max ?? Math.max(...nums, ...extra)) - min || 1;
     const step = 100 / Math.max(1, chart.values.length - 1);
-    const points = chart.values.map((v, i) => (v === null ? null : `${(i * step).toFixed(1)},${(28 - ((v - min) / span) * 26).toFixed(1)}`));
+    const y = (v: number) => 28 - ((Math.min(min + span, Math.max(min, v)) - min) / span) * 26;
+    const points = chart.values.map((v, i) => (v === null ? null : `${(i * step).toFixed(1)},${y(v).toFixed(1)}`));
+    const drawn = points.filter((p): p is string => p !== null);
+    const lastI = chart.values.findLastIndex((v) => v !== null);
     return (
-      <svg viewBox="0 0 100 30" preserveAspectRatio="none" className={`mt-1 w-full ${small ? "h-[1.4em] min-w-[5em]" : height} ${colour}`} aria-hidden>
-        <polyline fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" points={points.filter(Boolean).join(" ")} />
+      <svg viewBox="0 0 100 30" preserveAspectRatio="none" className={`mt-1 w-full overflow-visible ${small ? "h-[1.4em] min-w-[5em]" : height} ${colour}`} aria-hidden>
+        {chart.band && <rect x={0} width={100} y={y(chart.band[1])} height={Math.max(0, y(chart.band[0]) - y(chart.band[1]))} fill="var(--positive)" opacity={0.14} />}
+        {chart.fill && drawn.length > 1 && <polygon fill="currentColor" opacity={0.2} points={`${drawn.join(" ")} ${drawn[drawn.length - 1].split(",")[0]},30 ${drawn[0].split(",")[0]},30`} />}
+        {chart.ref !== undefined && <line x1={0} x2={100} y1={y(chart.ref)} y2={y(chart.ref)} stroke="var(--ink)" strokeOpacity={0.6} strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />}
+        <polyline fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" points={drawn.join(" ")} />
+        {chart.marker === "last" && lastI >= 0 && (
+          <line x1={lastI * step} x2={lastI * step} y1={y(chart.values[lastI]!)} y2={y(chart.values[lastI]!)} stroke="var(--ink)" strokeWidth={small ? 5 : 8} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        )}
       </svg>
     );
   }
-  const max = Math.max(1, ...chart.values);
+  const max = Math.max(1, ...chart.values, chart.target ?? 0);
+  const lit = chart.highlight;
   return (
-    <div className={`mt-1 flex items-end gap-1 ${small ? "w-[6em]" : ""}`} aria-hidden>
+    <div className={`relative mt-1 flex items-end gap-1 ${small ? "w-[6em]" : ""}`} aria-hidden>
       {chart.values.map((v, i) => (
         <div key={i} className="flex min-w-0 flex-1 flex-col items-center">
           <div className={`flex w-full items-end ${height}`}>
-            <div className={`w-full rounded-[3px] ${chart.zones ? "" : `bg-current ${colour}`}`} style={{ height: `${Math.max(4, (v / max) * 100)}%`, ...(chart.zones ? { background: `var(--zone-${Math.min(7, i + 1)})` } : {}) }} />
+            <div
+              className={`w-full rounded-[3px] ${chart.zones ? "" : `bg-current ${colour}`}`}
+              style={{ height: `${Math.max(4, (v / max) * 100)}%`, ...(chart.zones ? { background: `var(--zone-${Math.min(7, i + 1)})` } : {}), ...(lit !== undefined && i !== lit ? { opacity: 0.5 } : {}) }}
+            />
           </div>
           {!small && chart.labels && <span className="text-xs text-muted">{chart.labels[i]}</span>}
         </div>
+      ))}
+      {chart.target !== undefined && (
+        // The target across the bars, measured on the bars' own height (labels sit below it).
+        <div className={`pointer-events-none absolute inset-x-0 top-0 ${height}`}>
+          <div className="absolute inset-x-0 border-t border-dashed border-ink/60" style={{ bottom: `${(chart.target / max) * 100}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A plugin field's labeled numbers, in the field's own number size (`size`) scaled down: a 2×2
+ * block in a normal field, one row in a wide one.
+ */
+export function FieldValues({ values, wide, size }: { values: FieldValue[]; wide?: boolean; size: string }) {
+  const cols = wide || values.length <= 2 ? ["", "", "grid-cols-2", "grid-cols-3", "grid-cols-4"][values.length] : "grid-cols-2";
+  return (
+    <div className={`num grid gap-x-4 gap-y-1 font-medium tracking-tight ${cols} ${size}`}>
+      {values.map((v, i) => (
+        <div key={i} className="min-w-0">
+          <div className="truncate text-sm font-normal tracking-normal text-muted">{v.label}</div>
+          <div className={`${wide ? "text-[0.7em]" : "text-[0.55em]"} leading-[1.1] ${v.tone ? TONE[v.tone] : ""}`}>{v.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Labeled numbers in a short row or block, for the narrow lists (the standard page's ride so far, the overlay). */
+export function FieldValuesCompact({ values, valueSize, labelSize }: { values: FieldValue[]; valueSize: string; labelSize: string }) {
+  return (
+    <div className={`num grid gap-x-[0.6em] ${values.length === 1 ? "grid-cols-1" : "grid-cols-2"} items-baseline`}>
+      {values.map((v, i) => (
+        <span key={i} className="whitespace-nowrap">
+          <span className={`mr-[0.3em] text-muted ${labelSize}`}>{v.label}</span>
+          <span className={`font-medium tracking-tight ${valueSize} ${v.tone ? TONE[v.tone] : ""}`}>{v.value}</span>
+        </span>
       ))}
     </div>
   );
@@ -78,6 +171,10 @@ export function Big({
   reason,
   plugin,
   chart,
+  values,
+  wide,
+  look,
+  compact,
 }: {
   label: string;
   value: number | string | undefined;
@@ -90,22 +187,43 @@ export function Big({
   reason?: string;
   plugin?: boolean;
   chart?: RideChart;
+  values?: FieldValue[];
+  wide?: boolean;
+  look?: FieldLook;
+  /** A narrow column: charts are left out, and a block that shows its own number draws its short form. */
+  compact?: boolean;
 }) {
   const valueSize = size ?? (lead ? "text-5xl leading-[1.1] sm:text-6xl" : "text-4xl leading-[1.15]");
+  const owns = chartOwnsNumber(chart);
+  const shownChart = chart && (!compact || owns) ? chart : undefined;
+  const flash = useFlash(look?.emphasis === "flash");
+  const subTone = look?.subTone ?? tone;
   return (
-    <div className="min-w-0" title={value === undefined ? reason : undefined}>
+    <div
+      className={`min-w-0 rounded-lg transition-[opacity,outline-color] duration-300 ${look?.emphasis === "quiet" ? "opacity-45" : ""} ${flash ? "outline-2 outline-offset-4 outline-positive" : "outline-transparent"}`}
+      title={value === undefined ? reason : undefined}
+    >
       <div className="flex items-center gap-1.5 text-sm text-muted">
         {plugin && <PluginMark />}
-        <span className="truncate">{label}</span>
+        <span className="truncate">
+          {label}
+          {values && unit ? ` · ${unit}` : ""}
+        </span>
       </div>
-      {(value !== undefined || !chart) && (
-        <div className={`num font-medium tracking-tight ${valueSize} ${tone ? TONE[tone] : ""}`}>
-          {value ?? <span className="text-2xl text-faint">–</span>}
-          {unit && value !== undefined && <span className="ml-1.5 text-base font-normal tracking-normal text-muted">{unit}</span>}
-        </div>
+      {values ? (
+        <FieldValues values={values} wide={wide} size={valueSize} />
+      ) : (
+        (value !== undefined || !shownChart) &&
+        !owns && (
+          <div className={`num font-medium tracking-tight ${valueSize} ${tone && !look?.zone ? TONE[tone] : ""}`} style={zoneStyle(look?.zone)}>
+            {value ?? <span className="text-2xl text-faint">–</span>}
+            {look?.change && value !== undefined && <ChangeArrow change={look.change} />}
+            {unit && value !== undefined && <span className="ml-1.5 text-base font-normal tracking-normal text-muted">{unit}</span>}
+          </div>
+        )
       )}
-      {chart && <FieldChart chart={chart} />}
-      {sub !== undefined && <div className={`h-5 text-sm ${tone ? TONE[tone] : "text-muted"}`}>{sub}</div>}
+      {shownChart && !values && <FieldChart chart={shownChart} small={compact} valueSize={owns ? valueSize : undefined} />}
+      {sub !== undefined && <div className={`h-5 text-sm ${subTone ? TONE[subTone] : "text-muted"}`}>{sub}</div>}
     </div>
   );
 }
@@ -120,6 +238,9 @@ const GRID: Record<Exclude<PageTemplate, "standard">, { cols: string; size: stri
   eight: { cols: "grid-cols-2 sm:grid-cols-4", size: "text-5xl leading-[1.1]" },
   ten: { cols: "grid-cols-2 sm:grid-cols-5", size: "text-4xl leading-[1.15] lg:text-5xl" },
 };
+
+/** A wide field's span: two columns wherever the page has two or more. */
+const WIDE: Partial<Record<PageTemplate, string>> = { two: "sm:col-span-2", four: "col-span-2", six: "col-span-2", "six-chart": "col-span-2", eight: "col-span-2", ten: "col-span-2" };
 
 export const hasChart = (template: PageTemplate) => template === "standard" || template === "six-chart";
 
@@ -148,7 +269,7 @@ export function FieldGrid({
     // both columns), the workout in the middle, the ride so far on the right.
     const big = (i: number, lead: boolean) => {
       const f = at(i);
-      return slot(i, f ? <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} lead={lead} reason={f.reason} plugin={f.plugin} chart={f.chart} /> : null);
+      return slot(i, f ? <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} lead={lead} reason={f.reason} plugin={f.plugin} chart={f.chart} values={f.values} look={f.look} /> : null);
     };
     return (
       <div className="grid gap-x-8 gap-y-6 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-start">
@@ -173,7 +294,13 @@ export function FieldGrid({
                     <>
                       <dt className="truncate text-sm text-muted">{f.label}</dt>
                       <dd className="num text-2xl font-medium tracking-tight" title={f.value === undefined ? f.reason : undefined}>
-                        {f.value ?? <span className="text-faint">–</span>}
+                        {f.values ? (
+                          <FieldValuesCompact values={f.values} valueSize="text-lg" labelSize="text-xs font-normal" />
+                        ) : chartOwnsNumber(f.chart) ? (
+                          <FieldChart chart={f.chart!} small valueSize="text-2xl" />
+                        ) : (
+                          (f.value ?? <span className="text-faint">–</span>)
+                        )}
                         {f.unit && f.value !== undefined && <span className="ml-1 text-sm font-normal tracking-normal text-muted">{f.unit}</span>}
                       </dd>
                     </>
@@ -189,12 +316,12 @@ export function FieldGrid({
   const g = GRID[template];
   return (
     <div className="space-y-6">
-      <div aria-label="Ride fields" className={`grid gap-x-8 gap-y-6 ${g.cols}`}>
+      <div aria-label="Ride fields" className={`grid grid-flow-row-dense gap-x-8 gap-y-6 ${g.cols}`}>
         {Array.from({ length: slots }, (_, i) => {
           const f = at(i);
           return (
-            <div key={i} className={template === "one" ? "text-center" : undefined}>
-              {slot(i, f ? <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} size={g.size} reason={f.reason} plugin={f.plugin} chart={f.chart} /> : null)}
+            <div key={i} className={template === "one" ? "text-center" : f?.wide ? WIDE[template] : undefined}>
+              {slot(i, f ? <Big label={f.label} value={f.value} unit={f.unit} sub={f.sub} tone={f.tone} size={g.size} reason={f.reason} plugin={f.plugin} chart={f.chart} values={f.values} wide={f.wide} look={f.look} /> : null)}
             </div>
           );
         })}

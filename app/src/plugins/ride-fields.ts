@@ -4,16 +4,17 @@
 // that keeps running late or crashing. What a plugin returns has been checked by the host; only its
 // number, line and tone are used, under the manifest's title.
 import { useEffect, useRef, useState } from "react";
-import { PLUGIN_FIELD_WORDS, fieldFromKit, parsePluginFieldId, pluginFieldId, type PluginFieldOption } from "@/lib/sdk/plugin-fields";
+import { PLUGIN_FIELD_WORDS, fieldFromKit, parsePluginFieldId, pluginFieldId, resolveOptions, type FieldOptionPicks, type PluginFieldOption } from "@/lib/sdk/plugin-fields";
 import type { FieldShown } from "@/lib/ride/fields";
 import { pluginHost } from "./running";
 import { createPluginWorker } from "./spawn";
 import { listPlugins, type PluginRecord } from "./store";
 import { pluginsAllowed } from "./use-plugin-tab";
+import { readUnits } from "@/lib/units";
 
 /** Every field of every added plugin, for the picker. */
 export function pluginFieldOptions(plugins: readonly PluginRecord[]): PluginFieldOption[] {
-  return plugins.flatMap((p) => p.manifest.contributes.fields.map((f) => ({ id: pluginFieldId(p.pluginId, f.id), title: f.title, pluginName: p.manifest.name, on: p.state === "on" })));
+  return plugins.flatMap((p) => p.manifest.contributes.fields.map((f) => ({ id: pluginFieldId(p.pluginId, f.id), title: f.title, pluginName: p.manifest.name, on: p.state === "on", ...(f.options ? { options: f.options } : {}) })));
 }
 
 /** The added plugins, kept up to date as they're added, switched or removed. Empty where plugins aren't allowed. */
@@ -50,10 +51,12 @@ function failureWords(reason: string): string {
  * seconds); each change runs every field once with `numbers` (lib/ride/fields.ts liveNumbers).
  * Nothing runs while `running` is false; the last answer stays on screen.
  */
-export function usePluginFields(plugins: readonly PluginRecord[], ids: readonly string[], numbers: Record<string, number | null>, tick: number, running: boolean): Record<string, FieldShown> {
+export function usePluginFields(plugins: readonly PluginRecord[], ids: readonly string[], numbers: Record<string, number | null>, tick: number, running: boolean, picks?: FieldOptionPicks): Record<string, FieldShown> {
   const [shown, setShown] = useState<Record<string, FieldShown>>({});
   const latest = useRef(numbers);
   latest.current = numbers;
+  const latestPicks = useRef(picks);
+  latestPicks.current = picks;
   const key = [...new Set(ids.filter((id) => parsePluginFieldId(id)))].join(",");
   const find = (id: string) => {
     const ref = parsePluginFieldId(id)!;
@@ -84,13 +87,13 @@ export function usePluginFields(plugins: readonly PluginRecord[], ids: readonly 
               set(id, empty(field.title, PLUGIN_FIELD_WORDS.off));
               continue;
             }
-            const r = await host.call(field.entry, metrics);
+            const r = await host.call(field.entry, metrics, undefined, field.options ? resolveOptions(field.options, latestPicks.current?.[id]) : undefined);
             if (!r.ok) {
               set(id, empty(field.title, failureWords(r.reason)));
               continue;
             }
-            const v = r.output.tree ? fieldFromKit(r.output.tree) : null;
-            set(id, v ? { label: field.title, value: v.value, unit: v.unit, ...(v.sub ? { sub: v.sub } : {}), ...(v.tone ? { tone: v.tone } : {}), ...(v.chart ? { chart: v.chart } : {}), plugin: true } : empty(field.title, PLUGIN_FIELD_WORDS.nothing));
+            const v = r.output.tree ? fieldFromKit(r.output.tree, readUnits()) : null;
+            set(id, v ? { label: field.title, value: v.value, unit: v.unit, ...(v.sub ? { sub: v.sub } : {}), ...(v.tone ? { tone: v.tone } : {}), ...(v.chart ? { chart: v.chart } : {}), ...(v.values ? { values: v.values } : {}), ...(v.look ? { look: v.look } : {}), plugin: true } : empty(field.title, PLUGIN_FIELD_WORDS.nothing));
           } catch {
             set(id, empty(field.title, PLUGIN_FIELD_WORDS.failed));
           }

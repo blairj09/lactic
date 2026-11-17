@@ -92,4 +92,23 @@ describe("plugin manifest", () => {
     expect(parseManifestText("{").ok).toBe(false);
     expect(parseManifestText(" ".repeat(20_000)).ok).toBe(false);
   });
+
+  it("reads field options: fixed choices, a default from them, and a limit", () => {
+    const options = [{ id: "durations", label: "Durations", choices: ["5 s", "1 min", "5 min"], default: ["5 s", "1 min"], max: 2 }];
+    const r = validateManifest({ ...base, contributes: { fields: [{ ...base.contributes.fields[0], options }] } });
+    expect(r.ok && r.manifest.contributes.fields[0].options).toEqual(options);
+    const bad = (o: Record<string, unknown>) => errorsFor({ contributes: { fields: [{ ...base.contributes.fields[0], options: [{ ...options[0], ...o }] }] } }).join();
+    expect(bad({ default: ["10 min"] })).toMatch(/one of the choices/);
+    expect(bad({ default: ["5 s", "1 min", "5 min"] })).toMatch(/1 to 2/);
+    expect(bad({ choices: ["only"], default: ["only"], max: 1 })).toMatch(/two choices/);
+    expect(bad({ max: 9 })).toMatch(/whole number/);
+    expect(bad({ id: "Bad id" })).toMatch(/invalid format/);
+    expect(bad({ text: true })).toMatch(/not a known/);
+    expect(errorsFor({ contributes: { fields: base.contributes.fields, analyses: [{ ...base.contributes.analyses[0], options }] } }).join()).toMatch(/not a known/);
+  });
+
+  it("hashes a manifest without options as before", () => {
+    const r = validateManifest(base);
+    expect(r.ok && packageHashText(r.manifest, "x")).not.toContain("options");
+  });
 });

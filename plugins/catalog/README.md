@@ -4,13 +4,14 @@ Official plugins for **Lactic**: add them as they are, or read them to learn how
 
 | Plugin | Adds | Reads | Version |
 | --- | --- | --- | --- |
-| [Best Efforts](best-efforts/) | ride field, ride page | live, rides, profile | 1.0.1 |
+| [Best Efforts](best-efforts/) | ride fields, ride page | live, rides, profile | 1.1.0 |
 | [Cadence Bands](cadence-bands/) | ride field, ride page | live, rides | 1.0.1 |
 | [Aerobic Decoupling](decoupling/) | ride field, ride page | live, rides | 1.0.1 |
 | [Fuel Reminder](fuel/) | ride field | live | 1.0.1 |
 | [Matches](matches/) | ride field, ride page | live, rides, profile | 1.0.1 |
 | [On Target](on-target/) | ride field, ride page | live, rides | 1.0.1 |
 | [Ride Quality](ride-quality/) | ride field, ride page | live, rides, profile | 1.0.1 |
+| [Speedometer](speedometer/) | ride field | live, profile | 1.0.0 |
 | [W′ Balance](w-prime/) | ride field, ride page | live, rides, profile | 1.0.1 |
 | [Zones](zones/) | ride field | live | 0.1.0 |
 

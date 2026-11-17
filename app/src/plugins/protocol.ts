@@ -51,6 +51,8 @@ export interface CallInput {
   now: number;
   /** For ride analyses only: the saved ride, cut to the groups the rider approved (ride-input.ts). */
   ride?: RideInput;
+  /** For ride fields with options: the rider's picks (or the defaults), by option id. Always the manifest's own choices. */
+  options?: Record<string, string[]>;
 }
 
 /** One saved ride as a ride analysis sees it. Numbers (and a few fixed words) only. */

@@ -157,8 +157,8 @@ export class PluginHost {
   }
 
   /** Run one handler for this tick. `metrics` is trimmed to approved groups before it leaves Lactic. */
-  call(entry: string, metrics: Record<string, number | null | { value: number | null }>, now = Date.now() / 1000): Promise<TickResult> {
-    return this.send(entry, metrics, now);
+  call(entry: string, metrics: Record<string, number | null | { value: number | null }>, now = Date.now() / 1000, options?: Record<string, string[]>): Promise<TickResult> {
+    return this.send(entry, metrics, now, undefined, undefined, options);
   }
 
   /**
@@ -170,7 +170,7 @@ export class PluginHost {
     return this.send(entry, metrics, now, ride, ANALYSIS_BUDGET);
   }
 
-  private send(entry: string, metrics: Record<string, number | null | { value: number | null }>, now: number, ride?: RideInput, budget?: CallBudget): Promise<TickResult> {
+  private send(entry: string, metrics: Record<string, number | null | { value: number | null }>, now: number, ride?: RideInput, budget?: CallBudget, options?: Record<string, string[]>): Promise<TickResult> {
     if (this.status === "disabled") return Promise.resolve({ ok: false, reason: "disabled", message: this.disabledReason ?? "switched off" });
     if (this.status !== "ready" || !this.worker) return Promise.resolve({ ok: false, reason: "not-ready", message: "plugin is starting" });
     if (!this.entries.includes(entry)) return Promise.resolve({ ok: false, reason: "no-entry", message: `no handler ${entry} in the manifest` });
@@ -180,7 +180,7 @@ export class PluginHost {
     return new Promise<TickResult>((resolve) => {
       const timer = setTimeout(() => this.onStuck(worker, seq), (budget?.tickMs ?? this.limits.tickMs) + this.policy.watchdogGraceMs);
       this.pending = { seq, timer, resolve, maxOutputBytes: budget?.maxOutputBytes ?? this.limits.maxOutputBytes };
-      const input = { metrics: approvedInput(this.manifest, metrics), now, ...(ride ? { ride } : {}) };
+      const input = { metrics: approvedInput(this.manifest, metrics), now, ...(ride ? { ride } : {}), ...(options ? { options } : {}) };
       worker.postMessage(budget ? { type: "call", seq, entry, input, budget } : { type: "call", seq, entry, input });
     });
   }

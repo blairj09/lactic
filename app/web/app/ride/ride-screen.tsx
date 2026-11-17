@@ -970,6 +970,8 @@ function RideOnThisDevice({
     },
     elapsed,
     running,
+    // Picks made on the phone count too; the computer's own win where both set one.
+    { ...phoneSets?.options, ...fieldSets.options },
   );
   const fieldValues = { ...showFields(fieldRefs, fieldInputs, metrics), ...pluginValues };
   /** Something to ride with: the trainer, or with another app on it the power meter when the trainer's busy. */

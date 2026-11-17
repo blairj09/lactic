@@ -11,12 +11,12 @@ Plugins add two things to Lactic on Mac, Windows and Linux: live fields on the r
 
 There are two kinds of contribution:
 
-- **fields**: ride fields, on the ride screen, the overlay and free rides. The rider picks them under Plugins in Customize fields. Each ride second the field's entry gets the live numbers it was granted; Lactic draws the first `field` (or `stat`) in the tree: its value, unit, line and tone, under the manifest's title. It can add one small live chart: the first `bars` (at most 10, labels of 4 characters or fewer; `palette: "zones"` for zone colours), `sparkline` (last 120 points) or `meter`. Other kit pieces aren't drawn in a ride field. A plugin's fields run one after another each second, sharing its 20 ms per call.
+- **fields**: ride fields, on the ride screen, the overlay and free rides. The rider picks them under Plugins in Customize fields. Each ride second the field's entry gets the live numbers it was granted; Lactic draws the first `field` (or `stat`) in the tree: its value, unit, line and tone, under the manifest's title. It can add one small live chart or block: the first `bars` (at most 10, labels of 4 characters or fewer; `palette: "zones"` for zone colours), `sparkline` (last 120 points), `meter`, or a built-in block (`gauge`, `ring`, `zonebar`, `target`, `list`, `status`, `countdown`, `balance`) that shows the number itself. Other kit pieces aren't drawn in a ride field. A plugin's fields run one after another each second, sharing its 20 ms per call.
 - **analyses**: these run once on a saved ride (never during one) and draw on that ride's page. They get the whole ride as `input.ride`: power, heart rate, cadence and target samples, the intervals as ridden, and the GPS track only if the rider ticked "where you ride". They need `"rides"` in `permissions.read`. They have 2 seconds and can return up to 128 KB, and can use the `table` and `profile` kit pieces.
 
 A plugin is plain JavaScript that runs in a sandbox (QuickJS compiled to WebAssembly, in a worker). It has no internet, no storage, no timers, no DOM and no access to the app. It gets the metrics the rider approved, as numbers, and returns two things:
 
-- `tree`: what to draw, built from Lactic's kit (field, stat, text, sparkline, bars, meter, stack, button). Lactic draws it in its own style, inside a frame that names the plugin.
+- `tree`: what to draw, built from Lactic's kit (field, stat, values, text, sparkline, bars, meter, stack, button, table, profile, and the blocks above). Colour comes only from a tone or a zone step. Lactic draws it in its own style, inside a frame that names the plugin.
 - `metrics`: numbers, or one of the manifest's fixed choices, that it publishes under `plugin.<id>.<name>`. Free text is never accepted.
 
 Each call has 20 ms. A plugin that runs late shows "–", and it is switched off after 5 late calls in a row or 3 crashes. It can't stall a ride or the trainer.

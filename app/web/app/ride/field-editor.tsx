@@ -9,12 +9,12 @@ import { isPhone } from "~/platform/native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Segmented, button, input } from "@/components/ui";
 import { remembered } from "@/lib/ble/devices";
-import { addPage, deletePage, follow, follows, movePage, pagesOf, renamePage, setSlot, setTemplate, splitOff, standardSets, swapSlots, type RideSets } from "@/lib/ride/field-pages";
+import { addPage, canWiden, deletePage, follow, follows, movePage, pagesOf, renamePage, setOption, setSlot, setTemplate, setWide, splitOff, standardSets, swapSlots, type RideSets } from "@/lib/ride/field-pages";
 import { customLabel, fieldKey, fieldNeeds, showField, unavailableReason, type FieldInputs, type RiderHas } from "@/lib/ride/fields";
-import { PAGE_TEMPLATES, type CustomAgg, type FieldRef, type PageTemplate } from "@/lib/sdk/layout";
+import { canBeWide, pageSlots, type CustomAgg, type FieldRef, type PageTemplate } from "@/lib/sdk/layout";
 import type { FieldSetId } from "@/lib/sdk/layout-edit";
 import { MetricRegistry } from "@/lib/sdk/metrics";
-import { isPluginFieldId, type PluginFieldOption } from "@/lib/sdk/plugin-fields";
+import { isPluginFieldId, resolveOptions, toggleChoice, type PluginFieldOption } from "@/lib/sdk/plugin-fields";
 import { FieldGrid, type Shown } from "./field-grid";
 
 const metrics = new MetricRegistry();
@@ -123,8 +123,13 @@ export default function FieldEditor({
   const pages = pagesOf(draft, set);
   const current = pages[Math.min(page, pages.length - 1)];
   const pageIndex = pages.indexOf(current);
-  const slots = PAGE_TEMPLATES[current.template];
-  const shown = Array.from({ length: slots }, (_, i) => (current.fields[i] ? sampleShown(current.fields[i], inputs, ftp, pluginFields) : undefined));
+  const slots = pageSlots(current);
+  const shown = Array.from({ length: slots }, (_, i) => {
+    const ref = current.fields[i];
+    if (!ref) return undefined;
+    const f = sampleShown(ref, inputs, ftp, pluginFields);
+    return ref.wide ? { ...f, wide: true } : f;
+  });
   const selected = slot !== null && slot < slots ? slot : null;
 
   /** Applies a change, keeping the step before it for Undo. */
@@ -162,7 +167,10 @@ export default function FieldEditor({
   const listed = new Set(GROUPS.flatMap((g) => g.ids));
   const more = metrics.forScope("live").filter((d) => !listed.has(d.id));
   const groups = [...GROUPS, ...(more.length ? [{ name: "More", ids: more.map((d) => d.id) }] : [])];
-  const selectedKey = selected !== null && current.fields[selected] ? fieldKey(current.fields[selected]) : null;
+  const selectedRef = selected !== null ? current.fields[selected] : undefined;
+  const selectedKey = selectedRef ? fieldKey(selectedRef) : null;
+  const selectedPlugin = selectedRef && "metric" in selectedRef ? pluginFields.find((p) => p.id === selectedRef.metric) : undefined;
+  const chip = (on: boolean) => `h-8 rounded-full px-3 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${on ? "bg-primary text-on-primary" : "bg-raised text-ink enabled:hover:bg-active"}`;
 
   const option = (ref: FieldRef, label: string, hint: string) => {
     const reason = unavailableReason(fieldNeeds(ref, metrics), has);
@@ -223,6 +231,37 @@ export default function FieldEditor({
 
       <div className="space-y-2">
         <h3 className="text-sm font-semibold">{selected === null ? "Pick a field to change" : `Field ${selected + 1} shows`}</h3>
+        {selectedRef && selected !== null && canBeWide(current.template) && (
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted">Width</span>
+            <button type="button" className={chip(!selectedRef.wide)} aria-pressed={!selectedRef.wide} onClick={() => change(setWide(draft, set, pageIndex, selected, false))}>
+              Normal
+            </button>
+            <button type="button" className={chip(!!selectedRef.wide)} aria-pressed={!!selectedRef.wide} disabled={!selectedRef.wide && !canWiden(current, selected)} title={!selectedRef.wide && !canWiden(current, selected) ? "No room on this page" : undefined} onClick={() => change(setWide(draft, set, pageIndex, selected, true))}>
+              Wide
+            </button>
+          </div>
+        )}
+        {selectedPlugin?.options?.map((o) => {
+          const picked = resolveOptions([o], draft.options?.[selectedPlugin.id])[o.id];
+          const max = o.max ?? 1;
+          return (
+            <div key={o.id} className="space-y-1.5 rounded-md border border-plugin-line bg-plugin-soft/40 p-2.5">
+              <div className="text-sm font-medium">{o.label}</div>
+              <div className="flex flex-wrap gap-1.5">
+                {o.choices.map((c) => {
+                  const on = picked.includes(c);
+                  return (
+                    <button type="button" key={c} className={chip(on)} aria-pressed={on} disabled={!on && max > 1 && picked.length >= max} onClick={() => change(setOption(draft, selectedPlugin.id, o.id, toggleChoice(o, picked, c)))}>
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
+              {max > 1 && <p className="text-xs text-muted">Up to {max}.</p>}
+            </div>
+          );
+        })}
         <input className={`${input} w-full`} placeholder="Search fields" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search fields" />
         <div className="max-h-[26rem] space-y-3 overflow-y-auto pr-1">
           {groups.map((g) => {

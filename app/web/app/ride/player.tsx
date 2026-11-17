@@ -7,9 +7,10 @@ import { EXTEND_KINDS, type ExtendKind } from "@/lib/ride/extend";
 import type { RideTotals } from "@/lib/ride/totals";
 import type { FieldShown } from "@/lib/ride/fields";
 import { fieldKey } from "@/lib/ride/fields";
-import { DEFAULT_RIDE_PAGE, PAGE_TEMPLATES, type FieldRef, type RidePage } from "@/lib/sdk/layout";
-import { Big, FieldChart, FieldGrid, PageDots, PluginMark, TONE, hasChart, swipeHandlers, type Shown, type Tone } from "./field-grid";
-import type { RideChart } from "@/lib/sdk/plugin-fields";
+import { DEFAULT_RIDE_PAGE, pageSlots, type FieldRef, type RidePage } from "@/lib/sdk/layout";
+import { Big, ChangeArrow, FieldChart, FieldGrid, FieldValuesCompact, chartOwnsNumber, PageDots, PluginMark, TONE, hasChart, swipeHandlers, type Shown, type Tone } from "./field-grid";
+import type { FieldLook, FieldValue, RideChart } from "@/lib/sdk/plugin-fields";
+import { zoneStyle } from "./blocks";
 import WorkoutChart, { type TracePoint } from "./workout-chart";
 
 /** Everything the in-ride views show, worked out once per second in RideScreen. */
@@ -328,7 +329,7 @@ export function shownField(ref: FieldRef, data: PlayerData, short = false): Show
   }
   const f = data.fields.values[fieldKey(ref)];
   if (!f) return { label: "metric" in ref ? ref.metric : ref.custom.label, value: undefined, unit: "" };
-  return { label: f.label, value: f.value ?? undefined, unit: f.unit, reason: f.reason, ...(f.sub ? { sub: f.sub } : {}), ...(f.tone ? { tone: f.tone } : {}), ...(f.plugin ? { plugin: true } : {}), ...(f.chart ? { chart: f.chart } : {}) };
+  return { label: f.label, value: f.value ?? undefined, unit: f.unit, reason: f.reason, ...(f.sub ? { sub: f.sub } : {}), ...(f.tone ? { tone: f.tone } : {}), ...(f.plugin ? { plugin: true } : {}), ...(f.chart ? { chart: f.chart } : {}), ...(f.values ? { values: f.values } : {}), ...(f.look ? { look: f.look } : {}) };
 }
 
 /**
@@ -340,7 +341,12 @@ export const fieldsOf = (data: PlayerData): RideFields =>
 
 /** A page's fields, one per slot (undefined for an empty slot). */
 export const pageShown = (page: RidePage, data: PlayerData, short = false): (Shown | undefined)[] =>
-  Array.from({ length: PAGE_TEMPLATES[page.template] }, (_, i) => (page.fields[i] ? shownField(page.fields[i], data, short) : undefined));
+  Array.from({ length: pageSlots(page) }, (_, i) => {
+    const ref = page.fields[i];
+    if (!ref) return undefined;
+    const f = shownField(ref, data, short);
+    return ref.wide ? { ...f, wide: true } : f;
+  });
 
 /** Free ride with another app: who has the trainer, by name when a known training app is open. */
 export const trainerOwner = (data: PlayerData) => `${data.trainerApp ?? "Another app"} controls the trainer`;
@@ -389,7 +395,7 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
         <FieldGrid
           template={page.template}
           shown={pageShown(page, { ...data, fields })}
-          slots={PAGE_TEMPLATES[page.template]}
+          slots={pageSlots(page)}
           chart={
             <div className="min-w-0 space-y-2">
               <HoverChart data={data} />
@@ -846,7 +852,7 @@ export function MiniPlayer({ data, controls, onResize, onClose }: { data: Player
     const tone = isInterval ? (data.autoPaused || data.startIn !== null ? "warning" : undefined) : f.tone;
     // On the standard page heart rate and cadence are smaller, as they were before layouts.
     const small = twoRows || (page.template === "standard" ? i >= 3 : shown.length > 4 && i >= 3);
-    return <Mini key={i} label={label} value={f.value} tone={tone} sub={sub} small={small} plugin={f.plugin} chart={f.chart} />;
+    return <Mini key={i} label={label} value={f.value} tone={tone} sub={sub} small={small} plugin={f.plugin} chart={f.chart} values={f.values} unit={f.unit} look={f.look} />;
   };
   const [drawer, setDrawer] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -908,7 +914,15 @@ export function MiniPlayer({ data, controls, onResize, onClose }: { data: Player
                   {f.plugin && <PluginMark />}
                   {f.label}
                 </dt>
-                <dd className="num text-[clamp(13px,13vh,56px)] font-medium leading-[1.12] tracking-tight">{f.value ?? <span className="text-faint">–</span>}</dd>
+                <dd className="num text-[clamp(13px,13vh,56px)] font-medium leading-[1.12] tracking-tight">
+                  {f.values ? (
+                    <FieldValuesCompact values={f.values} valueSize="text-[clamp(12px,9vh,36px)]" labelSize={MINI_GROUP} />
+                  ) : chartOwnsNumber(f.chart) ? (
+                    <FieldChart chart={f.chart!} small valueSize="text-[clamp(13px,13vh,56px)]" />
+                  ) : (
+                    (f.value ?? <span className="text-faint">–</span>)
+                  )}
+                </dd>
               </div>
             ) : null;
           })}
@@ -1261,16 +1275,35 @@ function MiniAdapt({ data, controls }: { data: PlayerData; controls: PlayerContr
   );
 }
 
-function Mini({ label, value, tone, sub, small, plugin, chart }: { label: string; value: number | string | undefined; tone?: Tone; sub?: string | null; small?: boolean; plugin?: boolean; chart?: RideChart }) {
+function Mini({ label, value, tone, sub, small, plugin, chart, values, unit, look }: { label: string; value: number | string | undefined; tone?: Tone; sub?: string | null; small?: boolean; plugin?: boolean; chart?: RideChart; values?: FieldValue[]; unit?: string; look?: FieldLook }) {
+  if (values)
+    // A few numbers in a compact block, so the strip stays the height it is.
+    return (
+      <div className="flex shrink-0 flex-col justify-center">
+        <div className={`flex items-center gap-[0.35em] whitespace-nowrap text-muted ${MINI_LABEL}`}>
+          {plugin && <PluginMark />}
+          {label}
+          {unit ? ` · ${unit}` : ""}
+        </div>
+        <FieldValuesCompact values={values} valueSize="text-[clamp(14px,14vh,64px)] leading-[1.1]" labelSize={MINI_LABEL} />
+      </div>
+    );
+  const owns = chartOwnsNumber(chart);
+  const subTone = look?.subTone ?? tone;
   return (
-    <div className="flex shrink-0 flex-col justify-center">
+    <div className={`flex shrink-0 flex-col justify-center ${look?.emphasis === "quiet" ? "opacity-45" : ""}`}>
       <div className={`flex items-center gap-[0.35em] whitespace-nowrap text-muted ${MINI_LABEL}`}>
         {plugin && <PluginMark />}
         {label}
       </div>
-      {(value !== undefined || !chart) && <div className={`num font-medium tracking-tight ${small ? MINI_VALUE_SMALL : MINI_VALUE} ${tone ? TONE[tone] : ""}`}>{value ?? <span className="text-faint">–</span>}</div>}
-      {chart && <FieldChart chart={chart} small />}
-      <div className={`num whitespace-nowrap ${MINI_LABEL} ${tone ? TONE[tone] : "text-muted"}`}>{sub ?? " "}</div>
+      {(value !== undefined || !chart) && !owns && (
+        <div className={`num font-medium tracking-tight ${small ? MINI_VALUE_SMALL : MINI_VALUE} ${tone && !look?.zone ? TONE[tone] : ""}`} style={zoneStyle(look?.zone)}>
+          {value ?? <span className="text-faint">–</span>}
+          {look?.change && value !== undefined && <ChangeArrow change={look.change} />}
+        </div>
+      )}
+      {chart && <FieldChart chart={chart} small valueSize={owns ? (small ? MINI_VALUE_SMALL : MINI_VALUE) : undefined} />}
+      <div className={`num whitespace-nowrap ${MINI_LABEL} ${subTone ? TONE[subTone] : "text-muted"}`}>{sub ?? " "}</div>
     </div>
   );
 }

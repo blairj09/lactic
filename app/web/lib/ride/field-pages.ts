@@ -5,7 +5,7 @@
 //
 // Pure, so it tests in Node.
 
-import { PAGE_TEMPLATES, defaultLayout, type FieldRef, type Layout, type PageTemplate, type RidePage } from "../sdk/layout";
+import { PAGE_TEMPLATES, canBeWide, defaultLayout, fitFields, slotsUsed, type FieldRef, type Layout, type PageTemplate, type RidePage } from "../sdk/layout";
 import type { FieldSetId } from "../sdk/layout-edit";
 
 export type RideSets = Layout["ride"];
@@ -55,9 +55,11 @@ function changePage(ride: RideSets, set: FieldSetId, page: number, change: (p: R
 export function setSlot(ride: RideSets, set: FieldSetId, page: number, slot: number, field: FieldRef | null): RideSets {
   return changePage(ride, set, page, (p) => {
     const fields = [...p.fields];
+    const { wide: _, ...plain } = field ?? {};
     if (field === null) fields.splice(slot, 1);
-    else if (slot < fields.length) fields[slot] = field;
-    else if (fields.length < PAGE_TEMPLATES[p.template]) fields.push(field);
+    // A wide slot stays wide with whatever it shows next.
+    else if (slot < fields.length) fields[slot] = (fields[slot].wide ? { ...plain, wide: true } : plain) as FieldRef;
+    else if (slotsUsed(fields) < PAGE_TEMPLATES[p.template]) fields.push(plain as FieldRef);
     return { ...p, fields };
   });
 }
@@ -74,7 +76,33 @@ export function swapSlots(ride: RideSets, set: FieldSetId, page: number, a: numb
 
 /** A new template keeps the fields that fit; Undo brings back any it drops. */
 export const setTemplate = (ride: RideSets, set: FieldSetId, page: number, template: PageTemplate): RideSets =>
-  changePage(ride, set, page, (p) => ({ ...p, template, fields: p.fields.slice(0, PAGE_TEMPLATES[template]) }));
+  changePage(ride, set, page, (p) => ({ ...p, template, fields: fitFields(template, p.fields) }));
+
+/** Whether the field in `slot` can be made wide: a grid page with a slot to spare. */
+export function canWiden(page: RidePage, slot: number): boolean {
+  const f = page.fields[slot];
+  return !!f && !f.wide && canBeWide(page.template) && slotsUsed(page.fields) < PAGE_TEMPLATES[page.template];
+}
+
+/** Makes a field wide (two slots side by side) or normal again. Does nothing when it doesn't fit. */
+export function setWide(ride: RideSets, set: FieldSetId, page: number, slot: number, wide: boolean): RideSets {
+  const p = pagesOf(ride, set)[page];
+  const f = p?.fields[slot];
+  if (!f || !!f.wide === wide || (wide && !canWiden(p, slot))) return ride;
+  return changePage(ride, set, page, (q) => {
+    const fields = [...q.fields];
+    const { wide: _, ...plain } = fields[slot];
+    fields[slot] = (wide ? { ...plain, wide: true } : plain) as FieldRef;
+    return { ...q, fields };
+  });
+}
+
+/** Sets the rider's picks for one option of a plugin field. */
+export function setOption(ride: RideSets, fieldId: string, option: string, picks: string[]): RideSets {
+  const next = structuredClone(ride);
+  next.options = { ...next.options, [fieldId]: { ...next.options?.[fieldId], [option]: picks } };
+  return next;
+}
 
 export const renamePage = (ride: RideSets, set: FieldSetId, page: number, name: string): RideSets =>
   changePage(ride, set, page, (p) => ({ ...p, name: name.slice(0, 24) }));

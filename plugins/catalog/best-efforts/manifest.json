@@ -2,19 +2,85 @@
   "apiVersion": 1,
   "id": "best-efforts",
   "name": "Best Efforts",
-  "version": "1.0.1",
-  "description": "Your best 5-minute power so far during a ride, and your best 5 seconds to 60 minutes after it.",
+  "version": "1.1.0",
+  "description": "Your best efforts so far during a ride (pick up to four durations), and your best 5 seconds to 60 minutes after it.",
   "homepage": "https://github.com/blairj09/lactic/tree/modular-ui/plugins/catalog/best-efforts",
   "main": "main.js",
-  "permissions": { "read": ["live", "rides", "profile"] },
+  "permissions": {
+    "read": [
+      "live",
+      "rides",
+      "profile"
+    ]
+  },
   "publishes": [
-    { "id": "best_5min_live", "label": "Best 5 min so far", "unit": "W", "kind": "number" },
-    { "id": "best_1min", "label": "Best 1 min", "unit": "W", "kind": "number" },
-    { "id": "best_5min", "label": "Best 5 min", "unit": "W", "kind": "number" },
-    { "id": "best_20min", "label": "Best 20 min", "unit": "W", "kind": "number" }
+    {
+      "id": "best_5min_live",
+      "label": "Best 5 min so far",
+      "unit": "W",
+      "kind": "number"
+    },
+    {
+      "id": "best_1min",
+      "label": "Best 1 min",
+      "unit": "W",
+      "kind": "number"
+    },
+    {
+      "id": "best_5min",
+      "label": "Best 5 min",
+      "unit": "W",
+      "kind": "number"
+    },
+    {
+      "id": "best_20min",
+      "label": "Best 20 min",
+      "unit": "W",
+      "kind": "number"
+    }
   ],
   "contributes": {
-    "fields": [{ "id": "best-5min", "title": "Best 5 min", "entry": "field" }],
-    "analyses": [{ "id": "ride", "title": "Best efforts", "entry": "analyze" }]
+    "fields": [
+      {
+        "id": "best-5min",
+        "title": "Best 5 min",
+        "entry": "field"
+      },
+      {
+        "id": "efforts",
+        "title": "Best efforts",
+        "entry": "efforts",
+        "options": [
+          {
+            "id": "durations",
+            "label": "Durations",
+            "choices": [
+              "5 s",
+              "15 s",
+              "30 s",
+              "1 min",
+              "5 min",
+              "10 min",
+              "20 min",
+              "60 min"
+            ],
+            "default": [
+              "5 s",
+              "1 min",
+              "5 min",
+              "20 min"
+            ],
+            "max": 4
+          }
+        ]
+      }
+    ],
+    "analyses": [
+      {
+        "id": "ride",
+        "title": "Best efforts",
+        "entry": "analyze"
+      }
+    ]
   }
 }

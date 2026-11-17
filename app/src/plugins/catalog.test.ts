@@ -7,6 +7,7 @@ import { join } from "node:path";
 import type { KitNode } from "@shared/sdk";
 // @ts-expect-error: plain ESM script, no types
 import { buildCatalog, compare, CATALOG } from "../../scripts/build-plugin-catalog.mjs";
+import { fieldFromKit } from "@/lib/sdk/plugin-fields";
 import { parsePackage, type PluginPackage } from "./package";
 import { PluginHost, type TickResult } from "./host";
 import { InProcessWorker, quickjs } from "./test-utils";
@@ -170,6 +171,19 @@ describe("plugin catalog", () => {
     const be = await analysis("best-efforts");
     expect(be.metrics!["plugin.best-efforts.best_1min"]).toBeGreaterThan(299);
     expect(text(be.tree)).toContain("20 min");
+
+    // Several best efforts in one field, for the durations the rider picked.
+    {
+      const { pkg, host } = await load("best-efforts");
+      let out;
+      for (let t = 0; t <= 200; t++) out = ok(pkg, await host.call("efforts", liveMetrics(t), 1000 + t, { durations: ["5 s", "1 min", "20 min"] }));
+      host.stop();
+      const v = fieldFromKit(out!.tree!);
+      expect(v?.unit).toBe("W");
+      expect(v?.values?.map((x) => x.label)).toEqual(["5 s", "1 min", "20 min"]);
+      expect(v?.values?.[0].value).toBe("420");
+      expect(v?.values?.[2].value).toBe("–");
+    }
 
     // Three surges at 420 W (168% FTP) in the warm-up; the 300 W intervals are 120%, so they count too.
     const m = await field("matches", "field", 600);
