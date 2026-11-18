@@ -22,6 +22,8 @@ import { loadLayout } from "@/lib/layout-data";
 import { experiments } from "@/lib/experiments";
 import { loadRaceFollowUp, RACE_PROMPTS_SETTING } from "@/lib/race-glance";
 import { getSetting } from "~/settings/store";
+import { HISTORY_OFFER_DISMISSED } from "../history-offer";
+import { FINISH_SETUP } from "@/lib/finish-setup";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -46,7 +48,7 @@ export default async function Today({ searchParams }: { searchParams?: Promise<R
     ] as const);
   });
   dated.catch(() => {}); // Reported by loadTrainingState, which loads the same athlete.
-  const [state, icu, body, healthToken, recoverySetup, [briefDay, earlyBrief, earlyReview], layout] = await Promise.all([
+  const [state, icu, body, healthToken, recoverySetup, [briefDay, earlyBrief, earlyReview], layout, offerDismissed, finishSetup] = await Promise.all([
     loadTrainingState(supabase),
     optional(loadIntervals(supabase)),
     optional(loadBodyMeasurements(supabase, new Date(Date.now() - 40 * 86_400_000))),
@@ -54,6 +56,8 @@ export default async function Today({ searchParams }: { searchParams?: Promise<R
     loadRecoverySetup(),
     dated,
     loadLayout(supabase),
+    getSetting<boolean>(HISTORY_OFFER_DISMISSED, false).catch(() => true),
+    getSetting<boolean>(FINISH_SETUP, false).catch(() => false),
   ]);
   const { athlete, rides, today } = state;
   const monday = weekStart(today);
@@ -84,6 +88,13 @@ export default async function Today({ searchParams }: { searchParams?: Promise<R
   const syncDue: "intervals"[] = due(icu) ? ["intervals"] : [];
 
   const recoverySource = recoverySourceInfo(recoverySetup, Boolean(icu));
+  // Past rides: still arriving from intervals.icu, or never brought in (a few rides, all ridden in Lactic).
+  // New riders see the same offer in "Finish setting up", so the card waits until that list is gone.
+  const ownRides = rides.filter((r) => r.source === "app" && !r.duplicateOf).length;
+  const history = {
+    importing: icu && !icu.backfillDone ? rides.filter((r) => !r.duplicateOf).length : null,
+    offer: !icu && !offerDismissed && !finishSetup && ownRides < 10 && rides.every((r) => r.source === "app"),
+  };
 
   const ftpSince = addDays(today, -FTP_WINDOW_DAYS);
   const recentCurves = rides.filter((r) => r.powerCurve && localDate(r.startedAt, athlete.timezone) >= ftpSince).map((r) => r.powerCurve!);
@@ -102,6 +113,7 @@ export default async function Today({ searchParams }: { searchParams?: Promise<R
           todayStream={todayStream}
           raceFollowUp={raceFollowUp}
           intervalsConnected={Boolean(icu)}
+          history={history}
           layout={layout}
           customize={customize}
           brief={

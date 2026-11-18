@@ -10,7 +10,8 @@ import { getSetting, setSetting } from "~/settings/store";
 import { ProfileForm, saveProfile, useProfile } from "~/setup/profile";
 import { defaultWeek, saveWeek, WeekForm } from "~/setup/week";
 import { GearSetup } from "~/setup/gear";
-import { RidesSetup } from "~/setup/rides";
+import { RideSources } from "~/setup/bring-rides";
+import { HealthSetup } from "~/setup/health";
 import { CoachSetupPanel } from "~/setup/coach";
 import { builtinReady, coachSetup, keepCoachChoice, SECRET_AI } from "~/ai/settings";
 import { secretStatus } from "~/platform/secrets";
@@ -52,8 +53,8 @@ const STEPS = [
   },
   {
     id: "rides",
-    title: "Your rides and sleep",
-    line: "Your history sets your fitness from day one. Sleep gives you a daily recovery score.",
+    title: "Bring your training",
+    line: "You're not starting from zero. Your past rides set your fitness, FTP and plan from where you are. Sleep gives you a daily recovery score.",
   },
   { id: "coach", title: "Your coach", line: "Pick a coach, or go without." },
 ] as const;
@@ -67,8 +68,8 @@ const FIRST: StepId[] = ["you", "gear"];
 function stepText(s: Step, tracking: Features) {
   if (s.id === "rides" && (!tracking.recovery || isPhone()))
     return {
-      title: "Your rides",
-      line: "Your history sets your fitness from day one.",
+      title: "Bring your training",
+      line: "You're not starting from zero. Your past rides set your fitness, FTP and plan from where you are.",
     };
   return s;
 }
@@ -203,6 +204,16 @@ function Welcome({ onStart }: { onStart: () => void }) {
           <p className="text-sm text-faint">
             Two quick steps and you&apos;re riding.
           </p>
+        </div>
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Your rides come with you</p>
+          <ul className="flex flex-wrap justify-center gap-1.5" aria-label="Bring rides from">
+            {["Zwift", "Garmin", "Wahoo", "Strava", "intervals.icu"].map((name) => (
+              <li key={name} className="rounded-full border border-line bg-raised px-2.5 py-0.5 text-xs text-muted">
+                {name}
+              </li>
+            ))}
+          </ul>
         </div>
         {isDesktop && (
           <div className="space-y-1.5 text-sm text-muted">
@@ -421,7 +432,15 @@ export default function Onboarding() {
     case "rides":
       return frame(
         continueButton(() => void later("rides"), "Done"),
-        <RidesSetup sleep={tracking.recovery && !isPhone()} />,
+        <>
+          <RideSources />
+          {tracking.recovery && !isPhone() && (
+            <div className="mt-6 space-y-3">
+              <HealthSetup />
+              <p className="text-sm text-muted">No time now? Connect your sleep later in Settings → Sleep and recovery.</p>
+            </div>
+          )}
+        </>,
       );
     case "coach":
       return frame(
