@@ -29,9 +29,10 @@ enum RideActivity {
   static func show(_ json: String) async throws {
     #if canImport(ActivityKit) && os(iOS)
     guard #available(iOS 16.2, *) else { return }
-    let state = try JSONDecoder().decode(LacticRideAttributes.ContentState.self, from: Data(json.utf8))
-    let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(staleAfter))
+    var state = try JSONDecoder().decode(LacticRideAttributes.ContentState.self, from: Data(json.utf8))
     let running = Activity<LacticRideAttributes>.activities
+    if let first = running.first { state = steady(state, after: first.content.state) }
+    let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(staleAfter))
     if let first = running.first {
       await first.update(content)
       for extra in running.dropFirst() { await extra.end(nil, dismissalPolicy: .immediate) }
@@ -41,6 +42,23 @@ enum RideActivity {
     _ = try Activity.request(attributes: LacticRideAttributes(), content: content, pushType: nil)
     #endif
   }
+
+  #if canImport(ActivityKit) && os(iOS)
+  /// The countdowns' end moments are worked out afresh with each update and drift by a second or so
+  /// (rounding, timing). Each drift makes the island's timer jump, so keep the moment it already has
+  /// unless it really moved (a new interval, a pause, a skip).
+  static func steady(_ next: LacticRideAttributes.ContentState, after last: LacticRideAttributes.ContentState) -> LacticRideAttributes.ContentState {
+    func keep(_ a: Double?, _ b: Double?) -> Double? {
+      guard let a, let b, abs(a - b) <= 2 else { return b }
+      return a
+    }
+    var state = next
+    state.intervalEnd = keep(last.intervalEnd, next.intervalEnd)
+    state.rideEnd = keep(last.rideEnd, next.rideEnd)
+    state.started = keep(last.started, next.started)
+    return state
+  }
+  #endif
 
   /// Force-quitting Lactic kills the ride but not its Live Activity, which iOS would otherwise keep
   /// on the lock screen for hours. So: end it as the app is being closed (iOS says so when Lactic was

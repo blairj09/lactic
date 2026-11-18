@@ -47,11 +47,33 @@ struct Countdown: View {
   let left: Double
 
   var body: some View {
-    if let end, end > Date() {
-      Text(timerInterval: Date()...end, countsDown: true).monospacedDigit()
-    } else {
-      Text(clock(end == nil ? left : 0)).monospacedDigit()
+    Group {
+      if let end, end > Date() {
+        // A fixed start, so an update with the same end is the same view and the timer just ticks on.
+        Text(timerInterval: end.addingTimeInterval(-86_400)...end, countsDown: true)
+      } else {
+        Text(clock(end == nil ? left : 0))
+      }
     }
+    .monospacedDigit().contentTransition(.identity)
+  }
+}
+
+/// The workout's time left, e.g. "49:04 remaining". A running timer takes all the width it's
+/// offered, which pushed the word away from it, so the timer sits over the time as text, which only
+/// gets shorter, and keeps to that width.
+struct RideRemaining: View {
+  let state: RideState
+
+  var body: some View {
+    HStack(spacing: 3) {
+      Text(clock(state.rideLeft)).hidden()
+        .overlay(alignment: .trailing) {
+          Countdown(end: state.rideEndDate, left: state.rideLeft).multilineTextAlignment(.trailing)
+        }
+      Text("remaining")
+    }
+    .fixedSize()
   }
 }
 
@@ -60,11 +82,14 @@ struct Elapsed: View {
   let state: RideState
 
   var body: some View {
-    if let start = state.startedDate {
-      Text(timerInterval: start...Date.distantFuture, countsDown: false).monospacedDigit()
-    } else {
-      Text(clock(state.elapsed)).monospacedDigit()
+    Group {
+      if let start = state.startedDate {
+        Text(timerInterval: start...Date.distantFuture, countsDown: false)
+      } else {
+        Text(clock(state.elapsed))
+      }
     }
+    .monospacedDigit().contentTransition(.identity)
   }
 }
 
@@ -104,13 +129,36 @@ struct WorkoutBar: View {
   }
 }
 
+/// The Lactic mark, the app icon's stepped L (src-tauri/icons/icon.svg), drawn in its 24-unit box.
+struct LacticMark: Shape {
+  func path(in rect: CGRect) -> Path {
+    let k = min(rect.width, rect.height) / 24
+    let points: [(CGFloat, CGFloat)] = [(2, 21), (2, 15), (4.5, 15), (4.5, 10.5), (7, 10.5), (7, 6.5), (9.5, 6.5), (9.5, 3), (12, 3), (12, 15), (22, 15), (22, 21)]
+    var path = Path()
+    path.addLines(points.map { CGPoint(x: rect.minX + $0.0 * k, y: rect.minY + $0.1 * k) })
+    path.closeSubpath()
+    return path
+  }
+}
+
+/// The app icon in small: the white mark on the brand blue tile.
+struct LacticLogo: View {
+  var size: CGFloat = 16
+
+  var body: some View {
+    // A little bigger in the tile than on the app icon, so the steps still read at this size.
+    LacticMark().fill(Color.white).frame(width: size * 0.75, height: size * 0.75)
+      .frame(width: size, height: size)
+      .background(brand, in: RoundedRectangle(cornerRadius: size * 185 / 824, style: .continuous))
+  }
+}
+
 struct Brand: View {
   let title: String
 
   var body: some View {
     HStack(spacing: 6) {
-      Text("L").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
-        .frame(width: 16, height: 16).background(brand, in: RoundedRectangle(cornerRadius: 4))
+      LacticLogo(size: 17)
       Text(title).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
     }
   }
@@ -135,6 +183,14 @@ struct LiveNumbers: View {
 struct Tight: LabelStyle {
   func makeBody(configuration: Configuration) -> some View {
     HStack(spacing: 3) { configuration.icon.font(.caption2); configuration.title }
+  }
+}
+
+extension View {
+  /// Live numbers change every couple of seconds; iOS would fade each change in, which reads as the
+  /// text pulsing. Swap them in place instead.
+  func steady() -> some View {
+    contentTransition(.identity).transaction { $0.animation = nil }
   }
 }
 
@@ -212,10 +268,7 @@ struct RideLockScreen: View {
       HStack {
         Text(state.next.map { "Next: \($0)" } ?? "Last interval").lineLimit(1)
         Spacer(minLength: 8)
-        HStack(spacing: 3) {
-          Countdown(end: state.rideEndDate, left: state.rideLeft)
-          Text("left")
-        }
+        RideRemaining(state: state)
       }
       .font(.caption).foregroundStyle(.white.opacity(0.8)).monospacedDigit()
     }
@@ -284,6 +337,7 @@ struct RideLiveActivity: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: LacticRideAttributes.self) { context in
       RideLockScreen(state: context.state, stale: context.isStale)
+        .steady()
         .activityBackgroundTint(Color(white: 0.1).opacity(0.82))
         .activitySystemActionForegroundColor(.white)
     } dynamicIsland: { context in
@@ -296,10 +350,11 @@ struct RideLiveActivity: Widget {
             Text(state.interval ?? state.title).font(.subheadline.weight(.semibold)).lineLimit(1)
           }
           .padding(.leading, 4)
+          .steady()
         }
         DynamicIslandExpandedRegion(.trailing) {
           IslandClock(state: state).font(.title3.weight(.semibold)).monospacedDigit()
-            .frame(maxWidth: 90, alignment: .trailing).padding(.trailing, 4)
+            .frame(maxWidth: 90, alignment: .trailing).padding(.trailing, 4).steady()
         }
         DynamicIslandExpandedRegion(.bottom) {
           VStack(alignment: .leading, spacing: 6) {
@@ -317,22 +372,20 @@ struct RideLiveActivity: Widget {
               Text(state.phase == "done" ? "Workout done · tap to extend or end" : state.next.map { "Next: \($0)" } ?? state.note ?? "").lineLimit(1)
               Spacer(minLength: 8)
               if !state.free, state.phase != "done" {
-                HStack(spacing: 3) {
-                  Countdown(end: state.rideEndDate, left: state.rideLeft)
-                  Text("left")
-                }
+                RideRemaining(state: state)
               }
             }
             .font(.caption).foregroundStyle(.white.opacity(0.8)).monospacedDigit()
           }
           .padding(.horizontal, 4)
+          .steady()
         }
       } compactLeading: {
-        CompactLeading(state: state, stale: stale)
+        CompactLeading(state: state, stale: stale).steady()
       } compactTrailing: {
-        IslandClock(state: state).font(.caption.weight(.semibold)).monospacedDigit().frame(maxWidth: 52)
+        IslandClock(state: state).font(.caption.weight(.semibold)).monospacedDigit().frame(maxWidth: 52).steady()
       } minimal: {
-        IslandClock(state: state).font(.system(size: 11, weight: .bold)).monospacedDigit().minimumScaleFactor(0.6)
+        IslandClock(state: state).font(.system(size: 11, weight: .bold)).monospacedDigit().minimumScaleFactor(0.6).steady()
       }
       .keylineTint(ZoneColor.of(state.step))
     }
