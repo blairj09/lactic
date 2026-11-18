@@ -47,11 +47,15 @@ struct Countdown: View {
   let left: Double
 
   var body: some View {
-    if let end, end > Date() {
-      Text(timerInterval: Date()...end, countsDown: true).monospacedDigit()
-    } else {
-      Text(clock(end == nil ? left : 0)).monospacedDigit()
+    Group {
+      if let end, end > Date() {
+        // A fixed start, so an update with the same end is the same view and the timer just ticks on.
+        Text(timerInterval: end.addingTimeInterval(-86_400)...end, countsDown: true)
+      } else {
+        Text(clock(end == nil ? left : 0))
+      }
     }
+    .monospacedDigit().contentTransition(.identity)
   }
 }
 
@@ -60,11 +64,14 @@ struct Elapsed: View {
   let state: RideState
 
   var body: some View {
-    if let start = state.startedDate {
-      Text(timerInterval: start...Date.distantFuture, countsDown: false).monospacedDigit()
-    } else {
-      Text(clock(state.elapsed)).monospacedDigit()
+    Group {
+      if let start = state.startedDate {
+        Text(timerInterval: start...Date.distantFuture, countsDown: false)
+      } else {
+        Text(clock(state.elapsed))
+      }
     }
+    .monospacedDigit().contentTransition(.identity)
   }
 }
 
@@ -135,6 +142,14 @@ struct LiveNumbers: View {
 struct Tight: LabelStyle {
   func makeBody(configuration: Configuration) -> some View {
     HStack(spacing: 3) { configuration.icon.font(.caption2); configuration.title }
+  }
+}
+
+extension View {
+  /// Live numbers change every couple of seconds; iOS would fade each change in, which reads as the
+  /// text pulsing. Swap them in place instead.
+  func steady() -> some View {
+    contentTransition(.identity).transaction { $0.animation = nil }
   }
 }
 
@@ -284,6 +299,7 @@ struct RideLiveActivity: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: LacticRideAttributes.self) { context in
       RideLockScreen(state: context.state, stale: context.isStale)
+        .steady()
         .activityBackgroundTint(Color(white: 0.1).opacity(0.82))
         .activitySystemActionForegroundColor(.white)
     } dynamicIsland: { context in
@@ -296,10 +312,11 @@ struct RideLiveActivity: Widget {
             Text(state.interval ?? state.title).font(.subheadline.weight(.semibold)).lineLimit(1)
           }
           .padding(.leading, 4)
+          .steady()
         }
         DynamicIslandExpandedRegion(.trailing) {
           IslandClock(state: state).font(.title3.weight(.semibold)).monospacedDigit()
-            .frame(maxWidth: 90, alignment: .trailing).padding(.trailing, 4)
+            .frame(maxWidth: 90, alignment: .trailing).padding(.trailing, 4).steady()
         }
         DynamicIslandExpandedRegion(.bottom) {
           VStack(alignment: .leading, spacing: 6) {
@@ -326,13 +343,14 @@ struct RideLiveActivity: Widget {
             .font(.caption).foregroundStyle(.white.opacity(0.8)).monospacedDigit()
           }
           .padding(.horizontal, 4)
+          .steady()
         }
       } compactLeading: {
-        CompactLeading(state: state, stale: stale)
+        CompactLeading(state: state, stale: stale).steady()
       } compactTrailing: {
-        IslandClock(state: state).font(.caption.weight(.semibold)).monospacedDigit().frame(maxWidth: 52)
+        IslandClock(state: state).font(.caption.weight(.semibold)).monospacedDigit().frame(maxWidth: 52).steady()
       } minimal: {
-        IslandClock(state: state).font(.system(size: 11, weight: .bold)).monospacedDigit().minimumScaleFactor(0.6)
+        IslandClock(state: state).font(.system(size: 11, weight: .bold)).monospacedDigit().minimumScaleFactor(0.6).steady()
       }
       .keylineTint(ZoneColor.of(state.step))
     }
