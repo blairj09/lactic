@@ -59,6 +59,24 @@ struct Countdown: View {
   }
 }
 
+/// The workout's time left, e.g. "49:04 remaining". A running timer takes all the width it's
+/// offered, which pushed the word away from it, so the timer sits over the time as text, which only
+/// gets shorter, and keeps to that width.
+struct RideRemaining: View {
+  let state: RideState
+
+  var body: some View {
+    HStack(spacing: 3) {
+      Text(clock(state.rideLeft)).hidden()
+        .overlay(alignment: .trailing) {
+          Countdown(end: state.rideEndDate, left: state.rideLeft).multilineTextAlignment(.trailing)
+        }
+      Text("remaining")
+    }
+    .fixedSize()
+  }
+}
+
 /// Free ERG's clock, counting up from the ride's start.
 struct Elapsed: View {
   let state: RideState
@@ -250,10 +268,7 @@ struct RideLockScreen: View {
       HStack {
         Text(state.next.map { "Next: \($0)" } ?? "Last interval").lineLimit(1)
         Spacer(minLength: 8)
-        HStack(spacing: 3) {
-          Countdown(end: state.rideEndDate, left: state.rideLeft)
-          Text("left")
-        }
+        RideRemaining(state: state)
       }
       .font(.caption).foregroundStyle(.white.opacity(0.8)).monospacedDigit()
     }
@@ -357,10 +372,7 @@ struct RideLiveActivity: Widget {
               Text(state.phase == "done" ? "Workout done · tap to extend or end" : state.next.map { "Next: \($0)" } ?? state.note ?? "").lineLimit(1)
               Spacer(minLength: 8)
               if !state.free, state.phase != "done" {
-                HStack(spacing: 3) {
-                  Countdown(end: state.rideEndDate, left: state.rideLeft)
-                  Text("left")
-                }
+                RideRemaining(state: state)
               }
             }
             .font(.caption).foregroundStyle(.white.opacity(0.8)).monospacedDigit()
