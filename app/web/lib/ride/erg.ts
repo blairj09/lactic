@@ -17,18 +17,18 @@ export function defaultErg(ftp: number): number {
   return clampErg(ftp > 0 ? ftp * 0.6 : 150);
 }
 
-/** The target from a ride position (seconds) on. */
+/** The target from a ride position (seconds) on; null while ERG is off and the trainer rides like a road. */
 export interface ErgChange {
   at: number;
-  watts: number;
+  watts: number | null;
 }
 
 /** Changes closer together than this are one change, so tapping + five times leaves one step. */
 const MERGE_SECONDS = 3;
 
 /** Adds a target change to the history. Before the ride starts it just replaces the opening target. */
-export function addErgChange(changes: ErgChange[], at: number, watts: number): ErgChange[] {
-  const target = clampErg(watts);
+export function addErgChange(changes: ErgChange[], at: number, watts: number | null): ErgChange[] {
+  const target = watts === null ? null : clampErg(watts);
   const last = changes[changes.length - 1];
   if (!last) return [{ at: 0, watts: target }];
   if (last.watts === target) return changes;
@@ -51,6 +51,6 @@ export function ergWorkout(changes: ErgChange[], position: number, ftp: number, 
   const segments = changes
     .map((c, i) => ({ c, until: Math.min(changes[i + 1]?.at ?? end, end) }))
     .filter(({ c, until }) => until > c.at)
-    .map(({ c, until }) => steady(until - c.at, c.watts / scale));
+    .map(({ c, until }) => (c.watts === null ? { kind: "freeRide" as const, duration: until - c.at } : steady(until - c.at, c.watts / scale)));
   return { name: "Free ride", segments };
 }

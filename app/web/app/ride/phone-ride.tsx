@@ -302,7 +302,9 @@ function NextLine({ data, className = "" }: { data: PlayerData; className?: stri
   const { ftp } = data;
   return (
     <div className={`num flex min-w-0 items-center gap-2 pt-2 text-[15px] text-muted ${className}`}>
-      {data.erg ? (
+      {data.erg && !data.ergOn ? (
+        `${data.grade}% grade · shift to set your effort`
+      ) : data.erg ? (
         ftp > 0 && (
           <>
             <ZoneDot zone={powerZone(data.erg.watts / ftp)} />
@@ -574,7 +576,7 @@ function TransportRow({ data, controls, compact }: { data: PlayerData; controls:
 }
 
 /**
- * What you adjust while riding: intensity (or an ERG hold's watts, or the free ERG target), the
+ * What you adjust while riding: intensity (or an ERG hold's watts, or a free ride's ERG target or grade), the
  * ERG switch, the grade when the trainer rides like a road, and adaptive when it applies. Scrolls
  * sideways if it all doesn't fit.
  */
@@ -585,7 +587,11 @@ function AdjustRow({ data, controls, compact }: { data: PlayerData; controls: Pl
   const stretch = compact ? "flex-none" : "flex-1 [&>div]:w-full [&>div]:justify-between";
   return (
     <div className={`flex items-center gap-2 overflow-x-auto ${compact ? "flex-none" : ""}`}>
-      {data.erg ? (
+      {data.erg && !data.ergOn ? (
+        <div className={stretch}>
+          <Stepper label="Grade" value={`${data.grade}%`} onDown={() => controls.onGrade(-1)} onUp={() => controls.onGrade(1)} downLabel="Less resistance" upLabel="More resistance" />
+        </div>
+      ) : data.erg ? (
         <div className={stretch}>
           <Stepper
             label="Target"
@@ -615,14 +621,12 @@ function AdjustRow({ data, controls, compact }: { data: PlayerData; controls: Pl
           upLabel="More resistance"
         />
       )}
-      {!data.erg && (
-        <button role="switch" aria-checked={data.ergOn} onClick={() => controls.onErgMode(!data.ergOn)} className={pill}>
-          ERG
-          <span className={`relative inline-block h-6 w-10 rounded-full transition-colors ${data.ergOn ? "bg-primary" : "bg-active"}`}>
-            <span className={`absolute top-1 size-4 rounded-full transition-all ${data.ergOn ? "left-5 bg-on-primary" : "left-1 bg-muted"}`} />
-          </span>
-        </button>
-      )}
+      <button role="switch" aria-checked={data.ergOn} onClick={() => controls.onErgMode(!data.ergOn)} className={pill}>
+        ERG
+        <span className={`relative inline-block h-6 w-10 rounded-full transition-colors ${data.ergOn ? "bg-primary" : "bg-active"}`}>
+          <span className={`absolute top-1 size-4 rounded-full transition-all ${data.ergOn ? "left-5 bg-on-primary" : "left-1 bg-muted"}`} />
+        </span>
+      </button>
       {data.adaptive && !data.erg && <AdaptiveSwitch on={data.adaptive.on} onChange={controls.onAdaptive} className={`${pill} [&>span]:text-[24px]`} />}
     </div>
   );
