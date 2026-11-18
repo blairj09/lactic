@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { hasScript, latestTag, tagFromLocation, withAnalytics } from "../scripts/build-demo.mjs";
+import { hasScript, latestTag, rideSource, tagFromLocation, withAnalytics } from "../scripts/build-demo.mjs";
 import { fileURLToPath } from "node:url";
 import { decide } from "../scripts/should-build.mjs";
 
@@ -48,4 +48,11 @@ test("the try-a-ride page gets visit counting once", () => {
   const out = withAnalytics("<html><body><div id=app></div></body></html>");
   assert.match(out, /<script src="\/analytics.js"><\/script>\n<\/body>/);
   assert.equal(withAnalytics(out), out);
+});
+
+test("/ride follows a pinned commit only while the pinned release is the latest", () => {
+  const pin = { whileTag: "v0.3.6", commit: "abc123" };
+  assert.equal(rideSource("v0.3.6", pin), "abc123");
+  assert.equal(rideSource("v0.3.7", pin), null);
+  assert.equal(rideSource("v0.3.6", null), null);
 });

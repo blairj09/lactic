@@ -23,6 +23,14 @@ const OUT = join(SITE, "demo");
 const RIDE_OUT = join(SITE, "ride");
 const REPO = process.env.GITHUB_REPO || "blairj09/lactic";
 
+// One-off (James, 2026-11-18): /ride shows the full workout catalog (PR #268) before it ships in
+// a release. While the latest release is `whileTag`, /ride builds from `commit` on main; once a
+// newer release is out this is ignored and /ride follows releases again. Delete it then.
+export const RIDE_PIN = { whileTag: "v0.3.6", commit: "f9bf40df60d38e2333c8be2973a54f5a256ebd68" };
+
+/** The source to build /ride from for the latest release `tag`: the pinned commit, or the tag itself. */
+export const rideSource = (tag, pin = RIDE_PIN) => (pin && tag === pin.whileTag ? pin.commit : null);
+
 const run = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: "inherit" });
 
 // The latest release's tag, from the redirect github.com/<repo>/releases/latest → …/tag/v0.2.0.
@@ -59,6 +67,17 @@ export function hasScript(app, name) {
   return Boolean(JSON.parse(readFileSync(join(app, "package.json"), "utf8")).scripts?.[name]);
 }
 
+/** Downloads and unpacks the repo at `ref` (a tag path or a commit) into `dir`. */
+async function download(ref, dir) {
+  const res = await fetch(`https://codeload.github.com/${REPO}/tar.gz/${ref}`);
+  if (!res.ok) throw new Error(`Couldn't download ${ref} (HTTP ${res.status})`);
+  const tarball = `${dir}.tar.gz`;
+  writeFileSync(tarball, Buffer.from(await res.arrayBuffer()));
+  mkdirSync(dir);
+  run("tar", ["-xzf", tarball, "-C", dir, "--strip-components=1"]);
+  return dir;
+}
+
 async function main() {
   // Pull request previews show the branch's own app, so app changes to the demo or the try-a-ride
   // page can be checked there before they ship; lactic.fit itself always shows the latest release.
@@ -80,13 +99,7 @@ async function main() {
   console.log(`Building the site demo from ${REPO} ${ref}`);
   const work = mkdtempSync(join(tmpdir(), "lactic-demo-"));
   try {
-    const res = await fetch(`https://codeload.github.com/${REPO}/tar.gz/refs/tags/${encodeURIComponent(ref)}`);
-    if (!res.ok) throw new Error(`Couldn't download ${ref} (HTTP ${res.status})`);
-    const tarball = join(work, "src.tar.gz");
-    writeFileSync(tarball, Buffer.from(await res.arrayBuffer()));
-    const src = join(work, "src");
-    mkdirSync(src);
-    run("tar", ["-xzf", tarball, "-C", src, "--strip-components=1"]);
+    const src = await download(`refs/tags/${encodeURIComponent(ref)}`, join(work, "src"));
     const app = join(src, "app");
     run("npm", ["ci", "--no-audit", "--no-fund"], app);
     // The tag's own script, so a release builds its demo exactly the way it did at the time.
@@ -94,7 +107,14 @@ async function main() {
     const built = join(src, "site", "demo");
     if (!existsSync(join(built, "index.html"))) throw new Error(`${ref} built no demo/index.html`);
     cpSync(built, OUT, { recursive: true });
-    buildRide(app, join(src, "site", "ride"));
+    const pinned = rideSource(ref);
+    if (pinned) {
+      console.log(`Building /ride from ${pinned} (pinned while the latest release is ${ref})`);
+      const rideSrc = await download(pinned, join(work, "ride-src"));
+      const rideApp = join(rideSrc, "app");
+      run("npm", ["ci", "--no-audit", "--no-fund"], rideApp);
+      buildRide(rideApp, join(rideSrc, "site", "ride"));
+    } else buildRide(app, join(src, "site", "ride"));
     const version = JSON.parse(readFileSync(join(app, "package.json"), "utf8")).version;
     writeFileSync(join(OUT, "release.json"), JSON.stringify({ version, tag: ref }) + "\n");
     console.log(`Demo built from ${ref} (app ${version}).`);
