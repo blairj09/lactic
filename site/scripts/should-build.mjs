@@ -1,5 +1,6 @@
 // Vercel's "ignored build step" (vercel.json ignoreCommand): exit 1 to build, 0 to skip.
-// Builds when the site itself changed, or (production only) when lactic.fit's demo isn't from the
+// Builds when the site itself changed (for a preview, the app too: previews build the demo and
+// /ride from the branch), or (production only) when lactic.fit's demo isn't from the
 // latest release yet. So a new release reaches the homepage on the release workflow's deploy hook,
 // or failing that on the next push to main of any kind.
 
@@ -12,11 +13,12 @@ const SITE_URL = process.env.SITE_URL || "https://lactic.fit";
 const BUILD = 1;
 const SKIP = 0;
 
-function siteChanged() {
+/** True when any of `paths` (relative to site/) changed since the last deploy. */
+function changedSince(paths) {
   const prev = process.env.VERCEL_GIT_PREVIOUS_SHA;
   for (const base of [prev, "HEAD^"].filter(Boolean)) {
     try {
-      execFileSync("git", ["diff", "--quiet", base, "HEAD", "--", "."], { stdio: "ignore" });
+      execFileSync("git", ["diff", "--quiet", base, "HEAD", "--", ...paths], { stdio: "ignore" });
       return false;
     } catch (err) {
       if (err.status === 1) return true; // differences
@@ -46,9 +48,10 @@ export async function decide({ changed, production, latest, live }) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const production = process.env.VERCEL_ENV === "production";
   const { code, why } = await decide({
-    changed: siteChanged(),
-    production: process.env.VERCEL_ENV === "production",
+    changed: changedSince(production ? ["."] : [".", "../app"]),
+    production,
     latest: () => latestTag(),
     live: liveTag,
   });
