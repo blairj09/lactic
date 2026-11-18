@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- On the iPhone, the pull-to-refresh logo now stays at the top of the page and scrolls away with it, instead of floating over the page while it loads.
 - The ride's numbers and timer in the iPhone's Dynamic Island and lock screen no longer flicker as they update, the lock screen shows the real Lactic logo, and the workout's time remaining sits right next to its label.
 - Bring your training: Finish setting up now finds Zwift rides on your computer, walks you through downloading your Strava archive (and picks it up from Downloads), and shows what your past rides tell Lactic. Today and Progress offer the same when you have no history yet.
 
