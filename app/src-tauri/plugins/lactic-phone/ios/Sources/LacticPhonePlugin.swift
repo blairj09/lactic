@@ -1002,10 +1002,32 @@ extension LacticPhonePlugin {
       invoke.resolve()
     }
   }
+
+  /// The window's safe area as it is now. The web view's env(safe-area-inset-*) keeps the portrait
+  /// values after the phone turns sideways (WebKit bug 191363), which put the ride screen under the
+  /// Dynamic Island, so the ride screen asks here on every rotation instead.
+  @objc public func safeArea(_ invoke: Invoke) throws {
+    DispatchQueue.main.async {
+      let window = UIApplication.shared.connectedScenes
+        .compactMap { $0 as? UIWindowScene }
+        .flatMap { $0.windows }
+        .first { $0.isKeyWindow }
+      let i = window?.safeAreaInsets ?? .zero
+      invoke.resolve(SafeArea(top: Double(i.top), right: Double(i.right), bottom: Double(i.bottom), left: Double(i.left)))
+    }
+  }
 }
 
 struct KeepAwakeArgs: Decodable {
   let on: Bool
+}
+
+/// The screen's safe area in points (CSS pixels): clear of the Dynamic Island, notch, rounded corners and home bar.
+struct SafeArea: Encodable {
+  let top: Double
+  let right: Double
+  let bottom: Double
+  let left: Double
 }
 
 @_cdecl("init_plugin_lactic_phone")
