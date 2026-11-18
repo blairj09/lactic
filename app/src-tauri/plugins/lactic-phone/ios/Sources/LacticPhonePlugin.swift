@@ -824,6 +824,8 @@ class LacticPhonePlugin: Plugin {
     super.init()
     RideEnd.shared.start()
     WatchLink.shared.start()
+    // No ride survives a restart: clear a Live Activity left behind by a force quit.
+    RideActivity.watchForQuit()
     // Keeps a computer ride's Live Activity current while locked (also on a Bluetooth relaunch).
     RideBeacon.shared.start(askingAllowed: false)
     // Every launch, including the ones iOS makes in the background for new Health data.

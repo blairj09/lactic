@@ -6,6 +6,7 @@
 
 import Foundation
 import Tauri
+import UIKit
 
 #if canImport(ActivityKit) && os(iOS)
 import ActivityKit
@@ -38,6 +39,42 @@ enum RideActivity {
     }
     guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
     _ = try Activity.request(attributes: LacticRideAttributes(), content: content, pushType: nil)
+    #endif
+  }
+
+  /// Force-quitting Lactic kills the ride but not its Live Activity, which iOS would otherwise keep
+  /// on the lock screen for hours. So: end it as the app is being closed (iOS says so when Lactic was
+  /// running, e.g. connected to the trainer), and tidy up whatever is left when Lactic next starts.
+  static func watchForQuit() {
+    #if canImport(ActivityKit) && os(iOS)
+    guard #available(iOS 16.2, *) else { return }
+    NotificationCenter.default.addObserver(forName: UIApplication.willTerminateNotification, object: nil, queue: nil) { _ in
+      // iOS gives no time once this returns, so wait (briefly) for the end to go through.
+      let done = DispatchSemaphore(value: 0)
+      Task.detached {
+        await end(linger: false)
+        done.signal()
+      }
+      _ = done.wait(timeout: .now() + 1.5)
+    }
+    DispatchQueue.main.async {
+      // A Bluetooth relaunch in the background is the beacon catching up with the computer's ride:
+      // that one is still live, leave it to the beacon.
+      let background = UIApplication.shared.applicationState == .background
+      Task { await endLeftovers(keepComputer: background) }
+    }
+    #endif
+  }
+
+  /// A fresh start means no ride is running here yet. The phone's own ride died with the old app;
+  /// a computer ride still going is shown again by the remote within seconds once Lactic is open.
+  static func endLeftovers(keepComputer: Bool) async {
+    #if canImport(ActivityKit) && os(iOS)
+    guard #available(iOS 16.2, *) else { return }
+    for activity in Activity<LacticRideAttributes>.activities {
+      if keepComputer && activity.content.state.place != nil { continue }
+      await activity.end(nil, dismissalPolicy: .immediate)
+    }
     #endif
   }
 

@@ -10,6 +10,7 @@ Write for riders: what they can now do or what works better, one short line each
 - The Ride tab icon on the phone is now just the interval outline.
 - Rides posted to Strava draw cleaner workout art: each set of short efforts is one block, and the line no longer looks ragged. Titles like "30/15s" no longer repeat themselves.
 - In Settings → Coach, the model test result now fits inside the card on narrow windows.
+- On iPhone, the ride's Live Activity no longer stays on the Lock Screen after you force-quit Lactic.
 
 ## 0.3.5
 
