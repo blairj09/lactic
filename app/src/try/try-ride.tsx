@@ -310,8 +310,8 @@ function Pick({
           value={view}
           onChange={setView}
           options={[
-            { value: "short", label: "30 minutes" },
-            { value: "all", label: `All ${catalogWorkouts().length}` },
+            { value: "short", label: "Short workouts" },
+            { value: "all", label: "All" },
           ]}
         />
         {view === "all" && (
