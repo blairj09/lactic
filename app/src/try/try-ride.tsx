@@ -1,5 +1,5 @@
 // The website's try-a-ride page (lactic.fit/ride/): set an FTP and connect a trainer (or the
-// simulated one), pick a half-hour workout, ride it on Lactic's own ride screen, then see how it
+// simulated one), pick a workout (six half-hour ones first, the whole library a tap away), ride it on Lactic's own ride screen, then see how it
 // went and where the app goes from there. Nothing is saved or sent: the ride lives in this tab until
 // the visitor saves its .fit file.
 
@@ -8,16 +8,17 @@ import { MemoryRouter } from "react-router";
 import { SensorHub, isWebBluetoothAvailable } from "@shared/ble/sensor-hub";
 import { isPickerCancel, DEVICE_KEYS, forgetDevice, rememberDevice, remembered } from "@shared/ble/devices";
 import { rideStressFromSummary, summarizeRide } from "@shared/engine/activity";
-import { rampTestFtp } from "@shared/engine/ftp";
+import { rampTestFtp, twentyMinuteTestFtp } from "@shared/engine/ftp";
+import type { LibraryCategory, LibraryWorkout } from "@shared/engine/workout-library";
 import { STARTING_LEVELS } from "@shared/engine/library";
 import { workoutDuration } from "@shared/engine/workout";
 import { encodeRideFit } from "@shared/fit/encode";
-import { Notice, Panel, Stat, StatStrip, button, input } from "@/components/ui";
+import { Notice, Panel, Segmented, Stat, StatStrip, button, input } from "@/components/ui";
 import RideScreen, { type FinishedRide } from "@/app/ride/ride-screen";
 import WorkoutChart from "@/app/ride/workout-chart";
 import { formatTime } from "@/app/ride/player";
 import { Wordmark } from "~/app/brand";
-import { DEFAULT_TRY_FTP, DEFAULT_TRY_WORKOUT, TRY_TAGS, readFtp, tryWorkouts } from "./workouts";
+import { DEFAULT_TRY_FTP, DEFAULT_TRY_WORKOUT, TRY_CATEGORIES, catalogWorkouts, isShortTry, readFtp, tryTag, tryWorkouts } from "./workouts";
 
 type Step = "setup" | "pick" | "ride" | "done";
 
@@ -181,8 +182,8 @@ function SetUp({ ftpText, onFtp, onReady }: { ftpText: string; onFtp: (t: string
       <div className="space-y-6">
         <div className="space-y-3">
           <p className="num text-sm text-accent">Try a ride in your browser</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-[42px] sm:leading-[1.1]">Connect your trainer. Ride a 30-minute workout.</h1>
-          <p className="max-w-xl text-[17px] text-muted">The same workout player as the Lactic app, ERG and all. No download, no sign-up.</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-[42px] sm:leading-[1.1]">Connect your trainer. Ride a workout.</h1>
+          <p className="max-w-xl text-[17px] text-muted">The same workout player as the Lactic app, ERG and all. Start with a 30-minute ride or pick any workout. No download, no sign-up.</p>
         </div>
 
         {!bluetooth && (
@@ -268,9 +269,12 @@ function Pick({
   onStart: () => void;
 }) {
   const state = useSyncExternalStore(hub.subscribe, hub.getState, hub.getState);
-  const list = useMemo(() => tryWorkouts(), []);
+  const short = useMemo(() => tryWorkouts(), []);
+  const [view, setView] = useState<"short" | "all">(isShortTry(chosen) ? "short" : "all");
+  const [category, setCategory] = useState<LibraryCategory | "all">("all");
+  const list = useMemo(() => (view === "short" ? short : catalogWorkouts(category)), [view, category, short]);
   const [error, setError] = useState<string | null>(null);
-  const picked = list.find((w) => w.id === chosen) ?? list[0];
+  const picked = catalogWorkouts().find((w) => w.id === chosen) ?? short[0];
   const trainer = state.links.trainer;
   const hr = state.links.heartRate;
 
@@ -300,30 +304,40 @@ function Pick({
       </div>
       {error && <Notice tone="negative">{error}</Notice>}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label="Workouts">
-        {list.map((w) => {
-          const on = w.id === picked.id;
-          return (
-            <button
-              key={w.id}
-              role="radio"
-              aria-checked={on}
-              onClick={() => onChoose(w.id)}
-              className={`flex flex-col gap-1.5 rounded-lg border bg-surface p-4 text-left transition-colors hover:bg-raised ${on ? "border-accent outline-2 outline-accent" : "border-line"}`}
-            >
-              <span className="num self-start rounded bg-accent-soft px-1.5 py-0.5 text-[11px] font-medium tracking-wide text-accent uppercase">{TRY_TAGS[w.id as keyof typeof TRY_TAGS]}</span>
-              <span className="text-[17px] font-medium">{w.workout.name}</span>
-              <span className="num text-sm text-muted">
-                {w.id === "test-ramp" ? "Until you can't hold it" : `${formatTime(w.duration)} · TSS ${Math.round(w.stress)}`}
-              </span>
-              <span className="min-h-10 text-sm text-muted">{w.description}</span>
-              <WorkoutChart workout={w.workout} ftp={ftp} position={0} trace={[]} to={workoutDuration(w.workout)} className="mt-1 h-14 w-full text-ink" />
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-3">
+        <Segmented
+          label="Workouts to show"
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "short", label: "30 minutes" },
+            { value: "all", label: `All ${catalogWorkouts().length}` },
+          ]}
+        />
+        {view === "all" && (
+          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Type">
+            {[{ value: "all" as const, label: "All types" }, ...TRY_CATEGORIES].map((c) => (
+              <button
+                key={c.value}
+                role="radio"
+                aria-checked={category === c.value}
+                onClick={() => setCategory(c.value)}
+                className="h-8 rounded-full border border-line bg-surface px-3 text-sm text-muted transition-colors hover:text-ink aria-checked:border-accent aria-checked:bg-accent-soft aria-checked:font-medium aria-checked:text-accent"
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" role="radiogroup" aria-label="Workouts">
+        {list.map((w) => (
+          <WorkoutCard key={w.id} w={w} ftp={ftp} on={w.id === picked.id} onChoose={() => onChoose(w.id)} />
+        ))}
+      </div>
+
+      <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center justify-between gap-4 border-t border-line bg-ground px-4 py-3 sm:-mx-6 sm:px-6">
         <p className="text-sm text-muted">
           {simulated ? (
             "The simulated rider holds every target, so you can watch the whole thing play out."
@@ -343,6 +357,23 @@ function Pick({
         </button>
       </div>
     </div>
+  );
+}
+
+function WorkoutCard({ w, ftp, on, onChoose }: { w: LibraryWorkout; ftp: number; on: boolean; onChoose: () => void }) {
+  return (
+    <button
+      role="radio"
+      aria-checked={on}
+      onClick={onChoose}
+      className={`flex flex-col gap-1.5 rounded-lg border bg-surface p-4 text-left transition-colors hover:bg-raised ${on ? "border-accent outline-2 outline-accent" : "border-line"}`}
+    >
+      <span className="num self-start rounded bg-accent-soft px-1.5 py-0.5 text-[11px] font-medium tracking-wide text-accent uppercase">{tryTag(w)}</span>
+      <span className="text-[17px] font-medium">{w.workout.name}</span>
+      <span className="num text-sm text-muted">{w.id === "test-ramp" ? "Until you can't hold it" : `${formatTime(w.duration)} · TSS ${Math.round(w.stress)}`}</span>
+      <span className="min-h-10 text-sm text-muted">{w.description}</span>
+      <WorkoutChart workout={w.workout} ftp={ftp} position={0} trace={[]} to={workoutDuration(w.workout)} className="mt-1 h-14 w-full text-ink" />
+    </button>
   );
 }
 
@@ -374,6 +405,7 @@ function Done({ ride, onAgain }: { ride: FinishedRide; onAgain: () => void }) {
   );
   const stress = rideStressFromSummary(summary, ride.ftp, null);
   const ramp = ride.rampTest ? rampTestFtp(ride.watts) : null;
+  const twenty = ride.twentyMinuteTest ? twentyMinuteTestFtp(ride.watts) : null;
   const download = downloadFor();
 
   return (
@@ -391,6 +423,16 @@ function Done({ ride, onAgain }: { ride: FinishedRide; onAgain: () => void }) {
               <span className="ml-1 text-sm font-normal text-muted">W</span>
             </p>
             <p className="text-sm text-muted">75% of your best minute, {ramp.bestMinute} W.</p>
+          </Panel>
+        )}
+        {twenty && (
+          <Panel>
+            <p className="text-sm text-muted">Your FTP from the 20-minute test</p>
+            <p className="num text-[32px] font-medium tracking-tight">
+              {twenty.watts}
+              <span className="ml-1 text-sm font-normal text-muted">W</span>
+            </p>
+            <p className="text-sm text-muted">95% of your best 20 minutes, {twenty.best} W.</p>
           </Panel>
         )}
         <StatStrip cols={4} phone={2}>

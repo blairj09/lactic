@@ -108,6 +108,8 @@ export interface FinishedRide {
   cadence: number[];
   /** The library's ramp test, unedited: its FTP can be worked out from the recording. */
   rampTest: boolean;
+  /** The library's 20-minute test, unedited. */
+  twentyMinuteTest: boolean;
   workout: Workout;
   /** What the chart drew: [position, watts, heart rate, cadence] each second. */
   trace: TracePoint[];
@@ -905,7 +907,7 @@ function RideOnThisDevice({
     window.focus();
     if (onFinished) {
       if (startedAt.current && samples.current.length)
-        onFinished({ name: workout.name, startedAt: startedAt.current, ftp, watts: [...samples.current], heartRate: [...hrSamples.current], cadence: [...cadenceSamples.current], rampTest: isRampTest(workout) && !edited, workout, trace: [...trace.current] });
+        onFinished({ name: workout.name, startedAt: startedAt.current, ftp, watts: [...samples.current], heartRate: [...hrSamples.current], cadence: [...cadenceSamples.current], rampTest: isRampTest(workout) && !edited, twentyMinuteTest: isTwentyMinuteTest(workout) && !edited, workout, trace: [...trace.current] });
       return;
     }
     if (canSave && elapsedRef.current >= 60 && saveState === "idle") void save();
