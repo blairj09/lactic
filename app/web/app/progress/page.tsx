@@ -8,7 +8,6 @@ import { mergeCurves } from "@/lib/engine/power";
 import { fitnessSummary } from "@/lib/health-summary";
 import { loadAnalysis } from "@/lib/analysis-data";
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
 import LevelsPanel from "@/components/levels-panel";
 import { localDate } from "@/lib/engine/activity";
 import { loadCalendarRides } from "@/lib/ride-calendar-data";
@@ -20,6 +19,7 @@ import { loadReview } from "@/lib/coach/store";
 import { addDays } from "@/lib/engine/pmc";
 import { PHASE_LABELS, weekStart } from "@/lib/engine/plan";
 import type { WeekReview } from "@/lib/engine/review";
+import NoHistory from "./no-history";
 
 export const metadata = { title: "Progress · My Coach" };
 export const dynamic = "force-dynamic";
@@ -52,6 +52,19 @@ export default async function ProgressPage({ searchParams }: { searchParams: Pro
     />
   ) : null;
   const fitness = await loadFitness(supabase, athlete, rides, weightKg).catch((e) => (console.error(e), null));
+  if (!rides.length)
+    return (
+      <>
+        <Nav current="/progress" />
+        <Page>
+          <div className="space-y-8">
+            <PageHeader title="Progress" line="Fitness and power over time." />
+            <ProgressTabs tab="trends" />
+            <NoHistory />
+          </div>
+        </Page>
+      </>
+    );
   return (
     <>
       <Nav current="/progress" />
@@ -86,13 +99,7 @@ async function RidesTab({ supabase }: { supabase: Awaited<ReturnType<typeof crea
               <RideCalendar rides={calendar} timeZone={athlete.timezone} today={localDate(new Date(), athlete.timezone)} />
             </Panel>
           ) : (
-            <p className="text-sm text-muted">
-              No rides yet. Connect intervals.icu or import FIT files in{" "}
-              <Link href="/settings#connections" className="text-ink underline underline-offset-4">
-                Settings
-              </Link>{" "}
-              to bring your history in.
-            </p>
+<NoHistory title="Your rides from before Lactic can show here" />
           )}
         </div>
       </Page>

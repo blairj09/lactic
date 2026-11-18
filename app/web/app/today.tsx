@@ -63,6 +63,8 @@ import RaceReportPrompt from "./race-report-prompt";
 import RestDay from "./rest-day";
 import FirstRide from "./first-ride";
 import FinishSetup from "./finish-setup";
+import { HistoryImporting, HistoryOffer } from "./history-offer";
+import { BringRidesButton } from "~/setup/bring-rides";
 import { firstRideDay } from "@/lib/first-ride";
 import ThisWeek from "./this-week";
 import type { RaceFollowUp } from "@/lib/engine/race/followup";
@@ -96,6 +98,7 @@ export default function TodayView({
   raceFollowUp = null,
   layout = DEFAULT_LAYOUT,
   customize = false,
+  history = null,
 }: {
   state: TrainingState;
   /** Null when weigh-ins failed to load. */
@@ -131,6 +134,8 @@ export default function TodayView({
   layout?: Layout;
   /** Customize Today: the cards as tiles to move, size and remove (customize-today.tsx). */
   customize?: boolean;
+  /** Past rides: how many are in while intervals.icu's history is still arriving, and whether to offer bringing them in. */
+  history?: { importing: number | null; offer: boolean } | null;
 }) {
   if (customize) {
     return (
@@ -352,6 +357,10 @@ export default function TodayView({
   return (
     <>
       <PageHeader title="Today" line={dayLine(state)} />
+
+      {history?.importing != null && <HistoryImporting rides={history.importing} />}
+
+      {history?.offer && <HistoryOffer />}
 
       {raceFollowUp && <RaceReportPrompt followUp={raceFollowUp} />}
 
@@ -893,12 +902,7 @@ export function LastRide({
         sub={
           <>
             No rides yet.{" "}
-            <Link
-              href="/settings#connections"
-              className="text-ink underline underline-offset-4"
-            >
-              Bring in your history
-            </Link>
+<BringRidesButton label="Bring in your history" className="text-ink underline underline-offset-4" />
           </>
         }
       />

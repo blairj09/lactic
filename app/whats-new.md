@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Bring your training: Finish setting up now finds Zwift rides on your computer, walks you through downloading your Strava archive (and picks it up from Downloads), and shows what your past rides tell Lactic. Today and Progress offer the same when you have no history yet.
+
 ## 0.3.6
 
 - Free ride has an ERG switch: turn it off and the trainer rides like a road, − and + set the grade, and you shift to set your effort.

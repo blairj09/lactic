@@ -10,7 +10,7 @@ export type LaterStep = "week" | "rides" | "track" | "coach";
 
 export const LATER_STEPS: { id: LaterStep; label: string; until: string }[] = [
   { id: "week", label: "Your week and goal", until: "Starter plan for now" },
-  { id: "rides", label: "Bring in your rides", until: "" },
+  { id: "rides", label: "Bring your training", until: "From Zwift, Garmin, Strava…" },
   { id: "track", label: "Sleep and weight", until: "Off" },
   { id: "coach", label: "Coach", until: "None" },
 ];
