@@ -128,8 +128,8 @@ struct LacticLogo: View {
   var size: CGFloat = 16
 
   var body: some View {
-    // As in the icon: the mark's 24-unit box is 480 of the tile's 824.
-    LacticMark().fill(Color.white).frame(width: size * 480 / 824, height: size * 480 / 824)
+    // A little bigger in the tile than on the app icon, so the steps still read at this size.
+    LacticMark().fill(Color.white).frame(width: size * 0.75, height: size * 0.75)
       .frame(width: size, height: size)
       .background(brand, in: RoundedRectangle(cornerRadius: size * 185 / 824, style: .continuous))
   }
@@ -140,7 +140,7 @@ struct Brand: View {
 
   var body: some View {
     HStack(spacing: 6) {
-      LacticLogo(size: 16)
+      LacticLogo(size: 17)
       Text(title).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
     }
   }
