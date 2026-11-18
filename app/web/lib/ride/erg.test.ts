@@ -51,4 +51,19 @@ describe("free ERG", () => {
     ]);
     expect(workoutDuration(workout)).toBe(400);
   });
+
+  it("draws ERG off as a free ride stretch", () => {
+    let changes = addErgChange([{ at: 0, watts: 150 }], 60, null);
+    changes = addErgChange(changes, 120, 180);
+    expect(changes).toEqual([
+      { at: 0, watts: 150 },
+      { at: 60, watts: null },
+      { at: 120, watts: 180 },
+    ]);
+    expect(ergWorkout(changes, 130, 200, 300).segments).toEqual([
+      { kind: "steady", duration: 60, target: 0.75 },
+      { kind: "freeRide", duration: 60 },
+      { kind: "steady", duration: 310, target: 0.9 },
+    ]);
+  });
 });

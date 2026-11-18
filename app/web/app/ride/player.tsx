@@ -372,13 +372,16 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
           {data.ended
             ? `Ride ended · ${formatTime(data.elapsed)}`
             : erg
-              ? "Holds the target until you move it"
+              ? data.ergOn
+                ? "Holds the target until you move it"
+                : `Shift to set your effort · ${data.grade}% grade`
               : data.appTrainer
                 ? trainerOwner(data)
                 : `${formatTime(data.position)} of ${formatTime(data.duration)}`}
           {!erg && !data.ended && data.intensity !== 100 && ` · ${data.intensity}% intensity`}
           {!data.ended &&
             !data.appTrainer &&
+            !erg &&
             (data.sprintGrade !== null
               ? ` · Sprint: ERG off, ${data.sprintGrade}% grade`
               : !data.ergOn
@@ -411,7 +414,9 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {erg && !data.ended ? (
+        {erg && !data.ended && !data.ergOn ? (
+          <GradeAdjuster grade={data.grade} onGrade={controls.onGrade} />
+        ) : erg && !data.ended ? (
           <ErgAdjuster watts={erg.watts} ftp={data.ftp} onErg={controls.onErg} />
         ) : data.finished ? (
           <ExtendOrEnd data={data} controls={controls} />
@@ -646,6 +651,34 @@ function ErgAdjuster({ watts, ftp, onErg }: { watts: number; ftp: number; onErg:
   );
 }
 
+const GRADE_JUMPS = [-2, -1, 1, 2];
+
+/** Free ride with ERG off: the road's grade, which you ride by shifting. */
+function GradeAdjuster({ grade, onGrade }: { grade: number; onGrade: (delta: number) => void }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="mb-2 text-sm text-muted">Grade</h3>
+        <p className="num text-lg">
+          {grade}% <span className="text-muted">· shift to set your effort</span>
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {GRADE_JUMPS.map((j) => (
+          <button
+            key={j}
+            onClick={() => onGrade(j)}
+            aria-label={j > 0 ? `Grade up ${j}%` : `Grade down ${-j}%`}
+            className="num inline-flex h-11 min-w-16 items-center justify-center rounded-md bg-raised px-4 text-[15px] text-ink transition-colors hover:bg-active"
+          >
+            {j > 0 ? `+${j}` : `−${-j}`}%
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Top of the ERG slider: well past VO2 max, and never under 500 W. */
 export const ergSliderMax = (ftp: number) => Math.min(ERG_MAX, Math.max(500, Math.round((ftp * 1.6) / 50) * 50));
 
@@ -698,6 +731,7 @@ function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData;
   if (data.finished || data.ended) return null;
   const side =
     "inline-flex size-14 shrink-0 items-center justify-center rounded-lg bg-raised text-ink transition-colors hover:bg-active disabled:opacity-40";
+  // A free ride's grade sits beside the ride, where its ERG target would be.
   const showGrade = !data.erg && (!data.ergOn || data.sprintGrade !== null || data.freeRide);
   /** No workout: no intervals to step through. */
   const noWorkout = !!data.erg || data.appTrainer;
@@ -727,9 +761,9 @@ function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData;
           </button>
         )}
       </div>
-      {!noWorkout && (
+      {(!noWorkout || data.erg) && (
         <div className="flex flex-wrap items-center gap-2">
-          {data.holding ? (
+          {data.erg ? null : data.holding ? (
             <Stepper
               label="Hold"
               value={`${data.targetWatts ?? "–"} W`}
@@ -752,7 +786,15 @@ function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData;
             role="switch"
             aria-checked={data.ergOn}
             onClick={() => controls.onErgMode(!data.ergOn)}
-            title={data.ergOn ? "Turn ERG off and ride the targets yourself" : "Turn ERG on: the trainer holds the target"}
+            title={
+              data.erg
+                ? data.ergOn
+                  ? "Turn ERG off and shift to set your effort"
+                  : "Turn ERG on: the trainer holds the watts you set"
+                : data.ergOn
+                  ? "Turn ERG off and ride the targets yourself"
+                  : "Turn ERG on: the trainer holds the target"
+            }
             className="flex h-12 items-center gap-3 rounded-lg bg-raised px-3 text-sm text-muted transition-colors hover:bg-active"
           >
             ERG
@@ -884,7 +926,9 @@ export function MiniPlayer({ data, controls, onResize, onClose }: { data: Player
               <MiniAdapt data={data} controls={controls} />
             ) : (
             <div className={`num truncate pt-[1.5vh] text-muted ${MINI_LABEL}`}>
-              {data.erg ? (
+              {data.erg && !data.ergOn ? (
+                `${data.grade}% grade · shift to set your effort`
+              ) : data.erg ? (
                 ftp > 0 && `${Math.round((data.erg.watts / ftp) * 100)}% FTP · zone ${powerZone(data.erg.watts / ftp)}`
               ) : data.appTrainer ? (
                 trainerOwner(data)
@@ -1033,8 +1077,10 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
   const button = `${base} min-w-[clamp(34px,26vh,96px)] flex-1 bg-raised text-ink hover:bg-active`;
   const primary = `${base} min-w-[clamp(48px,38vh,140px)] flex-[1.6] bg-primary text-on-primary hover:opacity-85`;
   const value = `num min-w-[3.2em] text-center ${D_TEXT}`;
+  /** A free ride with ERG off: − and + move the grade. */
+  const freeGrade = !!data.erg && !data.ergOn;
   const step = (delta: number) =>
-    data.erg ? controls.onErg(data.erg.watts + delta * ERG_STEP) : data.holding ? controls.onHold(delta) : controls.onIntensity(delta);
+    freeGrade ? controls.onGrade(delta) : data.erg ? controls.onErg(data.erg.watts + delta * ERG_STEP) : data.holding ? controls.onHold(delta) : controls.onIntensity(delta);
   const showGrade = !data.erg && (!data.ergOn || data.sprintGrade !== null || data.freeRide);
   const noWorkout = !!data.erg || data.appTrainer;
   // End mid-ride takes a second tap, so a sweaty miss doesn't end the ride.
@@ -1074,13 +1120,13 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
           <span className={`inline-flex ${D_H} ${D_TEXT} items-center rounded-md bg-raised px-[0.7em] text-muted`}>{data.trainerApp ?? "Other app"}</span>
         </Group>
       ) : (
-      <Group label={data.erg ? "ERG target" : data.holding ? "Hold" : "Intensity"}>
+      <Group label={freeGrade ? "Grade" : data.erg ? "ERG target" : data.holding ? "Hold" : "Intensity"}>
         <div className="flex items-center gap-1.5">
-          <button className={button} onClick={() => step(-1)} aria-label={data.erg || data.holding ? `Down ${ERG_STEP} W` : "Easier by 1%"} title="Easier">
+          <button className={button} onClick={() => step(-1)} aria-label={freeGrade ? "Grade down 1%" : data.erg || data.holding ? `Down ${ERG_STEP} W` : "Easier by 1%"} title="Easier">
             <Icon d={ICON_MINUS} className={D_ICON} />
           </button>
-          <span className={value}>{data.erg ? `${data.erg.watts} W` : data.holding ? `${data.targetWatts ?? "–"} W` : `${data.intensity}%`}</span>
-          <button className={button} onClick={() => step(1)} aria-label={data.erg || data.holding ? `Up ${ERG_STEP} W` : "Harder by 1%"} title="Harder">
+          <span className={value}>{freeGrade ? `${data.grade}%` : data.erg ? `${data.erg.watts} W` : data.holding ? `${data.targetWatts ?? "–"} W` : `${data.intensity}%`}</span>
+          <button className={button} onClick={() => step(1)} aria-label={freeGrade ? "Grade up 1%" : data.erg || data.holding ? `Up ${ERG_STEP} W` : "Harder by 1%"} title="Harder">
             <Icon d={ICON_PLUS} className={D_ICON} />
           </button>
         </div>
@@ -1089,7 +1135,7 @@ function DrawerControls({ data, controls, onResize }: { data: PlayerData; contro
       </div>
 
       <div className="flex gap-[5vh]">
-      {!noWorkout && (
+      {(!noWorkout || data.erg) && (
         <Group label="Trainer">
           <div className="flex items-center gap-1.5">
             <ErgSwitch on={data.ergOn} onChange={controls.onErgMode} size={`${D_H} ${D_TEXT}`} />

@@ -73,6 +73,8 @@ const FULL_SCREEN_NOTE: Record<OverlayFullScreen, string> = {
 };
 const OVERLAY_SIZE_PREF = "ride.overlaySize";
 const SPRINT_GRADE_PREF = "ride.sprintGrade";
+/** "0" when the last free ride had ERG off (a road at a grade), so the next one starts that way. */
+const FREE_ERG_PREF = "ride.freeErg";
 const AUTO_START_PREF = "ride.autoStart";
 const EXTEND_KIND_PREF = "ride.extendKind";
 const EXTEND_BLOCK_PREF = "ride.extendBlock";
@@ -338,7 +340,7 @@ function RideOnThisDevice({
   const appTrainer = free && trainer === "app";
   const appTrainerRef = useRef(appTrainer);
   appTrainerRef.current = appTrainer;
-  /** A free ride with Lactic on the trainer: one ERG target you move as you go. */
+  /** A free ride with Lactic on the trainer: one ERG target you move as you go, or ERG off and a grade. */
   const erg = free && !appTrainer;
   const open = free;
   const workout = useMemo(() => scaleWorkout(applyFactors(baseWorkout, factors), intensity / 100), [baseWorkout, factors, intensity]);
@@ -356,6 +358,12 @@ function RideOnThisDevice({
   useEffect(() => {
     // On unless turned off: clicking Start opens the overlay on top of other windows.
     setOverlayOnStart(readPref(OVERLAY_PREF) !== "0");
+    // A free ride opens with ERG as the last one had it.
+    if (free && readPref(FREE_ERG_PREF) === "0") {
+      ergOnRef.current = false;
+      setErgOn(false);
+      ergChanges.current = [{ at: 0, watts: null }];
+    }
     const size = Number(readPref(OVERLAY_SIZE_PREF));
     if (Number.isInteger(size) && size >= 0 && size < OVERLAY_SIZES.length) setOverlaySize(size);
     if (readPref(POWER_SOURCE_PREF) === "powerMeter") hub.setPowerSource("powerMeter");
@@ -438,7 +446,7 @@ function RideOnThisDevice({
       samples.current.push(powerWatts ?? 0);
       hrSamples.current.push(heartRate ?? 0);
       cadenceSamples.current.push(Math.round(cadenceRpm ?? 0));
-      targetSamples.current.push(erg ? ergRef.current : appTrainer ? null : targetWattsAt(workout, at, ftp));
+      targetSamples.current.push(erg ? (ergOnRef.current ? ergRef.current : null) : appTrainer ? null : targetWattsAt(workout, at, ftp));
       intervalSamples.current.push(open ? -1 : (intervalAt(workout, at)?.index ?? -1));
       trace.current.push([samples.current.length + offset.current, powerWatts ?? 0, heartRate ?? 0, Math.round(cadenceRpm ?? 0)]);
     }
@@ -547,7 +555,7 @@ function RideOnThisDevice({
       trace.current = [];
       offset.current = 0;
       lastSentTarget.current = null;
-      ergChanges.current = [{ at: 0, watts: ergRef.current }];
+      ergChanges.current = [{ at: 0, watts: ergOnRef.current ? ergRef.current : null }];
       startedAt.current = new Date().toISOString();
       setSaveState("idle");
       setNotice(null);
@@ -652,7 +660,7 @@ function RideOnThisDevice({
     trace.current = [];
     lastSentTarget.current = null;
     sprinting.current = null;
-    ergChanges.current = [{ at: 0, watts: ergRef.current }];
+    ergChanges.current = [{ at: 0, watts: ergOnRef.current ? ergRef.current : null }];
     startedAt.current = null;
     autoStart.current.reset();
     setStartIn(null);
@@ -681,6 +689,8 @@ function RideOnThisDevice({
 
   /** Loads a workout into the player (only before a ride starts: Ride now is locked after). */
   const ride = (next: RideSource, base?: Workout, savedId: string | null = null) => {
+    // From a free ride with ERG off to a workout: workouts start on ERG.
+    if (free && next !== "free" && !ergOnRef.current) setErgMode(true, false);
     setSource(next);
     if (base) setBaseWorkout(base);
     setCustomId(savedId);
@@ -700,8 +710,8 @@ function RideOnThisDevice({
       else pickStarter(libraryWorkout(starterId) ?? WORKOUT_LIBRARY.find((w) => w.category === "endurance") ?? WORKOUT_LIBRARY[0]);
     }
     else {
-      // Free ERG is nothing without ERG.
-      if (!ergOnRef.current) setErgMode(true);
+      // A free ride starts with ERG as the last one had it.
+      setErgMode(readPref(FREE_ERG_PREF) !== "0", false);
       ride(next);
     }
   };
@@ -794,6 +804,7 @@ function RideOnThisDevice({
     const target = clampErg(watts);
     ergRef.current = target;
     setErgWatts(target);
+    if (!ergOnRef.current) return;
     ergChanges.current = elapsedRef.current > 0 ? addErgChange(ergChanges.current, elapsedRef.current, target) : [{ at: 0, watts: target }];
     if (running) tick.current();
   };
@@ -965,7 +976,7 @@ function RideOnThisDevice({
     fieldRefs.flatMap((r) => ("metric" in r ? [r.metric] : [])),
     {
       ...liveNumbers(fieldInputs),
-      "power.target": erg ? ergWatts : allOut || appTrainer ? null : targetWattsAt(workout, position, ftp),
+      "power.target": erg ? (ergOn ? ergWatts : null) : allOut || appTrainer ? null : targetWattsAt(workout, position, ftp),
       "interval.left": current && !open ? Math.max(0, current.end - position) : null,
     },
     elapsed,
@@ -984,7 +995,7 @@ function RideOnThisDevice({
     current,
     upcoming: current ? all.slice(current.index + 1, current.index + 1 + UPCOMING) : [],
     intervalCount: all.length,
-    targetWatts: erg ? ergWatts : allOut || appTrainer ? null : targetWattsAt(workout, position, ftp),
+    targetWatts: erg ? (ergOn ? ergWatts : null) : allOut || appTrainer ? null : targetWattsAt(workout, position, ftp),
     power: state.powerWatts,
     heartRate: state.heartRate,
     cadence: state.cadenceRpm === undefined ? undefined : Math.round(state.cadenceRpm),
@@ -996,8 +1007,7 @@ function RideOnThisDevice({
     appTrainer,
     trainerApp,
     autoPaused,
-    // Free ERG is ERG by definition.
-    ergOn: !appTrainer && (erg || ergOn),
+    ergOn: !appTrainer && ergOn,
     grade,
     allOut,
     sprintGrade: allOut && ergOn ? sprintGrade : null,
@@ -1015,10 +1025,18 @@ function RideOnThisDevice({
     fields: { pages: ridePages, overlay: overlayPages, page: fieldPage, values: fieldValues },
   };
 
-  /** Turns ERG on (the target goes back to the trainer at the next tick) or off (a road at the grade). */
-  const setErgMode = (on: boolean) => {
+  /**
+   * Turns ERG on (the target goes back to the trainer at the next tick) or off (a road at the grade).
+   * In a free ride the choice is kept for the next one, unless `remember` is false.
+   */
+  const setErgMode = (on: boolean, remember = true) => {
     ergOnRef.current = on;
     setErgOn(on);
+    if (erg && remember) {
+      writePref(FREE_ERG_PREF, on ? "1" : "0");
+      const watts = on ? ergRef.current : null;
+      ergChanges.current = elapsedRef.current > 0 ? addErgChange(ergChanges.current, elapsedRef.current, watts) : [{ at: 0, watts }];
+    }
     lastSentTarget.current = null;
     sprinting.current = null;
     if (!state.connected.trainer) return;
@@ -1026,6 +1044,7 @@ function RideOnThisDevice({
     else if (running) tick.current();
     else if (allOut) hub.setSimulationGrade(sprintGradeRef.current).catch((e) => setError(String(e)));
     else if (freeRide) hub.setSimulationGrade(gradeRef.current).catch((e) => setError(String(e)));
+    else if (erg) hub.setTargetPower(ergRef.current).catch((e) => setError(String(e)));
     else {
       const target = targetWattsAt(workout, position, ftp);
       if (target !== null) hub.setTargetPower(target).catch((e) => setError(String(e)));

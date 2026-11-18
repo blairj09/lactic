@@ -367,6 +367,8 @@ export class SensorHub {
         const target = this.state.targetWatts ?? 0;
         const matched = this.sentWatts !== undefined && this.sentWatts !== target ? ` (trainer sent ${this.sentWatts} W to match the power meter)` : "";
         this.update({ trainerStatus: response.succeeded ? `ERG ${target} W${matched}` : "Trainer rejected the target" });
+      } else if (response.request === ControlOp.setIndoorBikeSimulation) {
+        this.update({ trainerStatus: response.succeeded ? `Road at ${this.grade ?? 0}% grade` : "Trainer rejected the grade" });
       }
     });
     this.hasControl = false;
