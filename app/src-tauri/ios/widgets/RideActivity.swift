@@ -111,13 +111,36 @@ struct WorkoutBar: View {
   }
 }
 
+/// The Lactic mark, the app icon's stepped L (src-tauri/icons/icon.svg), drawn in its 24-unit box.
+struct LacticMark: Shape {
+  func path(in rect: CGRect) -> Path {
+    let k = min(rect.width, rect.height) / 24
+    let points: [(CGFloat, CGFloat)] = [(2, 21), (2, 15), (4.5, 15), (4.5, 10.5), (7, 10.5), (7, 6.5), (9.5, 6.5), (9.5, 3), (12, 3), (12, 15), (22, 15), (22, 21)]
+    var path = Path()
+    path.addLines(points.map { CGPoint(x: rect.minX + $0.0 * k, y: rect.minY + $0.1 * k) })
+    path.closeSubpath()
+    return path
+  }
+}
+
+/// The app icon in small: the white mark on the brand blue tile.
+struct LacticLogo: View {
+  var size: CGFloat = 16
+
+  var body: some View {
+    // As in the icon: the mark's 24-unit box is 480 of the tile's 824.
+    LacticMark().fill(Color.white).frame(width: size * 480 / 824, height: size * 480 / 824)
+      .frame(width: size, height: size)
+      .background(brand, in: RoundedRectangle(cornerRadius: size * 185 / 824, style: .continuous))
+  }
+}
+
 struct Brand: View {
   let title: String
 
   var body: some View {
     HStack(spacing: 6) {
-      Text("L").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
-        .frame(width: 16, height: 16).background(brand, in: RoundedRectangle(cornerRadius: 4))
+      LacticLogo(size: 16)
       Text(title).font(.caption).foregroundStyle(.white.opacity(0.85)).lineLimit(1)
     }
   }
