@@ -19,6 +19,7 @@ import WorkoutChart from "@/app/ride/workout-chart";
 import { formatTime } from "@/app/ride/player";
 import { Wordmark } from "~/app/brand";
 import { STRAVA_ORANGE, postRide, signIn, stravaClientId, stravaText } from "./strava";
+import { countTestDrive } from "./count";
 import { DEFAULT_TRY_FTP, DEFAULT_TRY_WORKOUT, TRY_CATEGORIES, catalogWorkouts, isShortTry, readFtp, tryTag, tryWorkouts } from "./workouts";
 
 type Step = "setup" | "pick" | "ride" | "done";
@@ -62,6 +63,7 @@ function TryRide() {
           onReady={(next, sim) => {
             setHub(next);
             setSimulated(sim);
+            if (!sim) countTestDrive("connected", false);
             setStep("pick");
           }}
         />
@@ -70,7 +72,18 @@ function TryRide() {
   if (step === "pick")
     return (
       <Shell header={header}>
-        <Pick hub={hub} ftp={ftp} simulated={simulated} chosen={workoutId} onChoose={setWorkoutId} onBack={() => setStep("setup")} onStart={() => setStep("ride")} />
+        <Pick
+          hub={hub}
+          ftp={ftp}
+          simulated={simulated}
+          chosen={workoutId}
+          onChoose={setWorkoutId}
+          onBack={() => setStep("setup")}
+          onStart={() => {
+            countTestDrive("started", simulated);
+            setStep("ride");
+          }}
+        />
       </Shell>
     );
   if (step === "ride" || !finished)
@@ -83,6 +96,7 @@ function TryRide() {
         hub={hub}
         header={header}
         onFinished={(ride) => {
+          countTestDrive("finished", simulated);
           setFinished(ride);
           setStep("done");
         }}
@@ -90,7 +104,7 @@ function TryRide() {
     );
   return (
     <Shell header={header}>
-      <Done ride={finished} onAgain={() => setStep("pick")} />
+      <Done ride={finished} simulated={simulated} onAgain={() => setStep("pick")} />
     </Shell>
   );
 }
@@ -394,7 +408,8 @@ function downloadFor(): { label: string; href: string } {
 
 const rideFit = (ride: FinishedRide) => encodeRideFit({ startedAt: new Date(ride.startedAt), watts: ride.watts, heartRate: ride.heartRate, cadence: ride.cadence });
 
-function saveFit(ride: FinishedRide) {
+function saveFit(ride: FinishedRide, simulated: boolean) {
+  countTestDrive("saved-fit", simulated);
   const bytes = rideFit(ride);
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/vnd.ant.fit" }));
   const a = document.createElement("a");
@@ -407,7 +422,7 @@ function saveFit(ride: FinishedRide) {
 type Posting = { at: "idle" | "signing" | "posting" } | { at: "posted"; activityId: string | null } | { at: "failed"; message: string };
 
 /** Post to Strava (when it's switched on for Lactic) and Save .fit file, under the ride's chart. */
-function Share({ ride }: { ride: FinishedRide }) {
+function Share({ ride, simulated }: { ride: FinishedRide; simulated: boolean }) {
   const [clientId, setClientId] = useState<string | null>(null);
   const [posting, setPosting] = useState<Posting>({ at: "idle" });
   const text = useMemo(() => stravaText(ride), [ride]);
@@ -423,7 +438,7 @@ function Share({ ride }: { ride: FinishedRide }) {
       const code = await signIn(clientId);
       setPosting({ at: "posting" });
       setPosting({ at: "posted", activityId: await postRide(code, ride, rideFit(ride)) });
-      // TODO: countTestDrive("posted-strava", simulated) once PR #276 (app/src/try/count.ts) lands.
+      countTestDrive("posted-strava", simulated);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setPosting(message === "closed" ? { at: "idle" } : { at: "failed", message });
@@ -431,7 +446,7 @@ function Share({ ride }: { ride: FinishedRide }) {
   };
 
   const saveButton = (
-    <button className={button.secondary} onClick={() => saveFit(ride)}>
+    <button className={button.secondary} onClick={() => saveFit(ride, simulated)}>
       Save .fit file
     </button>
   );
@@ -499,7 +514,7 @@ function Share({ ride }: { ride: FinishedRide }) {
   );
 }
 
-function Done({ ride, onAgain }: { ride: FinishedRide; onAgain: () => void }) {
+function Done({ ride, simulated, onAgain }: { ride: FinishedRide; simulated: boolean; onAgain: () => void }) {
   const summary = useMemo(
     () => summarizeRide({ watts: ride.watts, heartRate: ride.heartRate, cadence: ride.cadence, hasPower: ride.watts.some((w) => w > 0), hasHeartRate: ride.heartRate.some((h) => h > 0) }),
     [ride],
@@ -545,7 +560,7 @@ function Done({ ride, onAgain }: { ride: FinishedRide; onAgain: () => void }) {
         <Panel>
           <WorkoutChart workout={ride.workout} ftp={ride.ftp} position={ride.trace.at(-1)?.[0] ?? 0} trace={ride.trace} to={Math.max(workoutDuration(ride.workout), ride.trace.length)} className="h-40 w-full text-ink" />
         </Panel>
-        <Share ride={ride} />
+        <Share ride={ride} simulated={simulated} />
         <button className={button.ghost} onClick={onAgain}>
           Ride another workout
         </button>
