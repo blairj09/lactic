@@ -35,7 +35,7 @@ import { holdCoachShortcut } from "../coach/open";
 import { holdNewDayRefresh } from "@/lib/new-day";
 import RideSurvey from "../ride-survey";
 import { OVERLAY_SIZES, PlayerView, formatTime, pausedMidRide, type AdaptNotice, type PlayerControls, type PlayerData } from "./player";
-import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type RideSource, type Trainer } from "./ride-now";
+import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type RideSource, type SuggestedRide, type TodayPick, type Trainer } from "./ride-now";
 import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
@@ -140,7 +140,8 @@ function RidingOnComputerPage({ ride }: { ride: AwayRide }) {
 function RideOnThisDevice({
   initialFtp,
   canSave,
-  planned = null,
+  planned: plan = null,
+  suggested = null,
   plannedDay,
   plannedLabel = "Today",
   levels,
@@ -185,6 +186,8 @@ function RideOnThisDevice({
   canSave: boolean;
   /** The plan's session for the day, offered first. */
   planned?: Session | null;
+  /** Today's suggested ride (the brief's pick, else the engine's) when it isn't the plan: offered beside it. */
+  suggested?: SuggestedRide | null;
   /** The plan day (YYYY-MM-DD) `planned` is for; saving a ride of it marks it ridden. */
   plannedDay?: string;
   plannedLabel?: string;
@@ -200,6 +203,9 @@ function RideOnThisDevice({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const hub = useMemo(() => givenHub ?? new SensorHub(), []);
   const trial = !!onFinished;
+  // Today's plan or the suggested ride: whichever is picked is the "planned" session everything else loads.
+  const [todayPick, setTodayPick] = useState<TodayPick>("plan");
+  const planned = todayPick === "suggested" && suggested ? suggested.session : plan;
   const state = useSyncExternalStore(hub.subscribe, hub.getState, hub.getState);
   const pip = usePipWindow();
   const [supported, setSupported] = useState(true);
@@ -704,6 +710,30 @@ function RideOnThisDevice({
     reset();
   };
 
+  /** Today's plan or the suggested ride, loaded as the day's session. */
+  const pickToday = (pick: TodayPick) => {
+    const session = pick === "suggested" && suggested ? suggested.session : plan;
+    if (!session) return;
+    setTodayPick(pick);
+    ride("planned", session.workout);
+  };
+
+  // Riding the suggested ride makes it the day's choice, as starting it from Today does.
+  const lockedIn = useRef(false);
+  useEffect(() => {
+    if (lockedIn.current || elapsed === 0 || source !== "planned" || todayPick !== "suggested" || !suggested) return;
+    lockedIn.current = true;
+    // Loaded on demand: the browser test ride bundles this screen without the plan's actions.
+    void import("../plan/actions")
+      .then(({ chooseOption }) => chooseOption(suggested.id))
+      .then((r) => {
+        if (!r.ok) setError(`Couldn't make it today's ride: ${r.message}`);
+      });
+  }, [elapsed, source, todayPick, suggested]);
+
+  /** The trainer refused or dropped something: worth saying beside the controls. */
+  const trainerTrouble = /refused|rejected|dropped|lost/i.test(state.trainerStatus);
+
   const pickSource = (next: RideSource) => {
     if (next === "planned" && planned) ride(next, planned.workout);
     else if (next === "library") ride(next, librarySession(library, levels).workout);
@@ -1187,8 +1217,11 @@ function RideOnThisDevice({
               trainer={trainer}
               trainerApp={trainerApp}
               onTrainer={pickTrainer}
-              planned={planned}
+              planned={plan}
               plannedLabel={plannedLabel}
+              suggested={suggested}
+              todayPick={todayPick}
+              onTodayPick={pickToday}
               library={library}
               levels={levels}
               saved={saved}
@@ -1280,6 +1313,23 @@ function RideOnThisDevice({
           <PlayerView
             data={data}
             controls={controls}
+            tools={
+              <>
+                {pip.supported && !ended && (
+                  <button className={`${TOOL} ${pip.pip ? "bg-active text-ink" : ""}`} aria-pressed={!!pip.pip} onClick={() => (pip.pip ? pip.close() : openOverlay())}>
+                    <OverlayIcon />
+                    Overlay
+                  </button>
+                )}
+                {/* Fields are only edited before a ride, never mid-ride (review U6). */}
+                {elapsed === 0 && !running && !trial && (
+                  <button className={TOOL} onClick={() => setEditingFields(true)}>
+                    <FieldsIcon />
+                    Edit fields
+                  </button>
+                )}
+              </>
+            }
             dock={
               isPhone() ? (
                 <div className="flex gap-2">
@@ -1297,6 +1347,7 @@ function RideOnThisDevice({
               )
             }
             extra={
+              (elapsed > 0 || trainerTrouble) && (
               <>
                 {/* Ride actions, quieter than the controls: End once a ride is under way, Save again if saving failed, Reset once one started. */}
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -1308,18 +1359,6 @@ function RideOnThisDevice({
                   {ended && canSave && elapsed >= 60 && saveState !== "saved" && (
                     <button className={button.secondary} disabled={saveState !== "idle"} onClick={save}>
                       {saveState === "saving" ? "Saving..." : "Save ride"}
-                    </button>
-                  )}
-                  {pip.supported && !ended && (
-                    <button className={`${button.secondary} ${pip.pip ? "bg-raised" : ""}`} aria-pressed={!!pip.pip} onClick={() => (pip.pip ? pip.close() : openOverlay())}>
-                      <OverlayIcon />
-                      {pip.pip ? "Close overlay" : "Open overlay"}
-                    </button>
-                  )}
-                  {/* Fields are only customized before a ride, never mid-ride (review U6). */}
-                  {elapsed === 0 && !running && !trial && (
-                    <button className={button.ghost} onClick={() => setEditingFields(true)}>
-                      Customize fields
                     </button>
                   )}
                   {elapsed > 0 && (
@@ -1334,8 +1373,10 @@ function RideOnThisDevice({
                     </button>
                   )}
                 </div>
-                <p className="num text-sm text-muted">{/trainer/i.test(state.trainerStatus) ? state.trainerStatus : `Trainer: ${state.trainerStatus}`}</p>
+                {/* The sensor bar shows the trainer's connected; only trouble with it is said here. */}
+                {trainerTrouble && <p className="text-sm text-warning">{state.trainerStatus}</p>}
               </>
+              )
             }
           />
           )}
@@ -1506,6 +1547,19 @@ function withFactor(factors: ReadonlyMap<number, number>, reps: number[], factor
 }
 
 /** A window with a small one in its corner: the overlay. */
+/** The player's own buttons, quieter than the ride controls. */
+const TOOL = "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md bg-raised px-2.5 text-sm text-muted transition-colors hover:bg-active hover:text-ink";
+
+function FieldsIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden className="size-4" fill="none" stroke="currentColor" strokeWidth={1.5}>
+      <rect x="1.5" y="2.5" width="5.5" height="5" rx="1" />
+      <rect x="9" y="2.5" width="5.5" height="5" rx="1" />
+      <rect x="1.5" y="9.5" width="13" height="4" rx="1" />
+    </svg>
+  );
+}
+
 function OverlayIcon() {
   return (
     <svg viewBox="0 0 16 16" aria-hidden className="size-4" fill="none" stroke="currentColor" strokeWidth={1.5}>

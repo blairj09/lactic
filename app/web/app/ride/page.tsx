@@ -6,6 +6,10 @@ import { createClient } from "@/lib/supabase/server";
 import { loadPlanDays, loadTrainingState, sessionFor } from "@/lib/training";
 import { firstRideSession } from "@/lib/first-ride";
 import { loadLayout } from "@/lib/layout-data";
+import { todayOptions } from "@/lib/today-options";
+import { loadBrief } from "@/lib/coach/store";
+import type { OptionId } from "@/lib/engine/checkin";
+import type { TrainingState } from "@/lib/training";
 import RideScreen from "./ride-screen";
 
 export const metadata = { title: "Ride · My Coach" };
@@ -44,10 +48,11 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
     );
   }
   // My workouts is optional: the page still works before its table exists.
-  const saved = await loadCustomWorkouts(supabase).catch(() => []);
+  const [saved, suggested] = await Promise.all([loadCustomWorkouts(supabase).catch(() => []), day === state.today ? suggestion(supabase, state) : null]);
   return (
     <RideScreen
       key={`${day}:${workout ?? ""}`}
+      suggested={suggested}
       initialFtp={state.athlete.ftp}
       ftpGuess={ftpIsGuess(state.athlete.ftpHistory, state.today)}
       canSave
@@ -69,3 +74,19 @@ export default async function RidePage({ searchParams }: { searchParams: Promise
 }
 
 const shortDay = (day: string) => new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+
+/**
+ * Today's suggested ride, as Today shows it beside the plan: the brief's pick, else the engine's, when it
+ * isn't the plan itself. Null when today is settled or the plan already fits.
+ */
+async function suggestion(supabase: Awaited<ReturnType<typeof createClient>>, state: TrainingState) {
+  const options = todayOptions(state);
+  if (!options || !state.todayPlan?.session) return null;
+  const coachEnabled = Boolean(process.env.OPENROUTER_API_KEY);
+  const brief = coachEnabled ? await loadBrief(supabase, state.today).catch(() => null) : null;
+  const pick = (brief?.meta.today as OptionId | undefined) ?? null;
+  const id = pick && options.options.some((o) => o.id === pick) ? pick : options.recommended;
+  const option = options.options.find((o) => o.id === id);
+  if (!option?.session || id === "asPlanned") return null;
+  return { id, session: option.session, reason: options.reasons[0] ?? null };
+}

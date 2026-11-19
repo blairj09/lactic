@@ -9,7 +9,9 @@ import type { CustomWorkout } from "@/lib/custom-workouts";
 import FavoriteButton from "@/components/favorite-button";
 import { WorkoutRow, WorkoutSheet } from "@/components/workout-list";
 import { useEffect, useState } from "react";
-import { Panel, Segmented, button, input } from "@/components/ui";
+import { Panel, Pill, Segmented, button, input } from "@/components/ui";
+import WorkoutProfile from "@/components/workout-profile";
+import type { OptionId } from "@/lib/engine/checkin";
 import Select from "@/components/select";
 import { formatTime } from "./player";
 import AppStartSwitch from "~/ride/app-start-switch";
@@ -30,6 +32,17 @@ type Shelf = "library" | "saved" | "favorites";
 type Mode = "planned" | "pick" | "free";
 
 export type LibraryKind = Zone | "rampTest";
+
+/** Today's suggested ride, offered beside the plan when it differs: the brief's pick, else the engine's. */
+export interface SuggestedRide {
+  id: OptionId;
+  session: Session;
+  /** Why, in a few words (the engine's first reason). */
+  reason: string | null;
+}
+
+/** Which of today's two is loaded. */
+export type TodayPick = "plan" | "suggested";
 
 export interface LibraryChoice {
   kind: LibraryKind;
@@ -156,6 +169,34 @@ function LevelStepper({ level, onChange }: { level: number; onChange: (delta: -1
   );
 }
 
+/** One of today's two rides, picked to load it into the player. */
+function TodayCard({ on, session, tag, why, ftp, onPick }: { on: boolean; session: Session; tag: React.ReactNode; why?: string | null; ftp?: number; onPick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={on}
+      onClick={onPick}
+      className={`flex flex-col gap-2 rounded-lg border bg-surface p-4 text-left transition-colors ${on ? "border-accent shadow-[0_0_0_1px_var(--accent)]" : "border-line hover:border-control"}`}
+    >
+      <span className="flex min-h-6 items-center gap-2">
+        {tag}
+        <span aria-hidden className={`ml-auto grid size-[18px] place-items-center rounded-full border-[1.5px] ${on ? "border-accent" : "border-control"}`}>
+          {on && <span className="size-2 rounded-full bg-accent" />}
+        </span>
+      </span>
+      <span>
+        <span className="block text-base font-semibold text-ink">{session.workout.name}</span>
+        <span className="num block text-sm text-muted">
+          {sessionLine(session, false)}
+          {why ? ` · ${why}` : ""}
+        </span>
+      </span>
+      <WorkoutProfile workout={session.workout} height={64} ftp={ftp} fit />
+    </button>
+  );
+}
+
 const sessionLine = (s: Session, showLevel: boolean) => `${formatTime(s.duration)} · TSS ${Math.round(s.stress)}${showLevel ? ` · level ${s.level}` : ""}`;
 
 /**
@@ -170,6 +211,9 @@ export default function RideNow({
   onTrainer,
   planned,
   plannedLabel,
+  suggested = null,
+  todayPick = "plan",
+  onTodayPick,
   library,
   levels,
   saved,
@@ -195,6 +239,10 @@ export default function RideNow({
   onTrainer: (trainer: Trainer) => void;
   planned: Session | null;
   plannedLabel: string;
+  /** Today's suggested ride, shown as a card beside the plan's. */
+  suggested?: SuggestedRide | null;
+  todayPick?: TodayPick;
+  onTodayPick?: (pick: TodayPick) => void;
   library: LibraryChoice;
   levels: Levels;
   /** My workouts, and which of them is loaded. */
@@ -222,7 +270,7 @@ export default function RideNow({
 }) {
   const mode: Mode = source === "planned" ? "planned" : source === "free" ? "free" : "pick";
   const modes: { value: Mode; label: string }[] = [
-    ...(planned ? [{ value: "planned" as const, label: plannedLabel }] : []),
+    ...(planned ? [{ value: "planned" as const, label: suggested ? "Today" : plannedLabel }] : []),
     { value: "pick", label: "Pick a workout" },
     { value: "free", label: "Free ride" },
   ];
@@ -279,7 +327,20 @@ export default function RideNow({
           }}
         />
 
-        {source === "planned" && planned && (
+        {source === "planned" && planned && suggested && (
+          <div role="radiogroup" aria-label="Today's ride" className="grid gap-3 sm:grid-cols-2">
+            <TodayCard on={todayPick === "plan"} session={planned} tag={<span className="text-xs text-faint">Plan</span>} ftp={ftp} onPick={() => onTodayPick?.("plan")} />
+            <TodayCard
+              on={todayPick === "suggested"}
+              session={suggested.session}
+              tag={<Pill tone="positive">Suggested</Pill>}
+              why={suggested.reason}
+              ftp={ftp}
+              onPick={() => onTodayPick?.("suggested")}
+            />
+          </div>
+        )}
+        {source === "planned" && planned && !suggested && (
           <p className="text-sm text-muted">
             <span className="text-[15px] font-medium text-ink">{planned.workout.name}</span>
             <span className="num"> · {sessionLine(planned, planned.zone !== "recovery")}</span>

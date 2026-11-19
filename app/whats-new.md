@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Lactic keeps your place. Leave Today, Plan, Progress or Health and come back, and it opens where you left it, on the same ride, range and scroll. Settings has a Done button, and clicking the gear again closes it.
+- The Ride page shows the coach's suggested ride next to today's plan, so you can pick and start either one there. Overlay and Edit fields now sit next to the ride's time, and the controls no longer repeat "Trainer connected".
 
 ## 0.3.7
 
