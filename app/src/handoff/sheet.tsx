@@ -56,7 +56,8 @@ export function HandoffSheet() {
             // Nothing to ask: the same FTP and no ride.
             if (ftp === t.ftp && !t.ride) return clearTestDrive();
             setCurrent(ftp);
-            setUseIt(true);
+            // A test on the test drive sets FTP; a ride at a typed-in FTP keeps the one Lactic has.
+            setUseIt(t.method !== "manual");
             setAddRide(Boolean(t.ride));
             setError(null);
             setDrive(t);

@@ -649,7 +649,15 @@ function Done({ ride, simulated, onAgain }: { ride: FinishedRide; simulated: boo
               See everything it does
             </a>
           </div>
-          {download.file && <p className="text-[13px] text-[#8b93a1]">Your FTP{handoff.ride ? " and this ride" : ""} come with you into the app.</p>}
+          {download.file && (
+            <p className="text-[13px] text-[#8b93a1]">
+              Your FTP{handoff.ride ? " and this ride" : ""} come with you into the app. Already have Lactic?{" "}
+              <a href={openUrl} onClick={() => countTestDrive("opened-app", simulated)} className="font-medium text-white underline underline-offset-4">
+                Open it
+              </a>
+              {handoff.ride ? " to add this ride." : "."}
+            </p>
+          )}
         </section>
       )}
     </div>
