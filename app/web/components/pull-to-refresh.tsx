@@ -121,21 +121,29 @@ export default function PullToRefresh() {
     };
   }, [enabled]);
 
-  // The page slides down under the header to make room for the mark, and back when done.
+  // The page slides down under the header to make room for the mark, and back when done. If the
+  // rider scrolled down meanwhile, the slot is already out of sight: close it without the page
+  // jumping, by scrolling up by the same amount (what iOS's own pull-to-refresh does).
   const offset = refreshing ? PULL_THRESHOLD : pull;
+  const shownOffset = useRef(0);
   useEffect(() => {
     if (!enabled) return;
     const main = document.querySelector("main");
     if (!main) return;
+    const closingOutOfSight = offset === 0 && shownOffset.current > 0 && window.scrollY >= shownOffset.current;
     main.style.transform = offset ? `translateY(${offset}px)` : "";
-    main.style.transition = pull === 0 ? "transform 200ms ease-out" : "";
+    main.style.transition = pull === 0 && !closingOutOfSight ? "transform 200ms ease-out" : "";
+    if (closingOutOfSight) window.scrollBy(0, -shownOffset.current);
+    shownOffset.current = offset;
   }, [enabled, offset, pull]);
 
   if (!enabled || offset === 0) return null;
   const progress = Math.min(pull / PULL_THRESHOLD, 1);
   return (
+    // Absolute, not fixed: the mark sits in its slot at the top of the page and scrolls away
+    // under the header with the content, never floating over it.
     <div
-      className="pointer-events-none fixed inset-x-0 z-20 flex items-center justify-center"
+      className="pointer-events-none absolute inset-x-0 z-20 flex items-center justify-center"
       style={{ top: "calc(env(safe-area-inset-top) + 3rem)", height: offset }}
       role="status"
       aria-label={refreshing ? "Refreshing" : "Pull to refresh"}
