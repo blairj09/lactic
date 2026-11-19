@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+## 0.3.7
+
 - Took a test drive on lactic.fit? Open Lactic from the finish screen after downloading, and your FTP and that ride come with you.
 - When a ride pauses, Resume and End sit side by side (on the ride page, the overlay, the iPhone and lactic.fit/ride), so ending a ride takes one tap.
 - On the computer and in the overlay, switch ride pages with ← and →, a two-finger sideways swipe on the trackpad, or by clicking a page dot. Click the overlay first so it hears the keys.
