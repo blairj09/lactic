@@ -167,7 +167,7 @@ export default function TodayView({
     title: "",
     askFeel: false,
     lastNight: recovery?.today ? (
-      <RecoverySummary recovery={recovery} variant="tiles" />
+      <RecoverySummary recovery={recovery} variant="tiles" exertion={exertionTodayFor(state)} />
     ) : undefined,
     day: today,
     recovery: {
