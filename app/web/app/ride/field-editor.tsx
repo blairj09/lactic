@@ -1,12 +1,13 @@
 "use client";
 
-// The ride field editor (mocks 2 and 3 in lactic/ride-fields): pick a page's layout, tap a field to
-// choose what it shows, add pages, and build custom fields with no code. Shows sample numbers,
+// The ride field editor (lactic/ride-fields, reworked in lactic/field-picker): pick a page's layout,
+// click a field to choose what it shows in a picker beside it, add pages, and build custom fields with no code. Shows sample numbers,
 // never live ones, and only before a ride (review U6). Undo steps back one change, Cancel drops the
 // whole edit, Done saves. The overlay follows the workout pages until split off (U4); free ride has its own.
 
 import { isPhone } from "~/platform/native";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { MoreMenu } from "@/components/more-menu";
 import { Segmented, button, input } from "@/components/ui";
 import { remembered } from "@/lib/ble/devices";
 import { addPage, canWiden, deletePage, follow, follows, movePage, pagesOf, renamePage, setOption, setSlot, setTemplate, setWide, splitOff, standardSets, swapSlots, type RideSets } from "@/lib/ride/field-pages";
@@ -103,21 +104,22 @@ export default function FieldEditor({
   onDone: (ride: RideSets, keepCopy: boolean) => void;
   /** The iPhone's layouts only (1, 2, 4, 6), plus the page's own if it came from the computer. */
   phone?: boolean;
-  /** Fields from the rider's plugins (Lactic Modular only). */
+  /** Fields from the rider's plugins. */
   pluginFields?: readonly PluginFieldOption[];
 }) {
   const [draft, setDraft] = useState<RideSets>(initial);
   const [history, setHistory] = useState<{ ride: RideSets; page: number }[]>([]);
   const [set, setSet] = useState<FieldSetId>(initialSet);
   const [page, setPage] = useState(0);
-  // On the iPhone nothing is picked until a field is tapped, which opens the picker as a sheet.
-  const [slot, setSlotIndex] = useState<number | null>(phone ? null : 0);
-  const [query, setQuery] = useState("");
+  // The field being filled. Nothing until a field is clicked, which opens the picker beside it.
+  const [slot, setSlotIndex] = useState<number | null>(null);
   const [custom, setCustom] = useState(false);
   const [wasReset, setWasReset] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const [dragging, setDragging] = useState<number | null>(null);
   const inputs = useMemo(() => sampleInputs(ftp, weightKg, thresholdHr), [ftp, weightKg, thresholdHr]);
   const has = useMemo(() => riderHas(weightKg, thresholdHr), [weightKg, thresholdHr]);
+  const slotEls = useRef<(HTMLDivElement | null)[]>([]);
 
   const following = follows(draft, set);
   const pages = pagesOf(draft, set);
@@ -130,7 +132,7 @@ export default function FieldEditor({
     const f = sampleShown(ref, inputs, ftp, pluginFields);
     return ref.wide ? { ...f, wide: true } : f;
   });
-  const selected = slot !== null && slot < slots ? slot : null;
+  const selected = slot !== null && slot < slots && !following && !custom ? slot : null;
 
   /** Applies a change, keeping the step before it for Undo. */
   const change = (next: RideSets, nextPage = pageIndex) => {
@@ -146,14 +148,22 @@ export default function FieldEditor({
     setDraft(last.ride);
     setPage(last.page);
   };
-
-  const choose = (field: FieldRef) => {
-    if (selected === null || following) return;
-    change(setSlot(draft, set, pageIndex, selected, field));
-    // Move on to the next empty slot, as filling a new page goes field by field.
-    const filled = Math.min(selected, current.fields.length) + 1;
-    setSlotIndex(phone ? null : filled < slots ? filled : selected);
+  const goPage = (i: number) => {
+    setPage(i);
+    setSlotIndex(null);
+    setRenaming(false);
   };
+
+  /** Fills the open field and closes the picker. */
+  const choose = (field: FieldRef) => {
+    if (selected === null && !custom) return;
+    const at = custom ? slot : selected;
+    if (at === null) return;
+    change(setSlot(draft, set, pageIndex, at, field));
+    setSlotIndex(null);
+  };
+  /** Tab in the picker: the next field (or the one before), wrapping round the page. */
+  const step = (by: 1 | -1) => setSlotIndex((s) => (s === null ? 0 : (s + by + slots) % slots));
 
   // The rider's own custom fields, wherever they are, to reuse on other pages.
   const customs = useMemo(() => {
@@ -162,154 +172,100 @@ export default function FieldEditor({
     return [...seen.values()];
   }, [draft]);
 
-  const q = query.trim().toLowerCase();
-  const match = (label: string) => !q || label.toLowerCase().includes(q);
-  const listed = new Set(GROUPS.flatMap((g) => g.ids));
-  const more = metrics.forScope("live").filter((d) => !listed.has(d.id));
-  const groups = [...GROUPS, ...(more.length ? [{ name: "More", ids: more.map((d) => d.id) }] : [])];
-  const selectedRef = selected !== null ? current.fields[selected] : undefined;
-  const selectedKey = selectedRef ? fieldKey(selectedRef) : null;
-  const selectedPlugin = selectedRef && "metric" in selectedRef ? pluginFields.find((p) => p.id === selectedRef.metric) : undefined;
-  const chip = (on: boolean) => `h-8 rounded-full px-3 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${on ? "bg-primary text-on-primary" : "bg-raised text-ink enabled:hover:bg-active"}`;
-
-  const option = (ref: FieldRef, label: string, hint: string) => {
-    const reason = unavailableReason(fieldNeeds(ref, metrics), has);
-    const on = selectedKey === fieldKey(ref);
-    return (
-      <button
-        type="button"
-        key={fieldKey(ref)}
-        disabled={!!reason || selected === null || following}
-        onClick={() => choose(ref)}
-        aria-pressed={on}
-        title={reason ?? undefined}
-        className={`flex w-full gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors enabled:hover:bg-raised disabled:cursor-not-allowed ${reason ? "flex-col gap-0.5 text-faint" : "items-baseline justify-between"} ${on ? "bg-accent-soft" : ""}`}
-      >
-        <span className="min-w-0 truncate">{label}</span>
-        <span className={`text-xs ${reason ? "text-warning" : "shrink-0 text-faint"}`}>{reason ?? hint}</span>
-      </button>
-    );
-  };
-
-  const unitHint = (id: string) => {
-    const d = metrics.get(id);
-    if (!d) return "";
-    if (id === "power.3s") return "3s · W";
-    return d.unit === "s" ? "m:ss" : d.unit === "tss" ? "TSS" : id.endsWith("zone") ? "Z1–Z7" : d.unit;
-  };
-
   // On the iPhone the editor replaces the player further down the page: start at its top.
   const top = useRef<HTMLElement>(null);
   useEffect(() => {
     if (phone) top.current?.scrollIntoView({ block: "start" });
   }, [phone]);
+  // On the iPhone the picker is a sheet over the lower part of the screen: keep the field above it.
+  useEffect(() => {
+    if (phone && selected !== null) slotEls.current[selected]?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [phone, selected]);
 
-  // Layout and the field list: beside the page on a computer, a sheet from the bottom on the iPhone.
-  const picker = (
-    <div className={following ? "pointer-events-none space-y-5 opacity-50" : "space-y-5"}>
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold">Layout</h3>
-        <div className="grid grid-cols-4 gap-1.5">
-          {TEMPLATES.filter((t) => !phone || PHONE_TEMPLATES.includes(t.id) || t.id === current.template).map((t) => (
-            <button
-              type="button"
-              key={t.id}
-              aria-pressed={current.template === t.id}
-              onClick={() => change(setTemplate(draft, set, pageIndex, t.id))}
-              className={`rounded-md border p-1.5 text-center text-xs ${current.template === t.id ? "border-accent bg-accent-soft text-ink" : "border-line text-muted hover:text-ink"}`}
-            >
-              <span className={`mb-1 grid h-7 gap-0.5 ${t.cells}`} aria-hidden>
-                {Array.from({ length: CELLS[t.id] }, (_, i) => (
-                  <i key={i} className={`rounded-[2px] ${current.template === t.id ? "bg-[var(--zone-4)]" : "bg-control"}`} />
-                ))}
-              </span>
-              {t.name}
-            </button>
-          ))}
-        </div>
-      </div>
+  const selectedRef = selected !== null ? current.fields[selected] : undefined;
+  const selectedPlugin = selectedRef && "metric" in selectedRef ? pluginFields.find((p) => p.id === selectedRef.metric) : undefined;
+  const templates = TEMPLATES.filter((t) => !phone || PHONE_TEMPLATES.includes(t.id) || t.id === current.template);
+  const moreItems = [
+    { label: "Rename page", onSelect: () => setRenaming(true) },
+    ...(pageIndex > 0 ? [{ label: "Move page left", onSelect: () => change(movePage(draft, set, pageIndex, -1), pageIndex - 1) }] : []),
+    ...(pageIndex < pages.length - 1 ? [{ label: "Move page right", onSelect: () => change(movePage(draft, set, pageIndex, 1), pageIndex + 1) }] : []),
+    ...(pages.length > 1 ? [{ label: "Delete page", danger: true, onSelect: () => (change(deletePage(draft, set, pageIndex), Math.max(0, pageIndex - 1)), setSlotIndex(null)) }] : []),
+    {
+      label: "Reset to Lactic standard",
+      onSelect: () => {
+        change(standardSets(), 0);
+        setSet("workout");
+        setSlotIndex(null);
+        setWasReset(true);
+      },
+    },
+  ];
 
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold">{selected === null ? "Pick a field to change" : `Field ${selected + 1} shows`}</h3>
-        {selectedRef && selected !== null && canBeWide(current.template) && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted">Width</span>
-            <button type="button" className={chip(!selectedRef.wide)} aria-pressed={!selectedRef.wide} onClick={() => change(setWide(draft, set, pageIndex, selected, false))}>
-              Normal
-            </button>
-            <button type="button" className={chip(!!selectedRef.wide)} aria-pressed={!!selectedRef.wide} disabled={!selectedRef.wide && !canWiden(current, selected)} title={!selectedRef.wide && !canWiden(current, selected) ? "No room on this page" : undefined} onClick={() => change(setWide(draft, set, pageIndex, selected, true))}>
-              Wide
-            </button>
-          </div>
-        )}
-        {selectedPlugin?.options?.map((o) => {
-          const picked = resolveOptions([o], draft.options?.[selectedPlugin.id])[o.id];
-          const max = o.max ?? 1;
-          return (
-            <div key={o.id} className="space-y-1.5 rounded-md border border-plugin-line bg-plugin-soft/40 p-2.5">
-              <div className="text-sm font-medium">{o.label}</div>
-              <div className="flex flex-wrap gap-1.5">
-                {o.choices.map((c) => {
-                  const on = picked.includes(c);
-                  return (
-                    <button type="button" key={c} className={chip(on)} aria-pressed={on} disabled={!on && max > 1 && picked.length >= max} onClick={() => change(setOption(draft, selectedPlugin.id, o.id, toggleChoice(o, picked, c)))}>
-                      {c}
-                    </button>
-                  );
-                })}
-              </div>
-              {max > 1 && <p className="text-xs text-muted">Up to {max}.</p>}
+  const picker =
+    selected !== null ? (
+      <FieldPicker
+        key={`${set}-${pageIndex}-${selected}`}
+        number={selected + 1}
+        current={selectedRef}
+        currentLabel={shown[selected]?.label}
+        phone={phone}
+        slots={slots}
+        selected={selected}
+        template={current.template}
+        has={has}
+        customs={customs}
+        pluginFields={pluginFields}
+        onChoose={choose}
+        onClose={() => setSlotIndex(null)}
+        onStep={step}
+        onCustom={() => setCustom(true)}
+        onRemove={selectedRef ? () => (change(setSlot(draft, set, pageIndex, selected, null)), setSlotIndex(null)) : undefined}
+        onMove={(by) => {
+          const to = selected + by;
+          if (to < 0 || to >= slots || !current.fields[to]) return;
+          change(swapSlots(draft, set, pageIndex, selected, to));
+          setSlotIndex(to);
+        }}
+        canMove={(by) => !!selectedRef && !!current.fields[selected + by]}
+        wide={
+          selectedRef && canBeWide(current.template)
+            ? { on: !!selectedRef.wide, can: !!selectedRef.wide || canWiden(current, selected), set: (on) => change(setWide(draft, set, pageIndex, selected, on)) }
+            : undefined
+        }
+        options={
+          selectedPlugin?.options?.length ? (
+            <div className="space-y-2">
+              {selectedPlugin.options.map((o) => {
+                const picked = resolveOptions([o], draft.options?.[selectedPlugin.id])[o.id];
+                const max = o.max ?? 1;
+                return (
+                  <div key={o.id} className="space-y-1.5 rounded-md border border-plugin-line bg-plugin-soft/40 p-2.5">
+                    <div className="text-sm font-medium">
+                      {o.label}
+                      {max > 1 && <span className="font-normal text-muted"> · up to {max}</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {o.choices.map((c) => {
+                        const on = picked.includes(c);
+                        return (
+                          <button type="button" key={c} className={chip(on)} aria-pressed={on} disabled={!on && max > 1 && picked.length >= max} onClick={() => change(setOption(draft, selectedPlugin.id, o.id, toggleChoice(o, picked, c)))}>
+                            {c}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-        <input className={`${input} w-full`} placeholder="Search fields" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search fields" />
-        <div className="max-h-[26rem] space-y-3 overflow-y-auto pr-1">
-          {groups.map((g) => {
-            const items = g.ids.map((id) => metrics.get(id)).filter((d) => d && match(d.label));
-            if (!items.length) return null;
-            return (
-              <div key={g.name}>
-                <div className="px-2 pb-1 text-xs font-semibold tracking-wide text-muted uppercase">{g.name}</div>
-                {items.map((d) => option({ metric: d!.id }, d!.label, unitHint(d!.id)))}
-              </div>
-            );
-          })}
-          {customs.some((c) => "custom" in c && match(c.custom.label)) && (
-            <div>
-              <div className="px-2 pb-1 text-xs font-semibold tracking-wide text-muted uppercase">Your custom fields</div>
-              {customs.map((c) => ("custom" in c && match(c.custom.label) ? option(c, c.custom.label, "Custom") : null))}
-            </div>
-          )}
-          {pluginFields.some((p) => match(p.title)) && (
-            <div>
-              <div className="px-2 pb-1 text-xs font-semibold tracking-wide text-plugin uppercase">Plugins</div>
-              {pluginFields
-                .filter((p) => match(p.title))
-                .map((p) => (
-                  <button
-                    type="button"
-                    key={p.id}
-                    disabled={!p.on || selected === null || following}
-                    onClick={() => choose({ metric: p.id })}
-                    aria-pressed={selectedKey === p.id}
-                    className={`flex w-full items-baseline justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm transition-colors enabled:hover:bg-raised disabled:cursor-not-allowed ${p.on ? "" : "text-faint"} ${selectedKey === p.id ? "bg-accent-soft" : ""}`}
-                  >
-                    <span className="min-w-0 truncate">{p.title}</span>
-                    {p.on ? <span className="max-w-[45%] shrink-0 truncate rounded border border-plugin-line bg-plugin-soft px-1.5 text-xs text-plugin">{p.pluginName}</span> : <span className="shrink-0 text-xs">Off</span>}
-                  </button>
-                ))}
-            </div>
-          )}
-        </div>
-        <button type="button" className={`${button.secondary} w-full`} disabled={selected === null} onClick={() => setCustom(true)}>
-          + New custom field
-        </button>
-      </div>
-    </div>
-  );
+          ) : null
+        }
+        anchor={() => slotEls.current[selected] ?? null}
+      />
+    ) : null;
 
   return (
-    <section ref={top} aria-label="Customize ride fields" className="space-y-5 scroll-mt-12">
+    <section ref={top} aria-label="Customize ride fields" className={`space-y-4 scroll-mt-12 ${phone && selected !== null ? "pb-[60vh]" : ""}`}>
       {phone ? (
         <div className="sticky top-12 z-20 -mx-4 flex items-center gap-2 border-b border-line bg-surface px-4 py-2">
           <button type="button" className="h-9 text-sm text-accent" onClick={onCancel} disabled={saving}>
@@ -318,16 +274,14 @@ export default function FieldEditor({
           <button type="button" className="h-9 px-2 text-accent disabled:text-faint" onClick={undo} disabled={!history.length} aria-label="Undo">
             ↶
           </button>
-          <span className="flex-1 text-center text-sm font-medium">
-            Page {pageIndex + 1} of {pages.length}
-          </span>
+          <span className="flex-1 text-center text-sm font-medium">Ride fields</span>
           <button type="button" className={button.smallPrimary} onClick={() => onDone(draft, wasReset)} disabled={saving}>
             {saving ? "Saving…" : "Done"}
           </button>
         </div>
       ) : (
         <div className="sticky top-14 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-accent-soft px-4 py-2.5 shadow-[0_0_0_6px_var(--ground)]">
-          <span className="font-semibold">Customizing ride fields</span>
+          <span className="font-semibold">Customize ride fields</span>
           <span className="text-sm text-muted">Sample numbers</span>
           <div className="ml-auto flex items-center gap-2">
             <button type="button" className={button.ghost} onClick={undo} disabled={!history.length}>
@@ -343,152 +297,121 @@ export default function FieldEditor({
         </div>
       )}
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="space-y-5 rounded-lg bg-surface p-5 sm:p-6">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <input
-              aria-label="Page name"
-              className={`${input} max-w-56 text-base font-semibold`}
-              value={current.name}
-              maxLength={24}
-              disabled={following}
-              onChange={(e) => change(renamePage(draft, set, pageIndex, e.target.value))}
-            />
-            <div className="ml-auto flex items-center gap-1">
-              <button type="button" className={button.small} disabled={following || pageIndex === 0} onClick={() => change(movePage(draft, set, pageIndex, -1), pageIndex - 1)} aria-label="Move page earlier">
-                ←
-              </button>
-              <button type="button" className={button.small} disabled={following || pageIndex === pages.length - 1} onClick={() => change(movePage(draft, set, pageIndex, 1), pageIndex + 1)} aria-label="Move page later">
-                →
-              </button>
-              <button type="button" className={button.small} disabled={following || pages.length < 2} onClick={() => change(deletePage(draft, set, pageIndex), Math.max(0, pageIndex - 1))}>
-                Delete page
-              </button>
-            </div>
-          </div>
-
-          <div className={following ? "pointer-events-none opacity-50" : undefined}>
-            <FieldGrid
-              template={current.template}
-              shown={shown}
-              slots={slots}
-              chart={<div className="min-w-0">{chart}</div>}
-              slot={(i, node) => {
-                const filled = !!current.fields[i];
-                const on = selected === i;
-                return (
-                  <div
-                    className={`relative w-full rounded-md outline-offset-4 ${on ? "outline-2 outline-accent" : "outline-1 outline-dashed outline-control"} ${dragging !== null && dragging !== i ? "hover:bg-raised" : ""}`}
-                    draggable={filled}
-                    onDragStart={() => setDragging(i)}
-                    onDragEnd={() => setDragging(null)}
-                    onDragOver={(e) => filled && dragging !== null && e.preventDefault()}
-                    onDrop={() => {
-                      if (dragging !== null) change(swapSlots(draft, set, pageIndex, dragging, i));
-                      setDragging(null);
-                      setSlotIndex(i);
+      <div className="space-y-5 rounded-lg bg-surface p-4 sm:p-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Segmented
+            label="Fields for"
+            options={(phone ? (["workout", "free"] as const) : (["workout", "free", "overlay"] as const)).map((s) => ({ value: s, label: SET_NAMES[s] }))}
+            value={set}
+            onChange={(s) => (setSet(s), goPage(0))}
+          />
+          {!following && <LayoutMenu templates={templates} value={current.template} phone={phone} onChange={(t) => (change(setTemplate(draft, set, pageIndex, t)), setSlotIndex(null))} />}
+          {!following && (
+            <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto">
+              {pages.map((p, i) =>
+                i === pageIndex && renaming ? (
+                  <input
+                    key={i}
+                    aria-label="Page name"
+                    autoFocus
+                    className={`${input} h-8 w-36 rounded-full`}
+                    defaultValue={p.name}
+                    maxLength={24}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onBlur={(e) => (change(renamePage(draft, set, pageIndex, e.currentTarget.value.trim() || p.name)), setRenaming(false))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                      if (e.key === "Escape") setRenaming(false);
                     }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    key={i}
+                    onClick={() => goPage(i)}
+                    onDoubleClick={() => i === pageIndex && setRenaming(true)}
+                    aria-pressed={i === pageIndex}
+                    className={`h-8 rounded-full px-3 text-sm ${i === pageIndex ? "bg-primary text-on-primary" : "bg-raised text-muted hover:text-ink"}`}
                   >
-                    <button type="button" className={`block w-full min-w-0 cursor-pointer text-left ${current.template === "standard" && i >= 5 ? "lg:flex lg:items-baseline lg:justify-between lg:gap-4" : ""}`} onClick={() => setSlotIndex(i)} aria-label={filled ? `Field ${i + 1}: ${shown[i]?.label}. Choose what it shows` : `Field ${i + 1}: empty. Choose what it shows`}>
-                      {filled ? node : <span className="flex h-16 items-center text-sm text-muted">+ Add field</span>}
-                    </button>
-                    {filled && on && (
-                      <span className="absolute -top-3 right-0 flex gap-1">
-                        {i > 0 && current.fields[i - 1] && (
-                          <button type="button" className="size-6 rounded-full border border-line bg-surface text-xs text-muted hover:text-ink" onClick={() => (change(swapSlots(draft, set, pageIndex, i, i - 1)), setSlotIndex(i - 1))} aria-label="Move field earlier">
-                            ←
-                          </button>
-                        )}
-                        {current.fields[i + 1] && (
-                          <button type="button" className="size-6 rounded-full border border-line bg-surface text-xs text-muted hover:text-ink" onClick={() => (change(swapSlots(draft, set, pageIndex, i, i + 1)), setSlotIndex(i + 1))} aria-label="Move field later">
-                            →
-                          </button>
-                        )}
-                        <button type="button" className="size-6 rounded-full border border-line bg-surface text-xs text-muted hover:text-ink" onClick={() => change(setSlot(draft, set, pageIndex, i, null))} aria-label="Remove field">
-                          ×
-                        </button>
-                      </span>
-                    )}
-                  </div>
-                );
-              }}
-            />
-          </div>
+                    {i + 1} · {p.name}
+                  </button>
+                ),
+              )}
+              {pages.length < 8 && (
+                <button type="button" className="h-8 rounded-full border border-dashed border-control px-3 text-sm text-muted hover:text-ink" onClick={() => (change(addPage(draft, set), pages.length), setSlotIndex(null))}>
+                  + Page
+                </button>
+              )}
+              <MoreMenu label="More page actions" items={moreItems} align="right" />
+            </div>
+          )}
+        </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {pages.map((p, i) => (
-              <button
-                type="button"
-                key={i}
-                onClick={() => (setPage(i), setSlotIndex(0))}
-                className={`h-8 rounded-full px-3 text-sm ${i === pageIndex ? "bg-primary text-on-primary" : "bg-raised text-muted hover:text-ink"}`}
-              >
-                {i + 1} · {p.name}
-              </button>
-            ))}
-            {!following && pages.length < 8 && (
-              <button type="button" className="h-8 rounded-full border border-dashed border-control px-3 text-sm text-muted hover:text-ink" onClick={() => (change(addPage(draft, set), pages.length), setSlotIndex(0))}>
-                + Page
-              </button>
+        {set !== "workout" && (
+          <p className="text-sm text-muted">
+            {following ? (
+              <>
+                {SET_NAMES[set]} uses your workout pages.{" "}
+                <button type="button" className="text-ink underline underline-offset-2" onClick={() => change(splitOff(draft, set), 0)}>
+                  Set up {set === "free" ? "free ride" : "the overlay"} separately
+                </button>
+              </>
+            ) : (
+              <>
+                {SET_NAMES[set]} has its own pages.{" "}
+                <button type="button" className="text-ink underline underline-offset-2" onClick={() => change(follow(draft, set), 0)}>
+                  Use the workout pages again
+                </button>
+              </>
             )}
-          </div>
-          <p className="text-center text-sm text-muted">{phone ? "Tap a field to change it. While riding, swipe to change page." : "While riding, ← → or a swipe changes page. Drag a field onto another to swap them."}</p>
-        </div>
+          </p>
+        )}
 
-        <div className="space-y-5 rounded-lg bg-surface p-5">
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold">Fields for</h3>
-            <Segmented fill label="Fields for" options={(phone ? (["workout", "free"] as const) : (["workout", "free", "overlay"] as const)).map((s) => ({ value: s, label: SET_NAMES[s] }))} value={set} onChange={(s) => (setSet(s), setPage(0), setSlotIndex(0))} />
-            {set !== "workout" &&
-              (following ? (
-                <p className="text-sm text-muted">
-                  {SET_NAMES[set]} uses your workout pages.{" "}
-                  <button type="button" className="text-ink underline underline-offset-2" onClick={() => change(splitOff(draft, set), 0)}>
-                    Set up {set === "free" ? "free ride" : "the overlay"} separately
+        <div className={following ? "pointer-events-none opacity-50" : undefined}>
+          <FieldGrid
+            template={current.template}
+            shown={shown}
+            slots={slots}
+            chart={<div className={`min-w-0 transition-opacity ${selected !== null ? "opacity-35" : ""}`}>{chart}</div>}
+            slot={(i, node) => {
+              const filled = !!current.fields[i];
+              const on = selected === i;
+              return (
+                <div
+                  ref={(el) => {
+                    slotEls.current[i] = el;
+                  }}
+                  className={`relative w-full scroll-mt-28 rounded-md outline-offset-4 transition-opacity ${on ? "bg-accent-soft/40 outline-2 outline-accent" : "outline-1 outline-dashed outline-control"} ${selected !== null && !on ? "opacity-35" : ""} ${dragging !== null && dragging !== i ? "hover:bg-raised" : ""}`}
+                  draggable={filled && !phone}
+                  onDragStart={() => (setDragging(i), setSlotIndex(null))}
+                  onDragEnd={() => setDragging(null)}
+                  onDragOver={(e) => filled && dragging !== null && e.preventDefault()}
+                  onDrop={() => {
+                    if (dragging !== null) change(swapSlots(draft, set, pageIndex, dragging, i));
+                    setDragging(null);
+                  }}
+                >
+                  <span className={`absolute -top-3 right-1 z-[1] rounded px-1 text-[11px] leading-4 font-semibold ${on ? "bg-accent text-white" : "bg-surface text-faint"}`} aria-hidden>
+                    {i + 1}
+                  </span>
+                  <button
+                    type="button"
+                    className={`block w-full min-w-0 cursor-pointer text-left ${current.template === "standard" && i >= 5 ? "lg:flex lg:items-baseline lg:justify-between lg:gap-4" : ""}`}
+                    onClick={() => setSlotIndex(on ? null : i)}
+                    aria-expanded={on}
+                    aria-label={filled ? `Field ${i + 1}: ${shown[i]?.label}. Choose what it shows` : `Field ${i + 1}: empty. Choose what it shows`}
+                  >
+                    {filled ? node : <span className="flex h-16 items-center text-sm text-muted">+ Add field</span>}
                   </button>
-                </p>
-              ) : (
-                <p className="text-sm text-muted">
-                  {SET_NAMES[set]} has its own pages.{" "}
-                  <button type="button" className="text-ink underline underline-offset-2" onClick={() => change(follow(draft, set), 0)}>
-                    Use the workout pages again
-                  </button>
-                </p>
-              ))}
-          </div>
-          {!phone && picker}
-          <div className="space-y-1 border-t border-rule pt-3 text-sm text-muted">
-            <button
-              type="button"
-              className="text-ink underline underline-offset-2"
-              onClick={() => {
-                change(standardSets(), 0);
-                setSet("workout");
-                setSlotIndex(0);
-                setWasReset(true);
-              }}
-            >
-              Reset to Lactic standard
-            </button>{" "}
-            <span>(your layout is kept as a saved copy)</span>
-          </div>
+                </div>
+              );
+            }}
+          />
         </div>
+        <p className="text-center text-sm text-muted">{phone ? "Tap a field to change it. While riding, swipe to change page." : "Click a field to change it. Drag one onto another to swap."}</p>
       </div>
 
-      {phone && selected !== null && !custom && (
-        <div className="fixed inset-0 z-40 flex items-end bg-black/35" onClick={() => setSlotIndex(null)}>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Field ${selected + 1}`}
-            className="max-h-[70vh] w-full overflow-y-auto rounded-t-2xl bg-surface px-4 pt-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mx-auto mb-3 h-1.5 w-9 rounded-full bg-control" />
-            {picker}
-          </div>
-        </div>
-      )}
+      {picker}
 
       {custom && (
         <CustomFieldDialog
@@ -504,6 +427,384 @@ export default function FieldEditor({
     </section>
   );
 }
+
+const chip = (on: boolean) => `h-8 shrink-0 whitespace-nowrap rounded-full px-3 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${on ? "bg-primary text-on-primary" : "bg-raised text-ink enabled:hover:bg-active"}`;
+
+/** The layout button above the page: the current template, opening a small grid of the others. */
+function LayoutMenu({ templates, value, phone, onChange }: { templates: typeof TEMPLATES; value: PageTemplate; phone: boolean; onChange: (t: PageTemplate) => void }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", close);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  const now = TEMPLATES.find((t) => t.id === value) ?? TEMPLATES[0];
+  const cells = (t: (typeof TEMPLATES)[number], on: boolean, h: string) => (
+    <span className={`grid ${h} gap-0.5 ${t.cells}`} aria-hidden>
+      {Array.from({ length: CELLS[t.id] }, (_, i) => (
+        <i key={i} className={`rounded-[2px] ${on ? "bg-[var(--zone-4)]" : "bg-control"}`} />
+      ))}
+    </span>
+  );
+  return (
+    <div ref={box} className="relative">
+      <button type="button" className={`${button.small} gap-2`} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <span className="w-6">{cells(now, true, "h-4")}</span>
+        {phone ? `Layout: ${now.name}` : now.name}
+        <span className="text-[10px] text-faint">▼</span>
+      </button>
+      {open && (
+        <div role="dialog" aria-label="Layout" className="absolute left-0 z-30 mt-1.5 grid w-72 grid-cols-4 gap-1.5 rounded-lg border border-line bg-surface p-2.5 shadow-xl">
+          {templates.map((t) => (
+            <button
+              type="button"
+              key={t.id}
+              aria-pressed={value === t.id}
+              onClick={() => (onChange(t.id), setOpen(false))}
+              className={`rounded-md border p-1.5 text-center text-xs ${value === t.id ? "border-accent bg-accent-soft text-ink" : "border-line text-muted hover:text-ink"}`}
+            >
+              <span className="mb-1 block">{cells(t, value === t.id, "h-6")}</span>
+              {t.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const FILTERS = ["All", "Power", "Heart", "Workout", "So far", "Plugins"] as const;
+type Filter = (typeof FILTERS)[number];
+/** Which picker groups each quick filter shows. */
+const FILTER_GROUPS: Record<Exclude<Filter, "All" | "Plugins">, string[]> = { Power: ["Power"], Heart: ["Heart"], Workout: ["Workout"], "So far": ["Ride so far"] };
+
+interface Option {
+  key: string;
+  ref: FieldRef;
+  label: string;
+  hint: string;
+  reason?: string | null;
+  plugin?: string;
+}
+
+/**
+ * Mocks lactic/field-picker: what one field shows. Beside the field on a computer, a sheet on the
+ * iPhone. Search is focused on a computer; ↑ ↓ and Enter pick, Tab moves to the next field, Esc closes.
+ */
+function FieldPicker({
+  number,
+  current,
+  currentLabel,
+  phone,
+  slots,
+  selected,
+  template,
+  has,
+  customs,
+  pluginFields,
+  options,
+  wide,
+  onChoose,
+  onClose,
+  onStep,
+  onCustom,
+  onRemove,
+  onMove,
+  canMove,
+  anchor,
+}: {
+  number: number;
+  current: FieldRef | undefined;
+  currentLabel: string | undefined;
+  phone: boolean;
+  slots: number;
+  selected: number;
+  template: PageTemplate;
+  has: RiderHas;
+  customs: FieldRef[];
+  pluginFields: readonly PluginFieldOption[];
+  options: React.ReactNode;
+  wide?: { on: boolean; can: boolean; set: (on: boolean) => void };
+  onChoose: (f: FieldRef) => void;
+  onClose: () => void;
+  onStep: (by: 1 | -1) => void;
+  onCustom: () => void;
+  onRemove?: () => void;
+  onMove: (by: 1 | -1) => void;
+  canMove: (by: 1 | -1) => boolean;
+  anchor: () => HTMLElement | null;
+}) {
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("All");
+  const [active, setActive] = useState(0);
+  const box = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLInputElement>(null);
+  const [place, setPlace] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
+  const currentKey = current ? fieldKey(current) : null;
+  const anchorRef = useRef(anchor);
+  anchorRef.current = anchor;
+
+  // Beside the field on a computer: to its right if there's room, else its left, else below it.
+  useLayoutEffect(() => {
+    if (phone) return;
+    const at = () => {
+      const el = anchorRef.current();
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const w = 384;
+      const gap = 12;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const h = Math.min(box.current?.offsetHeight ?? 520, vh - 80);
+      const right = r.right + gap + w <= vw - 8;
+      const leftSide = !right && r.left - gap - w >= 8;
+      const left = right ? r.right + gap : leftSide ? r.left - gap - w : Math.min(Math.max(8, r.left), vw - w - 8);
+      // No room either side: below the field, or above it when below doesn't fit.
+      const beside = right || leftSide;
+      const below = r.bottom + gap + h <= vh - 8;
+      const want = beside ? r.top : below ? r.bottom + gap : r.top - gap - h;
+      const top = Math.max(72, Math.min(want, vh - h - 8));
+      setPlace((p) => (p && p.left === left && p.top === top && p.maxHeight === vh - 80 ? p : { left, top, maxHeight: vh - 80 }));
+    };
+    at();
+    window.addEventListener("scroll", at, true);
+    window.addEventListener("resize", at);
+    return () => {
+      window.removeEventListener("scroll", at, true);
+      window.removeEventListener("resize", at);
+    };
+  }, [phone, selected]);
+
+  // Search takes the keys on a computer once the picker is in place (it can't take focus while hidden).
+  const focused = useRef(false);
+  useEffect(() => {
+    if (phone || !place || focused.current) return;
+    focused.current = true;
+    search.current?.focus({ preventScroll: true });
+  }, [phone, place]);
+
+  // Closes on a click outside, except on the fields themselves (that picks another field).
+  useEffect(() => {
+    const away = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (box.current?.contains(t) || t.closest?.('[aria-label^="Field "]') || t.closest?.('[role="dialog"][aria-label="New custom field"]')) return;
+      onClose();
+    };
+    window.addEventListener("mousedown", away);
+    return () => window.removeEventListener("mousedown", away);
+  }, [onClose]);
+
+  const q = query.trim().toLowerCase();
+  const match = (label: string) => !q || label.toLowerCase().includes(q);
+  const listed = new Set(GROUPS.flatMap((g) => g.ids));
+  const more = metrics.forScope("live").filter((d) => !listed.has(d.id));
+  const groups = [...GROUPS, ...(more.length ? [{ name: "More", ids: more.map((d) => d.id) }] : [])];
+
+  const sections: { name: string; plugin?: boolean; items: Option[] }[] = [];
+  const wants = (name: string) => filter === "All" || (filter !== "Plugins" && FILTER_GROUPS[filter].includes(name));
+  for (const g of groups) {
+    if (!wants(g.name)) continue;
+    const items = g.ids
+      .map((id) => metrics.get(id))
+      .filter((d) => d && match(d.label))
+      .map((d) => {
+        const ref: FieldRef = { metric: d!.id };
+        return { key: fieldKey(ref), ref, label: d!.label, hint: unitHint(d!.id), reason: unavailableReason(fieldNeeds(ref, metrics), has) };
+      });
+    if (items.length) sections.push({ name: g.name, items });
+  }
+  if (filter === "All") {
+    const items = customs.filter((c) => "custom" in c && match(c.custom.label)).map((c) => ({ key: fieldKey(c), ref: c, label: "custom" in c ? c.custom.label : "", hint: "Custom", reason: unavailableReason(fieldNeeds(c, metrics), has) }));
+    if (items.length) sections.push({ name: "Your custom fields", items });
+  }
+  if (filter === "All" || filter === "Plugins") {
+    const items = pluginFields.filter((p) => match(p.title)).map((p) => ({ key: p.id, ref: { metric: p.id } as FieldRef, label: p.title, hint: "", reason: p.on ? null : "Plugin is off", plugin: p.pluginName }));
+    if (items.length) sections.push({ name: "Plugins", plugin: true, items });
+  }
+  // The field's current choice first, so it's easy to see what's there now.
+  if (currentKey && !q) {
+    const at = sections.findIndex((s) => s.items.some((it) => it.key === currentKey));
+    if (at > 0) sections.unshift(...sections.splice(at, 1));
+    const s = sections[0];
+    const i = s?.items.findIndex((it) => it.key === currentKey) ?? -1;
+    if (i > 0) s.items.unshift(...s.items.splice(i, 1));
+  }
+  const pickable = sections.flatMap((s) => s.items).filter((it) => !it.reason);
+  const activeKey = pickable[Math.min(active, pickable.length - 1)]?.key;
+
+  useEffect(() => setActive(0), [query, filter]);
+  // Keeps the highlighted field in view when ↑ ↓ move it (not on open or hover).
+  const byKeys = useRef(false);
+  useEffect(() => {
+    if (!activeKey || !byKeys.current) return;
+    byKeys.current = false;
+    list.current?.querySelector(`[data-key="${CSS.escape(activeKey)}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [activeKey]);
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") return e.preventDefault(), onClose();
+    if (e.key === "Tab" && slots > 1) return e.preventDefault(), onStep(e.shiftKey ? -1 : 1);
+    if (e.target !== search.current) return;
+    if (e.key === "ArrowDown") return e.preventDefault(), (byKeys.current = true), setActive((a) => Math.min(a + 1, pickable.length - 1));
+    if (e.key === "ArrowUp") return e.preventDefault(), (byKeys.current = true), setActive((a) => Math.max(a - 1, 0));
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const it = pickable.find((p) => p.key === activeKey);
+      if (it) onChoose(it.ref);
+    }
+  };
+
+  const thumbCols = template === "one" || template === "two" ? 1 : template === "standard" ? 2 : CELLS[template] > 6 ? 4 : 2;
+  const smallBtn = "inline-flex h-7 items-center rounded-md border border-line bg-surface px-2 text-xs text-muted hover:text-ink disabled:opacity-40";
+
+  const body = (
+    <>
+      <div className="flex shrink-0 items-center gap-2.5 px-4 pt-3 pb-2">
+        {phone ? (
+          <span className="grid h-10 w-8 shrink-0 gap-0.5 rounded border border-line p-0.5" style={{ gridTemplateColumns: `repeat(${thumbCols}, minmax(0, 1fr))` }} aria-hidden>
+            {Array.from({ length: slots }, (_, i) => (
+              <i key={i} className={`rounded-[1px] ${i === selected ? "bg-accent" : "bg-control"}`} />
+            ))}
+          </span>
+        ) : (
+          <span className="rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-white">Field {number}</span>
+        )}
+        <div className="min-w-0 flex-1">
+          {phone && <div className="font-semibold">Field {number}</div>}
+          <div className={`truncate ${phone ? "text-xs text-muted" : "font-semibold"}`}>{currentLabel ?? "Empty"}</div>
+        </div>
+        {current && (
+          <>
+            <button type="button" className={smallBtn} disabled={!canMove(-1)} onClick={() => onMove(-1)} aria-label="Move field earlier" title="Move earlier">
+              ←
+            </button>
+            <button type="button" className={smallBtn} disabled={!canMove(1)} onClick={() => onMove(1)} aria-label="Move field later" title="Move later">
+              →
+            </button>
+          </>
+        )}
+        {wide && (
+          <button type="button" className={`${smallBtn} ${wide.on ? "border-primary bg-primary text-on-primary hover:text-on-primary" : ""}`} aria-pressed={wide.on} disabled={!wide.can} title={wide.can ? undefined : "No room on this page"} onClick={() => wide.set(!wide.on)}>
+            Wide
+          </button>
+        )}
+        {onRemove && (
+          <button type="button" className={smallBtn} onClick={onRemove}>
+            Remove
+          </button>
+        )}
+      </div>
+      {options && <div className="max-h-48 shrink-0 overflow-y-auto px-4 pb-2">{options}</div>}
+      <div className="shrink-0 px-4 pb-2">
+        <input ref={search} className={`${input} w-full`} placeholder="Search fields" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search fields" />
+      </div>
+      <div className="flex shrink-0 gap-1.5 overflow-x-auto px-4 pb-2.5 [scrollbar-width:none]">
+        {FILTERS.filter((f) => f !== "Plugins" || pluginFields.length).map((f) => (
+          <button
+            type="button"
+            key={f}
+            aria-pressed={filter === f}
+            onClick={() => setFilter(f)}
+            className={`h-7 shrink-0 rounded-full px-2.5 text-xs transition-colors ${filter === f ? (f === "Plugins" ? "bg-plugin text-white" : "bg-primary text-on-primary") : f === "Plugins" ? "bg-plugin-soft text-plugin" : "bg-raised text-ink hover:bg-active"}`}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+      <div ref={list} className={`min-h-0 flex-1 overflow-y-auto border-t border-line px-1.5 py-1 ${phone ? "" : "max-h-72"}`}>
+        {sections.length === 0 && <p className="px-3 py-4 text-sm text-muted">No fields match.</p>}
+        {sections.map((s) => (
+          <div key={s.name}>
+            <div className={`px-2.5 pt-2.5 pb-1 text-[11px] font-semibold tracking-wide uppercase ${s.plugin ? "text-plugin" : "text-muted"}`}>{s.name}</div>
+            {s.items.map((it) => {
+              const on = it.key === currentKey;
+              return (
+                <button
+                  type="button"
+                  key={it.key}
+                  data-key={it.key}
+                  disabled={!!it.reason}
+                  onClick={() => onChoose(it.ref)}
+                  onMouseEnter={() => !it.reason && setActive(pickable.findIndex((p) => p.key === it.key))}
+                  aria-pressed={on}
+                  className={`flex w-full flex-wrap items-baseline gap-x-2.5 rounded-md px-2.5 text-left transition-colors disabled:cursor-not-allowed ${phone ? "py-2.5 text-base" : "py-1.5 text-sm"} ${it.reason ? "text-faint" : ""} ${on ? "bg-accent-soft" : it.key === activeKey ? "bg-raised" : ""}`}
+                >
+                  <span className="w-3.5 shrink-0 text-xs font-bold text-accent" aria-hidden>
+                    {on ? "✓" : ""}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{it.label}</span>
+                  {it.plugin ? (
+                    <span className="max-w-[45%] shrink-0 truncate rounded border border-plugin-line bg-plugin-soft px-1.5 text-xs text-plugin">{it.plugin}</span>
+                  ) : (
+                    <span className="shrink-0 text-xs text-faint">{it.hint}</span>
+                  )}
+                  {it.reason && <span className="basis-full pl-6 text-xs text-warning">{it.reason}</span>}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-4 py-2.5 text-sm">
+        <button type="button" className="font-medium text-accent hover:underline" onClick={onCustom}>
+          + New custom field
+        </button>
+        {phone ? (
+          slots > 1 && (
+            <button type="button" className="font-medium text-ink" onClick={() => onStep(1)}>
+              Next field ›
+            </button>
+          )
+        ) : (
+          <span className="text-xs text-faint">Tab next field · Esc close</span>
+        )}
+      </div>
+    </>
+  );
+
+  if (phone)
+    return (
+      <div
+        ref={box}
+        role="dialog"
+        aria-label={`Field ${number}`}
+        onKeyDown={onKey}
+        className="fixed inset-x-0 bottom-0 z-40 flex max-h-[55vh] flex-col rounded-t-2xl bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgb(0_0_0/0.2)]"
+      >
+        <div className="mx-auto mt-2 h-1.5 w-9 shrink-0 rounded-full bg-control" />
+        {body}
+      </div>
+    );
+  return (
+    <div
+      ref={box}
+      role="dialog"
+      aria-label={`Field ${number}`}
+      onKeyDown={onKey}
+      style={place ? { left: place.left, top: place.top, maxHeight: place.maxHeight } : { visibility: "hidden" }}
+      className="fixed z-40 flex w-96 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-[0_12px_40px_rgb(13_17_23/0.2)]"
+    >
+      {body}
+    </div>
+  );
+}
+
+function unitHint(id: string) {
+  const d = metrics.get(id);
+  if (!d) return "";
+  if (id === "power.3s") return "3s · W";
+  return d.unit === "s" ? "m:ss" : d.unit === "tss" ? "TSS" : id.endsWith("zone") ? "Z1–Z7" : d.unit;
+}
+
 
 const MEASURES = [
   { id: "power", name: "Power" },
