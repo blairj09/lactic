@@ -8,6 +8,8 @@ import { button, Result } from "@/components/ui";
 import { MarkTile, Wordmark } from "~/app/brand";
 import { getSetting, setSetting } from "~/settings/store";
 import { ProfileForm, saveProfile, useProfile } from "~/setup/profile";
+import { applyTestDrive, watchTestDrive, type TestDrive } from "~/handoff/handoff";
+import { TestDriveRide, testDriveHint } from "~/handoff/sheet";
 import { defaultWeek, saveWeek, WeekForm } from "~/setup/week";
 import { GearSetup } from "~/setup/gear";
 import { RideSources } from "~/setup/bring-rides";
@@ -285,6 +287,15 @@ export default function Onboarding() {
         : go(index > 0 ? steps[index - 1].id : "");
 
   const profile = useProfile();
+  // A lactic.fit test drive opened with "Open Lactic": its FTP fills in About you, and its ride can
+  // start the rider's history (src/handoff).
+  const [drive, setDrive] = useState<TestDrive | null>(null);
+  const [addDriveRide, setAddDriveRide] = useState(true);
+  useEffect(() => watchTestDrive(setDrive), []);
+  const { loaded, setValues } = profile;
+  useEffect(() => {
+    if (drive && loaded) setValues((v) => ({ ...v, ftp: String(drive.ftp), ftpUnknown: false }));
+  }, [drive, loaded, setValues]);
   const [week, setWeek] = useState(defaultWeek);
   useEffect(() => {
     void getSetting<unknown>(FEATURES_SETTING, null).then((saved) => {
@@ -372,17 +383,46 @@ export default function Onboarding() {
         continueButton(
           () =>
             void save(
-              () => saveProfile(profile.values),
+              async () => {
+                const r = await saveProfile(profile.values);
+                if (!r.ok || !drive) return r;
+                // Kept the test drive's FTP: record it as the test it came from.
+                const kept = !profile.values.ftpUnknown && Number(profile.values.ftp) === drive.ftp;
+                return applyTestDrive(drive, {
+                  useFtp: kept && drive.method !== "manual",
+                  addRide: addDriveRide,
+                });
+              },
               () => go("gear"),
             ),
         ),
         profile.loaded && (
-          <ProfileForm
-            values={profile.values}
-            onChange={profile.setValues}
-            error={error}
-            short
-          />
+          <div className="space-y-6">
+            <ProfileForm
+              values={profile.values}
+              onChange={profile.setValues}
+              error={error}
+              short
+              ftpFrom={
+                drive && Number(profile.values.ftp) === drive.ftp
+                  ? testDriveHint(drive)
+                  : undefined
+              }
+            />
+            {drive?.ride && (
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium">Your test drive</p>
+                <TestDriveRide
+                  drive={drive}
+                  checked={addDriveRide}
+                  onChange={setAddDriveRide}
+                />
+                <p className="text-sm text-muted">
+                  Added to your rides, so your history starts here.
+                </p>
+              </div>
+            )}
+          </div>
         ),
       );
     case "gear":

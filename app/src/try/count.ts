@@ -8,7 +8,8 @@ export type TestDriveStep =
   | "started"
   | "finished"
   | "saved-fit"
-  | "posted-strava";
+  | "posted-strava"
+  | "opened-app";
 
 /** The counted path: `trainer` for the visitor's own trainer, `simulated` for Lactic's sim. */
 export function testDrivePath(step: TestDriveStep, simulated: boolean): string {
