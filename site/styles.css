@@ -372,3 +372,26 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .hero-side .buttons { display: grid; grid-template-columns: minmax(0, max-content); }
 .hero-side .buttons .btn { justify-content: center; }
 [data-ride][hidden] { display: none; }
+
+/* Floating Download / Try a ride bar (float-cta.js shows it once the hero buttons scroll away). */
+.float-cta {
+  position: fixed; z-index: 50; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; gap: 8px; padding: 8px;
+  background: rgba(255, 255, 255, 0.92); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 32px rgba(13, 17, 23, 0.16);
+  opacity: 0; visibility: hidden; transform: translate(-50%, 16px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+}
+.float-cta.is-on { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s; }
+.float-cta .btn { padding: 10px 16px; font-size: 15px; border-radius: 9px; gap: 8px; justify-content: center; white-space: nowrap; }
+.float-cta .btn[hidden] { display: none; }
+.float-brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 0 4px; font-size: 15px; line-height: 1.2; white-space: nowrap; }
+.float-brand .brand-mark { width: 28px; height: 28px; border-radius: 7px; }
+.float-sub { display: block; font-size: 12px; color: var(--muted); }
+@media (max-width: 560px) {
+  .float-cta { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateY(16px); }
+  .float-cta.is-on { transform: none; }
+  .float-cta .btn { flex: 1; }
+  .float-brand { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .float-cta, .float-cta.is-on { transition: none; } }
