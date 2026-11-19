@@ -34,6 +34,7 @@ import {
   type PlayerData,
 } from "./player";
 import WorkoutChart from "./workout-chart";
+import { useSafeArea } from "~/platform/safe-area";
 
 /** One swipe page: the ride (always first), one of the rider's field pages, or what's up next. */
 type PhonePage = { kind: "ride"; name: string } | { kind: "fields"; name: string; page: RidePage } | { kind: "next"; name: string };
@@ -103,6 +104,8 @@ export function PhoneRide({
   notice?: React.ReactNode;
 }) {
   const landscape = useLandscape();
+  // The web view's own safe area goes stale when the phone turns (see safe-area.ts).
+  useSafeArea(true);
   const pages = phonePages(data);
   const [index, setIndex] = useState(0);
   const at = Math.min(index, pages.length - 1);
@@ -143,7 +146,7 @@ const progress = (data: PlayerData) =>
 function Portrait({ data, controls, pages, at, page, onHide, notice, sub, swipe, onDot }: LayoutProps) {
   return (
     <>
-      <div className="flex flex-none items-center gap-3 px-4 pb-2 pt-[calc(env(safe-area-inset-top)+8px)]">
+      <div className="flex flex-none items-center gap-3 px-4 pb-2 pt-[calc(var(--safe-top,env(safe-area-inset-top))+8px)]">
         <HideButton onHide={onHide} />
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold">{data.workout.name}</div>
@@ -184,7 +187,7 @@ function Portrait({ data, controls, pages, at, page, onHide, notice, sub, swipe,
       </div>
 
       {!data.ended && !data.finished && (
-        <div aria-label="Ride controls" className="flex-none space-y-2.5 border-t border-line bg-surface px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)]">
+        <div aria-label="Ride controls" className="flex-none space-y-2.5 border-t border-line bg-surface px-4 pt-3 pb-[max(var(--safe-bottom,env(safe-area-inset-bottom)),12px)]">
           <TransportRow data={data} controls={controls} />
           <AdjustRow data={data} controls={controls} />
         </div>
@@ -194,11 +197,11 @@ function Portrait({ data, controls, pages, at, page, onHide, notice, sub, swipe,
 }
 
 function Landscape({ data, controls, pages, at, page, onHide, notice, swipe, onDot }: LayoutProps) {
-  const sides = "pl-[calc(env(safe-area-inset-left)+16px)] pr-[calc(env(safe-area-inset-right)+16px)]";
+  const sides = "pl-[calc(var(--safe-left,env(safe-area-inset-left))+16px)] pr-[calc(var(--safe-right,env(safe-area-inset-right))+16px)]";
   return (
     <>
       {notice && <div className={`flex-none pt-2 ${sides}`}>{notice}</div>}
-      <div className={`flex min-h-0 flex-1 gap-5 pt-[max(env(safe-area-inset-top),12px)] ${sides}`} {...swipe}>
+      <div className={`flex min-h-0 flex-1 gap-5 pt-[max(var(--safe-top,env(safe-area-inset-top)),12px)] ${sides}`} {...swipe}>
         {data.ended ? (
           <Ended data={data} />
         ) : (
@@ -234,7 +237,7 @@ function Landscape({ data, controls, pages, at, page, onHide, notice, swipe, onD
           </>
         )}
       </div>
-      <div aria-label="Ride controls" className={`flex flex-none items-center gap-2 pt-2 pb-[max(env(safe-area-inset-bottom),10px)] ${sides}`}>
+      <div aria-label="Ride controls" className={`flex flex-none items-center gap-2 pt-2 pb-[max(var(--safe-bottom,env(safe-area-inset-bottom)),10px)] ${sides}`}>
         <HideButton onHide={onHide} />
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
           {!data.ended && !data.finished && (
