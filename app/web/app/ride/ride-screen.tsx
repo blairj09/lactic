@@ -41,6 +41,7 @@ import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
 import { LiveActivityHost } from "~/phone/live-activity";
 import { PhoneRide } from "./phone-ride";
+import { usePageKeys } from "./field-grid";
 import { RemoteHost } from "~/ride/remote";
 import { pluginFieldOptions, usePluginFields, usePlugins } from "~/plugins/ride-fields";
 import { RidingOnComputer, useComputerRide, type AwayRide } from "~/phone/remote";
@@ -1089,22 +1090,8 @@ function RideOnThisDevice({
     if (step !== 1 && step !== -1) return;
     setFieldPage((p) => (p + step + pageCount) % pageCount);
   };
-  // ← and → change page, unless typing somewhere or editing the fields.
-  const stepPageRef = useRef(stepPage);
-  stepPageRef.current = stepPage;
-  useEffect(() => {
-    if (pageCount < 2 || editingFields) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-      const t = e.target as HTMLElement | null;
-      if (t?.closest("input, textarea, select, [contenteditable], [role=slider], [role=radiogroup], [role=dialog]")) return;
-      e.preventDefault();
-      stepPageRef.current(e.key === "ArrowRight" ? 1 : -1);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [pageCount, editingFields]);
+  // ← and → change page, unless typing somewhere or editing the fields. The overlay listens in its own window.
+  usePageKeys(typeof window === "undefined" ? null : window, pageCount > 1 && !editingFields ? stepPage : undefined);
 
   const controls: PlayerControls = {
     canPlay: canStart || (appTrainer && !!state.connected.heartRate),
