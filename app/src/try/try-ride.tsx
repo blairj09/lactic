@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { MemoryRouter } from "react-router";
-import { SensorHub, isWebBluetoothAvailable } from "@shared/ble/sensor-hub";
+import { SensorHub, isWebBluetoothAvailable, type SensorLink } from "@shared/ble/sensor-hub";
 import { isPickerCancel, DEVICE_KEYS, forgetDevice, rememberDevice, remembered } from "@shared/ble/devices";
 import { rideStressFromSummary, summarizeRide } from "@shared/engine/activity";
 import { rampTestFtp, twentyMinuteTestFtp } from "@shared/engine/ftp";
@@ -303,18 +303,15 @@ function Pick({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1.5">
           <h1 className="text-2xl font-semibold tracking-tight">Pick a workout</h1>
           <p className="text-[15px] text-muted">Targets are set from your FTP of {ftp} W. Lactic sets the trainer for you.</p>
         </div>
-        <p className="text-sm text-muted">
-          {simulated ? "Simulated trainer" : trainer.status === "connected" ? `${trainer.name ?? "Trainer"} connected` : "Trainer not connected yet"}
-          {" · "}
-          <button className={button.ghost} onClick={onBack}>
-            Change
-          </button>
-        </p>
+        <div className="w-full overflow-hidden rounded-lg border border-line bg-surface sm:w-[400px]" aria-label="Your gear">
+          <GearRow label="Trainer" link={trainer} simulated={simulated} onConnect={onBack} />
+          <GearRow label="Heart rate" link={hr} simulated={simulated} onConnect={addHr} />
+        </div>
       </div>
       {error && <Notice tone="negative">{error}</Notice>}
 
@@ -351,25 +348,48 @@ function Pick({
         ))}
       </div>
 
-      <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center justify-between gap-4 border-t border-line bg-ground px-4 py-3 sm:-mx-6 sm:px-6">
-        <p className="text-sm text-muted">
-          {simulated ? (
-            "The simulated rider holds every target, so you can watch the whole thing play out."
-          ) : hr.status === "connected" ? (
-            `${hr.name ?? "Heart rate strap"} connected`
-          ) : (
-            <>
-              Heart rate strap?{" "}
-              <button className="text-accent underline underline-offset-2" onClick={addHr}>
-                Add it
-              </button>
-            </>
-          )}
-        </p>
+      <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center justify-end gap-4 border-t border-line bg-ground px-4 py-3 sm:-mx-6 sm:px-6">
         <button className={`${button.primary} h-11 px-5 text-[15px]`} onClick={onStart}>
           Start {picked.workout.name}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** One line of the Pick step's gear box: what it is, its state, and the one thing to do next. */
+function GearRow({ label, link, simulated, onConnect }: { label: string; link: SensorLink; simulated: boolean; onConnect: () => void }) {
+  const { status } = link;
+  const busy = status === "connecting" || status === "reconnecting";
+  const name = simulated ? "Simulated" : status === "connected" ? (link.name ?? label) : status === "connecting" ? "Connecting..." : status === "reconnecting" ? "Reconnecting..." : status === "lost" ? "Dropped" : "Not connected";
+  const dot =
+    simulated || status === "connected"
+      ? "bg-positive"
+      : busy
+        ? "size-3 animate-spin rounded-full border-2 border-accent border-r-transparent"
+        : status === "lost"
+          ? "bg-warning"
+          : "border-[1.5px] border-faint";
+  return (
+    <div className="flex min-h-12 items-center gap-3 px-4 py-2 [&+&]:border-t [&+&]:border-line">
+      <span aria-hidden className={`size-2.5 flex-none rounded-full ${dot}`} />
+      <span className="w-20 flex-none text-sm text-muted">{label}</span>
+      <span className={`min-w-0 flex-1 truncate text-[15px] ${simulated || status === "connected" ? "" : "text-muted"}`}>{name}</span>
+      {simulated ? (
+        label === "Trainer" && (
+          <button className={button.ghost} onClick={onConnect}>
+            Change
+          </button>
+        )
+      ) : status === "connected" ? (
+        <button className={button.ghost} onClick={onConnect}>
+          Change
+        </button>
+      ) : busy ? null : (
+        <button className={`${button.secondary} h-8`} onClick={onConnect}>
+          Connect
+        </button>
+      )}
     </div>
   );
 }
