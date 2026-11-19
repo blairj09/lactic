@@ -724,8 +724,8 @@ export const ICON_STOP = "M6 6h12v12H6z";
  * Resume and End side by side, so ending is one tap away (no confirm, since the ride isn't moving).
  */
 export const pausedMidRide = (data: PlayerData) => !data.running && data.elapsed > 0 && !data.finished && !data.ended && data.startIn === null;
-const ICON_MINUS = "M5 10.5h14v3H5z";
-const ICON_PLUS = "M10.5 5h3v5.5H19v3h-5.5V19h-3v-5.5H5v-3h5.5z";
+export const ICON_MINUS = "M5 10.5h14v3H5z";
+export const ICON_PLUS = "M10.5 5h3v5.5H19v3h-5.5V19h-3v-5.5H5v-3h5.5z";
 
 /** What the play button does now, for its icon and its label for screen readers and hover. */
 export const playLabel = (data: PlayerData) =>

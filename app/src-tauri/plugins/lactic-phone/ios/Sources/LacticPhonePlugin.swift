@@ -1008,11 +1008,17 @@ extension LacticPhonePlugin {
   /// Dynamic Island, so the ride screen asks here on every rotation instead.
   @objc public func safeArea(_ invoke: Invoke) throws {
     DispatchQueue.main.async {
-      let window = UIApplication.shared.connectedScenes
+      // The key window, or failing that any window (the key one can be missing for a moment, e.g.
+      // while the app comes back to the front). With none, say so: zeros would put the ride screen
+      // under the status bar.
+      let windows = UIApplication.shared.connectedScenes
         .compactMap { $0 as? UIWindowScene }
         .flatMap { $0.windows }
-        .first { $0.isKeyWindow }
-      let i = window?.safeAreaInsets ?? .zero
+      guard let window = windows.first(where: { $0.isKeyWindow }) ?? windows.first else {
+        invoke.reject("No window")
+        return
+      }
+      let i = window.safeAreaInsets
       invoke.resolve(SafeArea(top: Double(i.top), right: Double(i.right), bottom: Double(i.bottom), left: Double(i.left)))
     }
   }
