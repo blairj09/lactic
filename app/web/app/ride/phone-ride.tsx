@@ -15,12 +15,13 @@ import {
   AdaptiveSwitch,
   ExtendOrEnd,
   ICON_BACK,
+  ICON_MINUS,
   ICON_PAUSE,
   ICON_PLAY,
+  ICON_PLUS,
   ICON_SKIP,
   ICON_STOP,
   Icon,
-  Stepper,
   ZoneDot,
   fieldsOf,
   intervalLabel,
@@ -145,10 +146,12 @@ interface LayoutProps {
 const progress = (data: PlayerData) =>
   data.ended ? `Ended · ${formatTime(data.elapsed)}` : data.erg || data.appTrainer ? formatTime(data.elapsed) : `${formatTime(data.position)} of ${formatTime(data.duration)}`;
 
+// Upright, the web view's env() insets are right, so the app's answer (--safe-*) only ever adds to
+// them: a stale or empty answer can't put the header under the status bar.
 function Portrait({ data, controls, pages, at, page, onHide, notice, sub, swipe, onDot }: LayoutProps) {
   return (
     <>
-      <div className="flex flex-none items-center gap-3 px-4 pb-2 pt-[calc(var(--safe-top,env(safe-area-inset-top))+8px)]">
+      <div className="flex flex-none items-center gap-3 px-4 pb-2 pt-[calc(max(var(--safe-top,0px),env(safe-area-inset-top))+8px)]">
         <HideButton onHide={onHide} />
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold">{data.workout.name}</div>
@@ -189,7 +192,7 @@ function Portrait({ data, controls, pages, at, page, onHide, notice, sub, swipe,
       </div>
 
       {!data.ended && !data.finished && (
-        <div aria-label="Ride controls" className="flex-none space-y-2.5 border-t border-line bg-surface px-4 pt-3 pb-[max(var(--safe-bottom,env(safe-area-inset-bottom)),12px)]">
+        <div aria-label="Ride controls" className="flex-none space-y-2.5 border-t border-line bg-surface px-4 pt-3 pb-[max(var(--safe-bottom,0px),env(safe-area-inset-bottom),12px)]">
           <TransportRow data={data} controls={controls} />
           <AdjustRow data={data} controls={controls} />
         </div>
@@ -595,23 +598,27 @@ function TransportRow({ data, controls, compact }: { data: PlayerData; controls:
 
 /**
  * What you adjust while riding: intensity (or an ERG hold's watts, or a free ride's ERG target or grade), the
- * ERG switch, the grade when the trainer rides like a road, and adaptive when it applies. Scrolls
- * sideways if it all doesn't fit.
+ * ERG switch, the grade when the trainer rides like a road, and adaptive when it applies. Sideways
+ * (compact) it sits in the controls bar, which scrolls if it all doesn't fit. Labels stack over their
+ * values so intensity, ERG and adaptive share one row upright on the narrowest iPhone; upright it
+ * wraps to a second row rather than hiding anything off the edge.
  */
 function AdjustRow({ data, controls, compact }: { data: PlayerData; controls: PlayerControls; compact?: boolean }) {
   if (data.appTrainer) return null;
   const showGrade = !data.erg && (!data.ergOn || data.sprintGrade !== null || data.freeRide);
-  const pill = `flex flex-none items-center gap-3 rounded-lg bg-raised px-3 text-sm text-muted transition-colors hover:bg-active hc:outline hc:outline-1 hc:outline-line h-12`;
-  const stretch = compact ? "flex-none" : "flex-1 [&>div]:w-full [&>div]:justify-between";
+  const Step = StackedStepper;
+  const wrap = compact ? "w-40 flex-none [&>div]:w-full" : "min-w-[9.5rem] flex-1 [&>div]:w-full";
+  const pill =
+    "flex h-12 flex-none flex-col items-center justify-center gap-1 rounded-lg bg-raised px-3 text-xs text-muted transition-colors hover:bg-active hc:outline hc:outline-1 hc:outline-line";
   return (
-    <div className={`flex items-center gap-2 overflow-x-auto ${compact ? "flex-none" : ""}`}>
+    <div className={compact ? "flex flex-none items-center gap-2 overflow-x-auto" : "flex flex-wrap items-center gap-2"}>
       {data.erg && !data.ergOn ? (
-        <div className={stretch}>
-          <Stepper label="Grade" value={`${data.grade}%`} onDown={() => controls.onGrade(-1)} onUp={() => controls.onGrade(1)} downLabel="Less resistance" upLabel="More resistance" />
+        <div className={wrap}>
+          <Step label="Grade" value={`${data.grade}%`} onDown={() => controls.onGrade(-1)} onUp={() => controls.onGrade(1)} downLabel="Less resistance" upLabel="More resistance" />
         </div>
       ) : data.erg ? (
-        <div className={stretch}>
-          <Stepper
+        <div className={wrap}>
+          <Step
             label="Target"
             value={`${data.erg.watts} W`}
             onDown={() => controls.onErg(data.erg!.watts - 2 * ERG_STEP)}
@@ -621,31 +628,54 @@ function AdjustRow({ data, controls, compact }: { data: PlayerData; controls: Pl
           />
         </div>
       ) : (
-        <div className={stretch}>
+        <div className={wrap}>
           {data.holding ? (
-            <Stepper label="Hold" value={`${data.targetWatts ?? "–"} W`} onDown={() => controls.onHold(-1)} onUp={() => controls.onHold(1)} downLabel={`Down ${ERG_STEP} W`} upLabel={`Up ${ERG_STEP} W`} />
+            <Step label="Hold" value={`${data.targetWatts ?? "–"} W`} onDown={() => controls.onHold(-1)} onUp={() => controls.onHold(1)} downLabel={`Down ${ERG_STEP} W`} upLabel={`Up ${ERG_STEP} W`} />
           ) : (
-            <Stepper label="Intensity" value={`${data.intensity}%`} onDown={() => controls.onIntensity(-5)} onUp={() => controls.onIntensity(5)} downLabel="Easier by 5%" upLabel="Harder by 5%" />
+            <Step label="Intensity" value={`${data.intensity}%`} onDown={() => controls.onIntensity(-5)} onUp={() => controls.onIntensity(5)} downLabel="Easier by 5%" upLabel="Harder by 5%" />
           )}
         </div>
       )}
       {showGrade && (
-        <Stepper
-          label={data.sprintGrade !== null ? "Sprint" : "Grade"}
-          value={`${data.sprintGrade ?? data.grade}%`}
-          onDown={() => controls.onGrade(-1)}
-          onUp={() => controls.onGrade(1)}
-          downLabel="Less resistance"
-          upLabel="More resistance"
-        />
+        <div className={wrap}>
+          <Step
+            label={data.sprintGrade !== null ? "Sprint" : "Grade"}
+            value={`${data.sprintGrade ?? data.grade}%`}
+            onDown={() => controls.onGrade(-1)}
+            onUp={() => controls.onGrade(1)}
+            downLabel="Less resistance"
+            upLabel="More resistance"
+          />
+        </div>
       )}
       <button role="switch" aria-checked={data.ergOn} onClick={() => controls.onErgMode(!data.ergOn)} className={pill}>
         ERG
-        <span className={`relative inline-block h-6 w-10 rounded-full transition-colors ${data.ergOn ? "bg-primary" : "bg-active"}`}>
-          <span className={`absolute top-1 size-4 rounded-full transition-all ${data.ergOn ? "left-5 bg-on-primary" : "left-1 bg-muted"}`} />
+        <span className={`relative inline-block h-5 w-9 rounded-full transition-colors ${data.ergOn ? "bg-primary" : "bg-active"}`}>
+          <span className={`absolute top-1/2 size-4 -translate-y-1/2 rounded-full transition-all ${data.ergOn ? "left-[1.125rem]" : "left-0.5"} ${data.ergOn ? "bg-on-primary" : "bg-muted"}`} />
         </span>
       </button>
-      {data.adaptive && !data.erg && <AdaptiveSwitch on={data.adaptive.on} onChange={controls.onAdaptive} className={`${pill} [&>span]:text-[24px]`} />}
+      {data.adaptive && !data.erg && (
+        <AdaptiveSwitch on={data.adaptive.on} onChange={controls.onAdaptive} className={`${pill} [&>span]:text-[18px]`} />
+      )}
+    </div>
+  );
+}
+
+/** − and + either side of the label stacked over its value, narrow enough to share a row. */
+function StackedStepper({ label, value, onDown, onUp, downLabel, upLabel }: { label: string; value: string; onDown: () => void; onUp: () => void; downLabel: string; upLabel: string }) {
+  const step = "inline-flex size-10 flex-none items-center justify-center rounded-md text-lg text-ink transition-colors hover:bg-active";
+  return (
+    <div className="flex h-12 items-center gap-1 rounded-lg bg-raised px-1 hc:outline hc:outline-1 hc:outline-line">
+      <button className={step} onClick={onDown} aria-label={downLabel} title={downLabel}>
+        <Icon d={ICON_MINUS} className="size-4" />
+      </button>
+      <div className="flex min-w-0 flex-1 flex-col items-center leading-tight">
+        <span className="text-xs text-muted">{label}</span>
+        <span className="num text-[15px]">{value}</span>
+      </div>
+      <button className={step} onClick={onUp} aria-label={upLabel} title={upLabel}>
+        <Icon d={ICON_PLUS} className="size-4" />
+      </button>
     </div>
   );
 }
