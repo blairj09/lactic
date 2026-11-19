@@ -6,19 +6,21 @@
 // The scheme is per build (tauri.conf.json plugins.deep-link): `lactic`, `lactic-preview`.
 
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager};
 
 static PENDING: Mutex<Option<String>> = Mutex::new(None);
 
 /// Only links meant for this app's handoff are kept; the web layer checks the rest.
+#[cfg_attr(mobile, allow(dead_code))]
 fn is_handoff(url: &str) -> bool {
     let Some((scheme, rest)) = url.split_once("://") else { return false };
     (scheme == "lactic" || scheme.starts_with("lactic-")) && rest.starts_with("lactic.fit/test-drive?") && url.len() <= 2 * 1024 * 1024
 }
 
-/// Takes the links the system opened the app with.
-pub fn receive(app: &AppHandle, urls: impl IntoIterator<Item = String>) {
+/// Takes the links the system opened the app with (desktop: the phones have no lactic:// links yet).
+#[cfg(desktop)]
+pub fn receive(app: &tauri::AppHandle, urls: impl IntoIterator<Item = String>) {
     let Some(url) = urls.into_iter().filter(|u| is_handoff(u)).last() else { return };
+    use tauri::{Emitter, Manager};
     *PENDING.lock().unwrap() = Some(url);
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
