@@ -214,7 +214,7 @@ export const PICK_TOOLS = [
 export const TODAY_TOOLS = [
   fn(
     "suggest_today",
-    "Suggest one of today's options from todayOptions in the status. The athlete sees the options under the brief with yours marked, and chooses.",
+    "Suggest one of today's options from todayOptions in the status. The athlete sees the options on Today with yours marked, and chooses.",
     { option_id: { type: "string", description: "An id from todayOptions.options" } },
     ["option_id"],
   ),
