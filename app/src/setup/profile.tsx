@@ -124,11 +124,14 @@ export function ProfileForm({
   onChange,
   error,
   short = false,
+  ftpFrom,
 }: {
   values: ProfileValues;
   onChange: (v: ProfileValues) => void;
   error?: string | null;
   short?: boolean;
+  /** Where a prefilled FTP came from (the lactic.fit test drive): tagged in place of "I don't know". */
+  ftpFrom?: string;
 }) {
   const set = <K extends keyof ProfileValues>(k: K, value: ProfileValues[K]) =>
     onChange({ ...v, [k]: value });
@@ -173,7 +176,9 @@ export function ProfileForm({
         <Field
           label="FTP"
           hint={
-            v.ftpUnknown
+            ftpFrom
+              ? ftpFrom
+              : v.ftpUnknown
               ? `Lactic starts at ${kg ? `${guessFtp(kg)} W` : "about 2.5 W/kg"} and makes your first workout an FTP test to find your real number.`
               : "The power you can hold for about an hour."
           }
@@ -192,14 +197,20 @@ export function ProfileForm({
                 W
               </span>
             </div>
-            <label className="flex items-center gap-2 text-sm text-muted">
-              <input
-                type="checkbox"
-                checked={v.ftpUnknown}
-                onChange={(e) => set("ftpUnknown", e.target.checked)}
-              />{" "}
-              I don&apos;t know
-            </label>
+            {ftpFrom ? (
+              <span className="rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent">
+                From your test drive
+              </span>
+            ) : (
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <input
+                  type="checkbox"
+                  checked={v.ftpUnknown}
+                  onChange={(e) => set("ftpUnknown", e.target.checked)}
+                />{" "}
+                I don&apos;t know
+              </label>
+            )}
           </div>
         </Field>
         <Field label="Weight">

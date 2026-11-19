@@ -72,6 +72,7 @@
       "endpoints": ["https://github.com/blairj09/lactic/releases/latest/download/latest.json"],
       "requireSignedVersion": true,
       "windows": { "installMode": "passive" }
-    }
+    },
+    "deep-link": { "desktop": { "schemes": ["lactic"] } }
   }
 }

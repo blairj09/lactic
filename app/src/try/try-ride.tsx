@@ -20,6 +20,7 @@ import { formatTime } from "@/app/ride/player";
 import { Wordmark } from "~/app/brand";
 import { STRAVA_ORANGE, postRide, signIn, stravaClientId, stravaText } from "./strava";
 import { countTestDrive } from "./count";
+import { handoffScheme, handoffUrl, type Handoff } from "./handoff";
 import { DEFAULT_TRY_FTP, DEFAULT_TRY_WORKOUT, TRY_CATEGORIES, catalogWorkouts, isShortTry, readFtp, tryTag, tryWorkouts } from "./workouts";
 
 type Step = "setup" | "pick" | "ride" | "done";
@@ -418,12 +419,12 @@ function WorkoutCard({ w, ftp, on, onChoose }: { w: LibraryWorkout; ftp: number;
 // --- 4. Done -------------------------------------------------------------------------------------
 
 /** The installer for this visitor's computer, from the latest release (site/api/release.js). */
-function downloadFor(): { label: string; href: string } {
+function downloadFor(): { label: string; href: string; file: string | null } {
   const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
-  if (/Android|iPhone|iPad/i.test(ua)) return { label: "Get Lactic", href: "/#download" };
-  if (/Mac/i.test(ua)) return { label: "Download for Mac", href: "/api/release?get=mac" };
-  if (/Windows/i.test(ua)) return { label: "Download for Windows", href: "/api/release?get=windows" };
-  return { label: "Download Lactic", href: "/#download" };
+  if (/Android|iPhone|iPad/i.test(ua)) return { label: "Get Lactic", href: "/#download", file: null };
+  if (/Mac/i.test(ua)) return { label: "Download for Mac", href: "/api/release?get=mac", file: "Lactic.dmg" };
+  if (/Windows/i.test(ua)) return { label: "Download for Windows", href: "/api/release?get=windows", file: "the Lactic installer" };
+  return { label: "Download Lactic", href: "/#download", file: null };
 }
 
 const rideFit = (ride: FinishedRide) => encodeRideFit({ startedAt: new Date(ride.startedAt), watts: ride.watts, heartRate: ride.heartRate, cadence: ride.cadence });
@@ -543,6 +544,18 @@ function Done({ ride, simulated, onAgain }: { ride: FinishedRide; simulated: boo
   const ramp = ride.rampTest ? rampTestFtp(ride.watts) : null;
   const twenty = ride.twentyMinuteTest ? twentyMinuteTestFtp(ride.watts) : null;
   const download = downloadFor();
+  const [downloaded, setDownloaded] = useState(false);
+  // What "Open Lactic" hands the app: the FTP this ride found (or the one the rider set), and the
+  // ride itself unless it was simulated (src/try/handoff.ts).
+  const handoff = useMemo<Handoff>(
+    () => ({
+      ftp: ramp?.watts ?? twenty?.watts ?? ride.ftp,
+      method: ramp ? "rampTest" : twenty ? "twentyMinute" : "manual",
+      ride: simulated ? null : { name: ride.name, fit: rideFit(ride) },
+    }),
+    [ride, simulated, ramp, twenty],
+  );
+  const openUrl = useMemo(() => handoffUrl(handoff, handoffScheme(location.search)), [handoff]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-2 lg:gap-10">
@@ -586,32 +599,94 @@ function Done({ ride, simulated, onAgain }: { ride: FinishedRide; simulated: boo
         </button>
       </div>
 
-      <section className="h-fit space-y-6 rounded-xl bg-[#0d1117] p-6 text-white sm:p-8">
-        <h2 className="text-[28px] leading-tight font-semibold tracking-tight text-balance">The Lactic app does this, and so much more.</h2>
-        <ul className="space-y-3 text-[15px] text-[#b4bac5]">
-          <li>
-            <b className="font-medium text-white">A plan</b> that fits your week and adapts to how you feel
-          </li>
-          <li>
-            <b className="font-medium text-white">A library of workouts</b> plus your own, and a coach that knows your numbers
-          </li>
-          <li>
-            <b className="font-medium text-white">An overlay</b> that floats over Zwift, a video or anything else
-          </li>
-          <li>
-            <b className="font-medium text-white">Progress, sleep and recovery</b> from your watch
-          </li>
-        </ul>
-        <p className="text-[15px] text-[#b4bac5]">Free and open source. Your rides live on your computer, not on our servers.</p>
-        <div className="flex flex-wrap gap-3">
-          <a href={download.href} className="inline-flex h-11 items-center rounded-md bg-[#2b55d6] px-5 text-[15px] font-medium text-white hover:bg-[#1d3fa8]">
-            {download.label}
-          </a>
-          <a href="/" className="inline-flex h-11 items-center rounded-md border border-[#333a46] px-5 text-[15px] font-medium text-white hover:bg-white/5">
-            See everything it does
-          </a>
-        </div>
-      </section>
+      {downloaded && download.file ? (
+        <section className="h-fit space-y-6 rounded-xl bg-[#0d1117] p-6 text-white sm:p-8">
+          <h2 className="text-[28px] leading-tight font-semibold tracking-tight text-balance">Lactic is downloading</h2>
+          <ol className="space-y-3 text-[15px] text-[#b4bac5]">
+            <HandoffStep n="✓" done>
+              Download started. <b className="font-medium text-white">{download.file}</b> is in your Downloads.
+            </HandoffStep>
+            <HandoffStep n="2">{download.file === "Lactic.dmg" ? <>Open it and drag <b className="font-medium text-white">Lactic</b> to Applications.</> : <>Open it to install Lactic.</>}</HandoffStep>
+            <HandoffStep n="3">Come back here and open it, so your FTP{handoff.ride ? " and this ride" : ""} come with you.</HandoffStep>
+          </ol>
+          <Carry handoff={handoff} />
+          <div className="flex flex-wrap gap-3">
+            <a href={openUrl} onClick={() => countTestDrive("opened-app", simulated)} className="inline-flex h-11 items-center rounded-md bg-[#2b55d6] px-5 text-[15px] font-medium text-white hover:bg-[#1d3fa8]">
+              Open Lactic
+            </a>
+            <a href={download.href} className="inline-flex h-11 items-center rounded-md border border-[#333a46] px-5 text-[15px] font-medium text-white hover:bg-white/5">
+              Download again
+            </a>
+          </div>
+          <p className="text-[13px] text-[#8b93a1]">
+            Opened it some other way? Type {handoff.ftp} for your FTP on Lactic&apos;s first screen{handoff.ride ? ", and use Save .fit file to bring this ride in later" : ""}.
+          </p>
+        </section>
+      ) : (
+        <section className="h-fit space-y-6 rounded-xl bg-[#0d1117] p-6 text-white sm:p-8">
+          <h2 className="text-[28px] leading-tight font-semibold tracking-tight text-balance">The Lactic app does this, and so much more.</h2>
+          <ul className="space-y-3 text-[15px] text-[#b4bac5]">
+            <li>
+              <b className="font-medium text-white">A plan</b> that fits your week and adapts to how you feel
+            </li>
+            <li>
+              <b className="font-medium text-white">A library of workouts</b> plus your own, and a coach that knows your numbers
+            </li>
+            <li>
+              <b className="font-medium text-white">An overlay</b> that floats over Zwift, a video or anything else
+            </li>
+            <li>
+              <b className="font-medium text-white">Progress, sleep and recovery</b> from your watch
+            </li>
+          </ul>
+          <p className="text-[15px] text-[#b4bac5]">Free and open source. Your rides live on your computer, not on our servers.</p>
+          {download.file && <Carry handoff={handoff} />}
+          <div className="flex flex-wrap gap-3">
+            <a href={download.href} onClick={() => setDownloaded(true)} className="inline-flex h-11 items-center rounded-md bg-[#2b55d6] px-5 text-[15px] font-medium text-white hover:bg-[#1d3fa8]">
+              {download.label}
+            </a>
+            <a href="/" className="inline-flex h-11 items-center rounded-md border border-[#333a46] px-5 text-[15px] font-medium text-white hover:bg-white/5">
+              See everything it does
+            </a>
+          </div>
+          {download.file && (
+            <p className="text-[13px] text-[#8b93a1]">
+              Your FTP{handoff.ride ? " and this ride" : ""} come with you into the app. Already have Lactic?{" "}
+              <a href={openUrl} onClick={() => countTestDrive("opened-app", simulated)} className="font-medium text-white underline underline-offset-4">
+                Open it
+              </a>
+              {handoff.ride ? " to add this ride." : "."}
+            </p>
+          )}
+        </section>
+      )}
     </div>
+  );
+}
+
+/** What "Open Lactic" carries into the app. */
+function Carry({ handoff }: { handoff: Handoff }) {
+  return (
+    <dl className="space-y-1 rounded-lg border border-[#262d39] bg-[#161b24] px-4 py-3 text-sm text-[#b4bac5]">
+      <div className="flex justify-between gap-4">
+        <dt>Your FTP</dt>
+        <dd className="num font-medium text-white">{handoff.ftp} W</dd>
+      </div>
+      {handoff.ride && (
+        <div className="flex justify-between gap-4">
+          <dt>This ride</dt>
+          <dd className="truncate font-medium text-white">{handoff.ride.name}</dd>
+        </div>
+      )}
+    </dl>
+  );
+}
+
+function HandoffStep({ n, done = false, children }: { n: string; done?: boolean; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-3">
+      <span className={`num grid size-6 flex-none place-items-center rounded-full border text-xs font-semibold text-white ${done ? "border-[#1f7a4a] bg-[#1f7a4a]" : "border-[#333a46]"}`}>{n}</span>
+      <span>{children}</span>
+    </li>
   );
 }

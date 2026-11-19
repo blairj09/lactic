@@ -12,6 +12,7 @@ pub mod beacon;
 pub mod ble;
 pub mod db;
 pub mod files;
+pub mod handoff;
 #[cfg(desktop)]
 pub mod mcp;
 pub mod net;
@@ -102,6 +103,9 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }))
+        // lactic:// links (src/handoff.rs). Registered after single-instance, so on Windows and
+        // Linux a link opened while Lactic runs reaches this copy instead of starting a second one.
+        .plugin(tauri_plugin_deep_link::init())
         // Updates: the app checks GitHub Releases' latest.json, downloads the signed build for
         // this computer, installs it and restarts (src/updates/). Signed with the release key;
         // the public half is in tauri.conf.json. (The iPhone app updates through the App Store.)
@@ -149,12 +153,22 @@ pub fn run() {
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(mcp::start(handle, mcp, data_dir));
                 tauri::async_runtime::spawn(phone::start(app.handle().clone()));
+                use tauri_plugin_deep_link::DeepLinkExt;
+                // Windows and Linux builds that weren't installed (dev, AppImage) register the scheme now.
+                #[cfg(any(windows, target_os = "linux"))]
+                let _ = app.deep_link().register_all();
+                if let Ok(Some(urls)) = app.deep_link().get_current() {
+                    handoff::receive(app.handle(), urls.into_iter().map(|u| u.to_string()));
+                }
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| handoff::receive(&handle, event.urls().into_iter().map(|u| u.to_string())));
             }
             Ok(())
         });
     #[cfg(desktop)]
     let builder = builder.invoke_handler(tauri::generate_handler![
         app_info,
+        handoff::handoff_take,
         db::db_select,
         db::db_execute,
         db::db_script,
@@ -221,6 +235,7 @@ pub fn run() {
     #[cfg(mobile)]
     let builder = builder.invoke_handler(tauri::generate_handler![
         app_info,
+        handoff::handoff_take,
         db::db_select,
         db::db_execute,
         db::db_script,
