@@ -7,8 +7,9 @@ import { EXTEND_KINDS, type ExtendKind } from "@/lib/ride/extend";
 import type { RideTotals } from "@/lib/ride/totals";
 import type { FieldShown } from "@/lib/ride/fields";
 import { fieldKey } from "@/lib/ride/fields";
+import { stepsTo } from "@/lib/ride/page-switch";
 import { DEFAULT_RIDE_PAGE, pageSlots, type FieldRef, type RidePage } from "@/lib/sdk/layout";
-import { Big, ChangeArrow, FieldChart, FieldGrid, FieldValuesCompact, chartOwnsNumber, PageDots, PluginMark, TONE, hasChart, swipeHandlers, type Shown, type Tone } from "./field-grid";
+import { Big, ChangeArrow, FieldChart, FieldGrid, FieldValuesCompact, chartOwnsNumber, PageDots, PluginMark, TONE, hasChart, swipeHandlers, usePageKeys, useWheelSwipe, type Shown, type Tone } from "./field-grid";
 import type { FieldLook, FieldValue, RideChart } from "@/lib/sdk/plugin-fields";
 import { zoneStyle } from "./blocks";
 import WorkoutChart, { type TracePoint } from "./workout-chart";
@@ -364,6 +365,7 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
   const fields = fieldsOf(data);
   const page = pageOf(fields.pages, fields.page);
   const { erg } = data;
+  const wheel = useWheelSwipe(fields.pages.length > 1 ? controls.onPage : undefined);
   return (
     <section aria-label="Workout" className="space-y-6 rounded-lg bg-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
@@ -394,7 +396,7 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
 
       <AdaptBanner data={data} controls={controls} />
 
-      <div className="space-y-5" {...swipeHandlers(fields.pages.length > 1 ? controls.onPage : undefined)}>
+      <div className="space-y-5" {...swipeHandlers(fields.pages.length > 1 ? controls.onPage : undefined)} {...wheel}>
         <FieldGrid
           template={page.template}
           shown={pageShown(page, { ...data, fields })}
@@ -920,6 +922,12 @@ export function MiniPlayer({ data, controls, onResize, onClose }: { data: Player
   const root = useRef<HTMLDivElement>(null);
   /** Bumped on each touch inside the drawer, restarting its idle timer. */
   const [touched, setTouched] = useState(0);
+  // The overlay is its own window, so it hears ← and → itself once clicked (it never takes them from Zwift).
+  const [win, setWin] = useState<Window | null>(null);
+  useEffect(() => setWin(root.current?.ownerDocument.defaultView ?? null), []);
+  const paging = fields.overlay.length > 1 && !drawer ? controls.onPage : undefined;
+  usePageKeys(win, paging);
+  const wheel = useWheelSwipe(paging);
 
   // The overlay's own timers: its window stays visible on top, so Chrome doesn't throttle them.
   useEffect(() => {
@@ -930,7 +938,7 @@ export function MiniPlayer({ data, controls, onResize, onClose }: { data: Player
   }, [drawer, touched]);
 
   return (
-    <div ref={root} className="relative flex h-screen select-none items-stretch gap-[6vh] overflow-hidden py-[3vh] pl-[5vh] pr-[calc(clamp(26px,10vh,48px)+3vh)]">
+    <div ref={root} {...wheel} className="relative flex h-screen select-none items-stretch gap-[6vh] overflow-hidden py-[3vh] pl-[5vh] pr-[calc(clamp(26px,10vh,48px)+3vh)]">
       <section aria-label="Ride fields" className={`flex gap-[6vh] ${middle ? "shrink-0" : "min-w-0 flex-1 justify-around"} ${twoRows ? "flex-wrap content-center" : ""}`}>
         {left.map((i) => mini(i))}
       </section>
@@ -1010,9 +1018,19 @@ export function MiniPlayer({ data, controls, onResize, onClose }: { data: Player
       )}
 
       {fields.overlay.length > 1 && (
-        <div className="pointer-events-none absolute bottom-[1.5vh] left-1/2 flex -translate-x-1/2 gap-[1vh]" aria-label={`Page ${fields.overlay.indexOf(page) + 1} of ${fields.overlay.length}: ${page.name}`}>
+        <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2" aria-label={`Page ${fields.overlay.indexOf(page) + 1} of ${fields.overlay.length}: ${page.name}`}>
           {fields.overlay.map((p, i) => (
-            <span key={i} className={`size-[clamp(4px,2.5vh,9px)] rounded-full ${p === page ? "bg-ink" : "bg-control"}`} />
+            <button
+              key={i}
+              type="button"
+              className="group grid place-items-center px-[0.8vh] pb-[1.5vh] pt-[1vh]"
+              onClick={() => stepsTo(fields.overlay.indexOf(page), i, fields.overlay.length).forEach((s) => controls.onPage(s))}
+              aria-label={`Page ${i + 1}: ${p.name}`}
+              aria-current={p === page || undefined}
+              title={`${p.name} (← →)`}
+            >
+              <span className={`size-[clamp(5px,2.5vh,9px)] rounded-full transition-colors ${p === page ? "bg-ink" : "bg-control group-hover:bg-muted"}`} />
+            </button>
           ))}
         </div>
       )}

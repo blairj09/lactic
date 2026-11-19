@@ -7,6 +7,9 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - When a ride pauses, Resume and End sit side by side (on the ride page, the overlay, the iPhone and lactic.fit/ride), so ending a ride takes one tap.
+- On the computer and in the overlay, switch ride pages with ← and →, a two-finger sideways swipe on the trackpad, or by clicking a page dot. Click the overlay first so it hears the keys.
+- Customizing ride fields is quicker: click a field and pick what it shows from a searchable list right beside it, with Tab to move to the next field. Layout and page options now sit in one row above the page.
+- On the iPhone, the pull-to-refresh logo now stays at the top of the page and scrolls away with it, instead of floating over the page while it loads.
 - Today's Recovery card shows your exertion so far today against today's target.
 - iPhone: turned sideways, the ride screen now stays clear of the Dynamic Island and rounded corners, and heart rate and cadence no longer hide behind the controls.
 - The ride's numbers and timer in the iPhone's Dynamic Island and lock screen no longer flicker as they update, the lock screen shows the real Lactic logo, and the workout's time remaining sits right next to its label.

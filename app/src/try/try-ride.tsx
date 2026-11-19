@@ -1,11 +1,11 @@
 // The website's try-a-ride page (lactic.fit/ride/): set an FTP and connect a trainer (or the
 // simulated one), pick a workout (six half-hour ones first, the whole library a tap away), ride it on Lactic's own ride screen, then see how it
 // went and where the app goes from there. Nothing is saved or sent: the ride lives in this tab until
-// the visitor saves its .fit file.
+// the visitor saves its .fit file or posts it to Strava (./strava.ts).
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { MemoryRouter } from "react-router";
-import { SensorHub, isWebBluetoothAvailable } from "@shared/ble/sensor-hub";
+import { SensorHub, isWebBluetoothAvailable, type SensorLink } from "@shared/ble/sensor-hub";
 import { isPickerCancel, DEVICE_KEYS, forgetDevice, rememberDevice, remembered } from "@shared/ble/devices";
 import { rideStressFromSummary, summarizeRide } from "@shared/engine/activity";
 import { rampTestFtp, twentyMinuteTestFtp } from "@shared/engine/ftp";
@@ -18,6 +18,7 @@ import RideScreen, { type FinishedRide } from "@/app/ride/ride-screen";
 import WorkoutChart from "@/app/ride/workout-chart";
 import { formatTime } from "@/app/ride/player";
 import { Wordmark } from "~/app/brand";
+import { STRAVA_ORANGE, postRide, signIn, stravaClientId, stravaText } from "./strava";
 import { countTestDrive } from "./count";
 import { DEFAULT_TRY_FTP, DEFAULT_TRY_WORKOUT, TRY_CATEGORIES, catalogWorkouts, isShortTry, readFtp, tryTag, tryWorkouts } from "./workouts";
 
@@ -135,11 +136,14 @@ function TryHeader({ step }: { step: Step }) {
             ))}
           </ol>
         )}
-        <p className="flex items-center gap-2 text-sm text-muted">
-          <span aria-hidden className="size-2 rounded-full bg-positive" />
-          <span className="max-sm:hidden">Nothing leaves this browser.</span>
-          <span className="sm:hidden">Stays on this device</span>
-        </p>
+        {/* Not on the finish screen, where the ride can be posted to Strava. */}
+        {step !== "done" && (
+          <p className="flex items-center gap-2 text-sm text-muted">
+            <span aria-hidden className="size-2 rounded-full bg-positive" />
+            <span className="max-sm:hidden">Nothing leaves this browser.</span>
+            <span className="sm:hidden">Stays on this device</span>
+          </p>
+        )}
       </div>
     </header>
   );
@@ -244,7 +248,7 @@ function SetUp({ ftpText, onFtp, onReady }: { ftpText: string; onFtp: (t: string
         </div>
         <div className="space-y-2 border-t border-line pt-5">
           <h2 className="font-medium">Your ride stays with you</h2>
-          <p className="text-[15px] text-muted">The ride runs in this tab. Nothing is uploaded and there&apos;s no account. Save the .fit file at the end if you want to keep it.</p>
+          <p className="text-[15px] text-muted">The ride runs in this tab, with no account. At the end, post it to Strava or save the .fit file.</p>
         </div>
         <p className="border-t border-line pt-5 text-[15px] text-muted">Riding with Zwift open? Lactic holds ERG; Zwift just reads your power.</p>
       </Panel>
@@ -303,18 +307,15 @@ function Pick({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1.5">
           <h1 className="text-2xl font-semibold tracking-tight">Pick a workout</h1>
           <p className="text-[15px] text-muted">Targets are set from your FTP of {ftp} W. Lactic sets the trainer for you.</p>
         </div>
-        <p className="text-sm text-muted">
-          {simulated ? "Simulated trainer" : trainer.status === "connected" ? `${trainer.name ?? "Trainer"} connected` : "Trainer not connected yet"}
-          {" · "}
-          <button className={button.ghost} onClick={onBack}>
-            Change
-          </button>
-        </p>
+        <div className="w-full overflow-hidden rounded-lg border border-line bg-surface sm:w-[400px]" aria-label="Your gear">
+          <GearRow label="Trainer" link={trainer} simulated={simulated} onConnect={onBack} />
+          <GearRow label="Heart rate" link={hr} simulated={simulated} onConnect={addHr} />
+        </div>
       </div>
       {error && <Notice tone="negative">{error}</Notice>}
 
@@ -351,25 +352,48 @@ function Pick({
         ))}
       </div>
 
-      <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center justify-between gap-4 border-t border-line bg-ground px-4 py-3 sm:-mx-6 sm:px-6">
-        <p className="text-sm text-muted">
-          {simulated ? (
-            "The simulated rider holds every target, so you can watch the whole thing play out."
-          ) : hr.status === "connected" ? (
-            `${hr.name ?? "Heart rate strap"} connected`
-          ) : (
-            <>
-              Heart rate strap?{" "}
-              <button className="text-accent underline underline-offset-2" onClick={addHr}>
-                Add it
-              </button>
-            </>
-          )}
-        </p>
+      <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center justify-end gap-4 border-t border-line bg-ground px-4 py-3 sm:-mx-6 sm:px-6">
         <button className={`${button.primary} h-11 px-5 text-[15px]`} onClick={onStart}>
           Start {picked.workout.name}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** One line of the Pick step's gear box: what it is, its state, and the one thing to do next. */
+function GearRow({ label, link, simulated, onConnect }: { label: string; link: SensorLink; simulated: boolean; onConnect: () => void }) {
+  const { status } = link;
+  const busy = status === "connecting" || status === "reconnecting";
+  const name = simulated ? "Simulated" : status === "connected" ? (link.name ?? label) : status === "connecting" ? "Connecting..." : status === "reconnecting" ? "Reconnecting..." : status === "lost" ? "Dropped" : "Not connected";
+  const dot =
+    simulated || status === "connected"
+      ? "bg-positive"
+      : busy
+        ? "size-3 animate-spin rounded-full border-2 border-accent border-r-transparent"
+        : status === "lost"
+          ? "bg-warning"
+          : "border-[1.5px] border-faint";
+  return (
+    <div className="flex min-h-12 items-center gap-3 px-4 py-2 [&+&]:border-t [&+&]:border-line">
+      <span aria-hidden className={`size-2.5 flex-none rounded-full ${dot}`} />
+      <span className="w-20 flex-none text-sm text-muted">{label}</span>
+      <span className={`min-w-0 flex-1 truncate text-[15px] ${simulated || status === "connected" ? "" : "text-muted"}`}>{name}</span>
+      {simulated ? (
+        label === "Trainer" && (
+          <button className={button.ghost} onClick={onConnect}>
+            Change
+          </button>
+        )
+      ) : status === "connected" ? (
+        <button className={button.ghost} onClick={onConnect}>
+          Change
+        </button>
+      ) : busy ? null : (
+        <button className={`${button.secondary} h-8`} onClick={onConnect}>
+          Connect
+        </button>
+      )}
     </div>
   );
 }
@@ -402,15 +426,112 @@ function downloadFor(): { label: string; href: string } {
   return { label: "Download Lactic", href: "/#download" };
 }
 
+const rideFit = (ride: FinishedRide) => encodeRideFit({ startedAt: new Date(ride.startedAt), watts: ride.watts, heartRate: ride.heartRate, cadence: ride.cadence });
+
 function saveFit(ride: FinishedRide, simulated: boolean) {
   countTestDrive("saved-fit", simulated);
-  const bytes = encodeRideFit({ startedAt: new Date(ride.startedAt), watts: ride.watts, heartRate: ride.heartRate, cadence: ride.cadence });
+  const bytes = rideFit(ride);
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/vnd.ant.fit" }));
   const a = document.createElement("a");
   a.href = url;
   a.download = `lactic-${ride.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.fit`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+type Posting = { at: "idle" | "signing" | "posting" } | { at: "posted"; activityId: string | null } | { at: "failed"; message: string };
+
+/** Post to Strava (when it's switched on for Lactic) and Save .fit file, under the ride's chart. */
+function Share({ ride, simulated }: { ride: FinishedRide; simulated: boolean }) {
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [posting, setPosting] = useState<Posting>({ at: "idle" });
+  const text = useMemo(() => stravaText(ride), [ride]);
+
+  useEffect(() => {
+    void stravaClientId().then(setClientId);
+  }, []);
+
+  const post = async () => {
+    if (!clientId) return;
+    setPosting({ at: "signing" });
+    try {
+      const code = await signIn(clientId);
+      setPosting({ at: "posting" });
+      setPosting({ at: "posted", activityId: await postRide(code, ride, rideFit(ride)) });
+      countTestDrive("posted-strava", simulated);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setPosting(message === "closed" ? { at: "idle" } : { at: "failed", message });
+    }
+  };
+
+  const saveButton = (
+    <button className={button.secondary} onClick={() => saveFit(ride, simulated)}>
+      Save .fit file
+    </button>
+  );
+
+  // Strava isn't switched on (or lactic.fit can't be reached): just the file.
+  if (!clientId)
+    return (
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {saveButton}
+        <span className="text-sm text-muted">Upload it to Strava, or bring it into Lactic later.</span>
+      </div>
+    );
+
+  if (posting.at === "posted")
+    return (
+      <Panel className="space-y-3">
+        <p className="flex items-center gap-2.5 text-[15px]">
+          <span aria-hidden className="grid size-5 flex-none place-items-center rounded-full bg-positive text-xs text-white">
+            ✓
+          </span>
+          <span>
+            {posting.activityId ? "Posted to Strava. " : "Posted. It shows up on Strava in a minute. "}
+            <a
+              className="font-medium text-accent hover:underline"
+              href={posting.activityId ? `https://www.strava.com/activities/${posting.activityId}` : "https://www.strava.com/dashboard"}
+              target="_blank"
+              rel="noreferrer"
+            >
+              View on Strava
+            </a>
+          </span>
+        </p>
+        <p className="text-sm text-muted">Lactic is disconnected from your Strava again.</p>
+        <div>{saveButton}</div>
+      </Panel>
+    );
+
+  const busy = posting.at === "signing" || posting.at === "posting";
+  return (
+    <Panel className="space-y-4">
+      <div className="flex flex-wrap gap-2.5 max-sm:*:flex-1">
+        <button
+          type="button"
+          onClick={() => void post()}
+          disabled={busy}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-[15px] font-semibold whitespace-nowrap text-white transition-opacity hover:opacity-90 disabled:opacity-80"
+          style={{ backgroundColor: STRAVA_ORANGE }}
+        >
+          {busy && <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+          {posting.at === "signing" ? "Signing in to Strava…" : posting.at === "posting" ? "Posting to Strava…" : "Post to Strava"}
+        </button>
+        {saveButton}
+      </div>
+      <div className="space-y-1.5 border-l-[3px] pl-3" style={{ borderColor: STRAVA_ORANGE }}>
+        <p className="text-xs text-muted">On Strava it reads</p>
+        <p className="text-[15px] font-semibold">{text.name}</p>
+        <p className="text-sm whitespace-pre-line">{text.description}</p>
+      </div>
+      {posting.at === "failed" ? (
+        <Notice>{posting.message}</Notice>
+      ) : (
+        <p className="text-sm text-muted">Strava asks you to allow Lactic once. We post this ride and disconnect. Nothing is kept.</p>
+      )}
+    </Panel>
+  );
 }
 
 function Done({ ride, simulated, onAgain }: { ride: FinishedRide; simulated: boolean; onAgain: () => void }) {
@@ -459,12 +580,7 @@ function Done({ ride, simulated, onAgain }: { ride: FinishedRide; simulated: boo
         <Panel>
           <WorkoutChart workout={ride.workout} ftp={ride.ftp} position={ride.trace.at(-1)?.[0] ?? 0} trace={ride.trace} to={Math.max(workoutDuration(ride.workout), ride.trace.length)} className="h-40 w-full text-ink" />
         </Panel>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <button className={button.secondary} onClick={() => saveFit(ride, simulated)}>
-            Save .fit file
-          </button>
-          <span className="text-sm text-muted">Upload it to Strava, or bring it into Lactic later.</span>
-        </div>
+        <Share ride={ride} simulated={simulated} />
         <button className={button.ghost} onClick={onAgain}>
           Ride another workout
         </button>
