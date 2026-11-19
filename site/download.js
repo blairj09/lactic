@@ -52,8 +52,7 @@
       dialog.showModal();
     });
   });
-  var label = document.querySelector("[data-download-label]");
-  if (label && NAMES[os]) label.textContent = "Download for " + NAMES[os][0];
+  if (NAMES[os]) document.querySelectorAll("[data-download-label]").forEach(function (label) { label.textContent = "Download for " + NAMES[os][0]; });
 
   dialog.querySelectorAll("[data-get]").forEach(function (a) {
     a.addEventListener("click", function () { count(a.getAttribute("data-get")); show(a.getAttribute("data-get")); });

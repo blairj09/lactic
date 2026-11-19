@@ -1,5 +1,6 @@
 "use client";
 
+import { metricHref } from "./health/metrics";
 import Link from "next/link";
 import { Panel } from "@/components/ui";
 import { SleepStrip } from "@/components/sleep-charts";
@@ -435,7 +436,16 @@ export function ExertionBar({ exertion, eased = false, compact = false }: { exer
  * and sleep. The full card is on Health; this links there. `row` sits in the Morning panel, `line` is
  * one sentence over the workout, `column` is Today's side column.
  */
-export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday; variant: "row" | "line" | "column" | "wide" | "tiles" }) {
+export function RecoverySummary({
+  recovery,
+  variant,
+  exertion = null,
+}: {
+  recovery: RecoveryToday;
+  variant: "row" | "line" | "column" | "wide" | "tiles";
+  /** Today's exertion so far, shown under the tiles. */
+  exertion?: ExertionToday | null;
+}) {
   const units = useUnits();
   const { glance, score, today } = recovery;
   const word = score ? recoveryWord(score.score) : null;
@@ -461,7 +471,7 @@ export function RecoverySummary({ recovery, variant }: { recovery: RecoveryToday
     </div>
   );
 
-  if (variant === "tiles") return <RecoveryTiles recovery={recovery} />;
+  if (variant === "tiles") return <RecoveryTiles recovery={recovery} exertion={exertion} />;
 
   if (variant === "line") {
     return (
@@ -576,7 +586,7 @@ const TILE_KEYS: GlanceKey[] = ["hrv", "restingHeartRate", "respiratoryRate", "s
  * sleep) with a bar where the shaded part is your usual range and the dot is last night, amber when
  * it's outside on the side that means poorer recovery. The numbers behind it are on Health.
  */
-function RecoveryTiles({ recovery }: { recovery: RecoveryToday }) {
+function RecoveryTiles({ recovery, exertion }: { recovery: RecoveryToday; exertion: ExertionToday | null }) {
   const units = useUnits();
   const { glance, score } = recovery;
   const metrics = TILE_KEYS.flatMap((key) => glance.metrics.filter((m) => m.key === key && m.value !== null));
@@ -608,8 +618,37 @@ function RecoveryTiles({ recovery }: { recovery: RecoveryToday }) {
           </div>
         )}
       </div>
+      {exertion && exertion.soFar !== null && <ExertionTile exertion={exertion} />}
       {warnings.length > 0 && <p className="text-sm text-warning">{warnings.map((s) => `${s.reason}.`).join(" ")}</p>}
     </div>
+  );
+}
+
+/** Today's exertion so far, full width under the recovery tiles: the number, a bar with today's target shaded, and where it stands. */
+export function ExertionTile({ exertion }: { exertion: ExertionToday }) {
+  const { soFar, target } = exertion;
+  const now = soFar ?? 0;
+  const at = (v: number) => (Math.min(v, 10) / 10) * 100;
+  const over = target !== null && now > target.high;
+  const status = !target ? null : over ? "Over target" : now >= target.low ? "Target reached" : `${(target.low - now).toFixed(1)} to target`;
+  return (
+    <Link href={metricHref("exertion")} className="block rounded-md bg-raised px-3 py-2.5 hover:bg-active md:ml-50">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="text-xs text-muted">Exertion today</div>
+        {target && <div className="num text-xs text-muted">Target {target.low.toFixed(1)}–{target.high.toFixed(1)}</div>}
+      </div>
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="num text-lg font-semibold leading-tight">
+          <span className={over ? "text-warning" : undefined}>{now.toFixed(1)}</span>
+          <span className="ml-1 text-xs font-normal text-muted">/ 10</span>
+        </div>
+        {status && <div className={`text-xs ${over ? "text-warning" : "text-muted"}`}>{status}</div>}
+      </div>
+      <div className="relative mt-2 h-1.5 rounded-full bg-active" role="img" aria-label={`Exertion ${now.toFixed(1)} of 10${target ? `, target ${target.low.toFixed(1)} to ${target.high.toFixed(1)}` : ""}`}>
+        {target && <div className="absolute inset-y-0 rounded-full bg-accent/45" style={{ left: `${at(target.low)}%`, width: `${at(target.high) - at(target.low)}%` }} />}
+        <div className={`absolute inset-y-0 left-0 rounded-full ${over ? "bg-warning" : "bg-accent"}`} style={{ width: `${at(now)}%` }} />
+      </div>
+    </Link>
   );
 }
 

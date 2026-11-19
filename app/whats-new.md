@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - When a ride pauses, Resume and End sit side by side (on the ride page, the overlay, the iPhone and lactic.fit/ride), so ending a ride takes one tap.
+- Today's Recovery card shows your exertion so far today against today's target.
 - iPhone: turned sideways, the ride screen now stays clear of the Dynamic Island and rounded corners, and heart rate and cadence no longer hide behind the controls.
 - The ride's numbers and timer in the iPhone's Dynamic Island and lock screen no longer flicker as they update, the lock screen shows the real Lactic logo, and the workout's time remaining sits right next to its label.
 - Bring your training: Finish setting up now finds Zwift rides on your computer, walks you through downloading your Strava archive (and picks it up from Downloads), and shows what your past rides tell Lactic. Today and Progress offer the same when you have no history yet.

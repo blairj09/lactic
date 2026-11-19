@@ -18,6 +18,7 @@ import RideScreen, { type FinishedRide } from "@/app/ride/ride-screen";
 import WorkoutChart from "@/app/ride/workout-chart";
 import { formatTime } from "@/app/ride/player";
 import { Wordmark } from "~/app/brand";
+import { countTestDrive } from "./count";
 import { DEFAULT_TRY_FTP, DEFAULT_TRY_WORKOUT, TRY_CATEGORIES, catalogWorkouts, isShortTry, readFtp, tryTag, tryWorkouts } from "./workouts";
 
 type Step = "setup" | "pick" | "ride" | "done";
@@ -61,6 +62,7 @@ function TryRide() {
           onReady={(next, sim) => {
             setHub(next);
             setSimulated(sim);
+            if (!sim) countTestDrive("connected", false);
             setStep("pick");
           }}
         />
@@ -69,7 +71,18 @@ function TryRide() {
   if (step === "pick")
     return (
       <Shell header={header}>
-        <Pick hub={hub} ftp={ftp} simulated={simulated} chosen={workoutId} onChoose={setWorkoutId} onBack={() => setStep("setup")} onStart={() => setStep("ride")} />
+        <Pick
+          hub={hub}
+          ftp={ftp}
+          simulated={simulated}
+          chosen={workoutId}
+          onChoose={setWorkoutId}
+          onBack={() => setStep("setup")}
+          onStart={() => {
+            countTestDrive("started", simulated);
+            setStep("ride");
+          }}
+        />
       </Shell>
     );
   if (step === "ride" || !finished)
@@ -82,6 +95,7 @@ function TryRide() {
         hub={hub}
         header={header}
         onFinished={(ride) => {
+          countTestDrive("finished", simulated);
           setFinished(ride);
           setStep("done");
         }}
@@ -89,7 +103,7 @@ function TryRide() {
     );
   return (
     <Shell header={header}>
-      <Done ride={finished} onAgain={() => setStep("pick")} />
+      <Done ride={finished} simulated={simulated} onAgain={() => setStep("pick")} />
     </Shell>
   );
 }
@@ -388,7 +402,8 @@ function downloadFor(): { label: string; href: string } {
   return { label: "Download Lactic", href: "/#download" };
 }
 
-function saveFit(ride: FinishedRide) {
+function saveFit(ride: FinishedRide, simulated: boolean) {
+  countTestDrive("saved-fit", simulated);
   const bytes = encodeRideFit({ startedAt: new Date(ride.startedAt), watts: ride.watts, heartRate: ride.heartRate, cadence: ride.cadence });
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/vnd.ant.fit" }));
   const a = document.createElement("a");
@@ -398,7 +413,7 @@ function saveFit(ride: FinishedRide) {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-function Done({ ride, onAgain }: { ride: FinishedRide; onAgain: () => void }) {
+function Done({ ride, simulated, onAgain }: { ride: FinishedRide; simulated: boolean; onAgain: () => void }) {
   const summary = useMemo(
     () => summarizeRide({ watts: ride.watts, heartRate: ride.heartRate, cadence: ride.cadence, hasPower: ride.watts.some((w) => w > 0), hasHeartRate: ride.heartRate.some((h) => h > 0) }),
     [ride],
@@ -445,7 +460,7 @@ function Done({ ride, onAgain }: { ride: FinishedRide; onAgain: () => void }) {
           <WorkoutChart workout={ride.workout} ftp={ride.ftp} position={ride.trace.at(-1)?.[0] ?? 0} trace={ride.trace} to={Math.max(workoutDuration(ride.workout), ride.trace.length)} className="h-40 w-full text-ink" />
         </Panel>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <button className={button.secondary} onClick={() => saveFit(ride)}>
+          <button className={button.secondary} onClick={() => saveFit(ride, simulated)}>
             Save .fit file
           </button>
           <span className="text-sm text-muted">Upload it to Strava, or bring it into Lactic later.</span>
