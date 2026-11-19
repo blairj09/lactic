@@ -23,14 +23,6 @@ const OUT = join(SITE, "demo");
 const RIDE_OUT = join(SITE, "ride");
 const REPO = process.env.GITHUB_REPO || "blairj09/lactic";
 
-// One-off (James, 2026-11-18): /ride shows the full workout catalog (PR #268) before it ships in
-// a release. While the latest release is `whileTag`, /ride builds from `commit` on main; once a
-// newer release is out this is ignored and /ride follows releases again. Delete it then.
-export const RIDE_PIN = { whileTag: "v0.3.6", commit: "f9bf40df60d38e2333c8be2973a54f5a256ebd68" };
-
-/** The source to build /ride from for the latest release `tag`: the pinned commit, or the tag itself. */
-export const rideSource = (tag, pin = RIDE_PIN) => (pin && tag === pin.whileTag ? pin.commit : null);
-
 const run = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: "inherit" });
 
 // The latest release's tag, from the redirect github.com/<repo>/releases/latest → …/tag/v0.2.0.
@@ -107,14 +99,7 @@ async function main() {
     const built = join(src, "site", "demo");
     if (!existsSync(join(built, "index.html"))) throw new Error(`${ref} built no demo/index.html`);
     cpSync(built, OUT, { recursive: true });
-    const pinned = rideSource(ref);
-    if (pinned) {
-      console.log(`Building /ride from ${pinned} (pinned while the latest release is ${ref})`);
-      const rideSrc = await download(pinned, join(work, "ride-src"));
-      const rideApp = join(rideSrc, "app");
-      run("npm", ["ci", "--no-audit", "--no-fund"], rideApp);
-      buildRide(rideApp, join(rideSrc, "site", "ride"));
-    } else buildRide(app, join(src, "site", "ride"));
+    buildRide(app, join(src, "site", "ride"));
     const version = JSON.parse(readFileSync(join(app, "package.json"), "utf8")).version;
     writeFileSync(join(OUT, "release.json"), JSON.stringify({ version, tag: ref }) + "\n");
     console.log(`Demo built from ${ref} (app ${version}).`);
