@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Back to your ride · Lactic</title>
+<meta name="robots" content="noindex">
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px -apple-system,system-ui,sans-serif;background:#f4f5f7;color:#0d1117;text-align:center;padding:24px}p{color:#5d6573}</style>
+</head><body><main><h1 style="font-size:22px;font-weight:600">Posting your ride…</h1><p>You can close this and go back to your ride.</p></main>
+<script>
+// Strava's sign-in comes back here in the popup the ride page opened. Hand the answer to that page
+// (a message to the opener, and localStorage for browsers that cut the opener), then close.
+(function () {
+  var answer = { type: "lactic-strava", search: location.search };
+  try { localStorage.setItem("lactic-strava-return", JSON.stringify(answer)); } catch (e) {}
+  try { if (window.opener) window.opener.postMessage(answer, location.origin); } catch (e) {}
+  setTimeout(function () { window.close(); }, 300);
+})();
+</script>
+</body></html>

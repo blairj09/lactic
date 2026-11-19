@@ -1,4 +1,7 @@
 {
   "outputDirectory": ".",
-  "ignoreCommand": "node scripts/should-build.mjs"
+  "ignoreCommand": "node scripts/should-build.mjs",
+  "functions": {
+    "api/strava-post.js": { "maxDuration": 30 }
+  }
 }
