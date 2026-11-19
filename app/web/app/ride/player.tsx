@@ -359,7 +359,20 @@ export const pageOf = (pages: RidePage[], page: number): RidePage => pages[((pag
  * The large view on the Ride page, read from the saddle a metre or more away. Like the overlay:
  * this interval on the left, the workout in the middle, the ride so far on the right.
  */
-export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; controls: PlayerControls; extra?: React.ReactNode; dock?: React.ReactNode }) {
+export function PlayerView({
+  data,
+  controls,
+  extra,
+  dock,
+  tools,
+}: {
+  data: PlayerData;
+  controls: PlayerControls;
+  extra?: React.ReactNode;
+  dock?: React.ReactNode;
+  /** Buttons for the screen itself (overlay, fields), beside the ride's time. */
+  tools?: React.ReactNode;
+}) {
   // On a phone, once a ride is under way its controls dock above the tab bar, so they're never a scroll away.
   const docked = data.elapsed > 0 && !data.ended && !data.finished;
   const fields = fieldsOf(data);
@@ -368,8 +381,9 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
   const wheel = useWheelSwipe(fields.pages.length > 1 ? controls.onPage : undefined);
   return (
     <section aria-label="Workout" className="space-y-6 rounded-lg bg-surface p-5 sm:p-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <h2 className="text-xl font-semibold tracking-tight">{data.workout.name}</h2>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         <span className="num text-[15px] text-muted">
           {data.ended
             ? `Ride ended · ${formatTime(data.elapsed)}`
@@ -392,6 +406,8 @@ export function PlayerView({ data, controls, extra, dock }: { data: PlayerData; 
           {data.startIn !== null && <span className="text-warning"> · Starting in {data.startIn}</span>}
           {data.autoPaused && <span className="text-warning"> · Paused. Pedal to resume</span>}
         </span>
+        {tools && <div className="flex items-center gap-1.5 border-line empty:hidden sm:border-l sm:pl-5">{tools}</div>}
+        </div>
       </div>
 
       <AdaptBanner data={data} controls={controls} />
