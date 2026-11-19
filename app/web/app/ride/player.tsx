@@ -701,6 +701,13 @@ const StrokeIcon = ({ d, className = "size-[clamp(14px,6vh,24px)]" }: { d: strin
 );
 export const ICON_PLAY = "M8 5v14l11-7z";
 export const ICON_PAUSE = "M6 5h4v14H6zM14 5h4v14h-4z";
+export const ICON_STOP = "M6 6h12v12H6z";
+
+/**
+ * Paused partway through a ride, by hand or because you stopped pedaling: the controls offer
+ * Resume and End side by side, so ending is one tap away (no confirm, since the ride isn't moving).
+ */
+export const pausedMidRide = (data: PlayerData) => !data.running && data.elapsed > 0 && !data.finished && !data.ended && data.startIn === null;
 const ICON_MINUS = "M5 10.5h14v3H5z";
 const ICON_PLUS = "M10.5 5h3v5.5H19v3h-5.5V19h-3v-5.5H5v-3h5.5z";
 
@@ -737,6 +744,7 @@ function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData;
   const showGrade = !data.erg && (!data.ergOn || data.sprintGrade !== null || data.freeRide);
   /** No workout: no intervals to step through. */
   const noWorkout = !!data.erg || data.appTrainer;
+  const paused = pausedMidRide(data);
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -755,8 +763,19 @@ function PageControls({ data, controls, intensityStep = 1 }: { data: PlayerData;
           <span className="inline-flex items-center gap-2">
             <Icon d={data.running ? ICON_PAUSE : ICON_PLAY} className="size-7" />
             {data.startIn !== null && <span className="num">{data.startIn}</span>}
+            {paused && "Resume"}
           </span>
         </button>
+        {paused && (
+          <button
+            className="inline-flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-raised text-lg font-medium text-ink transition-colors hover:bg-active hc:outline hc:outline-1 hc:outline-line"
+            onClick={() => controls.onEnd()}
+            title="End the ride and save it"
+          >
+            <Icon d={ICON_STOP} className="size-6" />
+            End ride
+          </button>
+        )}
         {!noWorkout && (
           <button className={side} disabled={!data.current} onClick={() => controls.onSkip()} aria-label="Skip" title="Skip to the next interval">
             <Icon d={ICON_SKIP} />
@@ -867,7 +886,8 @@ export function MiniPlayer({ data, controls, onResize, onClose }: { data: Player
   // The standard page: this interval on the left, the chart, the ride so far on the right. A page
   // with a chart splits its fields either side of it; one without lines them up across the strip.
   const chart = hasChart(page.template);
-  const middle = chart || data.finished || !!data.adapt;
+  const paused = pausedMidRide(data);
+  const middle = chart || data.finished || !!data.adapt || paused;
   const split = page.template === "standard" ? 5 : chart ? Math.ceil(shown.length / 2) : shown.length;
   const left = slots.slice(0, split).filter((i) => shown[i]);
   const right = slots.slice(split).filter((i) => shown[i]);
@@ -927,6 +947,8 @@ export function MiniPlayer({ data, controls, onResize, onClose }: { data: Player
       <div className="flex min-w-[20vw] flex-1 flex-col [container:end/size]">
         {data.finished ? (
           <MiniExtendOrEnd data={data} controls={controls} />
+        ) : paused ? (
+          <MiniPaused data={data} controls={controls} />
         ) : (
           <>
             <WorkoutChart workout={data.workout} ftp={ftp} position={data.position} trace={data.trace} from={from} to={from + MINI_BEHIND + MINI_AHEAD} className="min-h-0 w-full flex-1 text-ink" />
@@ -1304,6 +1326,29 @@ function MiniExtendOrEnd({ data, controls }: { data: PlayerData; controls: Playe
           onClick={() => controls.onEnd()}
           title="End the ride and save it"
         >
+          End
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** The overlay's middle while the ride is paused: Resume and End, right on the strip, no drawer to open. */
+function MiniPaused({ data, controls }: { data: PlayerData; controls: PlayerControls }) {
+  const h = `${MINI_H} end-wide:h-[clamp(28px,34vh,72px)]`;
+  const text = `${MINI_TEXT} end-wide:text-[clamp(13px,11vh,26px)]`;
+  const icon = `${MINI_ICON} end-wide:size-[clamp(14px,12vh,30px)]`;
+  const base = `inline-flex ${h} flex-1 items-center justify-center gap-[0.5em] rounded-md px-[0.8em] ${text} font-medium transition-colors disabled:opacity-40`;
+  return (
+    <div className="flex h-full min-w-0 flex-col justify-center gap-[2vh] end-wide:flex-row end-wide:items-center end-wide:gap-x-[4vh]">
+      <div className={`truncate text-warning ${MINI_LABEL} end-wide:flex-1`}>{data.autoPaused ? "Paused · pedal or tap Resume" : "Paused"}</div>
+      <div className="flex gap-1.5 end-wide:shrink-0 end-wide:basis-[60%]">
+        <button className={`${base} bg-primary text-on-primary hover:opacity-85`} disabled={!controls.canPlay} onClick={() => controls.onPlayPause()} title="Resume the ride">
+          <Icon d={ICON_PLAY} className={icon} />
+          Resume
+        </button>
+        <button className={`${base} bg-raised text-ink hover:bg-active`} onClick={() => controls.onEnd()} title="End the ride and save it">
+          <Icon d={ICON_STOP} className={icon} />
           End
         </button>
       </div>
