@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Lactic keeps your place. Leave Today, Plan, Progress or Health and come back, and it opens where you left it, on the same ride, range and scroll. Settings has a Done button, and clicking the gear again closes it.
+
 ## 0.3.7
 
 - Took a test drive on lactic.fit? Open Lactic from the finish screen after downloading, and your FTP and that ride come with you.

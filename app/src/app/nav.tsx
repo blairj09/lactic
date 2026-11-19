@@ -3,7 +3,7 @@
 // the screens and Ride move to a tab bar along the bottom, within reach of a thumb.
 
 import Link from "next/link";
-import { useLocation } from "react-router";
+import { Link as TabLink, useLocation } from "react-router";
 import { isRiding } from "@/lib/live-ride";
 import { retap, scrollToTop } from "./tab-retap";
 import CoachButton from "@/app/coach/coach-button";
@@ -16,6 +16,9 @@ import { hasHealth } from "@/lib/features";
 import { useFeatures } from "@/lib/use-features";
 import { useTabs } from "@/lib/use-tabs";
 import type { TabId } from "@/lib/sdk/layout";
+import { places, tabOf, usePlacesVersion } from "./place";
+import { RESTORE } from "./place-keeper";
+import { useCloseSettings } from "~/settings/close";
 
 const LINKS: Record<TabId, { href: string; label: string }> = {
   today: { href: "/", label: "Today" },
@@ -46,6 +49,10 @@ export default function Nav({ current }: { current: string }) {
     } else if (what === "root") requestAnimationFrame(() => window.scrollTo({ top: 0 }));
     else if (href === current) e.preventDefault();
   };
+  // A screen's link returns to the place you last had open in it (see place.ts).
+  usePlacesVersion();
+  const tab = (href: string) => (href === "/ride" || tabOf(pathname) === href ? { to: href } : { to: places.hrefFor(href, pathname), state: RESTORE });
+  const closeSettings = useCloseSettings();
   return (
     <>
     <header className="lactic-drag lactic-titlebar sticky top-0 z-30 border-b border-line bg-ground pt-[env(safe-area-inset-top)]">
@@ -55,15 +62,15 @@ export default function Nav({ current }: { current: string }) {
         </Link>
         <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
           {tabs.map(({ href, label }) => (
-            <Link
+            <TabLink
               key={href}
-              href={href}
+              {...tab(href)}
               data-tour={label.toLowerCase()}
               aria-current={current === href ? "page" : undefined}
               className="rounded-md px-3 py-1.5 text-sm text-muted transition-colors hover:text-ink aria-[current=page]:bg-active aria-[current=page]:text-ink"
             >
               {label}
-            </Link>
+            </TabLink>
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
@@ -79,6 +86,12 @@ export default function Nav({ current }: { current: string }) {
           {!isDemo && <FeedbackButton className="hidden md:inline-flex" />}
           <Link
             href="/settings"
+            // A second click on the gear closes Settings, back to where you were.
+            onClick={(e) => {
+              if (current !== "/settings") return;
+              e.preventDefault();
+              closeSettings();
+            }}
             aria-label="Settings"
             data-tour="settings"
             title="Settings"
@@ -96,9 +109,9 @@ export default function Nav({ current }: { current: string }) {
     <nav aria-label="Main" className="lactic-tabbar fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ground pb-[env(safe-area-inset-bottom)] md:hidden">
       <div className="mx-auto flex h-14 max-w-md items-stretch justify-around px-2">
         {tabs.map(({ href, label }) => (
-          <Link
+          <TabLink
             key={href}
-            href={href}
+            {...tab(href)}
             data-tour={label.toLowerCase()}
             aria-current={current === href ? "page" : undefined}
             onClick={onTab(href)}
@@ -106,7 +119,7 @@ export default function Nav({ current }: { current: string }) {
           >
             <TabIcon href={href} />
             {label}
-          </Link>
+          </TabLink>
         ))}
       </div>
     </nav>
