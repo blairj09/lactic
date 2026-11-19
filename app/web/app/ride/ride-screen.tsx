@@ -34,7 +34,7 @@ import WorkoutChart from "./workout-chart";
 import { holdCoachShortcut } from "../coach/open";
 import { holdNewDayRefresh } from "@/lib/new-day";
 import RideSurvey from "../ride-survey";
-import { OVERLAY_SIZES, PlayerView, formatTime, type AdaptNotice, type PlayerControls, type PlayerData } from "./player";
+import { OVERLAY_SIZES, PlayerView, formatTime, pausedMidRide, type AdaptNotice, type PlayerControls, type PlayerData } from "./player";
 import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type RideSource, type Trainer } from "./ride-now";
 import SensorPanel from "./sensor-panel";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
@@ -1300,7 +1300,7 @@ function RideOnThisDevice({
               <>
                 {/* Ride actions, quieter than the controls: End once a ride is under way, Save again if saving failed, Reset once one started. */}
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                  {elapsed > 0 && !ended && !data.finished && (
+                  {elapsed > 0 && !ended && !data.finished && !pausedMidRide(data) && (
                     <button className={`${button.secondary} max-md:hidden`} onClick={end}>
                       End ride
                     </button>

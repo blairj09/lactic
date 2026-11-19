@@ -18,6 +18,7 @@ import {
   ICON_PAUSE,
   ICON_PLAY,
   ICON_SKIP,
+  ICON_STOP,
   Icon,
   Stepper,
   ZoneDot,
@@ -25,6 +26,7 @@ import {
   intervalLabel,
   intervalTime,
   pageShown,
+  pausedMidRide,
   playLabel,
   powerVsTarget,
   targetShown,
@@ -550,9 +552,10 @@ const side =
 function TransportRow({ data, controls, compact }: { data: PlayerData; controls: PlayerControls; compact?: boolean }) {
   const noWorkout = !!data.erg || data.appTrainer;
   const h = compact ? "h-12" : "h-14";
+  const paused = pausedMidRide(data);
   return (
     <div className={`flex items-center gap-2.5 ${compact ? "flex-none" : ""}`}>
-      {!noWorkout && (
+      {!noWorkout && !paused && (
         <button className={`${side} ${h} ${compact ? "w-12" : "w-16"}`} disabled={data.position <= 0} onClick={() => controls.onBack()} aria-label="Back" title="Back to the previous interval">
           <Icon d={ICON_BACK} />
         </button>
@@ -567,9 +570,21 @@ function TransportRow({ data, controls, compact }: { data: PlayerData; controls:
         <span className="inline-flex items-center gap-2">
           <Icon d={data.running ? ICON_PAUSE : ICON_PLAY} className="size-7" />
           {data.startIn !== null && <span className="num">{data.startIn}</span>}
+          {paused && !compact && "Resume"}
         </span>
       </button>
-      {!noWorkout && (
+      {paused && (
+        <button
+          className={`inline-flex ${h} min-w-0 items-center justify-center gap-2 rounded-xl bg-raised text-lg font-medium text-ink transition-colors hover:bg-active hc:outline hc:outline-1 hc:outline-line ${compact ? "w-[clamp(72px,12vw,112px)] flex-none" : "flex-1"}`}
+          onClick={() => controls.onEnd()}
+          aria-label="End ride"
+          title="End the ride and save it"
+        >
+          <Icon d={ICON_STOP} className="size-6" />
+          {!compact && "End"}
+        </button>
+      )}
+      {!noWorkout && !paused && (
         <button className={`${side} ${h} ${compact ? "w-12" : "w-16"}`} disabled={!data.current} onClick={() => controls.onSkip()} aria-label="Skip" title="Skip to the next interval">
           <Icon d={ICON_SKIP} />
         </button>
