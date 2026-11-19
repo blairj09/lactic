@@ -373,10 +373,20 @@ jobs:
         env:
           HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
         run: |
-          # A Vercel deploy hook for the lactic-site project (main). Without it the site still
-          # catches up on the next push to main (site/scripts/should-build.mjs).
-          if [ -z "$HOOK" ]; then echo "::notice::No VERCEL_DEPLOY_HOOK_URL secret: lactic.fit shows this release after the next push to main."; exit 0; fi
-          curl -fsS -X POST "$HOOK" >/dev/null && echo "Asked Vercel to redeploy lactic.fit."
+          # A Vercel deploy hook for the lactic-site project (main branch). The deploy's ignored
+          # build step (site/scripts/should-build.mjs) sees lactic.fit's demo is behind the new
+          # latest release and builds it. Without the hook the site only catches up on the next
+          # push to main, so a missing or failing hook is a warning on the run (the release itself
+          # is already out, so it doesn't fail the job).
+          if [ -z "$HOOK" ]; then
+            echo "::warning::No VERCEL_DEPLOY_HOOK_URL secret, so lactic.fit still shows the previous release until the next push to main."
+            exit 0
+          fi
+          if curl -fsS --retry 4 --retry-all-errors --retry-delay 10 -X POST "$HOOK" >/dev/null; then
+            echo "Asked Vercel to redeploy lactic.fit."
+          else
+            echo "::warning::Vercel's deploy hook failed, so lactic.fit still shows the previous release until the next push to main."
+          fi
 
   preview:
     # Lactic Preview from main: each push to main that isn't a release replaces the rolling
