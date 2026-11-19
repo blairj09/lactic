@@ -10,7 +10,7 @@ export interface MoreItem {
 }
 
 /** A "⋯" button that opens a small menu of less-used actions. Escape or a click outside closes it. */
-export function MoreMenu({ label, items }: { label: string; items: MoreItem[] }) {
+export function MoreMenu({ label, items, align = "left" }: { label: string; items: MoreItem[]; align?: "left" | "right" }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -31,7 +31,7 @@ export function MoreMenu({ label, items }: { label: string; items: MoreItem[] })
         ⋯
       </button>
       {open && (
-        <div role="menu" className="absolute left-0 z-30 mt-1.5 w-48 rounded-lg border border-line bg-surface p-1.5 shadow-xl">
+        <div role="menu" className={`absolute ${align === "right" ? "right-0" : "left-0"} z-30 mt-1.5 w-52 rounded-lg border border-line bg-surface p-1.5 shadow-xl`}>
           {items.map((it) => (
             <button
               key={it.label}
