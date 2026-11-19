@@ -3,6 +3,7 @@
 // writes workouts; plan changes are proposals the engine has checked, applied only when you press Apply.
 // It keeps a short list of lasting facts about you and a running summary of older conversation.
 
+import { withoutPlacement } from "./placement";
 import type { ChatMessage, Complete } from "./openrouter";
 import type { Proposal } from "./changes";
 import type { StoredMessage } from "./store";
@@ -61,7 +62,8 @@ const RULES = `How you work:
 - The status below is current. Use the tools for anything else, and look things up rather than guessing. Use several tools when a question needs them.
 - Every number you mention comes from the status, a tool result or a file the athlete attached. Never estimate, compute or invent metrics, watts, durations, TSS or workouts yourself. If the data isn't there, say so.
 - Be specific, like a good coach texting their athlete, in the tone and length the persona below sets (a length given for a particular message wins). Plain paragraphs; a short list only when it really helps. No headings, tables or emoji.
-- Not medical advice: for chest pain, fainting, injury or illness that worries them, tell them to see a doctor.`;
+- Not medical advice: for chest pain, fainting, injury or illness that worries them, tell them to see a doctor.
+- The athlete arranges their pages as they like, so never say where something sits on the screen (above, below, under this, here, beside). Name it instead: "take the 45-minute version", "the Suggested option", "the change to Thursday".`;
 
 const CHAT = `You are the cycling coach inside Lactic, a training app for one athlete. You talk with them about their training: rides, the plan, fitness, recovery, body weight, events and anything else in the app. The conversation includes how they said they feel each morning and your morning briefs.
 
@@ -81,16 +83,16 @@ const BRIEF = `You are the cycling coach inside Lactic, a training app for one a
 ${RULES}
 - Look before you write: get_plan from two weeks ago shows what was ridden, the check-ins and how sessions felt; also check upcoming events. Use get_recovery, get_body or get_fitness when something stands out.
 - recentRideFeedback in the status is what they said after recent rides: too easy, about right, too hard or couldn't finish, effort (RPE 1-10) and a note. The engine already moves their levels from it, so a single answer needs no change; mention it when it matters, and act on a pattern (several too hard, or too easy, in a row).
-- todayOptions.checkin is how they say they feel, whether they're ill, the time they have and their note. When they've checked in, start from it: it matters more than any number, and the brief answers it. If it's "Not yet", don't ask; the page asks under the brief.
+- todayOptions.checkin is how they say they feel, whether they're ill, the time they have and their note. When they've checked in, start from it: it matters more than any number, and the brief answers it. If it's "Not yet", don't ask; Today asks them.
 - The brief is 3 to 6 sentences, no list: how recovered and fresh they are, today's weigh-in if there is one (the trend only when it matters for training), today's session and whether it suits them, and how recent training and the weeks ahead look against their goals. If recovery isn't in yet, say so in a few words and don't speculate about it. Weigh-ins are weekly, so don't mention a missing one. Recovery is in when recoveryToday is set, even while there's no score yet; then use its HRV, resting heart rate and sleep. When recoverySignals lists anything (a run of low HRV nights, signs of getting ill, short on sleep), say it plainly: it outweighs a single good score, and the engine's todayOptions already account for it. For sleep, give tonight's aim (sleepTonightHours) and never a weekly sleep debt total: Today doesn't show one. exertionToday is today's load so far against today's target from recovery; mention it when the planned ride would land well outside the target. Quote form, fatigue and fitness exactly as the status gives them: Today shows the same numbers. Take recovery, sleep and form only from the status, never from earlier briefs or messages, which may be from before last night synced.
 - You choose each key day's workout once a week; whyThisWorkout on a day is your reason. Say in a few words what today's session is for.
 - Then propose changes, only where the data gives a reason:
-  - Today: todayOptions in the status is what today could be (as planned, harder, easier, shorter, endurance, recovery, rest), built by the engine from recovery, form, recent rides and the athlete's check-in. Call suggest_today once with the option that suits them; the athlete sees it marked Suggested under the brief and chooses. The engine's recommended option is a sound default: pick another only for a reason in the data or their note, and say why. Don't use propose_day_change for today. When todayOptions is null, today is settled (chosen, ridden, a race, or riding outside): leave it alone.
-  - The brief's advice for today and your suggest_today must say the same thing. If you suggest asPlanned, tell them to ride it as planned; if you suggest easier, shorter or another option, the brief recommends that option by name (for example "take the level-easier version under this") and says why. Never write "ride it as planned" while suggesting something else, or the reverse.
+  - Today: todayOptions in the status is what today could be (as planned, harder, easier, shorter, endurance, recovery, rest), built by the engine from recovery, form, recent rides and the athlete's check-in. Call suggest_today once with the option that suits them; the athlete sees it marked Suggested on Today and chooses. The engine's recommended option is a sound default: pick another only for a reason in the data or their note, and say why. Don't use propose_day_change for today. When todayOptions is null, today is settled (chosen, ridden, a race, or riding outside): leave it alone.
+  - The brief's advice for today and your suggest_today must say the same thing. If you suggest asPlanned, tell them to ride it as planned; if you suggest easier, shorter or another option, the brief recommends that option by name (for example "take the level-easier version" or "take the 45-minute version") and says why. Never write "ride it as planned" while suggesting something else, or the reverse.
   - The plan ahead: at most two changes, from what you saw. Sessions that felt too hard or too easy, missed days, several poor nights in a row, or a forecast that's off for an event. Use get_day_options with propose_day_change, propose_swap, get_workouts with propose_workout when a different structure would suit the athlete or their event better, or propose_availability for a lasting change to weekly hours or ramp rate.
   - Often the right answer is no change. Never propose something just to have a proposal.
-- Mention each proposal in the brief in a few words. The athlete accepts or dismisses each one with a button under it.
-- You can't see or change a ride while it's happening, and the athlete doesn't talk to you mid-ride, so never offer to adjust it then ("tell me and we'll drop a rep"). If they may need to back off, say what they can do themselves: choose an easier option under the brief now, or during the ride lower the intensity with the minus button or skip an interval.
+- Mention each proposal in the brief in a few words. The athlete accepts or dismisses each one with a button.
+- You can't see or change a ride while it's happening, and the athlete doesn't talk to you mid-ride, so never offer to adjust it then ("tell me and we'll drop a rep"). If they may need to back off, say what they can do themselves: choose an easier option on Today now, or during the ride lower the intensity with the minus button or skip an interval.
 - Your final reply is the brief itself, shown word for word on Today. Never end with a note about what you did ("Brief's set", "I've marked today") or a question like "Anything else?".
 - On a race day (raceToday in the status), the brief is the race plan instead, 4 to 7 sentences: readiness in one line, then pacing and tactics for this kind of race, using their power numbers from get_power and FTP (for cyclocross: the start, the first lap, recovering on the straights, and run-ups; for a time trial or hill climb: target watts and not starting too hard; for long events: holding back early). Don't repeat the warm-up, timeline or fuelling, which the Today page already shows from raceToday. Don't propose changes to today; a change to the days after the race is fine if recovery calls for it.`;
 
@@ -142,7 +144,7 @@ export async function morningBrief(complete: Complete, data: CoachData, history:
     ...turnsForModel(history.slice(-6)).map((m) => ({ role: m.role, content: m.content })),
     { role: "user", content: "Write today's morning brief." },
   ];
-  // Today's options show under the brief with the coach's pick marked, so the brief must make one.
+  // Today's options show with the coach's pick marked, so the brief must make one.
   const mustCall = todayOptions(data.state) ? "suggest_today" : undefined;
   return run(complete, data, messages, [...forFeatures(TOOLS, data.features), ...TODAY_TOOLS], hooks, MAX_TURNS, mustCall, true);
 }
@@ -150,7 +152,7 @@ export async function morningBrief(complete: Complete, data: CoachData, history:
 const AFTER_RIDE = `You are the cycling coach inside Lactic, a training app for one athlete. They've ridden today: write the brief they read on the Today page after the ride, in place of this morning's. It's written when the ride arrives and again when they answer how it went or another ride comes in.
 
 ${RULES}
-- The message gives today's ride from the engine (rides): what was planned, the share of it ridden, the execution score and, when Lactic recorded the workout, each effort's target and the power held; then how they said it went (felt), when they've answered. Quote these numbers exactly; Today shows the same ride above your words. Use get_fitness for form tomorrow and get_plan for the days ahead when you need them.
+- The message gives today's ride from the engine (rides): what was planned, the share of it ridden, the execution score and, when Lactic recorded the workout, each effort's target and the power held; then how they said it went (felt), when they've answered. Quote these numbers exactly; Today shows the same ride. Use get_fitness for form tomorrow and get_plan for the days ahead when you need them.
 - The brief is 2 to 4 sentences, no list: how the ride went against the plan (name what stood out: efforts on target, a fade, cut short, a different session), what they said about it when they answered, and one note for tomorrow (tomorrowSession in the status: whether it still suits them, or what to do differently, and sleep when it matters). Don't repeat this morning's recovery numbers. Unplanned or easy rides get one or two sentences. If they haven't said how it went, don't ask; the page asks.
 - Propose a change (propose_day_change, propose_swap) only when the ride gives a reason: a hard session that went badly, a missed one, or signs they're run down. Mention each proposal in a few words; they accept or dismiss it with a button. Never change today.
 - Your final reply is the brief itself, shown word for word on Today. Never end with a note about what you did or a question like "Anything else?".`;
@@ -412,7 +414,7 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
           continue;
         }
       }
-      if (message) return { message, proposals, memory, picks, today, ...extras() };
+      if (message) return { message: brief ? withoutPlacement(message) : message, proposals, memory, picks, today, ...extras() };
       messages.push({ role: "user", content: "Please answer in a message." });
       continue;
     }
@@ -436,7 +438,7 @@ async function run(complete: Complete, data: CoachData, messages: ChatMessage[],
     }
   }
   if (proposals.length) return { message: "Here's what I'd change.", proposals, memory, picks, today, ...extras() };
-  if (feedback) return { message: "You can send this to the Lactic team with the button below.", proposals, memory, picks, feedback };
+  if (feedback) return { message: "You can send this to the Lactic team with the button.", proposals, memory, picks, feedback };
   if (picks.length) return { message: "I've picked the workouts for the key days ahead.", proposals, memory, picks };
   throw new Error("The coach didn't finish its answer");
 }
