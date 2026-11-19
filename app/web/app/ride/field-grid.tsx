@@ -6,6 +6,7 @@ import type { PageTemplate } from "@/lib/sdk/layout";
 import { useEffect, useRef, useState } from "react";
 import { blockOwnsNumber, type FieldLook, type FieldValue, type RideChart } from "@/lib/sdk/plugin-fields";
 import { BlockView, zoneStyle } from "./blocks";
+import { OWNS_ARROWS, pageKeyStep, stepsTo, swipeTracker } from "@/lib/ride/page-switch";
 
 export type Tone = "positive" | "warning" | "negative" | "accent";
 export const TONE: Record<Tone, string> = { positive: "text-positive", warning: "text-warning", negative: "text-negative", accent: "text-accent" };
@@ -331,32 +332,74 @@ export function FieldGrid({
   );
 }
 
-/** Dots for the ride pages, with the page's name, and ‹ › to step through them. */
+/** Dots for the ride pages, with the page's name, and ‹ › to step through them. A dot opens its page. */
 export function PageDots({ names, page, onPage }: { names: string[]; page: number; onPage?: (step: 1 | -1) => void }) {
   if (names.length < 2) return null;
   const arrow = "inline-flex size-8 items-center justify-center rounded-md text-lg text-muted transition-colors hover:bg-raised hover:text-ink";
   return (
     <div className="flex items-center justify-center gap-3" aria-label="Ride pages">
       {onPage && (
-        <button type="button" className={arrow} onClick={() => onPage(-1)} aria-label="Previous page">
+        <button type="button" className={arrow} onClick={() => onPage(-1)} aria-label="Previous page" title="Previous page (←)">
           ‹
         </button>
       )}
-      <span className="flex items-center gap-1.5" aria-hidden>
-        {names.map((n, i) => (
-          <span key={i} className={`size-2 rounded-full ${i === page ? "bg-ink" : "bg-control"}`} />
-        ))}
+      <span className="flex items-center">
+        {names.map((n, i) =>
+          onPage ? (
+            <button key={i} type="button" className="group grid size-5 place-items-center" onClick={() => stepsTo(page, i, names.length).forEach((s) => onPage(s))} aria-label={`Page ${i + 1}: ${n}`} aria-current={i === page || undefined} title={n}>
+              <span className={`size-2 rounded-full transition-colors ${i === page ? "bg-ink" : "bg-control group-hover:bg-muted"}`} />
+            </button>
+          ) : (
+            <span key={i} className={`mx-0.5 size-2 rounded-full ${i === page ? "bg-ink" : "bg-control"}`} aria-hidden />
+          ),
+        )}
       </span>
       <span className="text-sm text-muted">
         {names[page]} · {page + 1} of {names.length}
       </span>
       {onPage && (
-        <button type="button" className={arrow} onClick={() => onPage(1)} aria-label="Next page">
+        <button type="button" className={arrow} onClick={() => onPage(1)} aria-label="Next page" title="Next page (→)">
           ›
         </button>
       )}
     </div>
   );
+}
+
+/**
+ * ← and → change page in `win` (the Ride page's window, or the overlay's own window), unless the
+ * rider is typing, on a slider or in a dialog. A window only hears keys while it has focus.
+ */
+export function usePageKeys(win: Window | null | undefined, onPage: ((step: 1 | -1) => void) | undefined) {
+  const latest = useRef(onPage);
+  latest.current = onPage;
+  const on = !!onPage;
+  useEffect(() => {
+    if (!win || !on) return;
+    const onKey = (e: KeyboardEvent) => {
+      const step = pageKeyStep(e);
+      if (step === null) return;
+      const t = e.target as Element | null;
+      if (t?.closest?.(OWNS_ARROWS)) return;
+      e.preventDefault();
+      latest.current?.(step);
+    };
+    win.addEventListener("keydown", onKey);
+    return () => win.removeEventListener("keydown", onKey);
+  }, [win, on]);
+}
+
+/** A two-finger sideways swipe on a trackpad (or a sideways mouse wheel) turns one page. */
+export function useWheelSwipe(onPage: ((step: 1 | -1) => void) | undefined) {
+  const tracker = useRef(swipeTracker());
+  return onPage
+    ? {
+        onWheel: (e: React.WheelEvent) => {
+          const step = tracker.current(e.deltaX, e.deltaY, e.timeStamp);
+          if (step !== null) onPage(step);
+        },
+      }
+    : {};
 }
 
 /** Sideways swipes on a touch screen step through the pages. Mouse and pen drags are left alone. */

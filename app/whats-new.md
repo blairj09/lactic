@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- On the computer and in the overlay, switch ride pages with ← and →, a two-finger sideways swipe on the trackpad, or by clicking a page dot. Click the overlay first so it hears the keys.
 - Customizing ride fields is quicker: click a field and pick what it shows from a searchable list right beside it, with Tab to move to the next field. Layout and page options now sit in one row above the page.
 - On the iPhone, the pull-to-refresh logo now stays at the top of the page and scrolls away with it, instead of floating over the page while it loads.
 - Today's Recovery card shows your exertion so far today against today's target.
