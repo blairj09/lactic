@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Panel, Result } from "@/components/ui";
+import { withoutPlacement } from "@/lib/coach/placement";
 import type { StoredMessage } from "@/lib/coach/store";
 import type { CheckinResult, OptionId } from "@/lib/engine/checkin";
 import { applyProposal, dismissProposal } from "./coach/actions";
@@ -378,7 +379,7 @@ function Brief({
   return (
     <div className="mt-5 space-y-3">
       {text ? (
-        <Prose text={text} />
+        <Prose text={withoutPlacement(text)} />
       ) : error ? null : (
         <p className="animate-pulse text-sm text-muted">{status}...</p>
       )}
@@ -452,7 +453,7 @@ function EarlierBrief({ message: initial }: { message: StoredMessage }) {
       </button>
       {open && (
         <div className="mt-2 space-y-3 text-muted">
-          <Prose text={message.content} />
+          <Prose text={withoutPlacement(message.content)} />
           <Proposals message={message} onSettled={(i, status) => setMessage((m) => ({ ...m, proposals: m.proposals.map((p, j) => (j === i ? { ...p, status } : p)) }))} onError={setError} />
           {error && <Result ok={false}>{error}</Result>}
         </div>

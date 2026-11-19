@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Lactic keeps your place. Leave Today, Plan, Progress or Health and come back, and it opens where you left it, on the same ride, range and scroll. Settings has a Done button, and clicking the gear again closes it.
+- The Coach's brief names the workout it suggests instead of pointing above or below, since you can arrange Today your way.
 
 ## 0.3.7
 
