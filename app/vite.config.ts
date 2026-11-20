@@ -6,6 +6,31 @@ import { defineConfig, searchForWorkspaceRoot } from "vite";
 const host = process.env.TAURI_DEV_HOST;
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
+const RIDE_TITLE = "Ride a workout in your browser · Lactic";
+const RIDE_DESCRIPTION =
+  "Connect your smart trainer in Chrome or Edge and ride a structured ERG workout, or a free FTP ramp test, with Lactic. No download, no account. Save your ride as a .fit file.";
+
+/** The try-a-ride page's head and a text summary for readers without JavaScript (search engines, link previews). */
+function rideHead(html: string): string {
+  const head = [
+    `<meta name="description" content="${RIDE_DESCRIPTION}" />`,
+    `<link rel="canonical" href="https://lactic.fit/ride/" />`,
+    `<meta property="og:title" content="${RIDE_TITLE}" />`,
+    `<meta property="og:description" content="${RIDE_DESCRIPTION}" />`,
+    `<meta property="og:url" content="https://lactic.fit/ride/" />`,
+    `<meta property="og:type" content="website" />`,
+    `<meta property="og:site_name" content="Lactic" />`,
+    `<meta property="og:image" content="https://lactic.fit/og-image.png" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+  ].join("\n    ");
+  const summary =
+    `<noscript><h1>${RIDE_TITLE}</h1><p>${RIDE_DESCRIPTION}</p>` +
+    `<p>Lactic is a free, open-source cycling training app for Mac, Windows and Linux. <a href="https://lactic.fit/">Learn more and download</a>.</p></noscript>`;
+  return html
+    .replace(/<title>[^<]*<\/title>/, `<title>${RIDE_TITLE}</title>\n    ${head}`)
+    .replace('<div id="root"></div>', `<div id="root"></div>\n    ${summary}`);
+}
+
 // `@shared` is the web app's pure TypeScript (engine, FIT, BLE protocol, ride logic), shared so the
 // two apps never have two training engines. `~` is the desktop app's own code.
 export default defineConfig(({ command, mode }) => ({
@@ -14,6 +39,8 @@ export default defineConfig(({ command, mode }) => ({
     tailwindcss(),
     // The website demo (npm run build:demo, served at lactic.fit/demo/) stays out of search results.
     mode === "demo" && { name: "demo-noindex", transformIndexHtml: (html: string) => html.replace("<head>", '<head>\n    <meta name="robots" content="noindex" />') },
+    // lactic.fit/ride/ gets a real title, description and link preview so search and AI answers can find it.
+    mode === "ride" && { name: "ride-head", transformIndexHtml: rideHead },
   ],
   clearScreen: false,
   resolve: {

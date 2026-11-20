@@ -1,0 +1,9 @@
+# Search engines and AI assistants are welcome to read lactic.fit.
+User-agent: *
+Allow: /
+Disallow: /demo/
+Disallow: /pair/
+Disallow: /api/
+Disallow: /strava/
+
+Sitemap: https://lactic.fit/sitemap.xml
