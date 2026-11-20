@@ -27,7 +27,7 @@ import { exertionTodayFor, todayOptions } from "../today-options";
 import type { Persona } from "./persona";
 import type { Source } from "./sources";
 import { CM_PER_IN, LB_PER_KG, M_PER_MILE, type UnitSystem } from "../units";
-import { CHANGE_WINDOW_DAYS, resolveChange, type PlanChange, type Proposal } from "./changes";
+import { CHANGE_WINDOW_DAYS, proposedWorkout, resolveChange, type PlanChange, type Proposal } from "./changes";
 
 export interface RecoveryDay {
   day: string;
@@ -345,6 +345,8 @@ export function runTool(data: CoachData, name: string, args: Record<string, unkn
 function propose(data: CoachData, change: PlanChange, why: unknown): ToolResult {
   const effect = resolveChange(data.state, change);
   const proposal: Proposal = { change, summary: effect.summary, reason: typeof why === "string" ? why.trim().slice(0, 300) : "", status: "pending" };
+  const workout = proposedWorkout(effect);
+  if (workout) proposal.workout = { workout, ftp: data.state.athlete.ftp };
   return { content: JSON.stringify({ proposed: effect.summary, note: "Shown to the athlete with an Apply button. Nothing changes until they press it." }), proposal };
 }
 
