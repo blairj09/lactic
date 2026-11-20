@@ -10,6 +10,7 @@ import { librarySession, workoutByKey } from "../engine/workout-library";
 import { buildSession, MAX_LEVEL, MIN_LEVEL, type Session } from "../engine/library";
 import { checkTweaks, templateById, type Params } from "../engine/templates";
 import type { TrainingState } from "../training";
+import type { Workout } from "../engine/workout";
 import { describeAppSetting, type AppSetting } from "./app-tools";
 
 /** How far ahead single days can be changed. */
@@ -35,6 +36,15 @@ export interface Proposal {
   /** The coach's one-line reason. */
   reason: string;
   status: "pending" | "applied" | "dismissed";
+  /** The workout a single-day change puts on the day, and the FTP then, for the card's chart. Missing on older proposals. */
+  workout?: { workout: Workout; ftp: number | null };
+}
+
+/** The one new workout a change puts on a day, if that's what it does (not a swap, rest day or reset). */
+export function proposedWorkout(effect: ChangeEffect): Workout | null {
+  if (effect.kind !== "days" || effect.days.length !== 1) return null;
+  const session = effect.days[0].session;
+  return session && session !== "reset" ? session.workout : null;
 }
 
 /** What applying a change writes: the session for each day (null for rest, "reset" to go back to the plan), or settings. */
