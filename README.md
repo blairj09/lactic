@@ -103,6 +103,7 @@ Get the latest version from [**GitHub Releases**](https://github.com/blairj09/la
 | Platform | File | First launch |
 | --- | --- | --- |
 | **macOS** (Apple silicon or Intel) | `Lactic_*_universal.dmg` | Drag Lactic to Applications and open it. Signed and notarized by Apple. |
+| **macOS** with [Homebrew](https://brew.sh) | `brew install --cask blairj09/lactic/lactic` | Same signed app. Lactic still updates itself; `brew upgrade` works too. |
 | **Windows** | `Lactic_*_x64-setup.exe` | SmartScreen warns about an unknown publisher: choose **More info → Run anyway**. |
 | **Linux** | `Lactic_*_amd64.AppImage` or `.deb` | `chmod +x` the AppImage and run it, or `sudo apt install ./Lactic_*_amd64.deb`. Needs BlueZ, and GNOME Keyring or KWallet for keys. |
 | **iPhone** | [TestFlight](https://testflight.apple.com/join/nDjt8pAG) | Install TestFlight, then open the link. |
