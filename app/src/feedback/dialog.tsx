@@ -91,11 +91,14 @@ export function FeedbackButton({ className = "" }: { className?: string }) {
         title="Send feedback"
         data-tour="feedback"
         onClick={() => openFeedback()}
-        className={`${className || "inline-flex"} size-8 items-center justify-center rounded-md text-muted transition-colors hover:text-ink`}
+        className={`${className || "inline-flex"} h-7 shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 text-xs font-medium text-muted transition-colors hover:text-ink`}
       >
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        {/* A megaphone, not a speech bubble, so it doesn't read as chat. */}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="m3 11 18-5v12L3 14v-3z" />
+          <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
         </svg>
+        Feedback
       </button>
       {isOpen && <FeedbackDialog onClose={() => setOpen(false)} />}
     </>

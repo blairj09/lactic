@@ -38,7 +38,6 @@ export default function Nav({ current }: { current: string }) {
   const tabs = useTabs()
     .filter((t) => !t.hidden && (t.id !== "health" || hasHealth(tracking)))
     .map((t) => LINKS[t.id]);
-  const coach = mode === "builtin" || mode === "external";
   const { pathname, search } = useLocation();
   // Tapping the tab you're on: back to its page, then to the top of it.
   const onTab = (href: string) => (e: React.MouseEvent) => {
@@ -57,9 +56,13 @@ export default function Nav({ current }: { current: string }) {
     <>
     <header className="lactic-drag lactic-titlebar sticky top-0 z-30 border-b border-line bg-ground pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex h-12 w-full max-w-6xl items-center gap-6 px-4 sm:px-6">
-        <Link href="/" className="shrink-0">
-          <Wordmark />
-        </Link>
+        <div className="flex shrink-0 items-center gap-3">
+          <Link href="/" className="shrink-0">
+            <Wordmark />
+          </Link>
+          {/* Kept apart from Coach so the two aren't mixed up. The website demo has no feedback to send. */}
+          {!isDemo && <FeedbackButton className="hidden md:inline-flex" />}
+        </div>
         <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
           {tabs.map(({ href, label }) => (
             <TabLink
@@ -81,9 +84,6 @@ export default function Nav({ current }: { current: string }) {
           )}
           {mode === "builtin" && mcp && <ExternalCoachButton alongside />}
           {mode === "external" && <ExternalCoachButton />}
-          {coach && <span aria-hidden className="mx-1 hidden h-5 w-px bg-line md:block" />}
-          {/* The website demo has no feedback to send. */}
-          {!isDemo && <FeedbackButton className="hidden md:inline-flex" />}
           <Link
             href="/settings"
             // A second click on the gear closes Settings, back to where you were.

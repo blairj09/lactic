@@ -10,6 +10,7 @@ Write for riders: what they can now do or what works better, one short line each
 - The Ride page shows the coach's suggested ride next to today's plan, so you can pick and start either one there. Overlay and Edit fields now sit next to the ride's time, and the controls no longer repeat "Trainer connected".
 - The Coach's brief names the workout it suggests instead of pointing above or below, since you can arrange Today your way.
 - On iPhone the ride screen stays clear of the clock and battery at the top, and the Intensity, ERG and Adaptive controls fit across the screen without being cut off.
+- The Feedback button has its own label and megaphone icon and sits apart from Coach, so it is harder to hit by mistake.
 
 ## 0.3.7
 
