@@ -45,6 +45,7 @@ describe("coach tools", () => {
     const ok = runTool(data, "propose_day_change", { date: "2026-10-31", option_id: "rest", reason: "Travelling" });
     expect(ok.proposal).toMatchObject({ change: { kind: "day", date: "2026-10-31", option: "rest" }, reason: "Travelling", status: "pending" });
     expect(ok.proposal!.summary).toMatch(/Sat, Oct 31: .* → Rest/);
+    expect(ok.proposal!.workout).toBeUndefined();
   });
 
   it("won't change past days or days too far ahead", () => {
@@ -276,6 +277,8 @@ describe("workout structures in the chat", () => {
     const result = runTool(data, "propose_workout", { date: day.date, workout_id: "threshold-overunder", targets: { over: 108 }, reason: "Race-like" });
     expect(result.proposal?.change).toMatchObject({ kind: "workout", template: "threshold-overunder", tweaks: { over: 1.08 } });
     expect(result.proposal?.summary).toContain("Over-unders");
+    expect(result.proposal?.workout?.workout.segments.length).toBeGreaterThan(2);
+    expect(result.proposal?.workout?.ftp).toBe(data.state.athlete.ftp);
     expect(runTool(data, "propose_workout", { date: day.date, workout_id: "threshold-overunder", targets: { over: 200 }, reason: "x" }).content).toMatch(/Error/);
   });
 });
