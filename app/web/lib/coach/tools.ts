@@ -14,7 +14,7 @@ import { checkTweaks, FOCUS_LABELS, FOCUSES, templateById, TEMPLATES, type Focus
 import { isWorkoutKey, pickFits, type WorkoutPick } from "../engine/picks";
 import { customKey, customLibraryWorkout, keyOf, libraryKey, librarySession, WORKOUT_LIBRARY, workoutByKey } from "../engine/workout-library";
 import { dayOptions } from "../engine/overrides";
-import { BREAK_KIND_LABELS, BREAK_RIDING_LABELS, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES, describeDay, GOAL_KIND_LABELS, goalIntensity, goalMinutes, PHASE_LABELS, PLAN_GOAL_LABELS, type Availability, type Break, type PlanDay } from "../engine/plan";
+import { BREAK_KIND_LABELS, BREAK_RIDING_LABELS, SAFETY_RULE_LABELS, SAFETY_RULE_NOTES, describeDay, GOAL_KIND_LABELS, GOAL_KINDS, goalIntensity, goalMinutes, INTENSITIES, PHASE_LABELS, PLAN_GOAL_LABELS, PLAN_GOALS, type Availability, type Break, type GoalKind, type Intensity, type PlanDay, type PlanGoal, type Priority } from "../engine/plan";
 import { addDays } from "../engine/pmc";
 import { MINIMUM_BASELINE_DAYS } from "../engine/recovery";
 import { MIN_COVERED_MINUTES } from "../engine/exertion";
@@ -168,6 +168,39 @@ export const TOOLS = [
     },
     ["start", "end", "kind", "riding", "reason"],
   ),
+  fn(
+    "propose_event",
+    "Propose adding an event, changing one (any of its fields, including moving its date) or removing one. The engine rebuilds the plan around it (taper, openers, recovery) and the athlete sees the days that change with an Apply button. Use it whenever an event is missing, on the wrong date or set up wrong.",
+    {
+      action: { type: "string", enum: ["add", "edit", "remove"] },
+      event_id: { type: "string", description: "From get_events, for edit and remove" },
+      name: { type: "string" },
+      date: date("The event's date"),
+      priority: { type: "string", enum: ["A", "B", "C"], description: "A: the plan peaks for it. B: short taper. C: ridden as training" },
+      kind: { type: "string", enum: [...GOAL_KINDS] },
+      minutes: { type: "integer", minimum: 10, maximum: 1440, description: "Expected riding time; the kind's usual when not given" },
+      intensity: { type: "string", enum: [...INTENSITIES] },
+      start_time: { type: "string", description: "Local start, HH:MM" },
+      reason,
+    },
+    ["action", "reason"],
+  ),
+  fn(
+    "propose_plan",
+    "Propose a saved plan: start one (peak for an event, raise FTP, build fitness or base), change one's dates, name or goal, or end one. An event plan ends on its event's date. The engine builds the weeks and the athlete applies it with a button. Add a missing event first with propose_event.",
+    {
+      action: { type: "string", enum: ["add", "edit", "end"] },
+      plan_id: { type: "string", description: "The saved plan's id (savedPlan in the status), for edit and end" },
+      goal: { type: "string", enum: [...PLAN_GOALS] },
+      event_id: { type: "string", description: "From get_events, for goal event" },
+      start: date("First day, default today"),
+      end: date("Last day; not needed for goal event"),
+      name: { type: "string" },
+      target: { type: "number", description: "FTP watts for ftp, fitness (CTL) for fitness; optional" },
+      reason,
+    },
+    ["action", "reason"],
+  ),
 ];
 
 /** Saving and forgetting lasting facts. The athlete sees and can edit everything saved. */
@@ -299,6 +332,33 @@ export function runTool(data: CoachData, name: string, args: Record<string, unkn
         if (!minutes && rampRate === undefined) throw new Error("Give minutes, ramp_rate or both");
         return propose(data, { kind: "availability", availability: minutes, rampRate }, args.reason);
       }
+      case "propose_event": {
+        const action = String(args.action ?? "") as "add" | "edit" | "remove";
+        if (!["add", "edit", "remove"].includes(action)) return { content: "Error: action is add, edit or remove" };
+        const event = {
+          name: optionalString(args.name),
+          date: optionalString(args.date),
+          priority: optionalString(args.priority) as Priority | undefined,
+          kind: optionalString(args.kind) as GoalKind | undefined,
+          minutes: optionalInt(args.minutes),
+          intensity: optionalString(args.intensity) as Intensity | undefined,
+          startTime: optionalString(args.start_time),
+        };
+        return propose(data, { kind: "event", action, id: optionalString(args.event_id), event }, args.reason);
+      }
+      case "propose_plan": {
+        const action = String(args.action ?? "") as "add" | "edit" | "end";
+        if (!["add", "edit", "end"].includes(action)) return { content: "Error: action is add, edit or end" };
+        const plan = {
+          goal: optionalString(args.goal) as PlanGoal | undefined,
+          eventId: optionalString(args.event_id),
+          start: optionalString(args.start),
+          end: optionalString(args.end),
+          name: optionalString(args.name),
+          target: typeof args.target === "number" ? args.target : undefined,
+        };
+        return propose(data, { kind: "plan", action, id: optionalString(args.plan_id), plan }, args.reason);
+      }
       case "propose_break": {
         const str = (v: unknown) => (typeof v === "string" ? v : "");
         const b = {
@@ -345,6 +405,7 @@ export function runTool(data: CoachData, name: string, args: Record<string, unkn
 function propose(data: CoachData, change: PlanChange, why: unknown): ToolResult {
   const effect = resolveChange(data.state, change);
   const proposal: Proposal = { change, summary: effect.summary, reason: typeof why === "string" ? why.trim().slice(0, 300) : "", status: "pending" };
+  if (effect.kind === "event" || effect.kind === "plan") proposal.preview = effect.preview;
   const workout = proposedWorkout(effect);
   if (workout) proposal.workout = { workout, ftp: data.state.athlete.ftp };
   return { content: JSON.stringify({ proposed: effect.summary, note: "Shown to the athlete with an Apply button. Nothing changes until they press it." }), proposal };
@@ -519,6 +580,7 @@ function planSummary(state: TrainingState) {
   const week = state.today >= p.start ? Math.floor(daysBetween(p.start, state.today) / 7) + 1 : null;
   const end = state.plan.forecast[state.plan.forecast.length - 1];
   return {
+    id: p.id,
     name: p.name,
     goal: PLAN_GOAL_LABELS[p.goal],
     event: event ? { name: event.name, date: event.date } : undefined,
@@ -922,6 +984,10 @@ function dateArg(value: unknown): string | undefined {
 function intArg(value: unknown, fallback: number, min: number, max: number): number {
   const n = Number(value);
   return value === undefined || value === null || !Number.isFinite(n) ? fallback : Math.round(Math.min(Math.max(n, min), max));
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function optionalInt(value: unknown): number | undefined {

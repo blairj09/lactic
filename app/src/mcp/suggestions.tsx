@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { applyChange } from "@/app/coach/actions";
-import { ProposalWorkout } from "@/app/coach/proposal-card";
+import { ProposalFields, ProposalPlan, ProposalWorkout } from "@/app/coach/proposal-card";
 import { button, Result } from "@/components/ui";
 import type { Proposal } from "@/lib/coach/changes";
 import { createClient } from "~/db/supabase-client";
@@ -64,7 +64,11 @@ export function ExternalSuggestions() {
         <div key={row.id} className="space-y-2 border-t border-line pt-3 first-of-type:border-0 first-of-type:pt-0">
           <p className="text-sm font-medium">{row.proposal.summary}</p>
           <ProposalWorkout proposal={row.proposal} />
-          {row.proposal.reason && <p className="text-sm text-muted">{row.proposal.reason}</p>}
+          <div className="space-y-2 text-sm">
+            <ProposalFields proposal={row.proposal} />
+            {row.proposal.reason && <p className="text-muted">{row.proposal.reason}</p>}
+            <ProposalPlan proposal={row.proposal} />
+          </div>
           <div className="flex gap-2">
             <button type="button" className={button.smallPrimary} disabled={busy !== null} onClick={() => void decide(row, true)}>
               {busy === row.id ? "Applying…" : "Apply"}

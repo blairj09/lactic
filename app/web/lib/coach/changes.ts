@@ -12,6 +12,7 @@ import { checkTweaks, templateById, type Params } from "../engine/templates";
 import type { TrainingState } from "../training";
 import type { Workout } from "../engine/workout";
 import { describeAppSetting, type AppSetting } from "./app-tools";
+import { resolveEventChange, resolvePlanChange, type EventChange, type EventEffect, type PlanEffect, type ProposalPreview, type SavedPlanChange } from "./event-changes";
 
 /** How far ahead single days can be changed. */
 export const CHANGE_WINDOW_DAYS = 27;
@@ -27,7 +28,11 @@ export type PlanChange =
   | { kind: "availability"; availability?: Availability; rampRate?: number }
   | { kind: "break"; break: Omit<Break, "id"> }
   /** An app setting (power source, a paired device...), not the plan. */
-  | { kind: "app"; setting: AppSetting };
+  | { kind: "app"; setting: AppSetting }
+  /** Add, change, move or remove an event (event-changes.ts). */
+  | EventChange
+  /** Start, change or end a saved plan (event-changes.ts). */
+  | SavedPlanChange;
 
 export interface Proposal {
   change: PlanChange;
@@ -38,6 +43,8 @@ export interface Proposal {
   status: "pending" | "applied" | "dismissed";
   /** The workout a single-day change puts on the day, and the FTP then, for the card's chart. Missing on older proposals. */
   workout?: { workout: Workout; ftp: number | null };
+  /** For event and plan changes: the engine's details and the days that change (older proposals have none). */
+  preview?: ProposalPreview;
 }
 
 /** The one new workout a change puts on a day, if that's what it does (not a swap, rest day or reset). */
@@ -52,9 +59,12 @@ export type ChangeEffect =
   | { kind: "days"; days: { date: string; session: Session | null | "reset" }[]; summary: string }
   | { kind: "settings"; availability: Availability; rampRate: number; summary: string }
   | { kind: "break"; break: Omit<Break, "id">; summary: string }
-  | { kind: "app"; setting: AppSetting; summary: string };
+  | { kind: "app"; setting: AppSetting; summary: string }
+  | EventEffect
+  | PlanEffect;
 
-type State = Pick<TrainingState, "today" | "plan" | "basePlan" | "levels" | "goals" | "athlete" | "fitness" | "fatigue" | "rides" | "activePlan" | "breaks"> & Partial<Pick<TrainingState, "favoriteWorkouts" | "customWorkouts">>;
+type State = Pick<TrainingState, "today" | "plan" | "basePlan" | "levels" | "goals" | "athlete" | "fitness" | "fatigue" | "rides" | "activePlan" | "breaks"> &
+  Partial<Pick<TrainingState, "favoriteWorkouts" | "customWorkouts" | "picks" | "changedDays" | "plans">>;
 
 /** Works out a change against the current plan, or throws with a reason the coach can act on. */
 export function resolveChange(state: State, change: PlanChange): ChangeEffect {
@@ -117,6 +127,10 @@ export function resolveChange(state: State, change: PlanChange): ChangeEffect {
     }
     case "app":
       return { kind: "app", setting: change.setting, summary: describeAppSetting(change.setting) };
+    case "event":
+      return resolveEventChange(state, change);
+    case "plan":
+      return resolvePlanChange(state, change);
   }
 }
 
@@ -127,7 +141,7 @@ export function changeableDay(state: State, date: string): PlanDay {
   if (date > addDays(state.today, CHANGE_WINDOW_DAYS)) throw new Error(`Only the next ${CHANGE_WINDOW_DAYS + 1} days can be changed one at a time; change weekly hours for longer-term changes`);
   const day = state.plan.weeks.flatMap((w) => w.days).find((d) => d.date === date);
   if (!day) throw new Error(`${date} isn't in the plan`);
-  if (day.role === "event") throw new Error(`${date} is an event day; events are edited on the Plan page`);
+  if (day.role === "event") throw new Error(`${date} is an event day; move or change the event with propose_event`);
   return day;
 }
 

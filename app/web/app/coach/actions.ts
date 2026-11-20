@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { appTools } from "@/lib/coach/app-tools";
 import { resolveChange, type PlanChange } from "@/lib/coach/changes";
+import type { EventEffect, PlanEffect } from "@/lib/coach/event-changes";
+import { addDays } from "@/lib/engine/pmc";
 import { MAX_INSTRUCTIONS, toPersona, type Persona } from "@/lib/coach/persona";
 import { deleteConversation, loadMessage, newConversation, saveProposals } from "@/lib/coach/store";
 import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
@@ -44,9 +46,60 @@ export async function applyChange(supabase: Awaited<ReturnType<typeof createClie
     if (error) throw error;
   } else if (effect.kind === "days") {
     await writeDays(supabase, state, effect.days);
+  } else if (effect.kind === "event") {
+    await writeEvent(supabase, state, effect);
+  } else if (effect.kind === "plan") {
+    await writePlan(supabase, state, effect);
   }
-  const pushed = effect.kind === "days" ? await pushChangedPlan(supabase) : "";
+  const pushed = effect.kind === "days" || effect.kind === "event" || effect.kind === "plan" ? await pushChangedPlan(supabase) : "";
   return `Done: ${effect.summary}.${pushed}`;
+}
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+type State = Awaited<ReturnType<typeof loadTrainingState>>;
+
+/** Adds, changes or removes an event. A moved event takes its plan's end with it, and coach changes in its run-in go back to the plan. */
+async function writeEvent(supabase: Supabase, state: State, effect: EventEffect) {
+  const g = effect.goal;
+  const row = { name: g.name, event_date: g.date, priority: g.priority, kind: g.kind, duration_minutes: g.minutes ?? null, intensity: g.intensity ?? null, start_time: g.startTime ?? null };
+  if (effect.action === "remove") {
+    const { error } = await supabase.from("training_goals").delete().eq("id", g.id);
+    if (error) throw error;
+    return;
+  }
+  if (effect.action === "add") {
+    const { error } = await supabase.from("training_goals").insert({ id: crypto.randomUUID(), ...row });
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from("training_goals").update(row).eq("id", g.id);
+    if (error) throw error;
+    if (effect.from) {
+      for (const p of state.plans.filter((p) => p.goal === "event" && p.goalId === g.id)) {
+        const { error: planError } = await supabase.from("training_plans").update({ end_date: g.date, updated_at: new Date().toISOString() }).eq("id", p.id);
+        if (planError) throw planError;
+      }
+    }
+  }
+  // A day already ridden keeps what was ridden.
+  const ridden = new Set(state.storedDays.filter((d) => d.activityId).map((d) => d.day));
+  const reset = effect.reset.filter((d) => !ridden.has(d));
+  if (reset.length) await writeDays(supabase, state, reset.map((date) => ({ date, session: "reset" as const })));
+}
+
+/** Starts, changes or ends a saved plan, as the Plan page does. */
+async function writePlan(supabase: Supabase, state: State, effect: PlanEffect) {
+  const p = effect.plan;
+  const now = new Date().toISOString();
+  if (effect.action === "end") {
+    const { error } = effect.remove
+      ? await supabase.from("training_plans").delete().eq("id", p.id)
+      : await supabase.from("training_plans").update({ end_date: addDays(state.today, -1), goal: p.goal === "event" ? "base" : p.goal, updated_at: now }).eq("id", p.id);
+    if (error) throw error;
+    return;
+  }
+  const row = { name: p.name, start_date: p.start, end_date: p.end, goal: p.goal, goal_id: p.goalId ?? null, target: p.target ?? null, updated_at: now };
+  const { error } = effect.action === "edit" ? await supabase.from("training_plans").update(row).eq("id", p.id) : await supabase.from("training_plans").insert(row);
+  if (error) throw error;
 }
 
 /**
