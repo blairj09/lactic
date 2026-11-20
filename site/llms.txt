@@ -1,0 +1,29 @@
+# Lactic
+
+> Lactic is a free, open-source (MIT) cycling training app for Mac, Windows and Linux, with an iPhone app in beta. It builds a structured training plan around your goal and your week, runs ERG workouts on your Bluetooth smart trainer, scores your recovery from your watch, and lets you use the AI coach of your choice, or none. Your data stays in one file on your own computer: there is no Lactic account or server.
+
+Lactic is in beta. It needs a smart trainer for structured workouts.
+
+## What it does
+
+- Training plans: pick a goal (an event, a higher FTP, getting fitter, staying consistent) and the time you have each day. Lactic builds phases and recovery weeks, forecasts fitness, and adjusts each morning to sleep, HRV and how yesterday felt.
+- Rides: ERG workouts that set the trainer's watts for every interval, custom ride fields and pages, an overlay that stays on top of other windows and training apps, and a free ride mode.
+- Riding with Zwift: Lactic can control the trainer while Zwift reads power, cadence and heart rate only. Or ride Zwift, Rouvy or MyWhoosh while Lactic records and shows fields without touching the trainer.
+- Progress: fitness, fatigue and form, FTP from critical power, power curve, VO2 max, all calculated on your computer.
+- Recovery: a daily score from sleep, HRV and resting heart rate. Apple Watch through the iPhone app; Garmin, Oura, WHOOP, Polar, Coros and Suunto through intervals.icu. Bluetooth smart scales.
+- AI coach: built in (OpenRouter, Anthropic, OpenAI, Gemini, any OpenAI-compatible API, or a free local model via Ollama or LM Studio), or any MCP app through Lactic's built-in MCP server (one click for Claude Desktop), or no AI at all. The coach reads the numbers and suggests changes; the rider applies them.
+- Plugins: sandboxed live ride fields and ride-page sections.
+- Import and export: FIT, GPX, TCX, Strava archives; post rides to Strava; workouts as .fit for head units and .zwo for Zwift.
+
+## Pages
+
+- [Home](https://lactic.fit/): what Lactic does and the download
+- [Try a ride in your browser](https://lactic.fit/ride/): connect a trainer in Chrome or Edge and ride a workout, including an FTP ramp test, with no download
+- [The science behind Lactic](https://lactic.fit/science): the models, numbers and research behind plans, recovery and race reports
+- [Privacy](https://lactic.fit/privacy): how Lactic handles data
+
+## Get it
+
+- [Download for Mac, Windows and Linux](https://github.com/blairj09/lactic/releases/latest) (Windows and Linux builds are not yet tested on real hardware)
+- [iPhone beta on TestFlight](https://testflight.apple.com/join/nDjt8pAG)
+- [Source code on GitHub](https://github.com/blairj09/lactic)
