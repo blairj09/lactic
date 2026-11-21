@@ -4,7 +4,7 @@ Thanks for helping. Bug reports, support for new gear or health sources, plugins
 
 ## Reporting a problem
 
-- **In the app:** the speech bubble at the top attaches a picture of the screen you're on. Circle the problem and send. No GitHub account needed; it arrives here as an issue.
+- **In the app:** **Feedback** at the top attaches a picture of the screen you're on. Circle the problem and send. No GitHub account needed; it arrives here as an issue.
 - **On GitHub:** [open an issue](https://github.com/blairj09/lactic/issues/new/choose). Say what you expected, what happened, your computer (Mac, Windows or Linux) and your trainer.
 
 Windows and Linux reports are especially welcome, since those builds haven't been tested on real hardware yet.
@@ -24,7 +24,7 @@ npm run typecheck && npm run lint && npm test && npx vite build
 
 Changing the coach's prompt or tools? `npm run eval:coach` scores it across models. See [app/evals](app/evals/README.md).
 
-If riders will notice the change, add a plain-words line under **Next** in [`app/whats-new.md`](app/whats-new.md).
+If riders will notice the change, add a plain-words line under **Next** in [`app/whats-new.md`](app/whats-new.md). If it adds or changes a feature, install step or platform the [README](README.md) describes, update the README in the same pull request.
 
 ## House rules
 

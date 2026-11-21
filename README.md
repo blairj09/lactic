@@ -9,9 +9,15 @@
 A training plan that fits your week, workouts on your smart trainer, and your recovery in one place.<br>
 Free, on your computer, with the AI coach of your choice. Or none.
 
-_Lactic is in beta. Expect a few rough edges, and please [open an issue](https://github.com/blairj09/lactic/issues/new/choose) or use the speech bubble in the app when something's off._
+_Lactic is in beta. Expect a few rough edges, and please [open an issue](https://github.com/blairj09/lactic/issues/new/choose) or press **Feedback** in the app when something's off._
 
-[**Download**](https://github.com/blairj09/lactic/releases/latest) · [iPhone beta](https://testflight.apple.com/join/nDjt8pAG) · [lactic.fit](https://lactic.fit) · [Plugins](plugins/) · [Contributing](CONTRIBUTING.md) · [MIT licensed](LICENSE)
+[**Download**](https://github.com/blairj09/lactic/releases/latest) · [Try it in your browser](https://lactic.fit/ride) · [iPhone beta](https://testflight.apple.com/join/nDjt8pAG) · [lactic.fit](https://lactic.fit) · [Plugins](plugins/) · [Contributing](CONTRIBUTING.md) · [MIT licensed](LICENSE)
+
+On a Mac with [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask blairj09/lactic/lactic
+```
 
 </div>
 
@@ -44,6 +50,8 @@ Lactic sets the watts for every interval. The workout starts with your first ped
 - **Your fields.** Pick a layout (1 to 10 big numbers, with or without the chart), choose what each shows, and add pages to swipe through. Build your own fields without code, like 10-second power or % of FTP.
 - **Overlay.** Keeps the ride on top of Zwift, a video or a browser, full screen included.
 - **Free ride, with or without another app.** Hold watts in Lactic, or ride Zwift, Rouvy or MyWhoosh while Lactic floats your fields on top and records the ride without touching the trainer.
+- **Today's ride or the coach's pick.** The Ride page shows both, ready to start.
+- **Try it first.** [lactic.fit/ride](https://lactic.fit/ride) runs a workout on your trainer in Chrome or Edge, no install. Download from the finish screen and your FTP and that ride come with you.
 
 ### Plans that adapt
 
@@ -70,7 +78,7 @@ A daily recovery score from sleep, HRV and resting heart rate, plus sleep stages
 | **Android** (Samsung, Pixel Watch, Fitbit) | [Health Sync](https://play.google.com/store/apps/details?id=nl.appyhapps.healthsync) sends Health Connect to intervals.icu. |
 | **Smart scale** | Over Bluetooth: Hume Body Pod, Xiaomi, Renpho and other QN scales, Etekcity ESF-551, and standard Bluetooth scales (Omron, A&D, Beurer, Sanitas). Or type your weight in. |
 
-intervals.icu also brings in your ride history from Zwift, Garmin, Wahoo and most other apps. You can import FIT, GPX and TCX files (or a Strava archive) too, and post rides to Strava.
+intervals.icu also brings in your ride history from Zwift, Garmin, Wahoo and most other apps. You can import FIT, GPX and TCX files (or a Strava archive) too, and connect Strava in **Settings → Connections** to post your rides there.
 
 ### Plugins
 
@@ -88,7 +96,7 @@ Write your own with the [starter and SDK](plugins/), or hand [AI-GUIDE.md](plugi
 | **An AI app you already use** | Lactic runs an MCP server on your computer. One click adds it to Claude Desktop; any MCP app can connect. |
 | **None** | The plan, the workouts and your numbers. Nothing leaves your computer. |
 
-The coach reads the engine's numbers through tools and **suggests** changes; you apply or dismiss them. Keys live in your OS keychain. Cloud models stop at a monthly limit you set (default $10). See [choosing a coach model](docs/coach-models.md).
+The coach reads the engine's numbers through tools and **suggests** changes: a workout (with its chart), a move or swap, an event, or a new or changed plan. Its card lists what changes, and nothing changes until you press **Apply**. Keys live in your OS keychain. Cloud models stop at a monthly limit you set (default $10). See [choosing a coach model](docs/coach-models.md).
 
 ### On your phone
 
@@ -113,7 +121,7 @@ Get the latest version from [**GitHub Releases**](https://github.com/blairj09/la
 
 ## Quick start
 
-1. **Install** Lactic and open it.
+1. **Install** Lactic (or `brew install --cask blairj09/lactic/lactic`) and open it.
 2. **About you:** your FTP (or "I don't know") and weight.
 3. **Your trainer:** spin the pedals and put the strap on. Lactic finds them.
 4. Press **Start riding.** Your week and goal, past rides, sleep and the coach wait on Today under "Finish setting up".
@@ -148,7 +156,7 @@ site/               lactic.fit
 
 Lactic is built by riders, for riders, in the open. Bug reports, gear support, plugins and pull requests are all welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md).
 
-No GitHub account? The speech bubble at the top of the app attaches a picture of the screen you're on, so circle the problem and send. It arrives here as an issue.
+No GitHub account? **Feedback** at the top of the app attaches a picture of the screen you're on, so circle the problem and send. It arrives here as an issue.
 
 ## License
 
