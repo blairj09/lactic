@@ -11,3 +11,4 @@ Open-source desktop app for structured cycling training (Tauri 2 + React, SQLite
 - Third-party plugin code runs only inside `app/src/plugins`' QuickJS worker sandbox (see its README); never `eval`, `new Function` or `import()` plugin code anywhere else, and validate everything a plugin returns before use.
 - Secrets live in the OS keychain only. The UI sends `keychain:<name>` placeholders and Rust swaps in the real value.
 - Rider-facing app changes add a plain-words line under **Next** in `app/whats-new.md` (the in-app "What's new"); skip CI, refactors and site changes. A release that bumps the version renames **Next** to that version.
+- Keep `README.md` current: a PR that adds or changes a rider-facing feature, install method or platform updates the README in the same PR (short copy, no positional words like above/below). A version-bump release PR also checks the README against that release's `whats-new.md` lines and fixes anything missing or stale.
