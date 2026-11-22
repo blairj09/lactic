@@ -147,7 +147,7 @@
       <a class="nav-link" href="#your-way">Make it yours</a>
       <a class="nav-link" href="#iphone">iPhone</a>
       <a class="nav-link" href="#gear">Gear</a>
-      <a class="nav-link" href="/ride/" data-ride hidden>Try a ride</a>
+      <a class="nav-link" href="/#ride" data-ride>Try a ride</a>
       <a class="nav-link" href="https://github.com/blairj09/lactic">GitHub</a>
       <a class="nav-link" href="https://ko-fi.com/lactic">Support</a>
       <a class="nav-cta" href="https://github.com/blairj09/lactic/releases/latest" data-download>Download</a>
@@ -170,8 +170,8 @@
           </div>
           <div class="buttons">
             <a class="btn btn-primary" href="https://github.com/blairj09/lactic/releases/latest" data-download><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg><span data-download-label>Download free</span></a>
-            <a class="btn btn-secondary" href="/ride/" data-ride hidden>Ride a workout in your browser</a>
-            <p class="hero-sub desktop-only">Connect your trainer and take Lactic for a test drive, no download required.</p>
+            <a class="btn btn-secondary" href="/#ride" data-ride>Ride a workout here</a>
+            <p class="hero-sub desktop-only">Connect your trainer and ride in the live app, no download required.</p>
             <p class="phone-note"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/></svg><span>Lactic runs on your Mac, Windows or Linux computer: open lactic.fit there to download it. The iPhone app is in beta on TestFlight.</span></p>
             <a class="btn btn-primary phone-testflight" href="https://testflight.apple.com/join/nDjt8pAG" data-testflight>Join the iPhone beta</a>
           </div>
@@ -181,13 +181,16 @@
       <div class="app" id="app-window">
         <div class="app-bar">
           <span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span><span class="dot" aria-hidden="true"></span>
-          <span class="app-live-note">Live demo with sample data</span>
+          <span class="app-live-note"><b class="app-full-title">Lactic, live in your browser</b><span class="app-live-sub">Lactic, live in your browser · sample data</span><span class="app-full-sub">Sample data. Nothing leaves this tab.</span></span>
           <div class="tour-steps" id="tour-steps" aria-label="Tour stops"></div>
           <button type="button" class="app-bar-btn" id="tour-restart" hidden>Take the tour</button>
           <button type="button" class="app-bar-btn app-release" id="app-release" hidden>Done</button>
+          <button type="button" class="app-bar-btn app-full-btn" id="app-full">Full screen</button>
+          <a class="app-bar-btn app-full-dl" href="https://github.com/blairj09/lactic/releases/latest" data-download>Download free</a>
+          <button type="button" class="app-bar-btn app-full-exit" id="app-exit-full">Exit full screen</button>
         </div>
         <div class="app-stage" id="app-stage">
-          <iframe class="app-live" id="app-live" title="Lactic, running with sample data" src="/demo/" tabindex="-1"></iframe>
+          <iframe class="app-live" id="app-live" title="Lactic, running with sample data" src="/demo/" tabindex="-1" allow="bluetooth; fullscreen; picture-in-picture"></iframe>
           <button type="button" class="app-shield" id="app-shield" aria-label="Explore the live demo"><span class="app-try"><span class="try-click">Click to explore</span><span class="try-tap">Tap to explore</span></span></button>
           <div class="tour-spot" id="tour-spot" aria-hidden="true"></div>
           <div class="tour-card" id="tour-card" role="group" aria-labelledby="tour-title" aria-live="polite">
@@ -435,7 +438,7 @@
       <p class="phone-only">On your computer: Mac, Windows and Linux. On your iPhone: join the beta on TestFlight. Built by riders, for riders.</p>
       <div class="buttons">
         <a class="btn btn-white" href="https://github.com/blairj09/lactic/releases/latest" data-download>Download Lactic</a>
-        <a class="btn btn-outline" href="/ride/" data-ride hidden>Try a ride</a>
+        <a class="btn btn-outline" href="/#ride" data-ride>Try a ride</a>
         <a class="btn btn-outline" href="https://ko-fi.com/lactic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>Support Lactic</a>
         <a class="btn btn-outline btn-icon" href="https://github.com/blairj09/lactic" aria-label="Lactic on GitHub" title="Lactic on GitHub"><svg viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
       </div>
@@ -446,7 +449,7 @@
 <div class="float-cta" id="float-cta" aria-label="Get Lactic" role="region" inert>
   <span class="float-brand desktop-only"><span class="brand-mark"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M2 21V15H4.5V10.5H7V6.5H9.5V3H12V15H22V21Z" fill="currentColor"/></svg></span><span><strong>Lactic</strong><span class="float-sub">Free · Mac, Windows, Linux</span></span></span>
   <a class="btn btn-primary" href="https://github.com/blairj09/lactic/releases/latest" data-download><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg><span data-download-label>Download free</span></a>
-  <a class="btn btn-secondary" href="/ride/" data-ride hidden>Try a ride</a>
+  <a class="btn btn-secondary" href="/#ride" data-ride>Try a ride</a>
   <a class="btn btn-primary phone-testflight" href="https://testflight.apple.com/join/nDjt8pAG" data-testflight>Join the iPhone beta</a>
 </div>
 
@@ -508,13 +511,6 @@
 </dialog>
 
 <script src="/analytics.js"></script>
-<script>
-  // The try-a-ride page ships with the app release that has it (scripts/build-demo.mjs): show its
-  // links once lactic.fit/ride/ is there, so the site never links to a missing page.
-  fetch("/ride/", { method: "HEAD" }).then(function (r) {
-    if (r.ok) document.querySelectorAll("[data-ride]").forEach(function (a) { a.hidden = false; });
-  }).catch(function () {});
-</script>
 <script src="/download.js"></script>
 <script src="/hero.js"></script>
 <script src="/float-cta.js"></script>

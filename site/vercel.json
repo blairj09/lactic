@@ -2,6 +2,20 @@
   "outputDirectory": ".",
   "ignoreCommand": "node scripts/should-build.mjs",
   "functions": {
-    "api/strava-post.js": { "maxDuration": 30 }
-  }
+    "api/strava-post.js": {
+      "maxDuration": 30
+    }
+  },
+  "redirects": [
+    {
+      "source": "/ride",
+      "destination": "/#ride",
+      "permanent": false
+    },
+    {
+      "source": "/ride/:path*",
+      "destination": "/#ride",
+      "permanent": false
+    }
+  ]
 }

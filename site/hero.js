@@ -3,6 +3,8 @@
 // - Each stop opens a screen of the demo, lights up the part it's about and explains it in a card,
 //   like the app's own first-run tour. Back, Next and the step strip move it along.
 // - Exit tour (or a click in the window) hands the demo over to explore; Take the tour brings it back.
+// - Full screen (the title bar's button, "Ride a workout here" links and the last stop) fills the
+//   window with the live app for a ride, on the visitor's own trainer or the simulated one.
 // - The demo never takes the page's scroll: while the tour shows, or once the pointer leaves the
 //   window (or someone taps outside it, or presses Done), a see-through shield covers it so the wheel
 //   and touch scroll the page. A click puts it back in use.
@@ -13,7 +15,7 @@
     { title: "Progress", hash: "#/progress", target: '[data-tour="progress"]', body: "Trends for fitness, fatigue, form and your power curve. Rides for every ride on a calendar or a list. Every number comes from an open engine." },
     { title: "Health", hash: "#/health", target: '[data-tour="health"]', body: "Last night up top: recovery, sleep, HRV and resting heart rate against your usual range. Then weight and more. Click any of them for its history." },
     { title: "Coach", hash: "#/", coach: true, target: "aside:not([inert])", body: "Ask why today is hard, or to move Saturday's ride. It reads your numbers and suggests changes for you to apply. Or ride without one." },
-    { title: "Ride", hash: "#/ride", target: ['[data-tour="ride-player"]', '[data-tour="ride"]'], corner: true, body: "Lactic sets the watts on your smart trainer, interval by interval. This demo has a simulated trainer, so you can ride it right here." },
+    { title: "Ride", hash: "#/ride", target: ['[data-tour="ride-player"]', '[data-tour="ride"]'], corner: true, body: "Ride a workout right here. Connect your trainer in Chrome or Edge, or use the simulated one. Your ride lands in the app like any other." },
   ];
   var win = document.getElementById("app-window");
   var stage = document.getElementById("app-stage");
@@ -31,11 +33,15 @@
   var backBtn = document.getElementById("tour-back");
   var nextBtn = document.getElementById("tour-next");
   var exitBtn = document.getElementById("tour-exit");
+  var fullBtn = document.getElementById("app-full");
+  var exitFullBtn = document.getElementById("app-exit-full");
 
   var ready = false;
   var touring = true; // the tour is showing
   var active = false; // someone is using the demo
   var current = 0;
+  var full = false; // the live app fills the window
+  var pending = null; // a screen to open once the demo is up
 
   function blurDemo() {
     try { var el = frame.contentDocument.activeElement; if (el && el.blur) el.blur(); } catch (e) {}
@@ -53,7 +59,7 @@
   }
   // Back to the page: the shield covers the demo again, so the wheel scrolls the page.
   function deactivate() {
-    if (!active) return;
+    if (!active || full) return;
     active = false;
     win.classList.remove("is-active");
     release.hidden = true;
@@ -77,6 +83,34 @@
     show(0, true);
     nextBtn.focus({ preventScroll: true });
   }
+
+  // Full screen: the live app fills the window, ready to ride.
+  function openFull(hash) {
+    if (touring) endTour();
+    full = true;
+    win.classList.add("is-full");
+    document.documentElement.classList.add("app-full-open");
+    activate();
+    if (!hash) return;
+    if (!ready) { pending = hash; return; }
+    try { frame.contentWindow.location.hash = hash; frame.contentWindow.scrollTo(0, 0); } catch (e) {}
+  }
+  function closeFull() {
+    if (!full) return;
+    full = false;
+    win.classList.remove("is-full");
+    document.documentElement.classList.remove("app-full-open");
+    if (location.hash === "#ride") history.replaceState(null, "", location.pathname + location.search);
+    deactivate();
+    win.scrollIntoView({ block: "center" });
+    fullBtn.focus({ preventScroll: true });
+  }
+  fullBtn.addEventListener("click", function () { openFull(null); });
+  exitFullBtn.addEventListener("click", closeFull);
+  addEventListener("keydown", function (e) { if (e.key === "Escape" && full) closeFull(); });
+  document.querySelectorAll("[data-ride]").forEach(function (a) {
+    a.addEventListener("click", function (e) { e.preventDefault(); openFull("#/ride"); });
+  });
 
   shield.addEventListener("click", activate);
   exitBtn.addEventListener("click", activate);
@@ -113,7 +147,7 @@
     bodyEl.textContent = STEPS[i].body;
     var last = i === STEPS.length - 1;
     backBtn.hidden = i === 0;
-    nextBtn.textContent = last ? "Explore the demo" : "Next";
+    nextBtn.textContent = last ? "Ride it full screen" : "Next";
     exitBtn.hidden = last;
   }
 
@@ -160,7 +194,7 @@
   }
   backBtn.addEventListener("click", function () { go(current - 1); });
   nextBtn.addEventListener("click", function () {
-    if (current === STEPS.length - 1) activate();
+    if (current === STEPS.length - 1) openFull("#/ride");
     else go(current + 1);
   });
 
@@ -255,12 +289,18 @@
     loading.hidden = true;
     if (ready) return;
     ready = true;
-    if (touring) show(current, true);
+    if (pending) { var hash = pending; pending = null; openFull(hash); }
+    else if (touring) show(current, true);
   };
   frame.addEventListener("load", done);
   addEventListener("message", function (e) {
-    if (e.origin === location.origin && e.data && e.data.lactic === "ready") done();
+    if (e.origin !== location.origin || !e.data) return;
+    if (e.data.lactic === "ready") done();
+    // The demo's "Great start." card: the download for this computer, from the page's own button.
+    if (e.data.lactic === "download") { var dl = document.querySelector(".hero [data-download], [data-download]"); if (dl) dl.click(); }
   });
+  // lactic.fit/#ride (and the old lactic.fit/ride) opens the live app on Ride.
+  if (location.hash === "#ride") openFull("#/ride");
   try {
     // It may have loaded before this script ran.
     if (frame.contentDocument && frame.contentDocument.readyState === "complete" && frame.contentWindow.location.href !== "about:blank") done();

@@ -61,7 +61,7 @@ async function start(root: ReturnType<typeof createRoot>) {
     installFetch();
     // The try-a-ride page keeps Chrome's own Bluetooth for real trainers; it puts Lactic's in place
     // (with the simulated gear) only when the visitor picks a simulated ride.
-    if (!isTryRide) await installWebBluetooth();
+    if (!isTryRide) await installWebBluetooth({ keepChrome: isDemo });
     registerRoutes();
     if (isDemo) await (await import("~/demo/setup")).setupDemo();
     await applyEnv();

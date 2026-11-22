@@ -20,10 +20,20 @@ type Va = (event: "pageview", props: { route: string; path: string }) => void;
 
 /** Counts one test drive step. Does nothing where analytics.js isn't on the page. */
 export function countTestDrive(step: TestDriveStep, simulated: boolean): void {
-  const va = (globalThis as { va?: Va }).va;
+  const va = (globalThis as { va?: Va }).va ?? parentVa();
   if (typeof va === "function")
     va("pageview", {
       route: "/test-drive/[gear]/[step]",
       path: testDrivePath(step, simulated),
     });
+}
+
+/** The homepage's analytics, when this runs in its live app window (same origin). */
+function parentVa(): Va | undefined {
+  try {
+    const parent = (globalThis as { parent?: { va?: Va } }).parent;
+    return parent && parent !== (globalThis as unknown) ? parent.va : undefined;
+  } catch {
+    return undefined;
+  }
 }
