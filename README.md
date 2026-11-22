@@ -92,7 +92,7 @@ Write your own with the [starter and SDK](plugins/), or hand [AI-GUIDE.md](plugi
 
 | Coach | What you get |
 | --- | --- |
-| **Built-in** | Chat inside Lactic on a model you pick: OpenRouter, Anthropic, OpenAI, Gemini, any OpenAI-compatible API, or a free local model with Ollama or LM Studio. A morning brief and weekly workout picks. |
+| **Built-in** | Chat inside Lactic on a model you pick: OpenRouter (just sign in, no key to copy), Anthropic, OpenAI, Gemini, any OpenAI-compatible API, or a free local model with Ollama or LM Studio. A morning brief and weekly workout picks. |
 | **An AI app you already use** | Lactic runs an MCP server on your computer. One click adds it to Claude Desktop; any MCP app can connect. |
 | **None** | The plan, the workouts and your numbers. Nothing leaves your computer. |
 

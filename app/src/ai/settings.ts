@@ -16,7 +16,8 @@ export interface ModelChoice {
 
 export interface CoachSetup {
   mode: CoachMode;
-  provider: { kind: ProviderKind; baseUrl: string; hasKey: boolean } | null;
+  /** `signedIn`: the key came from Sign in with OpenRouter rather than being pasted. */
+  provider: { kind: ProviderKind; baseUrl: string; hasKey: boolean; signedIn?: boolean } | null;
   chat: ModelChoice | null;
   /** For reading images; the chat model when it can see. */
   vision?: ModelChoice | null;

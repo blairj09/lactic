@@ -10,6 +10,7 @@ import { coachSetup, saveCoachSetup, SECRET_AI, webSearchSupported, type CoachMo
 import { listModels, testModel, type ModelInfo } from "~/ai/test";
 import { invoke, isDesktop, isPhone, openExternal } from "~/platform/native";
 import { deleteSecret, rebindSecret, saveSecret, secretStatus } from "~/platform/secrets";
+import { cancelOpenRouterSignIn, canSignIn, signInWithOpenRouter } from "~/ai/openrouter-signin";
 
 const MODES: { mode: CoachMode; title: string; line: string }[] = [
   {
@@ -131,12 +132,12 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
     });
   };
 
-  async function saveKey() {
-    if (!key.trim() || !setup.provider) return;
-    await saveSecret(SECRET_AI, key, setup.provider.baseUrl);
+  async function saveKey(value = key) {
+    if (!value.trim() || !setup.provider) return;
+    await saveSecret(SECRET_AI, value, setup.provider.baseUrl);
     setKeySaved(await secretStatus(SECRET_AI));
     setKey("");
-    await update({ ...setup, provider: { ...setup.provider, hasKey: true } });
+    await update({ ...setup, provider: { ...setup.provider, hasKey: true, signedIn: false } });
   }
 
   const chooseModel = (id: string) => {
@@ -196,7 +197,24 @@ function BuiltinSetup({ setup, update }: { setup: CoachSetup; update: (s: CoachS
         </Field>
       )}
 
-      {info && !info.local && (
+      {info && kind === "openrouter" && (
+        <OpenRouterKey
+          keySaved={setup.provider?.hasKey ? keySaved : null}
+          signedIn={Boolean(setup.provider?.signedIn)}
+          onSignedIn={async () => {
+            setKeySaved(await secretStatus(SECRET_AI));
+            if (setup.provider) await update({ ...setup, provider: { ...setup.provider, hasKey: true, signedIn: true } });
+          }}
+          onSaveKey={saveKey}
+          onRemove={async () => {
+            await deleteSecret(SECRET_AI);
+            setKeySaved(null);
+            if (setup.provider) await update({ ...setup, provider: { ...setup.provider, hasKey: false, signedIn: false } });
+          }}
+        />
+      )}
+
+      {info && !info.local && kind !== "openrouter" && (
         <Group
           label="API key"
           hint={
@@ -427,6 +445,107 @@ function ModelGuide({ local }: { local: boolean }) {
 }
 
 const OTHER = "__other";
+
+/**
+ * OpenRouter's key: Sign in with OpenRouter makes one for Lactic (openrouter-signin.ts); pasting a
+ * key still works for riders who keep their own.
+ */
+function OpenRouterKey({
+  keySaved,
+  signedIn,
+  onSignedIn,
+  onSaveKey,
+  onRemove,
+}: {
+  keySaved: string | null;
+  signedIn: boolean;
+  onSignedIn: () => Promise<void>;
+  onSaveKey: (key: string) => Promise<void>;
+  onRemove: () => Promise<void>;
+}) {
+  const [waiting, setWaiting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pasting, setPasting] = useState(!canSignIn());
+  const [key, setKey] = useState("");
+  async function signIn() {
+    setError(null);
+    setWaiting(true);
+    try {
+      await signInWithOpenRouter();
+      await onSignedIn();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (!/started again|cancel/i.test(message)) setError(message);
+    } finally {
+      setWaiting(false);
+    }
+  }
+
+  if (keySaved)
+    return (
+      <Group label="OpenRouter">
+        <div className="flex items-center gap-3 text-sm">
+          <Pill tone="positive">{signedIn ? "Signed in" : `Key saved ${keySaved}`}</Pill>
+          <button type="button" className={button.ghost} onClick={() => void onRemove()}>
+            {signedIn ? "Sign out" : "Remove"}
+          </button>
+        </div>
+      </Group>
+    );
+
+  return (
+    <Group
+      label="OpenRouter"
+      hint={
+        pasting ? (
+          <button type="button" className="text-ink underline underline-offset-4" onClick={() => void openExternal("https://openrouter.ai/keys")}>
+            Get an OpenRouter key
+          </button>
+        ) : waiting ? (
+          "Finish signing in on OpenRouter's page."
+        ) : undefined
+      }
+    >
+      {canSignIn() && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" className={button.primary} disabled={waiting} onClick={() => void signIn()}>
+            {waiting ? "Waiting for OpenRouter…" : "Sign in with OpenRouter"}
+          </button>
+          {waiting ? (
+            !isPhone() && (
+              <button type="button" className={button.ghost} onClick={() => void cancelOpenRouterSignIn()}>
+                Cancel
+              </button>
+            )
+          ) : (
+            !pasting && (
+              <button type="button" className="text-sm text-muted underline underline-offset-4" onClick={() => setPasting(true)}>
+                Paste a key instead
+              </button>
+            )
+          )}
+        </div>
+      )}
+      {error && <Notice tone="negative">{error}</Notice>}
+      {pasting && !waiting && (
+        <div className="flex gap-2">
+          <input
+            className={`${input} min-w-0 flex-1`}
+            type="password"
+            aria-label="OpenRouter key"
+            placeholder="sk-or-…"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void onSaveKey(key)}
+          />
+          <button type="button" className={canSignIn() ? button.secondary : button.primary} disabled={!key.trim()} onClick={() => void onSaveKey(key)}>
+            Save key
+          </button>
+        </div>
+      )}
+    </Group>
+  );
+}
 
 /** "Get an OpenRouter key", "Get a Google Gemini key": one text node so the underline runs unbroken. */
 function keyLinkText(label: string): string {
