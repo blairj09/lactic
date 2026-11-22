@@ -62,7 +62,7 @@ const activityIn = (error) => String(error ?? "").match(/activities\/(\d+)/)?.[1
 
 export async function POST(request) {
   if (!configured()) return json(503, { error: "Strava isn't switched on yet." });
-  if (!sameSite(request)) return json(403, { error: "Post rides from lactic.fit/ride." });
+  if (!sameSite(request)) return json(403, { error: "Post rides from lactic.fit." });
   const ip = (request.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
   if (tooMany(ip)) return json(429, { error: "Too many rides posted in an hour. Try again later." });
 

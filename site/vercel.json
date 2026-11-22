@@ -13,7 +13,12 @@
       "permanent": false
     },
     {
-      "source": "/ride/:path*",
+      "source": "/ride/",
+      "destination": "/#ride",
+      "permanent": false
+    },
+    {
+      "source": "/ride/:path+",
       "destination": "/#ride",
       "permanent": false
     }
