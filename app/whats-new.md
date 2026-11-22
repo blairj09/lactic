@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Sign in with OpenRouter in Settings → Coach instead of copying an API key. Pasting a key still works.
+
 ## 0.3.8
 
 - Coach can now fix events and plans for you: add, move, change or remove an event, or start, change or end a plan. Its card lists the days that change, and nothing changes until you press Apply.

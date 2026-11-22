@@ -16,6 +16,7 @@ pub mod handoff;
 #[cfg(desktop)]
 pub mod mcp;
 pub mod net;
+pub mod openrouter;
 #[cfg(desktop)]
 pub mod phone;
 pub mod secrets;
@@ -192,6 +193,10 @@ pub fn run() {
         net::http_request,
         net::http_stream,
         net::http_cancel,
+        openrouter::openrouter_connect,
+        openrouter::openrouter_cancel,
+        openrouter::openrouter_begin,
+        openrouter::openrouter_finish,
         strava::strava_connect,
         strava::strava_finish,
         strava::strava_refresh,
@@ -259,6 +264,10 @@ pub fn run() {
         net::http_request,
         net::http_stream,
         net::http_cancel,
+        openrouter::openrouter_connect,
+        openrouter::openrouter_cancel,
+        openrouter::openrouter_begin,
+        openrouter::openrouter_finish,
         strava::strava_connect,
         strava::strava_finish,
         strava::strava_refresh,
