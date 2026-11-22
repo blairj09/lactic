@@ -107,7 +107,8 @@
   }
   fullBtn.addEventListener("click", function () { openFull(null); });
   exitFullBtn.addEventListener("click", closeFull);
-  addEventListener("keydown", function (e) { if (e.key === "Escape" && full) closeFull(); });
+  // Escape leaves full screen, unless it is closing the download dialog.
+  addEventListener("keydown", function (e) { if (e.key === "Escape" && full && !document.querySelector("dialog[open]")) closeFull(); });
   document.querySelectorAll("[data-ride]").forEach(function (a) {
     a.addEventListener("click", function (e) { e.preventDefault(); openFull("#/ride"); });
   });

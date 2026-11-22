@@ -8,6 +8,7 @@ import { isPickerCancel, rememberDevice } from "@shared/ble/devices";
 import { button, input } from "@/components/ui";
 import { grant, hasChromeBluetooth } from "~/bluetooth/web-bluetooth";
 import { countTestDrive } from "~/try/count";
+import { rampTestFtp, twentyMinuteTestFtp } from "@shared/engine/ftp";
 import { isDemo } from "./flag";
 
 export const SIM_TRAINER = "Lactic Sim Trainer";
@@ -19,6 +20,26 @@ export const onSimTrainer = (state: SensorState) => !state.links.trainer.name ||
 /** Counts a test drive step in the homepage's analytics, own trainer or simulated. */
 export function countDemoRide(step: "started" | "finished", hub: SensorHub) {
   if (isDemo) countTestDrive(step, onSimTrainer(hub.getState()));
+}
+
+/** The last ride in this tab, for "Open Lactic" (./after-ride.tsx): the FTP it rode at or found. */
+export interface DemoRideNote {
+  ftp: number;
+  method: "rampTest" | "twentyMinute" | "manual";
+  simulated: boolean;
+}
+let lastRide: DemoRideNote | null = null;
+export const lastDemoRide = () => lastRide;
+
+export function noteDemoRide({ ftp, watts, rampTest, twentyMinuteTest, hub }: { ftp: number; watts: number[]; rampTest: boolean; twentyMinuteTest: boolean; hub: SensorHub }) {
+  if (!isDemo) return;
+  const ramp = rampTest ? rampTestFtp(watts) : null;
+  const twenty = twentyMinuteTest ? twentyMinuteTestFtp(watts) : null;
+  lastRide = {
+    ftp: ramp?.watts ?? twenty?.watts ?? ftp,
+    method: ramp ? "rampTest" : twenty ? "twentyMinute" : "manual",
+    simulated: onSimTrainer(hub.getState()),
+  };
 }
 
 export default function DemoGear({ hub, state, ftp, onFtp, riding }: { hub: SensorHub; state: SensorState; ftp: number; onFtp: (ftp: number) => void; riding: boolean }) {

@@ -11,7 +11,8 @@ import { sql } from "~/db/sql";
 import { remembered } from "@shared/ble/devices";
 import { button } from "@/components/ui";
 import { isDemo } from "./flag";
-import { SIM_TRAINER } from "./gear";
+import { SIM_TRAINER, lastDemoRide } from "./gear";
+import { handoffScheme, handoffUrl, type Handoff } from "~/try/handoff";
 
 interface Recorded {
   name: string;
@@ -89,26 +90,79 @@ export function DemoStravaButton({ id }: { id: string }) {
   );
 }
 
-/** "Great start." on the page of a ride ridden in this tab. */
+/** The app's link scheme: the homepage's ?app=preview opens the Preview build. */
+function scheme(): string {
+  try {
+    return handoffScheme(window.parent.location.search);
+  } catch {
+    return handoffScheme(location.search);
+  }
+}
+
+/**
+ * "Great start." on the page of a ride ridden in this tab. Download free starts the homepage's
+ * download, then the card turns into "Open Lactic": a lactic:// link carrying the FTP and, unless the
+ * ride was simulated, the ride itself (../try/handoff.ts), so the app starts where the visitor left off.
+ */
 export function DemoKeepRiding({ id }: { id: string }) {
-  const [show, setShow] = useState(false);
+  const [handoff, setHandoff] = useState<{ url: string; ftp: number; ride: string | null; simulated: boolean } | null>(null);
+  const [show, setShow] = useState(true);
+  const [downloaded, setDownloaded] = useState(false);
   useEffect(() => {
     if (!isDemo) return;
-    void recorded(id).then((r) => setShow(!!r)).catch(() => undefined);
+    void (async () => {
+      const r = await recorded(id);
+      const note = lastDemoRide();
+      if (!r || !note) return;
+      const file = note.simulated ? null : await rideFit(id);
+      const h: Handoff = { ftp: note.ftp, method: note.method, ride: file ? { name: r.name, fit: file.bytes } : null };
+      setHandoff({ url: handoffUrl(h, scheme()), ftp: h.ftp, ride: h.ride ? r.name : null, simulated: note.simulated });
+    })().catch(() => undefined);
   }, [id]);
-  if (!show) return null;
+  if (!handoff || !show) return null;
+  const carries = handoff.ride ? `Your FTP (${handoff.ftp} W) and this ride come with you.` : `Your FTP (${handoff.ftp} W) comes with you.`;
+  const open = (
+    <a href={handoff.url} onClick={() => countTestDrive("opened-app", handoff.simulated)} className={downloaded ? `${button.primary} h-10 px-4` : "font-medium text-ink underline underline-offset-4"}>
+      {downloaded ? "Open Lactic" : "Open it"}
+    </a>
+  );
   return (
     <aside aria-label="Keep riding" className="fixed right-4 bottom-4 z-40 w-[min(380px,calc(100vw-2rem))] space-y-3 rounded-xl border border-line bg-surface p-5 shadow-xl">
-      <h2 className="text-lg font-semibold">Great start.</h2>
-      <p className="text-[15px] text-muted">Keep riding with the free Lactic download. It saves every ride and builds your plan around them.</p>
-      <div className="flex gap-2">
-        <button type="button" className={`${button.primary} h-10 px-4`} onClick={askDownload}>
-          Download free
-        </button>
-        <button type="button" className={`${button.secondary} h-10 px-4`} onClick={() => setShow(false)}>
-          Keep exploring
-        </button>
-      </div>
+      {downloaded ? (
+        <>
+          <h2 className="text-lg font-semibold">Lactic is downloading</h2>
+          <p className="text-[15px] text-muted">Install it, then open it from here. {carries}</p>
+          <div className="flex gap-2">
+            {open}
+            <button type="button" className={`${button.secondary} h-10 px-4`} onClick={() => setShow(false)}>
+              Keep exploring
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <h2 className="text-lg font-semibold">Great start.</h2>
+          <p className="text-[15px] text-muted">Keep riding with the free Lactic download. It saves every ride and builds your plan around them.</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={`${button.primary} h-10 px-4`}
+              onClick={() => {
+                askDownload();
+                setDownloaded(true);
+              }}
+            >
+              Download free
+            </button>
+            <button type="button" className={`${button.secondary} h-10 px-4`} onClick={() => setShow(false)}>
+              Keep exploring
+            </button>
+          </div>
+          <p className="text-sm text-muted">
+            {carries} Already have Lactic? {open}
+          </p>
+        </>
+      )}
     </aside>
   );
 }
