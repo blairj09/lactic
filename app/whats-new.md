@@ -7,6 +7,7 @@ Write for riders: what they can now do or what works better, one short line each
 ## Next
 
 - Sign in with OpenRouter in Settings → Coach instead of copying an API key. Pasting a key still works.
+- Coaching in Claude Desktop shows Lactic cards right in the chat: the suggested workout's chart with Apply and Dismiss, a ride's power and heart rate with how each effort went, and your fitness and form.
 
 ## 0.3.8
 

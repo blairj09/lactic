@@ -227,6 +227,7 @@ pub fn run() {
         window::overlay_support,
         mcp::mcp_respond,
         mcp::mcp_set_enabled,
+        mcp::mcp_show_main,
         mcp::mcp_setup,
         mcp::mcp_install_claude,
         phone::phone_status,

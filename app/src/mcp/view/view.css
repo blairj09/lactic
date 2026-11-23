@@ -1,0 +1,27 @@
+/* Lactic's design tokens and Tailwind, for the card in an AI app (main.tsx). Only the files the
+   card draws are scanned, so the page stays small. */
+@import "../../../web/app/globals.css";
+@source "./";
+@source "../../../web/app/coach/proposal-card.tsx";
+@source "../../../web/app/rides/[id]/ride-chart.tsx";
+@source "../../../web/components/fitness-chart.tsx";
+@source "../../../web/components/workout-profile.tsx";
+@source "../../../web/components/chart-utils.tsx";
+@source "../../../web/components/ui.tsx";
+
+:root {
+  /* The AI app's typeface when it gives one (main.tsx), else the system's. */
+  --font-archivo: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html,
+body {
+  margin: 0;
+  /* The chat shows through around the card (the dark theme paints the page otherwise). */
+  background: transparent !important;
+}
+
+/* A frame whose colour scheme differs from the chat's gets an opaque backdrop; stay see-through. */
+html {
+  color-scheme: normal !important;
+}

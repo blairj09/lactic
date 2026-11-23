@@ -1,7 +1,7 @@
 import { fileURLToPath, URL } from "node:url";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig, searchForWorkspaceRoot } from "vite";
+import { build, defineConfig, searchForWorkspaceRoot, type Alias, type Plugin } from "vite";
 
 const host = process.env.TAURI_DEV_HOST;
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
@@ -31,6 +31,73 @@ function rideHead(html: string): string {
     .replace('<div id="root"></div>', `<div id="root"></div>\n    ${summary}`);
 }
 
+/**
+ * Lactic's card for AI apps that show MCP Apps (src/mcp/view): built on its own into one HTML file
+ * with everything inline (the AI app shows it in a sandboxed frame with no network), and handed to
+ * the app as `virtual:lactic-mcp-view` for the MCP server to serve (src/mcp/bridge.ts).
+ */
+function mcpView(alias: Alias[], skip: boolean): Plugin {
+  const id = "virtual:lactic-mcp-view";
+  let html: Promise<string> | null = null;
+  return {
+    name: "lactic-mcp-view",
+    resolveId: (source) => (source === id ? `\0${id}` : undefined),
+    async load(source) {
+      if (source !== `\0${id}`) return;
+      if (skip) return "export default '';";
+      html ??= buildMcpView(alias);
+      return `export default ${JSON.stringify(await html)};`;
+    },
+  };
+}
+
+export async function buildMcpView(alias: Alias[]): Promise<string> {
+  const root = here("./src/mcp/view");
+  const out = await build({
+    configFile: false,
+    root,
+    logLevel: "warn",
+    plugins: [react(), tailwindcss()],
+    resolve: { alias, dedupe: ["react", "react-dom"] },
+    build: {
+      write: false,
+      target: "safari16",
+      modulePreload: false,
+      cssCodeSplit: false,
+      assetsInlineLimit: Number.MAX_SAFE_INTEGER,
+      rollupOptions: { input: `${root}/index.html`, output: { inlineDynamicImports: true } },
+    },
+  });
+  const files = (Array.isArray(out) ? out : [out]).flatMap((o) => ("output" in o ? o.output : []));
+  const text = (f: (typeof files)[number]) => ("code" in f ? f.code : typeof f.source === "string" ? f.source : new TextDecoder().decode(f.source));
+  const page = files.find((f) => f.fileName.endsWith(".html"));
+  if (!page) throw new Error("The MCP card page didn't build");
+  const js = files.filter((f) => f.fileName.endsWith(".js")).map(text).join("\n").replace(/<\/script/gi, "<\\/script");
+  const css = files.filter((f) => f.fileName.endsWith(".css")).map(text).join("\n").replace(/<\/style/gi, "<\\/style");
+  return text(page)
+    .replace(/<script\b[^>]*\bsrc="[^"]*"[^>]*><\/script>/g, "")
+    .replace(/<link\b[^>]*rel="stylesheet"[^>]*>/g, "")
+    .replace("</head>", () => `<style>${css}</style>\n</head>`)
+    .replace("</body>", () => `<script type="module">${js}</script>\n</body>`);
+}
+
+// Specific overrides first: the web app's server-only modules swap for local versions.
+export const ALIAS: Alias[] = [
+  { find: /^@\/lib\/coach\/openrouter$/, replacement: here("./src/ai/client.ts") },
+  { find: /^\.\/openrouter$/, replacement: here("./src/ai/client.ts") },
+  { find: /^@\/components\/nav$/, replacement: here("./src/app/nav.tsx") },
+  { find: /^\.\/use-pip-window$/, replacement: here("./src/ride/use-pip-window.ts") },
+  { find: /^\.\/overlay-portal$/, replacement: here("./src/ride/overlay-portal.tsx") },
+  { find: /^node:zlib$/, replacement: here("./src/shims/node-zlib.ts") },
+  { find: /^next\/headers$/, replacement: here("./src/shims/next-headers.ts") },
+  { find: /^next\/cache$/, replacement: here("./src/shims/next-cache.ts") },
+  { find: /^next\/navigation$/, replacement: here("./src/shims/next-navigation.ts") },
+  { find: /^next\/link$/, replacement: here("./src/shims/next-link.tsx") },
+  { find: /^@shared\//, replacement: here("./web/lib/") },
+  { find: /^@\//, replacement: here("./web/") },
+  { find: /^~\//, replacement: here("./src/") },
+];
+
 // `@shared` is the web app's pure TypeScript (engine, FIT, BLE protocol, ride logic), shared so the
 // two apps never have two training engines. `~` is the desktop app's own code.
 export default defineConfig(({ command, mode }) => ({
@@ -41,25 +108,12 @@ export default defineConfig(({ command, mode }) => ({
     mode === "demo" && { name: "demo-noindex", transformIndexHtml: (html: string) => html.replace("<head>", '<head>\n    <meta name="robots" content="noindex" />') },
     // lactic.fit/ride/ gets a real title, description and link preview so search and AI answers can find it.
     mode === "ride" && { name: "ride-head", transformIndexHtml: rideHead },
+    // The website builds have no MCP server, so no card to build.
+    mcpView(ALIAS, mode === "demo" || mode === "ride"),
   ],
   clearScreen: false,
   resolve: {
-    // Specific overrides first: the web app's server-only modules swap for local versions.
-    alias: [
-      { find: /^@\/lib\/coach\/openrouter$/, replacement: here("./src/ai/client.ts") },
-      { find: /^\.\/openrouter$/, replacement: here("./src/ai/client.ts") },
-      { find: /^@\/components\/nav$/, replacement: here("./src/app/nav.tsx") },
-      { find: /^\.\/use-pip-window$/, replacement: here("./src/ride/use-pip-window.ts") },
-      { find: /^\.\/overlay-portal$/, replacement: here("./src/ride/overlay-portal.tsx") },
-      { find: /^node:zlib$/, replacement: here("./src/shims/node-zlib.ts") },
-      { find: /^next\/headers$/, replacement: here("./src/shims/next-headers.ts") },
-      { find: /^next\/cache$/, replacement: here("./src/shims/next-cache.ts") },
-      { find: /^next\/navigation$/, replacement: here("./src/shims/next-navigation.ts") },
-      { find: /^next\/link$/, replacement: here("./src/shims/next-link.tsx") },
-      { find: /^@shared\//, replacement: here("./web/lib/") },
-      { find: /^@\//, replacement: here("./web/") },
-      { find: /^~\//, replacement: here("./src/") },
-    ],
+    alias: ALIAS,
     dedupe: ["react", "react-dom"],
   },
   server: {

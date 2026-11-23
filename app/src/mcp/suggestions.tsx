@@ -2,13 +2,11 @@
 // corner of every page, each with Apply and Dismiss. Applying goes through the engine again.
 
 import { useCallback, useEffect, useState } from "react";
-import { applyChange } from "@/app/coach/actions";
 import { ProposalFields, ProposalPlan, ProposalWorkout } from "@/app/coach/proposal-card";
 import { button, Result } from "@/components/ui";
 import type { Proposal } from "@/lib/coach/changes";
 import { createClient } from "~/db/supabase-client";
-import { revalidatePath } from "~/shims/next-cache";
-import { PROPOSALS_CHANGED } from "./bridge";
+import { decideProposal, PROPOSALS_CHANGED } from "./proposals";
 
 interface Row {
   id: string;
@@ -35,12 +33,9 @@ export function ExternalSuggestions() {
   async function decide(row: Row, apply: boolean) {
     setBusy(row.id);
     setResult(null);
-    const supabase = createClient();
     try {
-      const message = apply ? await applyChange(supabase, row.proposal.change) : "Dismissed.";
-      await supabase.from("coach_proposals").update({ status: apply ? "applied" : "dismissed" }).eq("id", row.id);
+      const { message } = await decideProposal(row.id, apply);
       setResult({ ok: true, message });
-      revalidatePath("/");
     } catch (e) {
       setResult({ ok: false, message: e instanceof Error ? e.message : String(e) });
     } finally {
