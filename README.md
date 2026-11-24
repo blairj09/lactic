@@ -93,7 +93,7 @@ Write your own with the [starter and SDK](plugins/), or hand [AI-GUIDE.md](plugi
 | Coach | What you get |
 | --- | --- |
 | **Built-in** | Chat inside Lactic on a model you pick: OpenRouter (just sign in, no key to copy), Anthropic, OpenAI, Gemini, any OpenAI-compatible API, or a free local model with Ollama or LM Studio. A morning brief and weekly workout picks. |
-| **An AI app you already use** | Lactic runs an MCP server on your computer. One click adds it to Claude Desktop; any MCP app can connect. Apps that show MCP Apps, like Claude Desktop, get Lactic cards in the chat: workout suggestions to apply, rides and fitness charts. |
+| **An AI app you already use** | Lactic runs an MCP server on your computer. One click adds it to Claude Desktop; any MCP app can connect. Apps that show MCP Apps, like Claude Desktop, get Lactic cards in the chat: workout suggestions to apply, rides and fitness charts. In Claude Code and Cowork, add the [Lactic plugin](claude-plugin/): `/plugin install lactic --marketplace blairj09/lactic`. |
 | **None** | The plan, the workouts and your numbers. Nothing leaves your computer. |
 
 The coach reads the engine's numbers through tools and **suggests** changes: a workout (with its chart), a move or swap, an event, or a new or changed plan. Its card lists what changes, and nothing changes until you press **Apply**. Keys live in your OS keychain. Cloud models stop at a monthly limit you set (default $10). See [choosing a coach model](docs/coach-models.md).

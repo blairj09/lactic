@@ -31,6 +31,21 @@ describe("MCP tools", () => {
     expect(tools.some((t) => t.name === "propose_workout")).toBe(true);
   });
 
+  it("says which tools only read and which can change things", () => {
+    const tools = mcpTools(true);
+    for (const t of tools) {
+      expect(t.title).toBeTruthy();
+      expect(typeof t.annotations.readOnlyHint).toBe("boolean");
+      expect(typeof t.annotations.destructiveHint).toBe("boolean");
+    }
+    const ann = (name: string) => tools.find((t) => t.name === name)?.annotations;
+    expect(ann("get_overview")).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+    expect(ann("propose_workout")).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+    expect(ann("forget")).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    expect(ann(CARD_ACTION_TOOL)).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    expect(ann("remember")?.readOnlyHint).toBe(false);
+  });
+
   it("reads the engine's numbers", async () => {
     const overview = JSON.parse(textOf(await callTool("get_overview", {})));
     expect(JSON.stringify(overview)).toContain("250");

@@ -1,0 +1,17 @@
+{
+  "name": "lactic",
+  "owner": {
+    "name": "Lactic",
+    "url": "https://lactic.fit"
+  },
+  "plugins": [
+    {
+      "name": "lactic",
+      "source": "./claude-plugin",
+      "description": "Coach your cycling training from Claude with Lactic, the open-source training app on your computer."
+    }
+  ],
+  "metadata": {
+    "description": "Lactic's plugin for Claude: coach your cycling training from the Lactic app on your computer."
+  }
+}

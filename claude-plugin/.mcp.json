@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lactic": {
+      "command": "sh",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/lactic-mcp.sh"]
+    }
+  }
+}
