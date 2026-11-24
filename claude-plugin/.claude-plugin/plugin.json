@@ -1,0 +1,28 @@
+{
+  "name": "lactic",
+  "displayName": "Lactic",
+  "version": "0.1.0",
+  "description": "Coach your cycling training from Claude with Lactic, the open-source training app on your computer. Claude reads your plan, rides, fitness and recovery from Lactic and suggests changes you apply in Lactic. Your data stays on your computer.",
+  "author": {
+    "name": "Lactic",
+    "url": "https://lactic.fit",
+    "email": "help@lactic.fit"
+  },
+  "homepage": "https://lactic.fit",
+  "repository": "https://github.com/blairj09/lactic",
+  "license": "MIT",
+  "keywords": [
+    "cycling",
+    "training",
+    "coach",
+    "fitness",
+    "power",
+    "ftp",
+    "local"
+  ],
+  "network": {
+    "hosts": [
+      "127.0.0.1"
+    ]
+  }
+}

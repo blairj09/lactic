@@ -55,12 +55,31 @@ const CARD_ACTION = {
   _meta: { ui: { resourceUri: CARD_URI, visibility: ["app"] } },
 };
 
+/** Tools that only look: everything named get_, list_ or read_, plus these. */
+const LOOKS = new Set(["check_app", "test_connection", "plugin_guide"]);
+/** Tools that can take something away: a remembered fact, or a card's Apply (which may replace a plan). */
+const REMOVES = new Set(["forget", CARD_ACTION_TOOL]);
+/** Tools that talk to a service beyond Lactic (intervals.icu). */
+const REACHES_OUT = new Set(["sync_now", "test_connection"]);
+
+/** MCP tool annotations, so an AI app knows which tools only read and can ask before the rest. */
+export function annotationsFor(name: string) {
+  const title = (name.charAt(0).toUpperCase() + name.slice(1)).replaceAll("_", " ");
+  const readOnly = /^(get|list|read)_/.test(name) || LOOKS.has(name);
+  return { title, readOnlyHint: readOnly, destructiveHint: !readOnly && REMOVES.has(name), openWorldHint: REACHES_OUT.has(name) };
+}
+
+const annotate = <T extends { name: string }>(t: T) => {
+  const annotations = annotationsFor(t.name);
+  return { ...t, title: (t as { title?: string }).title ?? annotations.title, annotations };
+};
+
 /** The tools in MCP's shape. With `ui`, for an AI app that shows cards. */
 export function mcpTools(ui = false) {
   const fromFn = (t: FnTool) => ({ name: t.function.name, description: t.function.description, inputSchema: t.function.parameters });
   const tools: { name: string; description: string; inputSchema: unknown; _meta?: unknown }[] = [OVERVIEW, ...forFeatures(TOOLS as FnTool[], features()).map(fromFn), ...(MEMORY_TOOLS as FnTool[]).map(fromFn), ...(appTools()?.tools ?? []).filter((t) => !CHAT_ONLY_TOOLS.includes(t.function.name)).map(fromFn)];
-  if (!ui) return tools;
-  return [...tools.map((t) => (CARD_TOOLS(t.name) ? { ...t, _meta: CARD_META } : t)), CARD_ACTION];
+  if (!ui) return tools.map(annotate);
+  return [...tools.map((t) => (CARD_TOOLS(t.name) ? { ...t, _meta: CARD_META } : t)), CARD_ACTION].map(annotate);
 }
 
 const text = (s: string, isError = false) => ({ content: [{ type: "text", text: s }], ...(isError ? { isError: true } : {}) });
