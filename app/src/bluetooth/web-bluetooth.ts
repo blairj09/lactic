@@ -319,11 +319,20 @@ export function grant(id: string, name: string | null): BluetoothDevice {
   return deviceFor(id, name) as unknown as BluetoothDevice;
 }
 
+/**
+ * Chrome's own Web Bluetooth, kept when the website demo (lactic.fit) puts Lactic's in place for its
+ * simulated gear: there, pairing opens Chrome's picker so a visitor can ride their own trainer.
+ */
+let native: Bluetooth | null = null;
+/** True when pairing reaches real gear through Chrome (the website demo in Chrome or Edge). */
+export const hasChromeBluetooth = () => native !== null;
+
 const bluetooth = {
   async getAvailability() {
-    return (await ble().available()).available || simEnabled();
+    return (await ble().available()).available || simEnabled() || native !== null;
   },
   async requestDevice(options: RequestOptions = {}) {
+    if (native) return native.requestDevice(options as RequestDeviceOptions);
     if (!picker) throw notFound("No device picker");
     ble();
     const choice = await picker(options);
@@ -332,16 +341,22 @@ const bluetooth = {
   },
   async getDevices() {
     ble();
-    return readGranted()
+    const own = readGranted()
       .filter((g) => !g.id.startsWith("sim:") || simEnabled())
       .map((g) => deviceFor(g.id, g.name) as unknown as BluetoothDevice);
+    const chrome = native?.getDevices ? await native.getDevices().catch(() => []) : [];
+    return [...own, ...chrome];
   },
   addEventListener() {},
   removeEventListener() {},
 };
 
-/** Puts navigator.bluetooth in place (once, at boot). */
-export async function installWebBluetooth() {
+/**
+ * Puts navigator.bluetooth in place (once, at boot). `keepChrome` (the website demo) keeps Chrome's
+ * Bluetooth, where there is one, for pairing real gear beside the simulated.
+ */
+export async function installWebBluetooth({ keepChrome = false } = {}) {
+  if (keepChrome && typeof navigator !== "undefined" && navigator.bluetooth && navigator.bluetooth !== (bluetooth as unknown as Bluetooth)) native = navigator.bluetooth;
   await loadSim().catch(() => undefined);
   window.addEventListener("lactic:settings", (e) => {
     if ((e as CustomEvent).detail === SIM_SETTING) void loadSim();
