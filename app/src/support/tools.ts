@@ -47,6 +47,7 @@ import { createPluginWorker } from "~/plugins/spawn";
 import { onPhone, pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { logEvent, recentEvents, type LogArea } from "./log";
 import { applyLayout, getLayout, listPlugins, pluginMetric, proposeLayoutChange } from "./layout-tools";
+import { appHistoryReport } from "~/history/report";
 
 const TRY_TOOLS = new Set(["test_connection", "sync_now", "reconnect_device", "scan_for_devices", "propose_app_change", "propose_layout_change"]);
 
@@ -59,6 +60,7 @@ const STATUS: Record<string, string> = {
   propose_app_change: "Drafting a settings change",
   set_appearance: "Changing the theme",
   get_layout: "Looking at your layout",
+  get_app_history: "Looking at App history",
   propose_layout_change: "Drafting a layout change",
   list_plugins: "Looking at your plugins",
   read_plugin_metric: "Reading a plugin",
@@ -454,6 +456,8 @@ export async function runSupportTool(name: string, args: Record<string, unknown>
         return out(setAppearance(args.theme));
       case "get_layout":
         return out(await getLayout());
+      case "get_app_history":
+        return out(await appHistoryReport(args));
       case "propose_layout_change":
         return await proposeLayoutChange(args);
       case "list_plugins":

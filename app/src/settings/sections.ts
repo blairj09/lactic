@@ -32,7 +32,7 @@ export const SECTIONS: SectionInfo[] = [
   { id: "health", label: "Health", line: "What you track, and where it comes from." },
   { id: "phone", label: "Phone", line: "Lactic on your phone, synced over Wi-Fi." },
   { id: "plugins", label: "Plugins", line: "Ride fields and ride page sections. No internet, and they read only what you allow." },
-  { id: "data", label: "Your data", line: "Back it up, take it anywhere, or delete it." },
+  { id: "data", label: "Your data", line: "Back it up, see what changed, take it anywhere, or delete it." },
   { id: "experimental", label: "Experimental", line: "New things we're still trying out.", more: true },
   { id: "help", label: "Help and about", line: "Tour, feedback and your version.", more: true },
 ];
@@ -54,6 +54,8 @@ const ALIASES: Record<string, SectionId> = {
   tour: "help",
   feedback: "help",
   about: "help",
+  "app-history": "data",
+  "app-history-plugins": "data",
 };
 
 /** The section an anchor or ?section= value opens, or null for the menu. */

@@ -7,6 +7,7 @@
 
 import { LOCAL_USER, TABLES, type Column, type Table } from "./schema";
 import { sql, type Row, type SqlValue } from "./sql";
+import { dependentRows, noteRows, recording, rereadRows } from "~/history/changes";
 
 export interface PgError {
   message: string;
@@ -514,7 +515,16 @@ export class Query<T = unknown> implements PromiseLike<Result<T>> {
           else text += ` ON CONFLICT (${target.map(q).join(", ")}) DO UPDATE SET ${sets.join(", ")}`;
         }
         const values = Object.values(prepared);
+        // App history: the row this write lands on, before and after.
+        const record = recording(this.name);
+        const at = target.filter((k) => k in prepared);
+        const lookup = at.length === target.length ? ` WHERE ${at.map((k) => `${q(k)} = ?`).join(" AND ")}` : null;
+        const before = record && this.op === "upsert" && lookup ? await db.select(`SELECT * FROM ${q(this.name)}${lookup}`, at.map((k) => prepared[k])) : [];
         const returned = await db.select(`${text} RETURNING *`, values);
+        if (record) {
+          const after = lookup && this.op === "upsert" ? await db.select(`SELECT * FROM ${q(this.name)}${lookup}`, at.map((k) => prepared[k])) : returned;
+          noteRows(this.name, before, after);
+        }
         out.push(...returned.map((r) => decodeRow(t, r)));
       }
       return { rows: out, count: out.length };
@@ -525,11 +535,22 @@ export class Query<T = unknown> implements PromiseLike<Result<T>> {
       const cols = Object.keys(prepared);
       if (!cols.length) return { rows: [], count: 0 };
       const [w, p] = this.whereSql();
+      const record = recording(this.name);
+      const before = record ? await db.select(`SELECT * FROM ${q(this.name)}${w}`, p) : [];
       const returned = await db.select(`UPDATE ${q(this.name)} SET ${cols.map((c) => `${q(c)} = ?`).join(", ")}${w} RETURNING *`, [...Object.values(prepared), ...p]);
+      if (record) noteRows(this.name, before, returned);
       return { rows: returned.map((r) => decodeRow(t, r)), count: returned.length };
     }
     const [w, p] = this.whereSql();
+    const record = recording(this.name);
+    const before = record ? await db.select(`SELECT * FROM ${q(this.name)}${w}`, p) : [];
+    // Rows pointing at these go (or lose the link) with them; noted so an undo brings them back.
+    const deps = record ? await dependentRows(this.name, before) : [];
     const returned = await db.select(`DELETE FROM ${q(this.name)}${w} RETURNING *`, p);
+    if (record) {
+      noteRows(this.name, before, []);
+      for (const d of deps) noteRows(d.table, d.rows, await rereadRows(d.table, d.rows));
+    }
     return { rows: returned.map((r) => decodeRow(t, r)), count: returned.length };
   }
 

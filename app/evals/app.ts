@@ -93,6 +93,8 @@ async function run(state: AppState, name: string, args: Record<string, unknown>)
         const proposal: Proposal = { change: { kind: "app", setting }, summary, reason: typeof args.reason === "string" ? args.reason : "", status: "pending" };
         return { content: JSON.stringify({ proposed: summary, note: "Shown to the athlete with an Apply button. Nothing changes until they press it." }), proposal };
       }
+      case "get_app_history":
+        return out({ days: 14, changes: [], note: "Newest first." });
       case "get_layout":
         return out(layoutReport(parseLayout(state.layout ?? null), layoutContext()));
       case "propose_layout_change": {

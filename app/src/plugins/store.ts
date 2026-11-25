@@ -2,6 +2,7 @@
 // approvals (plugin_grants) and the numbers plugins publish (plugin_values). Every manifest read
 // back is checked again, so a row edited by hand, by sync or by a restored backup can't skip the gate.
 import { sql, type Row } from "~/db/sql";
+import { captureAround, recordChange, setChangeTitle, type ChangeMeta } from "~/history/changes";
 import type { MetricGroup } from "@shared/sdk";
 import { packageHashText, validateManifest, type PluginManifest } from "./manifest";
 import { deviceId } from "./device";
@@ -137,10 +138,12 @@ export async function draftIsAdded(file: string): Promise<boolean> {
 
 /** Add a new plugin, approved and switched on for this device with the rider's choices. */
 export async function installPlugin(pkg: PluginPackage, choices: InstallChoices = {}, origin: string | null = null) {
-  if (await getPlugin(pkg.manifest.id)) throw new Error(`${pkg.manifest.name} is already added; add it as an update instead`);
-  await savePackage(pkg, origin);
-  await saveGrant(pkg.manifest.id, { sha256: pkg.sha256, read: grantedGroups(pkg.manifest, choices), enabled: true, coachVisible: choices.coachVisible === true, switchedOff: null });
-  notify();
+  return tracked(pkg.manifest.id, { title: `Added ${pkg.manifest.name}` }, async () => {
+    if (await getPlugin(pkg.manifest.id)) throw new Error(`${pkg.manifest.name} is already added; add it as an update instead`);
+    await savePackage(pkg, origin);
+    await saveGrant(pkg.manifest.id, { sha256: pkg.sha256, read: grantedGroups(pkg.manifest, choices), enabled: true, coachVisible: choices.coachVisible === true, switchedOff: null });
+    notify();
+  });
 }
 
 /**
@@ -149,53 +152,71 @@ export async function installPlugin(pkg: PluginPackage, choices: InstallChoices 
  * With no approval on this device yet, the screen shows the full permission list instead.
  */
 export async function updatePlugin(pkg: PluginPackage, choices: InstallChoices = {}, origin: string | null = null) {
-  const current = await getPlugin(pkg.manifest.id);
-  if (!current) throw new Error("That plugin isn't added");
-  await savePackage(pkg, origin);
-  await saveGrant(pkg.manifest.id, updatedGrant(current.grant, pkg.manifest, pkg.sha256, choices));
-  notify();
+  return tracked(pkg.manifest.id, { title: `Updated ${pkg.manifest.name} to ${pkg.manifest.version}` }, async () => {
+    const current = await getPlugin(pkg.manifest.id);
+    if (!current) throw new Error("That plugin isn't added");
+    await savePackage(pkg, origin);
+    await saveGrant(pkg.manifest.id, updatedGrant(current.grant, pkg.manifest, pkg.sha256, choices));
+    notify();
+  });
 }
 
 /** Approve a plugin on this device: one that came by sync or a backup, or a changed package. Same screen as install. */
 export async function approvePlugin(pluginId: string, choices: InstallChoices = {}) {
-  const p = await getPlugin(pluginId);
-  if (!p) throw new Error("That plugin isn't added");
-  await saveGrant(pluginId, { sha256: p.sha256, read: grantedGroups(p.manifest, choices), enabled: true, coachVisible: choices.coachVisible === true, switchedOff: null });
-  notify();
+  return tracked(pluginId, {}, async () => {
+    const p = await getPlugin(pluginId);
+    if (!p) throw new Error("That plugin isn't added");
+    setChangeTitle(`Approved ${p.manifest.name}`);
+    await saveGrant(pluginId, { sha256: p.sha256, read: grantedGroups(p.manifest, choices), enabled: true, coachVisible: choices.coachVisible === true, switchedOff: null });
+    notify();
+  });
 }
 
 /** Switch on or off on this device. Switching on needs this exact package approved here first. */
 export async function setPluginEnabled(pluginId: string, enabled: boolean) {
-  const p = await getPlugin(pluginId);
-  if (!p?.grant || p.grant.sha256 !== p.sha256) throw new Error("Approve this plugin on this device first");
-  await saveGrant(pluginId, { ...p.grant, enabled, switchedOff: null });
-  notify();
+  return tracked(pluginId, {}, async () => {
+    const p = await getPlugin(pluginId);
+    if (!p?.grant || p.grant.sha256 !== p.sha256) throw new Error("Approve this plugin on this device first");
+    setChangeTitle(`Turned ${enabled ? "on" : "off"} ${p.manifest.name}`);
+    await saveGrant(pluginId, { ...p.grant, enabled, switchedOff: null });
+    notify();
+  });
 }
 
 export async function setCoachVisible(pluginId: string, coachVisible: boolean) {
-  const p = await getPlugin(pluginId);
-  if (!p?.grant) throw new Error("Approve this plugin on this device first");
-  await saveGrant(pluginId, { ...p.grant, coachVisible });
-  notify();
+  return tracked(pluginId, {}, async () => {
+    const p = await getPlugin(pluginId);
+    if (!p?.grant) throw new Error("Approve this plugin on this device first");
+    setChangeTitle(coachVisible ? `Let Coach see ${p.manifest.name}'s numbers` : `Hid ${p.manifest.name}'s numbers from Coach`);
+    await saveGrant(pluginId, { ...p.grant, coachVisible });
+    notify();
+  });
 }
 
 /** Lactic switched the plugin off (crashes, running late). It stays off until the rider turns it on again. */
 export async function markSwitchedOff(pluginId: string, reason: string) {
-  const p = await getPlugin(pluginId);
-  if (!p?.grant) return;
-  await saveGrant(pluginId, { ...p.grant, enabled: false, switchedOff: reason.slice(0, 200) });
-  notify();
+  return tracked(pluginId, { author: "lactic" }, async () => {
+    const p = await getPlugin(pluginId);
+    if (!p?.grant) return;
+    setChangeTitle(`Turned off ${p.manifest.name}: ${reason.slice(0, 120)}`);
+    await saveGrant(pluginId, { ...p.grant, enabled: false, switchedOff: reason.slice(0, 200) });
+    notify();
+  });
 }
 
 /** Remove a plugin and everything it published, on every device. Its ride fields become placeholders (review U12). */
 export async function removePlugin(pluginId: string) {
-  await sql().batch([
-    { sql: `DELETE FROM plugin_values WHERE plugin_id = ?`, params: [pluginId] },
-    { sql: `DELETE FROM plugin_analyses WHERE plugin_id = ?`, params: [pluginId] },
-    { sql: `DELETE FROM plugin_grants WHERE plugin_id = ?`, params: [pluginId] },
-    { sql: `DELETE FROM plugins WHERE plugin_id = ?`, params: [pluginId] },
-  ]);
-  notify();
+  return tracked(pluginId, {}, async () => {
+    const p = await getPlugin(pluginId);
+    setChangeTitle(`Removed ${p?.manifest.name ?? pluginId}`);
+    await sql().batch([
+      { sql: `DELETE FROM plugin_values WHERE plugin_id = ?`, params: [pluginId] },
+      { sql: `DELETE FROM plugin_analyses WHERE plugin_id = ?`, params: [pluginId] },
+      { sql: `DELETE FROM plugin_grants WHERE plugin_id = ?`, params: [pluginId] },
+      { sql: `DELETE FROM plugins WHERE plugin_id = ?`, params: [pluginId] },
+    ]);
+    notify();
+  });
 }
 
 /**
@@ -233,6 +254,12 @@ export async function recordValues(pluginId: string, values: Record<string, numb
 export async function readValues(metric: string, from: string, to: string): Promise<{ date: string; rideId?: string; value: number | string }[]> {
   const rows = await sql().select(`SELECT day, activity_id, value, choice FROM plugin_values WHERE metric = ? AND day >= ? AND day <= ? ORDER BY day, created_at`, [metric, from, to]);
   return rows.map((r) => ({ date: String(r.day), ...(r.activity_id ? { rideId: String(r.activity_id) } : {}), value: r.choice !== null && r.choice !== undefined ? String(r.choice) : Number(r.value) }));
+}
+
+/** Runs a change to one plugin as an App history entry, with its package and approval rows before and after. */
+function tracked<T>(pluginId: string, meta: ChangeMeta, work: () => Promise<T>): Promise<T> {
+  const rows = (table: string) => ({ table, where: "plugin_id = ?", params: [pluginId] });
+  return recordChange({ pluginId, ...meta }, () => captureAround([rows("plugins"), rows("plugin_grants")], work));
 }
 
 /** Screens listen for "lactic:plugins" to refresh. */

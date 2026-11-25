@@ -12,12 +12,14 @@ import { loadGoals } from "@/lib/training";
 import { createClient } from "@/lib/supabase/server";
 import { measureRiderDrag } from "@/lib/calibration";
 import type { ActionResult } from "../actions";
+import { recordChange } from "~/history/changes";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function attempt(work: () => Promise<string>): Promise<ActionResult> {
+/** Runs an action as one App history entry (src/history), unless `record` is false. */
+async function attempt(work: () => Promise<string>, record = true): Promise<ActionResult> {
   try {
-    const message = await work();
+    const message = record ? await recordChange({}, work) : await work();
     revalidatePath("/", "layout");
     return { ok: true, message };
   } catch (e) {
@@ -65,7 +67,7 @@ export async function updateForecast(goalId: string): Promise<ActionResult> {
     const { error } = await refreshForecast(supabase, course, goal.date, localDate(new Date(), athlete.timezone), true);
     if (error) throw new Error(`Couldn't get the forecast: ${error}`);
     return "Forecast updated.";
-  });
+  }, false);
 }
 
 /** Sets the event's expected duration to the course's estimate, so the plan's long rides and taper fit it. */

@@ -54,6 +54,11 @@ export function friendlyName(client: string | null | undefined): string {
   return "AI app";
 }
 
+/** The friendly name of the AI app that last read from Lactic, for App history. */
+export async function lastAppName(): Promise<string> {
+  return friendlyName((await getSetting<LastSeen | null>(KEY, null))?.client);
+}
+
 let lastWrite = 0;
 
 /** Records an AI app's request. Writes at most once a minute, unless the app changed. */
