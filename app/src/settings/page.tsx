@@ -44,6 +44,7 @@ import { sameLayout } from "@/lib/sdk/layout-editor";
 import { LayoutSetting } from "./layout-panel";
 import { PluginsSettings } from "./plugins-settings";
 import { pluginsAllowed } from "~/plugins/use-plugin-tab";
+import { AppHistory } from "~/history/history-panel";
 
 export default async function SettingsPage() {
   const supabase = createClient();
@@ -292,6 +293,16 @@ export default async function SettingsPage() {
       node: (
         <Section>
           <DataPanel />
+        </Section>
+      ),
+    },
+    {
+      key: "app-history",
+      section: "data",
+      text: "App history change log undo who changed what plan settings plugins coach",
+      node: (
+        <Section id="app-history" title="App history" description="Changes to your plan, settings, workouts and plugins, and who made them. Undo any of them.">
+          <AppHistory />
         </Section>
       ),
     },

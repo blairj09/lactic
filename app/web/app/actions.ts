@@ -23,6 +23,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatWeight, readUnits } from "@/lib/units";
 import { readAdaptations } from "@/lib/ride/adapt";
 import { deleteSecret, placeholder, saveSecret, SECRET_INTERVALS } from "~/platform/secrets";
+import { recordChange } from "~/history/changes";
 
 export type ActionResult = { ok: true; message: string } | { ok: false; message: string };
 
@@ -32,9 +33,10 @@ function refresh() {
   revalidatePath("/", "layout");
 }
 
-async function attempt(work: () => Promise<string>): Promise<ActionResult> {
+/** Runs an action as one App history entry (src/history), unless `record` is false. */
+async function attempt(work: () => Promise<string>, record = true): Promise<ActionResult> {
   try {
-    return { ok: true, message: await work() };
+    return { ok: true, message: record ? await recordChange({}, work) : await work() };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

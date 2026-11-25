@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FINISH_SETUP_DONE, markSetupDone, setupDone } from "./finish-setup";
+import { FINISH_SETUP_DONE, laterSteps, markSetupDone, setupDone } from "./finish-setup";
 
 describe("finish setup", () => {
   it("counts saved steps, and rides once there are any", () => {
@@ -7,6 +7,12 @@ describe("finish setup", () => {
       "week",
     ]);
     expect(setupDone([], { hasRides: true }).has("rides")).toBe(true);
+    expect(setupDone([], { hasRides: false, phonePaired: true }).has("phone")).toBe(true);
+  });
+
+  it("offers pairing a phone only on a computer", () => {
+    expect(laterSteps(true).map((s) => s.id)).toContain("phone");
+    expect(laterSteps(false).map((s) => s.id)).not.toContain("phone");
   });
 
   it("ticks a step off once", async () => {

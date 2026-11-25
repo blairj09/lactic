@@ -31,6 +31,7 @@ import { features } from "./features";
 import { loadDaytime } from "./daytime-data";
 import { exertionNormal, type DayExertion, type ExertionNormal } from "./engine/exertion";
 import type { createClient } from "./supabase/server";
+import { outsideHistory } from "~/history/changes";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -329,8 +330,10 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
   const rebuiltWeek = enginePlan.weeks[0]?.start === weekStart(today) ? enginePlan.weeks[0].days : null;
   let kept: KeptWeek | null = keptRow && keptRow.inputs === planInputs ? keptRow : null;
   if (!kept && rebuiltWeek) {
-    kept = { week: weekStart(today), days: rebuiltWeek, inputs: planInputs };
-    await saveKeptWeek(supabase, athlete.userId, kept);
+    const fresh: KeptWeek = { week: weekStart(today), days: rebuiltWeek, inputs: planInputs };
+    kept = fresh;
+    // Kept on load, not a change anyone made: left out of App history.
+    await outsideHistory(() => saveKeptWeek(supabase, athlete.userId, fresh));
   }
   const drift = kept && rebuiltWeek ? weekDrift(kept.days, rebuiltWeek, today) : null;
   const stablePlan = keepWeek(enginePlan, kept, today, yesterday);
@@ -350,7 +353,7 @@ export async function loadTrainingState(supabase: Supabase): Promise<TrainingSta
     yesterday,
   );
   const basePlan = refit.plan;
-  if (refit.moves.length) await saveMoves(supabase, athlete.userId, refit.moves);
+  if (refit.moves.length) await outsideHistory(() => saveMoves(supabase, athlete.userId, refit.moves));
   // Days changed through the coach: today and later rows hold the session to ride (chosen at check-in, else planned).
   const overrides = ahead.map((d) => ({ date: d.day, session: d.chosen ? d.chosen.session : d.planned }));
   const plan = applyOverrides(basePlan, overrides, today, yesterday);

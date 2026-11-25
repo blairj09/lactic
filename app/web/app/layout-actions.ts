@@ -8,6 +8,7 @@ import { deleteSavedLayout, listSavedLayouts, loadLayout, resetLayout, restoreLa
 import { setCurrentTabs } from "@/lib/layout-tabs";
 import { parseLayout, type Layout } from "@/lib/sdk/layout";
 import { createClient } from "@/lib/supabase/server";
+import { recordChange } from "~/history/changes";
 
 async function changed() {
   setCurrentTabs((await loadLayout(await createClient())).tabs);
@@ -15,14 +16,18 @@ async function changed() {
 }
 
 export async function saveLayoutAction(layout: Layout): Promise<void> {
-  await saveLayout(await createClient(), parseLayout(layout));
-  await changed();
+  return recordChange({}, async () => {
+    await saveLayout(await createClient(), parseLayout(layout));
+    await changed();
+  });
 }
 
 export async function resetLayoutAction(): Promise<{ kept: boolean }> {
-  const result = await resetLayout(await createClient());
-  await changed();
-  return result;
+  return recordChange({}, async () => {
+    const result = await resetLayout(await createClient());
+    await changed();
+    return result;
+  });
 }
 
 export async function savedLayoutsAction(): Promise<SavedLayout[]> {
@@ -30,11 +35,15 @@ export async function savedLayoutsAction(): Promise<SavedLayout[]> {
 }
 
 export async function restoreLayoutAction(id: string): Promise<void> {
-  await restoreLayout(await createClient(), id);
-  await changed();
+  return recordChange({}, async () => {
+    await restoreLayout(await createClient(), id);
+    await changed();
+  });
 }
 
 export async function deleteSavedLayoutAction(id: string): Promise<void> {
-  await deleteSavedLayout(await createClient(), id);
-  revalidatePath("/settings");
+  return recordChange({}, async () => {
+    await deleteSavedLayout(await createClient(), id);
+    revalidatePath("/settings");
+  });
 }

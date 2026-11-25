@@ -19,7 +19,8 @@ import { CHAT_ONLY_TOOLS } from "~/support/definitions";
 import { CARD_ACTION_TOOL, CARD_MIME, CARD_URI, safePath, type Card, type CardAction } from "./card-data";
 import { fitnessCard, rideCard } from "./cards";
 import { decideProposal, loadProposal, PROPOSALS_CHANGED } from "./proposals";
-import { recordSeen } from "./status";
+import { lastAppName, recordSeen } from "./status";
+import { recordChange } from "~/history/changes";
 
 export { PROPOSALS_CHANGED };
 
@@ -129,7 +130,7 @@ export async function callTool(name: string, args: Record<string, unknown>, ui =
   if (name === "get_overview") return text(JSON.stringify({ ...status(data!), memory: data!.memory }));
   const result = isApp ? await app!.run(name, args ?? {}, { via: "mcp" }) : runTool(data!, name, args ?? {});
   if (result.proposal) {
-    const { data: row, error } = await supabase.from("coach_proposals").insert({ source: "mcp", proposal: result.proposal }).select("id").single();
+    const { data: row, error } = await supabase.from("coach_proposals").insert({ source: "mcp", client: await lastAppName(), proposal: result.proposal }).select("id").single();
     if (error) return text(`Couldn't save the proposal: ${error.message}`, true);
     globalThis.dispatchEvent?.(new Event(PROPOSALS_CHANGED));
     const where = ui ? "on a card here and in Lactic" : "in Lactic";
@@ -137,7 +138,7 @@ export async function callTool(name: string, args: Record<string, unknown>, ui =
     return withCard(text(`${result.content}\nThe rider sees this ${where} with Apply and Dismiss. Nothing changes until they apply it.`), card);
   }
   if (result.memory) {
-    await applyMemory(supabase, [result.memory]);
+    await recordChange({ author: "ai_app", client: await lastAppName() }, () => applyMemory(supabase, [result.memory!]));
     revalidatePath("/");
   }
   const failed = result.content.startsWith("Error:");

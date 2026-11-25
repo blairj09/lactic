@@ -11,10 +11,12 @@ import { pushChangedPlan, writeDays } from "@/lib/plan-changes";
 import { loadTrainingState } from "@/lib/training";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "../actions";
+import { recordChange, setChangeTitle, type ChangeMeta } from "~/history/changes";
 
-async function attempt(work: () => Promise<string>): Promise<ActionResult> {
+/** Runs an action as one App history entry (src/history); `meta` says who made it. */
+async function attempt(work: () => Promise<string>, meta: ChangeMeta = {}): Promise<ActionResult> {
   try {
-    const message = await work();
+    const message = await recordChange(meta, work);
     revalidatePath("/", "layout");
     return { ok: true, message };
   } catch (e) {
@@ -31,6 +33,8 @@ export async function applyChange(supabase: Awaited<ReturnType<typeof createClie
   }
   const state = await loadTrainingState(supabase);
   const effect = resolveChange(state, change);
+  // App history names the entry as the proposal did.
+  setChangeTitle(effect.summary.charAt(0).toUpperCase() + effect.summary.slice(1));
 
   if (effect.kind === "break") {
     const b = effect.break;
@@ -116,7 +120,7 @@ export async function applyProposal(messageId: string, index: number): Promise<A
     const done = await applyChange(supabase, proposal.change);
     await saveProposals(supabase, messageId, message.proposals.map((p, i) => (i === index ? { ...p, status: "applied" } : p)));
     return done;
-  });
+  }, { author: "coach", toast: true });
 }
 
 /**

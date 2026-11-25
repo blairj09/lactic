@@ -96,11 +96,11 @@ Write your own with the [starter and SDK](plugins/), or hand [AI-GUIDE.md](plugi
 | **An AI app you already use** | Lactic runs an MCP server on your computer. One click adds it to Claude Desktop; any MCP app can connect. Apps that show MCP Apps, like Claude Desktop, get Lactic cards in the chat: workout suggestions to apply, rides and fitness charts. In Claude Code and Cowork, add the [Lactic plugin](claude-plugin/): `/plugin install lactic --marketplace blairj09/lactic`. |
 | **None** | The plan, the workouts and your numbers. Nothing leaves your computer. |
 
-The coach reads the engine's numbers through tools and **suggests** changes: a workout (with its chart), a move or swap, an event, or a new or changed plan. Its card lists what changes, and nothing changes until you press **Apply**. Keys live in your OS keychain. Cloud models stop at a monthly limit you set (default $10). See [choosing a coach model](docs/coach-models.md).
+The coach reads the engine's numbers through tools and **suggests** changes: a workout (with its chart), a move or swap, an event, or a new or changed plan. Its card lists what changes, and nothing changes until you press **Apply**. **App history** (Settings → Your data) lists every change to your plan, settings, workouts and plugins, who made it (you, the coach, an AI app or Lactic), and lets you undo any of them. Keys live in your OS keychain. Cloud models stop at a monthly limit you set (default $10). See [choosing a coach model](docs/coach-models.md).
 
 ### On your phone
 
-**Lactic for iPhone** ([TestFlight beta](https://testflight.apple.com/join/nDjt8pAG)) reads Apple Health, runs rides on the trainer or acts as the remote for your computer's ride, and adds widgets, a Live Activity and an Apple Watch app. It pairs with your computer by QR code and syncs over your home Wi-Fi, encrypted, with no server in between. Android is on the way.
+**Lactic for iPhone** ([TestFlight beta](https://testflight.apple.com/join/nDjt8pAG)) reads Apple Health, runs rides on the trainer or acts as the remote for your computer's ride, and adds widgets, a Live Activity and an Apple Watch app. It pairs with your computer by QR code, during first-time setup or later in Settings, and syncs over your home Wi-Fi, encrypted, with no server in between. Android is on the way.
 
 ![Lactic on iPhone: Today and a ride](docs/images/phone.png)
 
