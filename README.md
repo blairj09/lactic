@@ -67,7 +67,7 @@ Fitness, fatigue and form. FTP from critical power, your power curve and profile
 
 ### Recovery from the watch you already wear
 
-A daily recovery score from sleep, HRV and resting heart rate, plus sleep stages, exertion and weight.
+A daily recovery score from sleep, HRV and resting heart rate, plus sleep stages, exertion and weight. Every ride with hard efforts shows how fast your heart rate drops in the minute after each one, against your usual.
 
 ![Health: recovery, HRV, resting heart rate, sleep and exertion](docs/images/health.png)
 

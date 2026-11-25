@@ -26,6 +26,13 @@ describe("rideDebrief", () => {
     expect(d.efforts[0]).toMatchObject({ targetWatts: 252, watts: 251, check: "on" });
     expect(d.efforts[1]).toMatchObject({ targetWatts: 252, watts: 231, check: "under" });
     expect(d.felt?.difficulty).toBe("Very hard");
+    expect(d.heartRateRecovery).toBeNull();
+  });
+
+  it("carries heart rate recovery against the usual", () => {
+    const recovery = { ride: { drop: 22, efforts: [{ from: 600, to: 1800, watts: 251, peak: 170, after: 148, drop: 22 }] }, usual: { drop: 30, rides: 6 } };
+    const d = rideDebrief(ride, null, null, null, [], recovery);
+    expect(d.heartRateRecovery).toEqual({ drop: 22, efforts: 1, usual: 30, against: "slower" });
   });
 
   it("scores a ride from elsewhere by its totals, and an unplanned one not at all", () => {
