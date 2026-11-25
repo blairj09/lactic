@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { renderSVG } from "uqr";
 import { button, Pill, Result } from "@/components/ui";
 import { localDate } from "@/lib/engine/activity";
-import { invoke, listen, os, phoneHealthName, phoneWord } from "~/platform/native";
+import { invoke, listen, openExternal, os, phoneHealthName, phoneWord } from "~/platform/native";
 import { getSetting, setSetting } from "~/settings/store";
 import { connectHealth, healthError, syncPhoneHealth, WRITE_RIDES } from "./health";
 import { updateWidget, WIDGET_STATUS, type WidgetStatus } from "./widget";
@@ -43,9 +43,13 @@ export function ago(ms: number | null | undefined): string {
   return new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+/** Where to get the iPhone app while it's in beta. */
+const IPHONE_BETA = "https://testflight.apple.com/join/nDjt8pAG";
+
 // --- on the computer -------------------------------------------------------------------------------
 
-export function PairPhone() {
+/** `first`: in first-run setup, where the code shows right away and has a link to get the app. */
+export function PairPhone({ first = false }: { first?: boolean } = {}) {
   const [status, setStatus] = useState<ComputerStatus | null>(null);
   const [offer, setOffer] = useState<Offer | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,10 +65,12 @@ export function PairPhone() {
       refresh();
     });
     const timer = setInterval(() => tick((n) => n + 1), 15_000);
+    if (first) void start();
     return () => {
       void stop.then((s) => s());
       clearInterval(timer);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on open
   }, []);
 
   useEffect(() => {
@@ -95,6 +101,22 @@ export function PairPhone() {
     refresh();
   }
 
+  const trouble = offer && (
+    <> In the browser on your phone, open{" "}
+              {offer.hosts
+                .filter((h) => /^\d/.test(h))
+                .map((h, i) => (
+                  <span key={h}>
+                    {i > 0 && " or "}
+                    <span className="num select-all font-medium text-ink">
+                      http://{h}:{offer.port}/lactic/phone
+                    </span>
+                  </span>
+                ))}
+              . If it says Lactic is here, the network's fine. If it can't connect, check your Mac's firewall (System Settings → Network → Firewall) lets Lactic accept connections, and that the phone's address (in its Wi-Fi settings) starts with the same numbers as the one above. If not, they're on different networks, often from two routers or a guest Wi-Fi.
+            </>
+  );
+
   return (
     <div className="space-y-4 sm:col-span-2">
       {status?.devices.length ? (
@@ -112,7 +134,7 @@ export function PairPhone() {
           ))}
         </ul>
       ) : null}
-      {paired && <Result ok>{paired} is paired. It's bringing your data across now.</Result>}
+      {paired && <Result ok>{paired} is paired. {first ? "Your plan and settings are on their way to it." : "It's bringing your data across now."}</Result>}
       {offer ? (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
           {/* A QR code needs dark on light, in either theme. */}
@@ -123,24 +145,29 @@ export function PairPhone() {
               <li>Tap <span className="font-medium">Pair with your computer</span> (or Settings → Your computer).</li>
               <li>Scan this code. {os() === "macos" ? "Keep your phone near this Mac with Wi-Fi on. An iPhone doesn't need to be on the same network." : "Your phone needs to be on the same Wi-Fi as this computer."}</li>
             </ol>
+            {first && (
+              <p>
+                No app yet?{" "}
+                <button type="button" className="font-medium underline underline-offset-2" onClick={() => void openExternal(IPHONE_BETA)}>
+                  Get Lactic for iPhone
+                </button>{" "}
+                (TestFlight beta).
+              </p>
+            )}
             <p className="text-muted">The code works for 10 minutes and only once. Everything between the two goes straight from one to the other, encrypted.</p>
-            <p className="text-muted">
-              Not connecting? In the browser on your phone, open{" "}
-              {offer.hosts
-                .filter((h) => /^\d/.test(h))
-                .map((h, i) => (
-                  <span key={h}>
-                    {i > 0 && " or "}
-                    <span className="num select-all font-medium text-ink">
-                      http://{h}:{offer.port}/lactic/phone
-                    </span>
-                  </span>
-                ))}
-              . If it says Lactic is here, the network's fine. If it can't connect, check your Mac's firewall (System Settings → Network → Firewall) lets Lactic accept connections, and that the phone's address (in its Wi-Fi settings) starts with the same numbers as the one above. If not, they're on different networks, often from two routers or a guest Wi-Fi.
-            </p>
-            <button type="button" className={button.secondary} onClick={() => void cancel()}>
-              Cancel
-            </button>
+            {first ? (
+              <details className="text-muted">
+                <summary className="cursor-pointer">Not connecting?</summary>
+                <div className="mt-2">{trouble}</div>
+              </details>
+            ) : (
+              <p className="text-muted">Not connecting? {trouble}</p>
+            )}
+            {!first && (
+              <button type="button" className={button.secondary} onClick={() => void cancel()}>
+                Cancel
+              </button>
+            )}
           </div>
         </div>
       ) : (

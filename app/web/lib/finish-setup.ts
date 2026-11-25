@@ -6,24 +6,35 @@ export const FINISH_SETUP = "setup.finish";
 /** The later steps the rider has saved. */
 export const FINISH_SETUP_DONE = "setup.finish.done";
 
-export type LaterStep = "week" | "rides" | "track" | "coach";
+export type LaterStep = "week" | "rides" | "track" | "coach" | "phone";
 
-export const LATER_STEPS: { id: LaterStep; label: string; until: string }[] = [
+export const LATER_STEPS: { id: LaterStep; label: string; until: string; computerOnly?: boolean }[] = [
   { id: "week", label: "Your week and goal", until: "Starter plan for now" },
   { id: "rides", label: "Bring your training", until: "From Zwift, Garmin, Strava…" },
   { id: "track", label: "Sleep and weight", until: "Off" },
   { id: "coach", label: "Coach", until: "None" },
+  // Offered in the first run too; skipped there, it waits here.
+  { id: "phone", label: "Your phone", until: "Not paired", computerOnly: true },
 ];
 
-/** Which later steps are done: the ones saved, plus rides once there are any (imported or ridden here). */
+/** The later steps this device shows: pairing a phone only on the desktop app on a computer. */
+export function laterSteps(computer: boolean) {
+  return LATER_STEPS.filter((s) => computer || !s.computerOnly);
+}
+
+/**
+ * Which later steps are done: the ones saved, plus rides once there are any (imported or ridden
+ * here) and the phone once one is paired.
+ */
 export function setupDone(
   saved: readonly string[],
-  { hasRides }: { hasRides: boolean },
+  { hasRides, phonePaired = false }: { hasRides: boolean; phonePaired?: boolean },
 ): Set<LaterStep> {
   const done = new Set(
     LATER_STEPS.map((s) => s.id).filter((id) => saved.includes(id)),
   );
   if (hasRides) done.add("rides");
+  if (phonePaired) done.add("phone");
   return done;
 }
 

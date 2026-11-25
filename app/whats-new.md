@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- First-time setup on your computer has an optional step to pair your phone. Skip it and it waits on Today's "Finish setting up" list.
 - Lactic has a plugin for Claude Code and Cowork, so Claude can coach you from Lactic there too: `/plugin install lactic --marketplace blairj09/lactic`. Claude apps now also see which Lactic tools only read and which suggest a change.
 - Sign in with OpenRouter in Settings → Coach instead of copying an API key. Pasting a key still works.
 - Coaching in Claude Desktop shows Lactic cards right in the chat: the suggested workout's chart with Apply and Dismiss, a ride's power and heart rate with how each effort went, and your fitness and form.
