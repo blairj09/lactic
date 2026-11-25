@@ -26,6 +26,7 @@ import { ExternalSuggestions } from "~/mcp/suggestions";
 import { Tour } from "~/tour/tour";
 import { installSupportTools } from "~/support/tools";
 import { UpdatePrompt } from "~/updates/prompt";
+import { UndoToast } from "~/history/undo-toast";
 import { HandoffSheet } from "~/handoff/sheet";
 import { isPhone } from "~/platform/native";
 import { startPhoneBridge } from "~/phone/computer";
@@ -157,6 +158,7 @@ function Shell() {
       {onboarded && <PullToRefresh />}
       <BluetoothPicker />
       {!isPhone() && <UpdatePrompt />}
+      <UndoToast />
       {onboarded && !isPhone() && <HandoffSheet />}
       {onboarded && isPhone() && <ComputerRide />}
       {onboarded && <Tour />}

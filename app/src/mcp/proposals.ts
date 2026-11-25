@@ -6,6 +6,7 @@ import { applyChange } from "@/app/coach/actions";
 import type { Proposal } from "@/lib/coach/changes";
 import { createClient } from "~/db/supabase-client";
 import { revalidatePath } from "~/shims/next-cache";
+import { recordChange } from "~/history/changes";
 
 /** Tells the stack in Lactic's corner to reload. */
 export const PROPOSALS_CHANGED = "lactic:proposals";
@@ -16,10 +17,11 @@ export interface ProposalRow {
   id: string;
   proposal: Proposal;
   status: ProposalStatus;
+  client?: string | null;
 }
 
 export async function loadProposal(id: string): Promise<ProposalRow | null> {
-  const { data } = await createClient().from("coach_proposals").select("id, proposal, status").eq("id", id).maybeSingle();
+  const { data } = await createClient().from("coach_proposals").select("id, proposal, status, client").eq("id", id).maybeSingle();
   return (data as ProposalRow | null) ?? null;
 }
 
@@ -32,7 +34,8 @@ export async function decideProposal(id: string, apply: boolean): Promise<{ stat
   if (!row) throw new Error("That suggestion is no longer in Lactic.");
   if (row.status !== "pending") return { status: row.status, message: row.status === "applied" ? "Already applied." : "Already dismissed." };
   const supabase = createClient();
-  const message = apply ? await applyChange(supabase, row.proposal.change) : "Dismissed.";
+  // App history: made by the AI app that suggested it, applied by the rider.
+  const message = apply ? await recordChange({ author: "ai_app", client: row.client ?? null }, () => applyChange(supabase, row.proposal.change)) : "Dismissed.";
   const status = apply ? "applied" : "dismissed";
   await supabase.from("coach_proposals").update({ status }).eq("id", id);
   revalidatePath("/");

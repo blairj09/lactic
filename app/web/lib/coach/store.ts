@@ -12,6 +12,7 @@ import { titleFrom } from "./chat";
 import { toPersona, type Persona } from "./persona";
 import type { CoachData, MemoryFact, MemoryOp, RecoveryDay } from "./tools";
 import { readUnits } from "../units";
+import { recordChange } from "~/history/changes";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -241,11 +242,13 @@ export async function loadMemory(supabase: Supabase): Promise<MemoryFact[]> {
 }
 
 export async function applyMemory(supabase: Supabase, ops: MemoryOp[]) {
-  for (const op of ops) {
-    const { error } =
-      op.op === "add" ? await supabase.from("coach_memory").insert({ fact: op.fact, source: "coach" }) : await supabase.from("coach_memory").delete().eq("id", op.id);
-    if (error) throw error;
-  }
+  return recordChange({ author: "coach" }, async () => {
+    for (const op of ops) {
+      const { error } =
+        op.op === "add" ? await supabase.from("coach_memory").insert({ fact: op.fact, source: "coach" }) : await supabase.from("coach_memory").delete().eq("id", op.id);
+      if (error) throw error;
+    }
+  });
 }
 
 export async function loadPersona(supabase: Supabase): Promise<Persona> {

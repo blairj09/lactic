@@ -40,10 +40,12 @@ import { parseFinishTime } from "@/lib/engine/course/target";
 import { experiments } from "@/lib/experiments";
 import { courseSaved } from "./course-actions";
 import type { ActionResult } from "../actions";
+import { recordChange } from "~/history/changes";
 
-async function attempt(work: () => Promise<string>): Promise<ActionResult> {
+/** Runs an action as one App history entry (src/history), unless `record` is false. */
+async function attempt(work: () => Promise<string>, record = true): Promise<ActionResult> {
   try {
-    const message = await work();
+    const message = record ? await recordChange({}, work) : await work();
     revalidatePath("/", "layout");
     return { ok: true, message };
   } catch (e) {
@@ -344,7 +346,7 @@ export async function saveCheckin(input: { feel: number; sick: boolean; minutes:
       [`Check-in: feeling ${FEEL_LABELS[feel].toLowerCase()}`, sick ? ", ill" : "", minutes ? `, ${minutes} min available` : "", notes ? `. "${notes}"` : ""].join(""),
     );
     return "Checked in.";
-  });
+  }, false);
 }
 
 /** Locks in one of today's options. They're rebuilt from today's data and check-in, so the session is the engine's. */
