@@ -13,7 +13,8 @@ import {
   Stat,
   StatStrip,
 } from "@/components/ui";
-import { copyIntervalsId, loadRide, loadStream, type StoredRide } from "@/lib/activities";
+import { copyIntervalsId, loadHrStreams, loadRide, loadStream, type StoredRide } from "@/lib/activities";
+import { hrRecovery, usualHrRecovery } from "@/lib/engine/hr-recovery";
 import { ftpOn, localDate } from "@/lib/engine/activity";
 import {
   DAY_MARK_LABELS,
@@ -49,12 +50,15 @@ import {
 import RideSurvey from "../../ride-survey";
 import CountFor from "./count-for";
 import RideExplorer from "./ride-explorer";
+import HrRecoveryPanel from "./hr-recovery";
 import { RidePlugins } from "~/plugins/ride-plugins";
 import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { formatDistance, readUnits } from "@/lib/units";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const BEST_DAYS = 90;
+/** Weeks of earlier rides your usual heart rate recovery is read from. */
+const USUAL_HRR_DAYS = 56;
 
 /** A ride's page: the full page at /rides/<id>, or the same inside the modal opened from a ride link. */
 export default async function RideDetail({
@@ -127,6 +131,23 @@ export default async function RideDetail({
   const chartStream: ChartStream | null = stream
     ? { ...stream, target: stream.target ?? plannedTarget }
     : null;
+
+  // Heart rate recovery after this ride's hard efforts, against the 8 weeks of rides before it.
+  const recovery = stream ? hrRecovery(stream, ftp) : null;
+  let usualRecovery = null;
+  if (recovery) {
+    const earlier = state.rides.filter(
+      (r) => r.id !== ride.id && r.id !== ride.duplicateOf && !r.duplicateOf && r.startedAt < ride.startedAt && localDate(r.startedAt, tz) >= addDays(day, -USUAL_HRR_DAYS),
+    );
+    const streams = await loadHrStreams(supabase, earlier.map((r) => r.id));
+    usualRecovery = usualHrRecovery(
+      earlier.flatMap((r) => {
+        const s = streams.get(r.id);
+        const d = s ? hrRecovery(s, ftpOn(localDate(r.startedAt, tz), state.athlete.ftpHistory, state.athlete.ftp)) : null;
+        return d ? [d.drop] : [];
+      }),
+    );
+  }
 
   return (
     <>
@@ -288,6 +309,7 @@ export default async function RideDetail({
               <IntervalTable intervals={stream.intervals} execution={execution?.method === "blocks" ? execution : null} />
             </Panel>
           )}
+          {recovery && <HrRecoveryPanel recovery={recovery} usual={usualRecovery} />}
           {pluginsAllowed && <RidePlugins rideId={ride.id} />}
           </>
         }

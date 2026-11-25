@@ -209,6 +209,22 @@ export async function loadWatts(supabase: Supabase, activityIds: string[]): Prom
   return new Map((data as { activity_id: string; watts: (number | null)[] | null }[]).filter((r) => r.watts?.length).map((r) => [r.activity_id, r.watts!]));
 }
 
+/** Power and heart rate of a few rides (5 s means), for heart rate recovery. Rides with no stored stream are left out. */
+export async function loadHrStreams(
+  supabase: Supabase,
+  activityIds: string[],
+): Promise<Map<string, { step: number; watts: (number | null)[] | null; heartRate: (number | null)[] | null }>> {
+  if (!activityIds.length) return new Map();
+  const { data, error } = await supabase.from("activity_streams").select("activity_id, step_seconds, watts, heart_rate").in("activity_id", activityIds);
+  if (error) return (console.error(error), new Map());
+  return new Map(
+    (data as { activity_id: string; step_seconds: number; watts: (number | null)[] | null; heart_rate: (number | null)[] | null }[]).map((r) => [
+      r.activity_id,
+      { step: r.step_seconds, watts: r.watts, heartRate: r.heart_rate },
+    ]),
+  );
+}
+
 export async function loadStream(supabase: Supabase, activityId: string): Promise<StoredStream | null> {
   const { data, error } = await supabase.from("activity_streams").select("*").eq("activity_id", activityId).maybeSingle();
   if (error) return (console.error(error), null);
