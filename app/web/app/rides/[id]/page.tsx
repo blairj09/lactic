@@ -3,6 +3,7 @@ import Nav from "@/components/nav";
 import { Page } from "@/components/ui";
 import RideDetail from "./ride-detail";
 import { ExportRideButton } from "~/data/export-buttons";
+import { DemoKeepRiding, DemoStravaButton } from "~/demo/after-ride";
 
 export const metadata = { title: "Ride · My Coach" };
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ export default async function RidePage({ params }: { params: Promise<{ id: strin
           actions={
             <>
               <ExportRideButton id={id} />
+              <DemoStravaButton id={id} />
               <Link href="/progress?tab=rides" className="text-sm text-muted hover:text-ink">
                 All rides
               </Link>
@@ -25,6 +27,7 @@ export default async function RidePage({ params }: { params: Promise<{ id: strin
           }
         />
       </Page>
+      <DemoKeepRiding id={id} />
     </>
   );
 }

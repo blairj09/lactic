@@ -37,6 +37,7 @@ import RideSurvey from "../ride-survey";
 import { OVERLAY_SIZES, PlayerView, formatTime, pausedMidRide, type AdaptNotice, type PlayerControls, type PlayerData } from "./player";
 import RideNow, { DEFAULT_LIBRARY, librarySession, type LibraryChoice, type RideSource, type SuggestedRide, type TodayPick, type Trainer } from "./ride-now";
 import SensorPanel from "./sensor-panel";
+import DemoGear, { countDemoRide, noteDemoRide } from "~/demo/gear";
 import { usePipWindow, type OverlayFullScreen } from "./use-pip-window";
 import OverlayPortal from "./overlay-portal";
 import { LiveActivityHost } from "~/phone/live-activity";
@@ -586,6 +587,7 @@ function RideOnThisDevice({
     clock.current.start(Date.now());
     // Mid-ride, ERG eases back up rather than starting at the full target.
     easeFrom.current = elapsedRef.current > 0 ? elapsedRef.current : null;
+    if (elapsedRef.current === 0) countDemoRide("started", hub);
     setRunning(true);
     tick.current();
   };
@@ -936,6 +938,10 @@ function RideOnThisDevice({
     if (hub.getState().connected.trainer) hub.setSimulationGrade(0).catch(() => undefined);
     pip.close();
     window.focus();
+    if (elapsedRef.current >= 60) {
+      countDemoRide("finished", hub);
+      noteDemoRide({ ftp, watts: [...samples.current], rampTest: isRampTest(workout) && !edited, twentyMinuteTest: isTwentyMinuteTest(workout) && !edited, hub });
+    }
     if (onFinished) {
       if (startedAt.current && samples.current.length)
         onFinished({ name: workout.name, startedAt: startedAt.current, ftp, watts: [...samples.current], heartRate: [...hrSamples.current], cadence: [...cadenceSamples.current], rampTest: isRampTest(workout) && !edited, twentyMinuteTest: isTwentyMinuteTest(workout) && !edited, workout, trace: [...trace.current] });
@@ -1208,6 +1214,7 @@ function RideOnThisDevice({
         <div data-tour="ride-gear">
           <SensorPanel hub={hub} state={state} supported={supported} onError={setError} appTrainer={appTrainer} />
         </div>
+        <DemoGear hub={hub} state={state} ftp={ftp} onFtp={setFtp} riding={elapsed > 0 && !ended} />
 
         {elapsed === 0 && !trial && (
           <div data-tour="ride-pick">
