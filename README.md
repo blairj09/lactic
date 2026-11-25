@@ -100,7 +100,7 @@ The coach reads the engine's numbers through tools and **suggests** changes: a w
 
 ### On your phone
 
-**Lactic for iPhone** ([TestFlight beta](https://testflight.apple.com/join/nDjt8pAG)) reads Apple Health, runs rides on the trainer or acts as the remote for your computer's ride, and adds widgets, a Live Activity and an Apple Watch app. It pairs with your computer by QR code and syncs over your home Wi-Fi, encrypted, with no server in between. Android is on the way.
+**Lactic for iPhone** ([TestFlight beta](https://testflight.apple.com/join/nDjt8pAG)) reads Apple Health, runs rides on the trainer or acts as the remote for your computer's ride, and adds widgets, a Live Activity and an Apple Watch app. It pairs with your computer by QR code, during first-time setup or later in Settings, and syncs over your home Wi-Fi, encrypted, with no server in between. Android is on the way.
 
 ![Lactic on iPhone: Today and a ride](docs/images/phone.png)
 
