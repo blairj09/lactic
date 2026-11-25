@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+## 0.3.9
+
 - Heart rate recovery: each ride shows how far your heart rate drops in the minute after its hard efforts, compared with your usual, on the Heart rate tile and in Intervals. Health has its trend, and the coach notices when recovery is slower than usual.
 - App history in Settings → Your data lists every change to your plan, settings, workouts and plugins, and who made it: you, Coach, an AI app or Lactic. See what each changed and undo it. After you apply a Coach change, Undo shows for a few seconds too.
 - First-time setup on your computer has an optional step to pair your phone. Skip it and it waits on Today's "Finish setting up" list.
