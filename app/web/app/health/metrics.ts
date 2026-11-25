@@ -42,6 +42,14 @@ export const METRICS = {
       "Your usual is the mean of the last 60 days. It counts 30% of the recovery score, and it sets the bottom of your heart rate reserve for exertion.",
     ],
   },
+  "hr-recovery": {
+    title: "Heart rate recovery",
+    line: "How far your heart rate falls in the minute after a hard effort.",
+    about: [
+      "After each effort of a minute or more at 88% of FTP or harder, Lactic reads your heart rate at its peak and again a minute after you ease off, and takes the difference. It only counts when the minute after is easy riding, under 65% of FTP. A ride's number is the mean over its efforts.",
+      "A fitter heart slows down faster, so the drop grows as fitness builds. A drop well under your usual can mean fatigue, heat, dehydration or getting ill. Your usual is the median of your rides with hard efforts in the last 8 weeks, once there are 3.",
+    ],
+  },
   sleep: {
     title: "Sleep",
     line: "Hours asleep each night, with the stages Apple Watch records.",

@@ -15,6 +15,8 @@ import { formatDay, signed, signedFixed } from "@/lib/format";
 import { healthSummary } from "@/lib/health-summary";
 import { loadRecovery, loadRecoveryTrend } from "@/lib/recovery-data";
 import { createClient } from "@/lib/supabase/server";
+import { recoveryAgainstUsual, usualHrRecovery } from "@/lib/engine/hr-recovery";
+import { loadRideRecoveries, USUAL_HRR_DAYS } from "@/lib/hr-recovery-data";
 import { METRICS, RANGES, metricHref, type MetricKey } from "../metrics";
 import { ExertionPanel, hoursMinutes, WeighInTable } from "../parts";
 import { readUnits, tempDeltaIn, temperatureUnit, weightIn, weightUnit } from "@/lib/units";
@@ -57,6 +59,9 @@ export default async function MetricDetail({ metric, days, inSheet = false }: { 
       break;
     case "body":
       body = await BodyDetail(ctx);
+      break;
+    case "hr-recovery":
+      body = await HrRecoveryDetail(ctx);
       break;
     default:
       body = await NightlyDetail(ctx, metric);
@@ -555,6 +560,46 @@ async function NightlyDetail(ctx: Ctx, metric: MetricKey) {
 }
 
 // ---------------------------------------------------------------- VO2 max and fitness age
+
+async function HrRecoveryDetail({ supabase, athlete, today, days }: Ctx) {
+  const all = windowDays(today, days);
+  const since = addDays(all[0], -USUAL_HRR_DAYS);
+  const rides = await loadRideRecoveries(supabase, athlete, new Date(`${since}T00:00:00Z`));
+  const byDay = new Map<string, number[]>();
+  for (const r of rides) byDay.set(r.day, [...(byDay.get(r.day) ?? []), r.drop]);
+  const mean = (v: number[]) => Math.round(v.reduce((a, b) => a + b, 0) / v.length);
+  const window = all.slice(dataStart([all.map((d) => (byDay.has(d) ? 1 : null))], Math.min(30, days)));
+  const values = window.map((d) => (byDay.has(d) ? mean(byDay.get(d)!) : null));
+  const usual = usualHrRecovery(rides.filter((r) => r.day > addDays(today, -USUAL_HRR_DAYS)).map((r) => r.drop));
+  const latest = rides.at(-1) ?? null;
+  const against = latest ? recoveryAgainstUsual(latest.drop, usual) : null;
+  const inRange = rides.filter((r) => r.day >= window[0]).reverse();
+  return (
+    <>
+      <StatStrip cols={3} phone={2}>
+        <Stat lead label="Last ride" value={latest ? latest.drop : <Dash />} unit={latest ? "bpm" : undefined} sub={latest ? `${dayLabel(latest.day)}${against && against !== "usual" ? `, ${against} than usual` : ""}` : "Needs a ride with a hard effort, power and heart rate"} />
+        <Stat label="Your usual" value={usual ? usual.drop : <Dash />} unit={usual ? "bpm" : undefined} sub={usual ? `Median of ${usual.rides} rides, last 8 weeks` : "Shows after 3 rides with hard efforts"} />
+        <Stat label="Rides" value={inRange.length} sub={`With hard efforts, ${periodLabel(window)}`} />
+      </StatStrip>
+      <ChartPanel title="Drop in 1 minute" meta="bpm, by ride day">
+        <TrendChart label="Heart rate recovery by ride day" days={window} values={values} unit="bpm" bridge normal={usual?.drop ?? null} normalLabel="Your usual" height={CHART_HEIGHT} />
+      </ChartPanel>
+      {inRange.length > 0 && (
+        <Panel title="Rides" pad={false}>
+          <ul className="px-4 pb-2 sm:px-5">
+            {inRange.slice(0, 10).map((r) => (
+              <li key={r.rideId} className="flex items-baseline justify-between border-t border-rule py-2 text-sm">
+                <Link href={`/rides/${r.rideId}`} className="underline decoration-rule underline-offset-2 hover:text-ink">{r.name ?? "Ride"}</Link>
+                <span className="ml-auto pr-4 text-muted">{dayLabel(r.day)}</span>
+                <span className="num font-medium">{r.drop} bpm</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+    </>
+  );
+}
 
 async function FitnessDetail({ supabase, athlete, today, days }: Ctx) {
   const all = windowDays(today, days);

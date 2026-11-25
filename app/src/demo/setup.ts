@@ -87,7 +87,15 @@ async function seedHistory() {
     if (dow === 6 || dow === 0) day.setHours(8, 15, 0, 0);
     const watts: number[] = [];
     kinds[k][1](watts);
-    const hr = watts.map((w, i) => Math.round(95 + (w / FTP) * 70 + Math.min(i / 600, 1) * 8));
+    // Heart rate chases the power with a lag: up in about half a minute, back down more slowly,
+    // and faster to recover as the weeks of training go by.
+    const fall = 55 - week * 1.5;
+    let beat = 95;
+    const hr = watts.map((w, i) => {
+      const aim = 95 + (w / FTP) * 70 + Math.min(i / 600, 1) * 8;
+      beat += (aim - beat) / (aim > beat ? 25 : fall);
+      return Math.round(beat);
+    });
     const summary = summarizeRide({ watts, heartRate: hr, cadence: watts.map(() => 90), hasPower: true, hasHeartRate: true });
     rides.push({ source: "zwift", externalId: `demo-${d}`, name: kinds[k][0], startedAt: day.toISOString(), distanceMeters: (watts.length / 3600) * 31000, summary, stream: chartStream({ watts, heartRate: hr, cadence: watts.map(() => 90) }) });
   }

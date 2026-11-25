@@ -5,6 +5,7 @@ import { healthSummary } from "@/lib/health-summary";
 import { loadBodyMeasurements } from "@/lib/body-data";
 import { localDate } from "@/lib/engine/activity";
 import { loadRecovery, loadRecoveryTrend } from "@/lib/recovery-data";
+import { loadRideRecoveries, USUAL_HRR_DAYS } from "@/lib/hr-recovery-data";
 import { createClient } from "@/lib/supabase/server";
 import { Page, PageHeader } from "@/components/ui";
 import HealthView, { TREND_DAYS, WEIGHT_DAYS } from "./health-view";
@@ -22,11 +23,12 @@ export default async function HealthPage() {
   const tz = athlete.timezone;
   const today = localDate(new Date(), tz);
   const daytimeLoad = loadDaytime(supabase, athlete, today).catch((e) => (console.error(e), null));
-  const [daytime, measurementsOldestFirst, recovery, trend] = await Promise.all([
+  const [daytime, measurementsOldestFirst, recovery, trend, hrRecoveries] = await Promise.all([
     daytimeLoad,
     loadBodyMeasurements(supabase, new Date(Date.now() - WEIGHT_DAYS * 86_400_000)),
     loadRecovery(supabase, today, athlete.sleepNeedHours, daytimeLoad),
     loadRecoveryTrend(supabase, today, athlete.sleepNeedHours, TREND_DAYS, daytimeLoad),
+    loadRideRecoveries(supabase, athlete, new Date(Date.now() - USUAL_HRR_DAYS * 86_400_000)).catch((e) => (console.error(e), [])),
   ]);
   const summary = healthSummary({
     athlete,
@@ -46,6 +48,7 @@ export default async function HealthPage() {
       summary={summary}
       hasWatch={daytime?.hasWatch ?? false}
       tracking={tracking}
+      hrRecoveries={hrRecoveries}
     />
   );
 }

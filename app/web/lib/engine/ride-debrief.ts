@@ -3,6 +3,7 @@
 // workout, each effort's power against its target. Every number is the engine's; the coach quotes them.
 
 import { executionGrade, rideExecution, type BlockCheck, type ExecutionGrade } from "./execution";
+import { recoveryAgainstUsual, type HrRecovery, type UsualHrRecovery } from "./hr-recovery";
 import { completion, type RideInterval } from "./ride-detail";
 import type { Workout } from "./workout";
 
@@ -33,6 +34,8 @@ export interface RideDebrief {
   efforts: { role: string; minutes: number; targetWatts: number | null; watts: number | null; heartRate: number | null; check: BlockCheck }[];
   /** How the rider said it went, when they've answered. */
   felt: { difficulty: string; rpe: number | null; note: string } | null;
+  /** How far heart rate fell in the minute after the hard efforts (mean, bpm), against the rider's usual. */
+  heartRateRecovery: { drop: number; efforts: number; usual: number | null; against: "faster" | "usual" | "slower" | null } | null;
   /** Other rides that day, in short. */
   alsoToday: { name: string; minutes: number; stress: number | null }[];
 }
@@ -47,6 +50,7 @@ export function rideDebrief(
   recorded: { workout: Workout | null; intervals: RideInterval[] | null } | null,
   felt: RideDebrief["felt"],
   others: DebriefRide[] = [],
+  recovery: { ride: HrRecovery; usual: UsualHrRecovery | null } | null = null,
 ): RideDebrief {
   const execution = rideExecution(recorded, planned, ride);
   const intervals = recorded?.intervals ?? [];
@@ -68,6 +72,9 @@ export function rideDebrief(
         return { role: b.role, minutes: Math.round(((i?.planned ?? 0) / 60) * 10) / 10, targetWatts: i?.target ?? null, watts: i?.power ?? null, heartRate: i?.heartRate ?? null, check: b.check };
       }),
     felt,
+    heartRateRecovery: recovery
+      ? { drop: recovery.ride.drop, efforts: recovery.ride.efforts.length, usual: recovery.usual?.drop ?? null, against: recoveryAgainstUsual(recovery.ride.drop, recovery.usual) }
+      : null,
     alsoToday: others.map((r) => ({ name: r.name ?? "Ride", minutes: Math.round(r.durationSeconds / 60), stress: round(r.trainingStress) })),
   };
 }
