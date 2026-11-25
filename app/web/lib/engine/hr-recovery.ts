@@ -120,3 +120,19 @@ export function recoveryAgainstUsual(drop: number, usual: UsualHrRecovery | null
   const gap = drop - usual.drop;
   return gap >= 4 ? "faster" : gap <= -4 ? "slower" : "usual";
 }
+
+/**
+ * Each workout interval's drop: the effort that ended within 15 s of where the interval's riding
+ * ended. Intervals saved before spans were kept get none.
+ */
+export function dropsByInterval(intervals: { index: number; spans?: [number, number][] }[], recovery: HrRecovery | null): Map<number, number> {
+  const out = new Map<number, number>();
+  if (!recovery) return out;
+  for (const interval of intervals) {
+    const end = interval.spans?.at(-1)?.[1];
+    if (end === undefined) continue;
+    const effort = recovery.efforts.find((e) => Math.abs(e.to - end) <= BRIDGE_SECONDS);
+    if (effort) out.set(interval.index, effort.drop);
+  }
+  return out;
+}

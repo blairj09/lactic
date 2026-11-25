@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hrRecovery, recoveryAgainstUsual, usualHrRecovery } from "./hr-recovery";
+import { dropsByInterval, hrRecovery, recoveryAgainstUsual, usualHrRecovery } from "./hr-recovery";
 
 const STEP = 5;
 /** A 5 s stream from [seconds, watts, start hr, end hr] blocks, heart rate moving linearly within each. */
@@ -83,5 +83,13 @@ describe("usualHrRecovery", () => {
     expect(recoveryAgainstUsual(35, usual)).toBe("faster");
     expect(recoveryAgainstUsual(24, usual)).toBe("slower");
     expect(recoveryAgainstUsual(24, null)).toBeNull();
+  });
+});
+
+describe("dropsByInterval", () => {
+  it("puts each effort's drop on the interval it ended", () => {
+    const recovery = { drop: 30, efforts: [{ from: 300, to: 540, watts: 280, peak: 170, after: 140, drop: 30 }] };
+    const drops = dropsByInterval([{ index: 0, spans: [[0, 300]] }, { index: 1, spans: [[300, 545]] }, { index: 2 }], recovery);
+    expect([...drops]).toEqual([[1, 30]]);
   });
 });

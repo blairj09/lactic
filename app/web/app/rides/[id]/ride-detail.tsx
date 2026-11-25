@@ -13,8 +13,9 @@ import {
   Stat,
   StatStrip,
 } from "@/components/ui";
-import { copyIntervalsId, loadHrStreams, loadRide, loadStream, type StoredRide } from "@/lib/activities";
-import { hrRecovery, usualHrRecovery } from "@/lib/engine/hr-recovery";
+import { copyIntervalsId, loadRide, loadStream, type StoredRide } from "@/lib/activities";
+import { dropsByInterval, hrRecovery, recoveryAgainstUsual, usualHrRecovery, type HrRecovery, type UsualHrRecovery } from "@/lib/engine/hr-recovery";
+import { loadRideRecoveries, USUAL_HRR_DAYS } from "@/lib/hr-recovery-data";
 import { ftpOn, localDate } from "@/lib/engine/activity";
 import {
   DAY_MARK_LABELS,
@@ -50,15 +51,12 @@ import {
 import RideSurvey from "../../ride-survey";
 import CountFor from "./count-for";
 import RideExplorer from "./ride-explorer";
-import HrRecoveryPanel from "./hr-recovery";
 import { RidePlugins } from "~/plugins/ride-plugins";
 import { pluginsAllowed } from "~/plugins/use-plugin-tab";
 import { formatDistance, readUnits } from "@/lib/units";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const BEST_DAYS = 90;
-/** Weeks of earlier rides your usual heart rate recovery is read from. */
-const USUAL_HRR_DAYS = 56;
 
 /** A ride's page: the full page at /rides/<id>, or the same inside the modal opened from a ride link. */
 export default async function RideDetail({
@@ -134,20 +132,13 @@ export default async function RideDetail({
 
   // Heart rate recovery after this ride's hard efforts, against the 8 weeks of rides before it.
   const recovery = stream ? hrRecovery(stream, ftp) : null;
-  let usualRecovery = null;
-  if (recovery) {
-    const earlier = state.rides.filter(
-      (r) => r.id !== ride.id && r.id !== ride.duplicateOf && !r.duplicateOf && r.startedAt < ride.startedAt && localDate(r.startedAt, tz) >= addDays(day, -USUAL_HRR_DAYS),
-    );
-    const streams = await loadHrStreams(supabase, earlier.map((r) => r.id));
-    usualRecovery = usualHrRecovery(
-      earlier.flatMap((r) => {
-        const s = streams.get(r.id);
-        const d = s ? hrRecovery(s, ftpOn(localDate(r.startedAt, tz), state.athlete.ftpHistory, state.athlete.ftp)) : null;
-        return d ? [d.drop] : [];
-      }),
-    );
-  }
+  const usualRecovery = recovery
+    ? usualHrRecovery(
+        (await loadRideRecoveries(supabase, state.athlete, new Date(ride.startedAt.getTime() - USUAL_HRR_DAYS * 86_400_000)))
+          .filter((r) => r.startedAt < ride.startedAt && r.rideId !== ride.id && r.rideId !== ride.duplicateOf)
+          .map((r) => r.drop),
+      )
+    : null;
 
   return (
     <>
@@ -243,7 +234,7 @@ export default async function RideDetail({
           label="Heart rate"
           value={ride.averageHr === null ? null : Math.round(ride.averageHr)}
           unit="bpm"
-          sub="Average"
+          sub={recovery ? <RecoveryLine recovery={recovery} usual={usualRecovery} /> : "Average"}
         />
         <Stat
           label="How it felt"
@@ -306,10 +297,9 @@ export default async function RideDetail({
               meta={execution?.method === "blocks" ? `Execution ${execution.score} of 100, block by block` : "Target against what you rode in each one"}
               pad={false}
             >
-              <IntervalTable intervals={stream.intervals} execution={execution?.method === "blocks" ? execution : null} />
+              <IntervalTable intervals={stream.intervals} execution={execution?.method === "blocks" ? execution : null} drops={dropsByInterval(stream.intervals, recovery)} />
             </Panel>
           )}
-          {recovery && <HrRecoveryPanel recovery={recovery} usual={usualRecovery} />}
           {pluginsAllowed && <RidePlugins rideId={ride.id} />}
           </>
         }
@@ -529,7 +519,7 @@ const CHECK_CLASS: Record<BlockCheck, string> = {
   free: "text-muted",
 };
 
-function IntervalTable({ intervals, execution }: { intervals: RideInterval[]; execution: Execution | null }) {
+function IntervalTable({ intervals, execution, drops }: { intervals: RideInterval[]; execution: Execution | null; drops: Map<number, number> }) {
   return (
     <div className="overflow-x-auto px-5 pb-4">
       <table className="num w-full text-sm">
@@ -541,6 +531,7 @@ function IntervalTable({ intervals, execution }: { intervals: RideInterval[]; ex
             <th className="pb-2 pr-3 text-right font-normal">Target</th>
             <th className="pb-2 pr-3 text-right font-normal">Power</th>
             <th className="pb-2 pr-3 text-right font-normal">HR</th>
+            {drops.size > 0 && <th className="pb-2 pr-3 text-right font-normal" title="How far heart rate fell in the minute after the effort">1 min drop</th>}
             <th className="pb-2 pr-3 text-right font-normal">Cadence</th>
             {execution && <th className="pb-2 font-normal">Check</th>}
           </tr>
@@ -574,6 +565,7 @@ function IntervalTable({ intervals, execution }: { intervals: RideInterval[]; ex
                 <td className="py-2 pr-3 text-right">
                   {i.heartRate ?? <Dash />}
                 </td>
+                {drops.size > 0 && <td className="py-2 pr-3 text-right">{drops.has(i.index) ? `${drops.get(i.index)} bpm` : ""}</td>}
                 <td className="py-2 pr-3 text-right">{i.cadence ?? <Dash />}</td>
                 {execution && <CheckCell block={execution.blocks.find((b) => b.index === i.index)} />}
               </tr>
@@ -582,6 +574,20 @@ function IntervalTable({ intervals, execution }: { intervals: RideInterval[]; ex
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** The Heart rate tile's second line: the drop after hard efforts, against your usual. */
+function RecoveryLine({ recovery, usual }: { recovery: HrRecovery; usual: UsualHrRecovery | null }) {
+  const against = recoveryAgainstUsual(recovery.drop, usual);
+  const count = recovery.efforts.length;
+  return (
+    <span title={`Heart rate recovery: how far it fell in the minute after ${count === 1 ? "the hard effort" : `each of ${count} hard efforts`}, on average${usual ? `. Your usual is ${usual.drop} bpm, from ${usual.rides} rides in the last 8 weeks` : ""}`}>
+      Average
+      <br />
+      Drops {recovery.drop} in 1 min
+      {against && against !== "usual" && <span className={against === "faster" ? "text-positive" : "text-warning"} > · {against} than usual</span>}
+    </span>
   );
 }
 

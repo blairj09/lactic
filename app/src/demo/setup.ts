@@ -3,8 +3,8 @@
 // scripted coach switched on. Runs on every load, so each visit starts from the same place.
 
 import { summarizeRide } from "@shared/engine/activity";
-import { chartStream } from "@shared/engine/ride-detail";
-import { targetAt, workoutDuration } from "@shared/engine/workout";
+import { chartStream, rideIntervals } from "@shared/engine/ride-detail";
+import { targetAt, workoutDuration, type Workout } from "@shared/engine/workout";
 import { libraryWorkout } from "@shared/engine/workout-library";
 import { storeRides } from "@shared/activities";
 import { rememberDevice, DEVICE_KEYS, forgetDevice } from "@shared/ble/devices";
@@ -25,7 +25,7 @@ function random(seed: number) {
   };
 }
 
-type Kind = [string, (out: number[]) => void];
+type Kind = [string, (out: number[]) => void, Workout];
 
 const localDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -60,7 +60,7 @@ async function seedHistory() {
     const { workout } = libraryWorkout(id)!;
     return [workout.name, (out) => {
       for (let t = 0, n = workoutDuration(workout); t < n; t++) out.push(Math.max(0, Math.round(FTP * (targetAt(workout, t) ?? 0.6) * (1 + (pedal() - 0.5) * 2 * noise))));
-    }];
+    }, workout];
   };
   const kinds: Record<string, Kind> = {
     ss: ride("sweetspot-3x15", 0.04),
@@ -97,7 +97,12 @@ async function seedHistory() {
       return Math.round(beat);
     });
     const summary = summarizeRide({ watts, heartRate: hr, cadence: watts.map(() => 90), hasPower: true, hasHeartRate: true });
-    rides.push({ source: "zwift", externalId: `demo-${d}`, name: kinds[k][0], startedAt: day.toISOString(), distanceMeters: (watts.length / 3600) * 31000, summary, stream: chartStream({ watts, heartRate: hr, cadence: watts.map(() => 90) }) });
+    // Each block of the workout, as a ride recorded here keeps them.
+    const workout = kinds[k][2];
+    const interval: number[] = [];
+    workout.segments.forEach((s, i) => { for (let t = 0; t < s.duration; t++) interval.push(i); });
+    const intervals = rideIntervals(workout, { interval, target: watts.map((_, t) => Math.round(FTP * (targetAt(workout, t) ?? 0))), watts, heartRate: hr, cadence: watts.map(() => 90) });
+    rides.push({ source: "zwift", externalId: `demo-${d}`, name: kinds[k][0], startedAt: day.toISOString(), distanceMeters: (watts.length / 3600) * 31000, summary, stream: { ...chartStream({ watts, heartRate: hr, cadence: watts.map(() => 90) }), workout, intervals } });
   }
   await storeRides(supa as never, rides as never);
 
