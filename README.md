@@ -11,7 +11,7 @@ Free, on your computer, with the AI coach of your choice. Or none.
 
 _Lactic is in beta. Expect a few rough edges, and please [open an issue](https://github.com/blairj09/lactic/issues/new/choose) or press **Feedback** in the app when something's off._
 
-[**Download**](https://github.com/blairj09/lactic/releases/latest) · [Try it in your browser](https://lactic.fit/ride) · [iPhone beta](https://testflight.apple.com/join/nDjt8pAG) · [lactic.fit](https://lactic.fit) · [Plugins](plugins/) · [Contributing](CONTRIBUTING.md) · [MIT licensed](LICENSE)
+[**Download**](https://github.com/blairj09/lactic/releases/latest) · [Try it in your browser](https://lactic.fit/#ride) · [iPhone beta](https://testflight.apple.com/join/nDjt8pAG) · [lactic.fit](https://lactic.fit) · [Plugins](plugins/) · [Contributing](CONTRIBUTING.md) · [MIT licensed](LICENSE)
 
 On a Mac with [Homebrew](https://brew.sh):
 
@@ -51,7 +51,7 @@ Lactic sets the watts for every interval. The workout starts with your first ped
 - **Overlay.** Keeps the ride on top of Zwift, a video or a browser, full screen included.
 - **Free ride, with or without another app.** Hold watts in Lactic, or ride Zwift, Rouvy or MyWhoosh while Lactic floats your fields on top and records the ride without touching the trainer.
 - **Today's ride or the coach's pick.** The Ride page shows both, ready to start.
-- **Try it first.** [lactic.fit/ride](https://lactic.fit/ride) runs a workout on your trainer in Chrome or Edge, no install. Download from the finish screen and your FTP and that ride come with you.
+- **Try it first.** [lactic.fit](https://lactic.fit/#ride) runs the live app in your browser with sample data: ride a workout on your trainer in Chrome or Edge, no install.
 
 ### Plans that adapt
 

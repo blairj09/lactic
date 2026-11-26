@@ -18,7 +18,7 @@ Lactic is in beta. It needs a smart trainer for structured workouts.
 ## Pages
 
 - [Home](https://lactic.fit/): what Lactic does and the download
-- [Try a ride in your browser](https://lactic.fit/ride/): connect a trainer in Chrome or Edge and ride a workout, including an FTP ramp test, with no download
+- [Try a ride in your browser](https://lactic.fit/#ride): the live app with sample data; connect a trainer in Chrome or Edge (or ride a simulated one) and ride any workout, with no download
 - [The science behind Lactic](https://lactic.fit/science): the models, numbers and research behind plans, recovery and race reports
 - [Privacy](https://lactic.fit/privacy): how Lactic handles data
 
