@@ -6,6 +6,10 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+## 0.3.10
+
+- No changes in the app itself. This release powers lactic.fit, where you can now take a test ride right inside the homepage's live Lactic, with your own trainer in Chrome or a simulated one.
+
 ## 0.3.9
 
 - Heart rate recovery: each ride shows how far your heart rate drops in the minute after its hard efforts, compared with your usual, on the Heart rate tile and in Intervals. Health has its trend, and the coach notices when recovery is slower than usual.
