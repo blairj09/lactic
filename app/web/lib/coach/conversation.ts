@@ -25,6 +25,9 @@ import { weighInOn } from "../body-data";
 import { reviewTime, type SnapshotDay, type WeekReview } from "../engine/review";
 import { complianceDays, plannedOn, planSnapshot, reviewWeek, type TrainingState } from "../training";
 import { loadStream } from "../activities";
+import { ftpOn } from "../engine/activity";
+import { hrRecovery, usualHrRecovery } from "../engine/hr-recovery";
+import { loadRideRecoveries, USUAL_HRR_DAYS } from "../hr-recovery-data";
 import { markDays } from "../engine/compliance";
 import { DIFFICULTY_LABELS } from "../engine/feedback";
 import { rideDebrief, type RideDebrief } from "../engine/ride-debrief";
@@ -131,7 +134,16 @@ async function todaysRide(supabase: Supabase, state: TrainingState): Promise<Rid
     stream ? { workout: stream.workout ?? null, intervals: stream.intervals ?? null } : null,
     answer ? { difficulty: DIFFICULTY_LABELS[answer.difficulty], rpe: answer.rpe, note: answer.note } : null,
     others,
+    await rideRecovery(supabase, state, main, stream),
   );
+}
+
+/** The main ride's heart rate recovery against the 8 weeks before it; null without a hard effort. */
+async function rideRecovery(supabase: Supabase, state: TrainingState, ride: { id: string; startedAt: Date }, stream: { step: number; watts: number[] | null; heartRate: number[] | null } | null) {
+  const found = stream ? hrRecovery(stream, ftpOn(state.today, state.athlete.ftpHistory, state.athlete.ftp)) : null;
+  if (!found) return null;
+  const earlier = await loadRideRecoveries(supabase, state.athlete, new Date(ride.startedAt.getTime() - USUAL_HRR_DAYS * 86_400_000)).catch(() => []);
+  return { ride: found, usual: usualHrRecovery(earlier.filter((r) => r.rideId !== ride.id && r.startedAt < ride.startedAt).map((r) => r.drop)) };
 }
 
 /** Don't run the weekly planning more often than this on its own (a failed or partial run waits too). */

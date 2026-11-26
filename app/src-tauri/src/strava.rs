@@ -95,7 +95,7 @@ async fn call_relay(net: &Net, body: serde_json::Value) -> Result<Tokens, String
 }
 
 /// What the browser asked for: (path, query pairs).
-fn parse_request(head: &str) -> Option<(String, Vec<(String, String)>)> {
+pub(crate) fn parse_request(head: &str) -> Option<(String, Vec<(String, String)>)> {
     let target = head.lines().next()?.split_whitespace().nth(1)?;
     let (path, query) = target.split_once('?').unwrap_or((target, ""));
     let pairs = query
@@ -109,7 +109,7 @@ fn parse_request(head: &str) -> Option<(String, Vec<(String, String)>)> {
     Some((path.to_string(), pairs))
 }
 
-fn decode(s: &str) -> String {
+pub(crate) fn decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -128,7 +128,7 @@ fn decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-fn page(title: &str, line: &str) -> String {
+pub(crate) fn page(title: &str, line: &str) -> String {
     let html = format!(
         "<!doctype html><meta charset=utf-8><title>Lactic</title><body style=\"font:16px system-ui;display:grid;place-items:center;height:90vh;color:#222\"><div style=\"text-align:center\"><h1 style=\"font-size:22px\">{title}</h1><p>{line}</p></div>"
     );

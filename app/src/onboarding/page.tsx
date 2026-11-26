@@ -37,6 +37,12 @@ import {
 const STEPS = [
   { id: "you", title: "About you", line: "So your workouts fit you." },
   { id: "gear", title: "Your trainer", line: "Spin the pedals to wake it." },
+  // Optional, and only on a computer: skipped, it waits on Today's list.
+  {
+    id: "phone",
+    title: "Your phone",
+    line: "Optional. It reads Apple Health and can run your rides. Syncs with this computer over Wi-Fi.",
+  },
   // Later, one at a time from Today's "Finish setting up".
   {
     id: "week",
@@ -63,8 +69,11 @@ const STEPS = [
 type StepId = (typeof STEPS)[number]["id"];
 type Step = (typeof STEPS)[number];
 
-/** The first run: just what a ride needs. */
-const FIRST: StepId[] = ["you", "gear"];
+/** The desktop app on a computer, where a phone pairs. */
+const computer = isDesktop && !isPhone();
+
+/** The first run: just what a ride needs, and on a computer the chance to pair a phone. */
+const FIRST: StepId[] = computer ? ["you", "gear", "phone"] : ["you", "gear"];
 
 /** A step's title and line for what the rider chose to track. */
 function stepText(s: Step, tracking: Features) {
@@ -204,7 +213,7 @@ function Welcome({ onStart }: { onStart: () => void }) {
             Get started
           </button>
           <p className="text-sm text-faint">
-            Two quick steps and you&apos;re riding.
+            {FIRST.length === 3 ? "Three" : "Two"} quick steps and you&apos;re riding.
           </p>
         </div>
         <div className="space-y-2">
@@ -427,14 +436,31 @@ export default function Onboarding() {
       );
     case "gear":
       return frame(
-        continueButton(
-          () => void save(starterPlan, startRiding),
-          "Start riding",
-        ),
+        FIRST.includes("phone")
+          ? continueButton(() => void save(starterPlan, () => go("phone")))
+          : continueButton(
+              () => void save(starterPlan, startRiding),
+              "Start riding",
+            ),
         <>
           <GearSetup scale={false} power={false} />
           {error && <Result ok={false}>{error}</Result>}
         </>,
+      );
+    case "phone":
+      // Paired or not, the first run ends here; on its own from Today, it's done once a phone pairs.
+      return frame(
+        first ? (
+          <div className="flex gap-2">
+            <button type="button" className={button.ghost} disabled={busy} onClick={() => void save(async () => ({ ok: true, message: "" }), startRiding)}>
+              Skip
+            </button>
+            {continueButton(() => void save(async () => ({ ok: true, message: "" }), startRiding), "Start riding")}
+          </div>
+        ) : (
+          continueButton(home, "Done")
+        ),
+        <PairPhone first />,
       );
     case "week":
       return frame(

@@ -40,6 +40,11 @@ export class RedirectError extends Error {
   }
 }
 
+/** Goes to a page from outside a component (an AI app's card asking to open one). */
+export function navigateTo(to: string) {
+  navigateRef?.(to);
+}
+
 /** In a server action this ends the action; here it navigates and stops the caller the same way. */
 export function redirect(to: string): never {
   navigateRef?.(to);

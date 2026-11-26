@@ -6,6 +6,19 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+## 0.3.10
+
+- No changes in the app itself. This release powers lactic.fit, where you can now take a test ride right inside the homepage's live Lactic, with your own trainer in Chrome or a simulated one.
+
+## 0.3.9
+
+- Heart rate recovery: each ride shows how far your heart rate drops in the minute after its hard efforts, compared with your usual, on the Heart rate tile and in Intervals. Health has its trend, and the coach notices when recovery is slower than usual.
+- App history in Settings → Your data lists every change to your plan, settings, workouts and plugins, and who made it: you, Coach, an AI app or Lactic. See what each changed and undo it. After you apply a Coach change, Undo shows for a few seconds too.
+- First-time setup on your computer has an optional step to pair your phone. Skip it and it waits on Today's "Finish setting up" list.
+- Lactic has a plugin for Claude Code and Cowork, so Claude can coach you from Lactic there too: `/plugin install lactic --marketplace blairj09/lactic`. Claude apps now also see which Lactic tools only read and which suggest a change.
+- Sign in with OpenRouter in Settings → Coach instead of copying an API key. Pasting a key still works.
+- Coaching in Claude Desktop shows Lactic cards right in the chat: the suggested workout's chart with Apply and Dismiss, a ride's power and heart rate with how each effort went, and your fitness and form.
+
 ## 0.3.8
 
 - Coach can now fix events and plans for you: add, move, change or remove an event, or start, change or end a plan. Its card lists the days that change, and nothing changes until you press Apply.

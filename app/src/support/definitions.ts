@@ -134,6 +134,14 @@ export const SUPPORT_TOOLS: FnTool[] = [
     },
     ["setting", "reason"],
   ),
+  fn(
+    "get_app_history",
+    "Recent changes to the rider's plan, events, profile numbers, workouts, layout and plugins (App history), newest first: when, who made each (the rider, you, another AI app, or Lactic), whether it was undone, and what each changed from and to. Use it to answer what changed or why the plan looks different. You can't undo; the rider can, in Settings → Your data → App history. Read only.",
+    {
+      days: { type: "integer", minimum: 1, maximum: 90, description: "How far back, default 14" },
+      limit: { type: "integer", minimum: 1, maximum: 40, description: "Most changes to return, default 20" },
+    },
+  ),
   ...LAYOUT_TOOLS,
 ];
 

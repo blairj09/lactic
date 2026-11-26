@@ -5,6 +5,7 @@
 // On a phone: Lactic's own plugins can be added from Browse, and plugins added on the paired computer
 // arrive by sync, off until turned on here. GitHub links, files and coach drafts are for the computer.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { button, Result } from "@/components/ui";
 import { GROUP_WORDS, OPT_IN_GROUPS, type InstallChoices } from "~/plugins/permissions";
 import { approvePlugin, installPlugin, listPlugins, preparePackage, removePlugin, setCoachVisible, setPluginEnabled, updatePlugin, type PluginRecord, type Prepared } from "~/plugins/store";
@@ -282,6 +283,7 @@ export function reportText(p: Pick<PluginRecord, "manifest" | "origin" | "sha256
 }
 
 function Details({ p, offer, onOpen, onBack, run }: { p: PluginRecord; offer?: Offer; onOpen: (o: Open) => void; onBack: () => void; run: (f: () => Promise<unknown>) => void }) {
+  const navigate = useNavigate();
   const [removing, setRemoving] = useState(false);
   const m = p.manifest;
   const granted = (p.grant?.read ?? m.permissions.read.filter((g) => !OPT_IN_GROUPS.includes(g))).filter((g) => g in GROUP_WORDS);
@@ -357,6 +359,9 @@ function Details({ p, offer, onOpen, onBack, run }: { p: PluginRecord; offer?: O
               </>
             ) : (
               <>
+                <button type="button" className={button.small} onClick={() => navigate("/settings#app-history-plugins")}>
+                  History
+                </button>
                 <button type="button" className={button.small} onClick={() => openFeedback({ kind: "problem", message: reportText(p) })}>
                   Report a problem
                 </button>

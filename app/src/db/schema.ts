@@ -651,6 +651,44 @@ export const TABLES: Record<string, Table> = {
     primaryKey: ["id"],
     indexes: [["metric", "day"], ["plugin_id", "created_at"]],
   },
+  /**
+   * App history (src/history): one row per change to the plan, settings, workouts or plugins, like
+   * a commit. `author`: you, coach, ai_app (through MCP, `client` names it), lactic or sync.
+   */
+  app_history: {
+    columns: {
+      id,
+      at: now,
+      author: { type: "text", notNull: true, default: "you" },
+      client: { type: "text" },
+      plugin_id: { type: "text" },
+      title: { type: "text", notNull: true },
+      /** The entry this one undid. */
+      undo_of: { type: "uuid" },
+      /** Set when a later entry undid this one. */
+      undone_at: { type: "ts" },
+      created_at: now,
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    indexes: [["at"]],
+  },
+  /** The rows one App history entry touched, as stored before and after (null: there was no row). */
+  app_history_rows: {
+    columns: {
+      id,
+      entry_id: { type: "uuid", notNull: true },
+      seq: { type: "int", notNull: true },
+      table_name: { type: "text", notNull: true },
+      row_key: { type: "json", notNull: true },
+      before: { type: "json" },
+      after: { type: "json" },
+      updated_at: now,
+    },
+    primaryKey: ["id"],
+    foreignKeys: { entry_id: { table: "app_history", column: "id", onDelete: "cascade" } },
+    indexes: [["entry_id"]],
+  },
 };
 
 const SQL_TYPE: Record<ColumnType, string> = {

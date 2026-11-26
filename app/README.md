@@ -11,6 +11,7 @@ This folder is the app. `web/` holds the training engine, data code and screens,
   - `secrets.rs`: API keys in the system keychain. The screens never read a key; requests carry a `keychain:<name>` placeholder that Rust swaps for the key on the way out (`net.rs`).
   - `net.rs`: HTTP without CORS, with streaming for AI replies.
   - `strava.rs`: Strava sign-in (a one-shot listener on 127.0.0.1 catches the browser's redirect) and token refreshes, through the relay at lactic.fit/api/strava, which holds Strava's client secret since an open-source app can't ship one. Tokens stay in the keychain; uploads carry `keychain:strava` (`src/integrations/strava.ts`).
+  - `openrouter.rs`: Sign in with OpenRouter (PKCE). OpenRouter returns the browser to lactic.fit/openrouter/, a static page that passes the one-time code to a 127.0.0.1 listener (or to `lactic://` on the iPhone); the core swaps it for a key with OpenRouter and keeps it in the keychain as `ai`. The verifier never leaves the device (`src/ai/openrouter-signin.ts`).
   - `ble.rs`: Bluetooth LE through the OS (CoreBluetooth on macOS, WinRT on Windows, BlueZ on Linux), with one GATT operation at a time per device.
   - `mcp.rs`: the MCP server for external AI coaches (Claude Desktop, ChatGPT...), plus `lactic --mcp`, a stdio bridge.
   - `window.rs`: the always-on-top ride overlay, which stays on top of other windows, full-screen apps included.

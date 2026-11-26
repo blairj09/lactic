@@ -18,6 +18,8 @@ import WeighIn from "./weigh-in";
 import LastNight from "../last-night";
 import { ALL_FEATURES, type Features } from "@/lib/features";
 import { metricHref } from "./metrics";
+import { usualHrRecovery } from "@/lib/engine/hr-recovery";
+import type { RideRecovery } from "@/lib/hr-recovery-data";
 import { ExertionPanel, hoursMinutes, LinkPanel, WeighInTable } from "./parts";
 import { formatWeight, readUnits, tempDeltaIn, temperatureUnit, weightIn, weightUnit } from "@/lib/units";
 
@@ -34,6 +36,7 @@ export default function HealthView({
   summary,
   hasWatch,
   tracking = ALL_FEATURES,
+  hrRecoveries = [],
 }: {
   athlete: Athlete;
   today: string;
@@ -45,6 +48,8 @@ export default function HealthView({
   hasWatch: boolean;
   /** What the rider tracks: recovery and weight each show only when on. */
   tracking?: Features;
+  /** Each ride's heart rate recovery over the last 8 weeks, oldest first. */
+  hrRecoveries?: RideRecovery[];
 }) {
   const tz = athlete.timezone;
   const units = readUnits();
@@ -62,6 +67,14 @@ export default function HealthView({
   const breathing = trend.days.some((d) => d.respiratoryRate !== null);
   const { exertion, sleep } = summary;
   const fromMap = (map: Map<string, number>) => trendDays.map((day) => map.get(day) ?? null);
+  // A day's heart rate recovery: the mean of its rides' drops.
+  const hrrByDay = new Map<string, number>();
+  for (const day of new Set(hrRecoveries.map((r) => r.day))) {
+    const drops = hrRecoveries.filter((r) => r.day === day).map((r) => r.drop);
+    hrrByDay.set(day, Math.round(drops.reduce((a, b) => a + b, 0) / drops.length));
+  }
+  const hrrUsual = usualHrRecovery(hrRecoveries.map((r) => r.drop));
+  const hrrShown = trendDays.some((day) => hrrByDay.has(day));
 
   const weightDays = Array.from({ length: WEIGHT_DAYS }, (_, i) => addDays(today, i - (WEIGHT_DAYS - 1)));
   const weights = weightDays.map((day) => weighInOn(measurementsOldestFirst, day, tz)?.weightKg ?? null).map((v) => (v === null ? null : kg(v)));
@@ -145,6 +158,9 @@ export default function HealthView({
             <TrendPanel href={metricHref("resting-hr")} title="Resting HR" note="bpm">
               <TrendChart label="Resting heart rate by night" days={trendDays} values={series((d) => d.restingHeartRate)} normal={normals.restingHeartRate} unit="bpm" />
             </TrendPanel>
+            {hrrShown && <TrendPanel href={metricHref("hr-recovery")} title="HR recovery" note="Drop 1 min after hard efforts, bpm">
+              <TrendChart label="Heart rate recovery by ride day" days={trendDays} values={fromMap(hrrByDay)} normal={hrrUsual?.drop ?? null} normalLabel="Your usual" unit="bpm" bridge />
+            </TrendPanel>}
             <TrendPanel href={metricHref("sleep")} title="Sleep" note="Hours asleep">
               <TrendChart label="Hours asleep by night" days={trendDays} values={series((d) => d.sleepHours)} normal={athlete.sleepNeedHours} normalLabel="Your sleep need" unit="h" decimals={1} />
             </TrendPanel>

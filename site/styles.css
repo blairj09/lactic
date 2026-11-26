@@ -181,7 +181,17 @@ h1 { font-size: clamp(44px, 7.4vw, 104px); line-height: 0.94; letter-spacing: -0
 .stack .shot + .shot { width: 88%; margin: -22% 0 0 auto; position: relative; }
 .shot.wide { max-width: 600px; margin-inline: auto; }
 .shot.narrow { max-width: 520px; margin-inline: auto; }
-.phone-shot { max-width: 300px; margin-inline: auto; border-radius: 40px; }
+/* An iPhone 16-shaped frame (393 x 852 pt screen) around a real phone screenshot. --s is the screen width. */
+.iphone { --s: min(280px, 70vw); --b: calc(var(--s) * 0.035); position: relative; width: calc(var(--s) + 2 * var(--b)); margin-inline: auto; padding: var(--b); border-radius: calc(var(--s) * 0.155); background: #0b0c0e; box-shadow: 0 0 0 1.5px #464c57, 0 0 0 4px #1d2026, 0 0 0 5px #3a3f48, 0 40px 90px -30px rgba(0,0,0,.9); }
+.iphone::before, .iphone::after { content: ""; position: absolute; width: 4px; border-radius: 2px; background: #2a2e35; }
+.iphone::before { left: -7px; top: 22%; height: 12%; box-shadow: 0 calc(var(--s) * 0.22) 0 #2a2e35; }
+.iphone::after { right: -7px; top: 27%; height: 16%; }
+.iphone-screen { position: relative; overflow: hidden; aspect-ratio: 393 / 852; border-radius: calc(var(--s) * 0.12); background: #f5f6f8; }
+.iphone-screen::before { content: ""; position: absolute; z-index: 1; top: calc(var(--s) * 0.028); left: 50%; translate: -50% 0; width: calc(var(--s) * 0.318); height: calc(var(--s) * 0.094); border-radius: 999px; background: #000; }
+.iphone-screen::after { content: ""; position: absolute; bottom: calc(var(--s) * 0.02); left: 50%; translate: -50% 0; width: 35%; height: calc(var(--s) * 0.013); border-radius: 999px; background: #111; }
+.iphone-status { display: flex; align-items: center; justify-content: space-between; height: calc(var(--s) * 54 / 393); padding: calc(var(--s) * 0.01) calc(var(--s) * 0.085) 0 calc(var(--s) * 0.11); color: #000; font: 600 calc(var(--s) * 17 / 393) / 1 -apple-system, "SF Pro Text", system-ui, sans-serif; letter-spacing: -0.01em; }
+.iphone-status svg { width: calc(var(--s) * 0.195); height: auto; }
+.iphone-screen img { display: block; width: 100%; height: auto; }
 .exp { display: inline-block; vertical-align: middle; margin-left: 8px; font: 600 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: #f5c27a; background: rgba(245,194,122,.12); padding: 5px 7px; border-radius: 5px; }
 
 /* Illustrative app cards (drawn in the app's own light style) */

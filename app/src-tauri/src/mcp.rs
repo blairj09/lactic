@@ -6,6 +6,11 @@
 //
 // AI apps that launch servers as a command (Claude Desktop) run `lactic --mcp`, a stdio bridge
 // that forwards each JSON-RPC line to the running app, opening the app first if it's closed.
+//
+// AI apps that can show MCP Apps (the io.modelcontextprotocol/ui extension) also get Lactic's cards:
+// a `ui://` page drawn in the chat beside some tools' results. Such an app gets a session id starting
+// `lactic-ui-` from initialize and sends it back on every request, so each request says whether its
+// app shows cards without Lactic keeping any state (the id still works after Lactic restarts).
 
 use axum::{extract::State as AxState, http::{HeaderMap, StatusCode}, response::IntoResponse, routing::post, Json, Router};
 use serde::{Deserialize, Serialize};
@@ -28,6 +33,11 @@ fn default_port() -> u16 {
     if crate::is_modular() { MODULAR_PORT } else if crate::is_preview() { PREVIEW_PORT } else { DEFAULT_PORT }
 }
 const PROTOCOL: &str = "2025-06-18";
+/// The MCP Apps extension: interactive views a tool's result can show in the AI app.
+const UI_EXTENSION: &str = "io.modelcontextprotocol/ui";
+const UI_MIME: &str = "text/html;profile=mcp-app";
+const UI_SESSION: &str = "lactic-ui-";
+const SESSION_HEADER: &str = "mcp-session-id";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct McpInfo {
@@ -110,27 +120,47 @@ async fn handle(AxState(mcp): AxState<Arc<Mcp>>, headers: HeaderMap, Json(body):
     if auth != format!("Bearer {token}") {
         return (StatusCode::UNAUTHORIZED, Json(json!({ "error": "Missing or wrong token. Copy the setup from Lactic → Settings → Coach." }))).into_response();
     }
+    let ui = headers.get(SESSION_HEADER).and_then(|v| v.to_str().ok()).is_some_and(|s| s.starts_with(UI_SESSION));
     let messages = match &body {
         Value::Array(list) => list.clone(),
         one => vec![one.clone()],
     };
     let mut out = vec![];
+    let mut session = None;
     for m in messages {
-        if let Some(r) = answer(&mcp, m).await {
+        if m.get("method").and_then(|v| v.as_str()) == Some("initialize") && shows_cards(&m) {
+            session = Some(new_ui_session());
+        }
+        if let Some(r) = answer(&mcp, m, ui).await {
             out.push(r);
         }
     }
-    if out.is_empty() {
-        return StatusCode::ACCEPTED.into_response();
-    }
-    if body.is_array() {
+    let mut response = if out.is_empty() {
+        StatusCode::ACCEPTED.into_response()
+    } else if body.is_array() {
         Json(Value::Array(out)).into_response()
     } else {
         Json(out.remove(0)).into_response()
+    };
+    if let Some(id) = session.and_then(|s| s.parse().ok()) {
+        response.headers_mut().insert(SESSION_HEADER, id);
     }
+    response
 }
 
-async fn answer(mcp: &Mcp, m: Value) -> Option<Value> {
+/// Whether the AI app said in initialize that it can show MCP Apps' HTML views.
+fn shows_cards(initialize: &Value) -> bool {
+    initialize["params"]["capabilities"]["extensions"][UI_EXTENSION]["mimeTypes"].as_array().is_some_and(|types| types.iter().any(|t| t.as_str() == Some(UI_MIME)))
+}
+
+fn new_ui_session() -> String {
+    use rand::Rng;
+    let tail: String = rand::thread_rng().sample_iter(&rand::distributions::Alphanumeric).take(24).map(char::from).collect();
+    format!("{UI_SESSION}{tail}")
+}
+
+/// One JSON-RPC message's answer (none for a notification). `ui`: the app shows cards (its session says so).
+async fn answer(mcp: &Mcp, m: Value, ui: bool) -> Option<Value> {
     let id = m.get("id").cloned()?; // Notifications get no answer.
     let method = m.get("method").and_then(|v| v.as_str()).unwrap_or("");
     let params = m.get("params").cloned().unwrap_or(Value::Null);
@@ -142,28 +172,41 @@ async fn answer(mcp: &Mcp, m: Value) -> Option<Value> {
                 *mcp.client.lock().await = name;
             }
             let asked = params.get("protocolVersion").and_then(|v| v.as_str()).unwrap_or(PROTOCOL).to_string();
+            let mut capabilities = json!({ "tools": { "listChanged": false }, "resources": {} });
+            if shows_cards(&m) {
+                capabilities["extensions"] = json!({ UI_EXTENSION: {} });
+            }
             rpc_result(
                 &id,
                 json!({
                     "protocolVersion": asked,
-                    "capabilities": { "tools": { "listChanged": false } },
+                    "capabilities": capabilities,
                     "serverInfo": { "name": "lactic", "title": "Lactic", "version": env!("CARGO_PKG_VERSION") },
                     "instructions": "You are the rider's cycling coach, working through Lactic. Lactic's engine owns every number (fitness, fatigue, form, FTP, zones, the plan): read them with the tools and never compute your own. To change the plan, use the propose_* tools; the rider sees each proposal in Lactic and applies it there."
                 }),
             )
         }
         "ping" => rpc_result(&id, json!({})),
-        "tools/list" | "tools/call" | "resources/list" | "prompts/list" => {
-            if matches!(method, "resources/list") {
-                return Some(rpc_result(&id, json!({ "resources": [] })));
-            }
+        "tools/list" | "tools/call" | "resources/list" | "resources/templates/list" | "resources/read" | "prompts/list" => {
             if matches!(method, "prompts/list") {
                 return Some(rpc_result(&id, json!({ "prompts": [] })));
             }
-            if !coach_on(mcp).await {
-                return Some(rpc_result(&id, turned_off(method)));
+            if matches!(method, "resources/templates/list") {
+                return Some(rpc_result(&id, json!({ "resourceTemplates": [] })));
             }
-            match forward(mcp, method, params).await {
+            let resources = method.starts_with("resources/");
+            if resources && !ui {
+                // Lactic's only resources are its cards, for apps that show them.
+                return Some(if method == "resources/list" { rpc_result(&id, json!({ "resources": [] })) } else { rpc_error(&id, -32002, "Resource not found") });
+            }
+            if !coach_on(mcp).await {
+                return Some(if resources {
+                    if method == "resources/list" { rpc_result(&id, json!({ "resources": [] })) } else { rpc_error(&id, -32002, "Lactic's coach tools are turned off") }
+                } else {
+                    rpc_result(&id, turned_off(method))
+                });
+            }
+            match forward(mcp, method, params, ui).await {
                 Ok(v) => rpc_result(&id, v),
                 Err(e) => json!({ "jsonrpc": "2.0", "id": id, "error": e }),
             }
@@ -202,13 +245,13 @@ fn turned_off(method: &str) -> Value {
     }
 }
 
-async fn forward(mcp: &Mcp, method: &str, params: Value) -> Result<Value, Value> {
+async fn forward(mcp: &Mcp, method: &str, params: Value, ui: bool) -> Result<Value, Value> {
     let app = mcp.app.lock().await.clone().ok_or_else(|| json!({ "code": -32002, "message": "Lactic is starting" }))?;
     let n = mcp.next.fetch_add(1, Ordering::Relaxed);
     let (tx, rx) = oneshot::channel();
     mcp.pending.lock().await.insert(n, tx);
     let client = mcp.client.lock().await.clone();
-    let _ = app.emit_to("main", "mcp:request", json!({ "requestId": n, "method": method, "params": params, "client": client }));
+    let _ = app.emit_to("main", "mcp:request", json!({ "requestId": n, "method": method, "params": params, "client": client, "ui": ui }));
     match tokio::time::timeout(Duration::from_secs(90), rx).await {
         Ok(Ok(r)) => r,
         _ => {
@@ -229,6 +272,12 @@ pub async fn mcp_respond(mcp: State<'_, Arc<Mcp>>, request_id: u64, result: Opti
     Ok(())
 }
 
+/// Brings Lactic's window forward, for a card's "Open in Lactic" (the window navigates itself).
+#[tauri::command]
+pub fn mcp_show_main(app: AppHandle) {
+    crate::apps::show_main(&app);
+}
+
 #[tauri::command]
 pub fn mcp_set_enabled(mcp: State<'_, Arc<Mcp>>, enabled: bool) {
     mcp.enabled.store(enabled, Ordering::Relaxed);
@@ -247,14 +296,14 @@ mod tests {
 
     #[tokio::test]
     async fn coach_off_lists_a_status_tool_not_an_error() {
-        let r = answer(&off(), json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" })).await.unwrap();
+        let r = answer(&off(), json!({ "jsonrpc": "2.0", "id": 1, "method": "tools/list" }), false).await.unwrap();
         assert!(r.get("error").is_none());
         assert_eq!(r["result"]["tools"][0]["name"], OFF_TOOL);
     }
 
     #[tokio::test]
     async fn coach_off_tool_call_says_how_to_turn_it_on() {
-        let r = answer(&off(), json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": { "name": "get_fitness" } })).await.unwrap();
+        let r = answer(&off(), json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": { "name": "get_fitness" } }), false).await.unwrap();
         assert!(r.get("error").is_none());
         assert!(r["result"]["content"][0]["text"].as_str().unwrap().contains("Settings → Coach"));
     }
@@ -262,10 +311,39 @@ mod tests {
     #[tokio::test]
     async fn initialize_and_ping_work_with_the_coach_off() {
         let mcp = off();
-        let r = answer(&mcp, json!({ "jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {} })).await.unwrap();
+        let r = answer(&mcp, json!({ "jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {} }), false).await.unwrap();
         assert_eq!(r["result"]["serverInfo"]["name"], "lactic");
-        let r = answer(&mcp, json!({ "jsonrpc": "2.0", "id": 3, "method": "ping" })).await.unwrap();
+        let r = answer(&mcp, json!({ "jsonrpc": "2.0", "id": 3, "method": "ping" }), false).await.unwrap();
         assert!(r.get("error").is_none());
+    }
+
+    fn initialize_with(capabilities: Value) -> Value {
+        json!({ "jsonrpc": "2.0", "id": 0, "method": "initialize", "params": { "capabilities": capabilities } })
+    }
+
+    #[test]
+    fn cards_only_for_apps_that_show_mcp_apps_html() {
+        assert!(shows_cards(&initialize_with(json!({ "extensions": { "io.modelcontextprotocol/ui": { "mimeTypes": ["text/html;profile=mcp-app"] } } }))));
+        assert!(!shows_cards(&initialize_with(json!({}))));
+        assert!(!shows_cards(&initialize_with(json!({ "extensions": { "io.modelcontextprotocol/ui": { "mimeTypes": ["text/plain"] } } }))));
+        assert!(new_ui_session().starts_with(UI_SESSION));
+    }
+
+    #[tokio::test]
+    async fn initialize_declares_the_extension_back() {
+        let caps = json!({ "extensions": { "io.modelcontextprotocol/ui": { "mimeTypes": ["text/html;profile=mcp-app"] } } });
+        let r = answer(&off(), initialize_with(caps), false).await.unwrap();
+        assert!(r["result"]["capabilities"]["extensions"]["io.modelcontextprotocol/ui"].is_object());
+        let r = answer(&off(), initialize_with(json!({})), false).await.unwrap();
+        assert!(r["result"]["capabilities"].get("extensions").is_none());
+    }
+
+    #[tokio::test]
+    async fn no_cards_for_apps_that_dont_show_them() {
+        let r = answer(&off(), json!({ "jsonrpc": "2.0", "id": 4, "method": "resources/list" }), false).await.unwrap();
+        assert_eq!(r["result"]["resources"], json!([]));
+        let r = answer(&off(), json!({ "jsonrpc": "2.0", "id": 5, "method": "resources/read", "params": { "uri": "ui://lactic/card" } }), false).await.unwrap();
+        assert!(r.get("error").is_some());
     }
 }
 
@@ -362,6 +440,8 @@ pub fn run_stdio_bridge() {
         let mut lines = BufReader::new(tokio::io::stdin()).lines();
         let mut stdout = tokio::io::stdout();
         let mut launched = false;
+        // The session id Lactic gave at initialize (apps that show cards get one), sent back on every request.
+        let mut session: Option<String> = None;
         while let Ok(Some(line)) = lines.next_line().await {
             if line.trim().is_empty() {
                 continue;
@@ -371,7 +451,7 @@ pub fn run_stdio_bridge() {
                 Err(_) => continue,
             };
             let id = message.get("id").cloned();
-            let reply = send(&client, &line, &mut launched).await;
+            let reply = send(&client, &line, &mut launched, &mut session).await;
             let out = match (reply, id) {
                 (Ok(Some(body)), _) => Some(body),
                 (Ok(None), _) => None,
@@ -387,19 +467,25 @@ pub fn run_stdio_bridge() {
     });
 }
 
-async fn send(client: &reqwest::Client, line: &str, launched: &mut bool) -> Result<Option<String>, String> {
+async fn send(client: &reqwest::Client, line: &str, launched: &mut bool, session: &mut Option<String>) -> Result<Option<String>, String> {
     let deadline = tokio::time::Instant::now() + Duration::from_secs(40);
     loop {
         let info = data_dir().and_then(|d| std::fs::read_to_string(info_path(&d)).ok()).and_then(|s| serde_json::from_str::<McpInfo>(&s).ok());
         if let Some(info) = &info {
-            let res = client
+            let mut request = client
                 .post(format!("http://127.0.0.1:{}/mcp", info.port))
                 .bearer_auth(&info.token)
                 .header("content-type", "application/json")
-                .header("accept", "application/json, text/event-stream")
-                .body(line.to_string())
-                .send()
-                .await;
+                .header("accept", "application/json, text/event-stream");
+            if let Some(id) = session.as_deref() {
+                request = request.header(SESSION_HEADER, id);
+            }
+            let res = request.body(line.to_string()).send().await;
+            if let Ok(r) = &res {
+                if let Some(id) = r.headers().get(SESSION_HEADER).and_then(|v| v.to_str().ok()) {
+                    *session = Some(id.to_string());
+                }
+            }
             match res {
                 Ok(r) if r.status() == reqwest::StatusCode::ACCEPTED => return Ok(None),
                 Ok(r) => {
