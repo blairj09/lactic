@@ -7,6 +7,7 @@
 // minutes when recovery data changed (HealthWorker.kt), rides written as cycling sessions.
 // The computer: the pairing key from its QR code, kept encrypted under an Android Keystore key
 // (Pairing.kt); every request sealed with AES-256-GCM and posted over the local network (Link.kt).
+// The rider's API keys: kept for the core's secrets.rs under another Keystore key (Keys.kt).
 
 package fit.lactic.phone
 
@@ -71,6 +72,11 @@ class WorkoutArgs {
     var heartRate: List<List<Double>>? = null
     var power: List<List<Double>>? = null
     var cadence: List<List<Double>>? = null
+}
+
+@InvokeArg
+class KeysArgs {
+    var text: String? = null
 }
 
 @InvokeArg
@@ -247,6 +253,30 @@ class LacticPhonePlugin(private val activity: Activity) : Plugin(activity) {
             } finally {
                 PairingStore.save(ctx, pairing)
             }
+        }
+    }
+
+    // --- The rider's API keys (secrets.rs on Android) ----------------------------------------------
+    // Called only by the core's Rust (plugins/lactic-phone/src/lib.rs `keys_read` / `keys_write`):
+    // neither is in build.rs's command list, so they have no permission and the web layer can't
+    // reach them. Answered right away, since Rust is waiting.
+
+    @Command
+    fun keysRead(invoke: Invoke) {
+        try {
+            invoke.resolveObject(mapOf("text" to KeysStore.read(ctx)))
+        } catch (e: Exception) {
+            invoke.reject(e.message ?: e.javaClass.simpleName)
+        }
+    }
+
+    @Command
+    fun keysWrite(invoke: Invoke) {
+        try {
+            KeysStore.write(ctx, invoke.parseArgs(KeysArgs::class.java).text)
+            invoke.resolve()
+        } catch (e: Exception) {
+            invoke.reject(e.message ?: e.javaClass.simpleName)
         }
     }
 

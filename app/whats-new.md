@@ -6,6 +6,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Android: your API keys (Coach, intervals.icu, Strava) now come over from your computer when the phone syncs, like on iPhone, and stay encrypted on the phone.
 - Apple Watch: a new Exertion widget for the Smart Stack and watch faces shows today's exertion against your target, and stays current through the day.
 
 ## 0.3.10
