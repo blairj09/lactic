@@ -3,7 +3,9 @@
      Bluetooth: trainers, heart rate straps, power meters and scales (never used for location).
      Health Connect: sleep and recovery in, rides out.
      Network: the paired computer on the same Wi-Fi.
-     Notifications: the end of a workout running on the computer. -->
+     Notifications: the end of a workout running on the computer, and the ride under way on the lock
+     screen (RideLive.kt), kept up by a foreground service that follows the computer's ride over
+     Wi-Fi while the phone is locked. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
@@ -17,6 +19,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE_VARIABILITY" />
@@ -76,5 +82,12 @@
 
         <!-- The Extend and End buttons on the end-of-workout notification. -->
         <receiver android:name="fit.lactic.phone.RideEndReceiver" android:exported="false" />
+
+        <!-- The ride on the lock screen and its buttons. -->
+        <service
+            android:name="fit.lactic.phone.RideLiveService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+        <receiver android:name="fit.lactic.phone.RideLiveReceiver" android:exported="false" />
     </application>
 </manifest>

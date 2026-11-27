@@ -35,6 +35,14 @@ function at(position: number, extra: Partial<LiveRide> = {}): LiveRide {
 }
 
 describe("ride Live Activity", () => {
+  it("carries free ERG's watts and the done workout's Extend words for Android's buttons", () => {
+    expect(liveActivity(at(1900, { erg: { watts: 212.4 } }), NOW)?.erg).toBe(212);
+    expect(liveActivity(at(1900), NOW)?.erg).toBeNull();
+    const extend = { kind: "erg" as const, minutes: 10, watts: 200, block: "" };
+    expect(liveActivity(at(1900, { extend }), NOW)?.extend).toBeNull();
+    expect(liveActivity(at(3960, { running: false, finished: true, extend }), NOW)?.extend).toBe("Extend 10 min at 200 W");
+  });
+
   it("counts down the interval and the workout from now", () => {
     const s = liveActivity(at(1900), NOW)!;
     expect(s).toMatchObject({ phase: "riding", title: "Sweet spot 3x12", place: null, counter: "Interval 4 of 7", target: "270 W", power: 268, heartRate: 152, cadence: 92, tone: "on" });

@@ -7,6 +7,7 @@
 import { segmentRoles } from "../engine/segment-roles";
 import { intervals, powerZone, segmentRange, type Interval, type Workout } from "../engine/workout";
 import { describeTarget, formatTime } from "../format";
+import { extendLabel, type EndAlertRide } from "./end-alert";
 import type { RideTotals } from "./totals";
 
 /** What the activity needs from the player (PlayerData has all of it). */
@@ -30,6 +31,8 @@ export interface LiveRide {
   finished: boolean;
   ended: boolean;
   totals: RideTotals;
+  /** What the Extend panel has picked, for the Extend button once the workout is done. */
+  extend?: EndAlertRide["extend"];
 }
 
 export type LivePhase = "ready" | "riding" | "paused" | "done";
@@ -73,6 +76,10 @@ export interface LiveActivityState {
   at: number;
   /** Ready: "Warm-up 10:00 · 150 W first". Done: "1:15:00 · 88 TSS". */
   note: string | null;
+  /** Free ERG's target watts, for Android's -/+ buttons; null otherwise. (iOS ignores it.) */
+  erg?: number | null;
+  /** The Extend button's words once the workout is done ("Extend 10 min at 200 W"); null otherwise. */
+  extend?: string | null;
 }
 
 /** More intervals than this merge into blocks of the same color, so the bar stays drawable. */
@@ -163,6 +170,8 @@ export function liveActivity(ride: LiveRide | null, now: number, place: string |
         : phase === "ready" && first
           ? `${roles[0] ?? "First"} ${formatTime(first.end - first.start)} · ${describeTarget(first, ride.ftp)} first`
           : null,
+    erg: free ? Math.round(ride.erg!.watts) : null,
+    extend: phase === "done" && !free && ride.extend ? extendLabel(ride.extend) : null,
   };
 }
 

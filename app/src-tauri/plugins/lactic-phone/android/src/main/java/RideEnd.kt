@@ -149,7 +149,7 @@ object RideEnd {
         schedule(ctx, next)
     }
 
-    private fun failed(ctx: Context, what: String, computer: String) {
+    fun failed(ctx: Context, what: String, computer: String) {
         channel(ctx)
         val n = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(ctx.applicationInfo.icon)

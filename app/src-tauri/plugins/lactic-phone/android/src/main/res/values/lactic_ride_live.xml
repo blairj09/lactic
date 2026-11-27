@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The ride notification's power colors (RideLive.kt): on target, under, over. Darker on a light shade. -->
+<resources>
+    <color name="lactic_ride_on">#1A7F45</color>
+    <color name="lactic_ride_under">#8F3F0C</color>
+    <color name="lactic_ride_over">#B3261E</color>
+</resources>
