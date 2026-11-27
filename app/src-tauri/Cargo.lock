@@ -5004,6 +5004,7 @@ dependencies = [
 name = "tauri-plugin-lactic-phone"
 version = "0.1.0"
 dependencies = [
+ "serde_json",
  "tauri",
  "tauri-plugin",
 ]

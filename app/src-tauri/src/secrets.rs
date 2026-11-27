@@ -1,5 +1,6 @@
 // API keys (AI providers, intervals.icu) live in the system keychain: macOS Keychain, Windows
-// Credential Manager or the Linux Secret Service (the iPhone's keychain on iOS). The web layer can save and delete a key and ask
+// Credential Manager or the Linux Secret Service (the iPhone's keychain on iOS, and on Android a
+// copy encrypted under an Android Keystore key, kept by the phone plugin's Keys.kt). The web layer can save and delete a key and ask
 // whether one is set, but never reads it back: requests that need a key go through net.rs, which
 // adds it on the way out. Where no keychain is available (some Linux setups) a file readable only
 // by the user stands in.
@@ -19,7 +20,7 @@ use tauri::State;
 
 /// The keychain item (account) that holds every key.
 const BUNDLE: &str = "keys";
-/// Keys that follow the rider to a paired iPhone (and back): the coach's AI key, the
+/// Keys that follow the rider to a paired phone, iPhone or Android (and back): the coach's AI key, the
 /// intervals.icu key and Strava's sign-in. The phone's pairing keys stay on their own computer.
 /// Strava's sign-in follows so a rider who connected Strava on the phone alone keeps posting once
 /// a computer is paired; only one device refreshes and posts at a time (src/integrations/strava.ts
@@ -60,8 +61,9 @@ pub struct Secrets {
 
 fn entry(account: &str) -> Option<keyring::Entry> {
     // Android has no keychain the keyring crate can reach (it would keep keys in memory only), so
-    // the file stands in: it lives in the app's private storage, which no other app can read, and
-    // the app opts out of Android's cloud backups.
+    // the bundle goes to the phone plugin, which encrypts it under an Android Keystore key
+    // (`read_keychain` / `write_keychain`). Lactic 0.3.10 and earlier kept it in the file, which
+    // moves over on first read.
     if cfg!(target_os = "android") {
         return None;
     }
@@ -97,6 +99,17 @@ impl Secrets {
     }
 
     /// Reads the one keychain item. Ok(None) when there is no keychain or no item yet.
+    #[cfg(target_os = "android")]
+    fn read_keychain() -> Result<Option<HashMap<String, String>>, ()> {
+        match tauri_plugin_lactic_phone::keys_read() {
+            Ok(Some(text)) => Ok(Some(serde_json::from_str(&text).unwrap_or_default())),
+            Ok(None) => Ok(None),
+            // The Keystore couldn't answer: like a locked Mac keychain, say so rather than lose the keys.
+            Err(_) => Err(()),
+        }
+    }
+
+    #[cfg(not(target_os = "android"))]
     fn read_keychain() -> Result<Option<HashMap<String, String>>, ()> {
         let Some(e) = entry(BUNDLE) else { return Ok(None) };
         match e.get_password() {
@@ -123,6 +136,16 @@ impl Secrets {
         found
     }
 
+    #[cfg(target_os = "android")]
+    fn write_keychain(all: &HashMap<String, String>) -> bool {
+        if all.is_empty() {
+            return tauri_plugin_lactic_phone::keys_write(None).is_ok();
+        }
+        let Ok(text) = serde_json::to_string(all) else { return false };
+        tauri_plugin_lactic_phone::keys_write(Some(&text)).is_ok()
+    }
+
+    #[cfg(not(target_os = "android"))]
     fn write_keychain(all: &HashMap<String, String>) -> bool {
         let Some(e) = entry(BUNDLE) else { return false };
         if all.is_empty() {
@@ -152,7 +175,8 @@ impl Secrets {
                 Ok(None) => {
                     let mut all = self.read_fallback();
                     let legacy = Self::take_legacy();
-                    if !legacy.is_empty() {
+                    // On Android, keys an older Lactic kept in the file move into the Keystore copy.
+                    if !legacy.is_empty() || (cfg!(target_os = "android") && !all.is_empty()) {
                         all.extend(legacy);
                         if Self::write_keychain(&all) {
                             let _ = self.write_fallback(&HashMap::new());
@@ -484,18 +508,19 @@ pub fn secret_status(secrets: State<Secrets>, name: String) -> Option<String> {
     })
 }
 
-// --- the iPhone's side of key sync ------------------------------------------------------------------
+// --- the phone's side of key sync ------------------------------------------------------------------
 // The phone carries keys to and from its computer inside the sealed link (phone.rs, kind "keys").
-// The link runs in the phone's Swift plugin, so these hand values to the phone's web layer for the
-// moment it takes to pass them on. They only work on the iPhone: on a computer the web layer never
-// sees a key.
+// The link runs in the phone plugin (Swift on the iPhone, Kotlin on Android), so these hand values
+// to the phone's web layer for the moment it takes to pass them on. They only work on a phone: on
+// a computer the web layer never sees a key.
 
-const PHONE_ONLY: &str = "Only the iPhone app syncs keys this way";
+const PHONE_ONLY: &str = "Only the phone app syncs keys this way";
+const ON_PHONE: bool = cfg!(any(target_os = "ios", target_os = "android"));
 
 /// The phone: each synced key's stamp, to send with a "keys" request.
 #[tauri::command(async)]
 pub fn secrets_offer(secrets: State<Secrets>) -> Result<HashMap<String, KeyState>, String> {
-    if !cfg!(target_os = "ios") {
+    if !ON_PHONE {
         return Err(PHONE_ONLY.into());
     }
     secrets.states().ok_or_else(|| REFUSED.into())
@@ -504,7 +529,7 @@ pub fn secrets_offer(secrets: State<Secrets>) -> Result<HashMap<String, KeyState
 /// The phone: the keys the computer asked for.
 #[tauri::command(async)]
 pub fn secrets_give(secrets: State<Secrets>, names: Vec<String>) -> Result<HashMap<String, KeyValue>, String> {
-    if !cfg!(target_os = "ios") {
+    if !ON_PHONE {
         return Err(PHONE_ONLY.into());
     }
     secrets.values(&names).ok_or_else(|| REFUSED.into())
@@ -513,7 +538,7 @@ pub fn secrets_give(secrets: State<Secrets>, names: Vec<String>) -> Result<HashM
 /// The phone: keys the computer sent. Returns how many changed here.
 #[tauri::command(async)]
 pub fn secrets_take(secrets: State<Secrets>, take: HashMap<String, KeyValue>) -> Result<usize, String> {
-    if !cfg!(target_os = "ios") {
+    if !ON_PHONE {
         return Err(PHONE_ONLY.into());
     }
     secrets.receive(&take, true)
