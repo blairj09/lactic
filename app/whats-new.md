@@ -8,6 +8,7 @@ Write for riders: what they can now do or what works better, one short line each
 
 - Android: a ride now stays on the lock screen as a live notification, with the interval countdown, power against target, heart rate, cadence and the workout bar, plus Pause, Skip, Extend and End buttons. It keeps up with a ride on your computer while the phone is locked, over your home Wi-Fi.
 - Android: your API keys (Coach, intervals.icu, Strava) now come over from your computer when the phone syncs, like on iPhone, and stay encrypted on the phone.
+- Phone: the workout chart while following a ride on your computer holds steady instead of redrawing every second, and shows the whole ride's power, heart rate and cadence.
 - Apple Watch: a new Exertion widget for the Smart Stack and watch faces shows today's exertion against your target, and stays current through the day.
 
 ## 0.3.10
