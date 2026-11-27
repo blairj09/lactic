@@ -11,7 +11,8 @@ name: Android app
 #
 # Once the upload key is in GitHub secrets (ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD,
 # ANDROID_KEY_ALIAS, optional ANDROID_KEY_PASSWORD), pushes to main and modular-ui also build a
-# signed Play bundle (.aab). Uploading it to Play comes with the service account.
+# signed Play bundle (.aab). With a Play service account key in PLAY_SERVICE_ACCOUNT_JSON too, pushes
+# to main upload that bundle to Play's internal testing track (like TestFlight for the iPhone).
 
 on:
   push:
@@ -109,6 +110,7 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     env:
+      HAS_PLAY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
       ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -174,3 +176,26 @@ jobs:
         with:
           name: Lactic-Android-play
           path: ${{ env.AAB }}
+      # Internal testing on Play. A Play app that has never been published only takes draft
+      # releases, so if a completed release is refused, the same bundle goes up as a draft to roll
+      # out by hand in Play Console.
+      - name: Upload to Play internal testing
+        id: play
+        if: steps.key.outputs.have == 'true' && env.HAS_PLAY == 'true' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: fit.lactic.app
+          releaseFiles: ${{ env.AAB }}
+          track: internal
+          status: completed
+      - name: Upload to Play internal testing (draft)
+        if: steps.play.outcome == 'failure'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: fit.lactic.app
+          releaseFiles: ${{ env.AAB }}
+          track: internal
+          status: draft
