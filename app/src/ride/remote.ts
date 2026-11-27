@@ -5,6 +5,7 @@
 import { useEffect } from "react";
 import type { PlayerControls, PlayerData } from "@/app/ride/player";
 import { liveActivity, nudgeDue, type LiveActivityState } from "@/lib/ride/live-activity";
+import { thinTrace, traceStep } from "@/app/ride/workout-chart";
 import { invoke } from "~/platform/native";
 import type { ControlMessage, ControlName, OverlayPayload } from "./channel";
 
@@ -52,10 +53,11 @@ export function remoteActivity(): LiveActivityState | null {
 export function remoteRide(): OverlayPayload | null {
   if (!live) return null;
   const { data, controls } = live;
-  // Every second of a long ride would make each poll's reply big: the last ten minutes in full,
-  // and every tenth point before that, which is plenty for the chart on a phone.
+  // Every second of a long ride would make each poll's reply big: the last ten minutes in full, and
+  // before that only the points the phone's whole-workout chart draws anyway. Thinned by position,
+  // never by index, so the same points go every poll and the chart holds still.
   const recent = data.position - 600;
-  const trace = data.trace.filter(([t], i) => t >= recent || i % 10 === 0);
+  const trace = thinTrace(data.trace, traceStep(Math.max(data.duration, 1)), ([t]) => t >= recent);
   return { data: { ...data, trace }, canPlay: controls.canPlay };
 }
 

@@ -9,6 +9,24 @@ const CADENCE_RANGE = [0, 140] as const;
 
 const zoneFill = (fraction: number) => `var(--zone-${powerZone(fraction)})`;
 
+/** Seconds of workout per drawn trace point, for a chart spanning `span` seconds (about 400 points across). */
+export const traceStep = (span: number) => Math.max(1, Math.round(span / 400));
+
+/**
+ * The first point in each `step`-second stretch of the workout, by position rather than by index, so
+ * the same points are kept however the trace reached us (whole, or thinned by the computer for a
+ * phone) and as it grows: the chart doesn't change shape from one second to the next.
+ */
+export function thinTrace(trace: TracePoint[], step: number, keep: (point: TracePoint) => boolean = () => false): TracePoint[] {
+  let bucket = NaN;
+  return trace.filter((point) => {
+    const b = Math.floor(point[0] / step);
+    if (b === bucket && !keep(point)) return false;
+    bucket = b;
+    return true;
+  });
+}
+
 /**
  * The workout profile, colored by zone, with ridden power on top and a playhead. `from`/`to` crop it
  * to a window of the workout (the overlay shows the next few minutes).
@@ -38,19 +56,20 @@ export default function WorkoutChart({
   const y = (fraction: number) => 100 - (Math.min(fraction, peak) / peak) * 100;
   const span = Math.max(to - from, 1);
   const shown = all.filter((i) => i.end > from && i.start < to);
-  const step = Math.max(1, Math.round(span / 400));
+  const step = traceStep(span);
+  const drawn = thinTrace(trace.filter(([p]) => p >= from && p <= to), step);
   const scaled = ([low, high]: readonly [number, number]) => (v: number) => 100 - Math.min(Math.max((v - low) / (high - low), 0), 1) * 90;
   // One line per stretch of riding; a skip, a jump back or a missing reading leaves a gap rather than a line across it.
   const linesOf = (value: (point: TracePoint) => number | null) => {
     const lines: string[][] = [];
     let last = -Infinity;
-    trace.forEach((point, i) => {
+    drawn.forEach((point) => {
       const p = point[0];
-      if (p < from || p > to || i % step !== 0) return;
       const v = value(point);
       if (v === null) return void (last = -Infinity);
-      // A jump back starts a new line too, drawn over what was ridden there before.
-      if (p - last > step || p < last) lines.push([]);
+      // A jump back starts a new line too, drawn over what was ridden there before. Kept points sit
+      // up to two steps apart, so only a bigger gap is a skip.
+      if (p - last >= 2 * step || p < last) lines.push([]);
       lines[lines.length - 1].push(`${p},${v.toFixed(2)}`);
       last = p;
     });
