@@ -364,8 +364,11 @@ enum Health {
     return t
   }()
 
-  /// Types whose arrival wakes the app: the ones a recovery score needs.
+  /// Types whose arrival wakes the app: the ones a recovery score needs, as soon as they arrive.
   static let wakeTypes: [HKSampleType] = [HKCategoryType(.sleepAnalysis), HKQuantityType(.heartRateVariabilitySDNN), HKQuantityType(.restingHeartRate)]
+  /// Heart rate arrives all day: at most an hourly wake, so today's exertion on the widgets and the
+  /// Watch keeps up through the day.
+  static let hourlyWakeTypes: [HKSampleType] = [HKQuantityType(.heartRate)]
 
   static let iso: ISO8601DateFormatter = {
     let f = ISO8601DateFormatter()
@@ -834,7 +837,8 @@ class LacticPhonePlugin: Plugin {
 
   func watch() {
     guard HKHealthStore.isHealthDataAvailable(), observers.isEmpty else { return }
-    for type in Health.wakeTypes {
+    let types = Health.wakeTypes.map { ($0, HKUpdateFrequency.immediate) } + Health.hourlyWakeTypes.map { ($0, HKUpdateFrequency.hourly) }
+    for (type, frequency) in types {
       let q = HKObserverQuery(sampleType: type, predicate: nil) { [weak self] _, done, error in
         guard error == nil else { return done() }
         Task {
@@ -844,7 +848,7 @@ class LacticPhonePlugin: Plugin {
       }
       observers.append(q)
       Health.store.execute(q)
-      Health.store.enableBackgroundDelivery(for: type, frequency: .immediate) { _, _ in }
+      Health.store.enableBackgroundDelivery(for: type, frequency: frequency) { _, _ in }
     }
   }
 

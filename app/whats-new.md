@@ -6,6 +6,8 @@ Write for riders: what they can now do or what works better, one short line each
 
 ## Next
 
+- Apple Watch: a new Exertion widget for the Smart Stack and watch faces shows today's exertion against your target, and stays current through the day.
+
 ## 0.3.10
 
 - No changes in the app itself. This release powers lactic.fit, where you can now take a test ride right inside the homepage's live Lactic, with your own trainer in Chrome or a simulated one.

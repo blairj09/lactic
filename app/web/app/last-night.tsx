@@ -8,6 +8,7 @@ import { useChartWidth } from "@/components/chart-utils";
 import { MINIMUM_BASELINE_DAYS, recoveryWord } from "@/lib/engine/recovery";
 import { CONCERN_SIDE, type ExertionToday, type GlanceKey, type GlanceMetric } from "@/lib/engine/recovery-glance";
 import type { RecoveryToday } from "@/lib/recovery-data";
+import { exertionStatus } from "@/lib/exertion-status";
 import type { RecoverySourceInfo } from "@/lib/recovery-source";
 import { formatHours } from "@/lib/engine/hours";
 import { tempDeltaIn, temperatureUnit, type UnitSystem } from "@/lib/units";
@@ -629,8 +630,7 @@ export function ExertionTile({ exertion }: { exertion: ExertionToday }) {
   const { soFar, target } = exertion;
   const now = soFar ?? 0;
   const at = (v: number) => (Math.min(v, 10) / 10) * 100;
-  const over = target !== null && now > target.high;
-  const status = !target ? null : over ? "Over target" : now >= target.low ? "Target reached" : `${(target.low - now).toFixed(1)} to target`;
+  const { text: status, over } = exertionStatus(exertion);
   return (
     <Link href={metricHref("exertion")} className="block rounded-md bg-raised px-3 py-2.5 hover:bg-active md:ml-50">
       <div className="flex items-baseline justify-between gap-3">

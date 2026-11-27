@@ -11,6 +11,7 @@ import { PHASE_LABELS, weekStart } from "./engine/plan";
 import { addDays } from "./engine/pmc";
 import { MINIMUM_BASELINE_DAYS, recoveryWord } from "./engine/recovery";
 import type { ExertionToday, GlanceKey } from "./engine/recovery-glance";
+import { exertionStatus } from "./exertion-status";
 import { zoneStep } from "./engine/ride-calendar";
 import { complianceDays, plannedOn, type TrainingState } from "./training";
 import { signed } from "./format";
@@ -69,7 +70,15 @@ export interface WidgetSnapshot {
   /** The first warning sign (a run of low HRV nights, signs of illness, sleep debt). */
   signal: string | null;
   today: WidgetDay;
-  exertion: { soFar: number | null; low: number | null; high: number | null; landsAt: number | null } | null;
+  exertion: {
+    soFar: number | null;
+    low: number | null;
+    high: number | null;
+    landsAt: number | null;
+    /** Where today stands, as Today's Exertion tile words it ("1.4 to target"); added later for the Watch's Exertion widget. */
+    status?: string | null;
+    over?: boolean;
+  } | null;
   /** Whether the rider tracks sleep and recovery; when not, the widgets lead with the ride. Missing means true. */
   recoveryTracked?: boolean;
   tomorrow?: WidgetDay | null;
@@ -99,6 +108,14 @@ const WIDGET_METRICS: { key: GlanceKey; label: string; format: (v: number) => st
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const oneDecimal = (n: number) => Math.round(n * 10) / 10;
+
+/** The status from the rounded numbers, so "0.0 to target" never shows beside a bar that looks short. */
+function wordedStatus(exertion: ExertionToday): { status: string | null; over: boolean } {
+  if (exertion.soFar === null) return { status: null, over: false };
+  const target = exertion.target && { low: oneDecimal(exertion.target.low), high: oneDecimal(exertion.target.high) };
+  const { text, over } = exertionStatus({ soFar: oneDecimal(exertion.soFar), target });
+  return { status: text, over };
+}
 
 export function widgetSnapshot(state: TrainingState, exertion: ExertionToday | null, now = new Date(), recoveryTracked = true, units: UnitSystem = "metric"): WidgetSnapshot {
   const { today, recovery } = state;
@@ -134,6 +151,7 @@ export function widgetSnapshot(state: TrainingState, exertion: ExertionToday | n
             low: exertion.target ? oneDecimal(exertion.target.low) : null,
             high: exertion.target ? oneDecimal(exertion.target.high) : null,
             landsAt: exertion.planned ? oneDecimal(exertion.planned.landsAt) : null,
+            ...wordedStatus(exertion),
           }
         : null,
     recoveryTracked,
