@@ -64,6 +64,9 @@ struct Snapshot: Decodable {
     let low: Double?
     let high: Double?
     let landsAt: Double?
+    /// Where today stands, worded by the app ("1.4 to target", "Target reached", "Over target"). Added later.
+    var status: String? = nil
+    var over: Bool? = nil
   }
 
   let v: Int
@@ -103,7 +106,7 @@ struct Snapshot: Decodable {
     ],
     sleepScore: 82, signal: nil,
     today: Today(title: "Threshold 4 x 8", detail: "70 min · Threshold", state: "planned", stress: 82, step: 5),
-    exertion: Exertion(soFar: 1.2, low: 3.4, high: 4.4, landsAt: 3.9),
+    exertion: Exertion(soFar: 3.6, low: 5.0, high: 7.0, landsAt: 6.1, status: "1.4 to target", over: false),
     recoveryTracked: true,
     tomorrow: Today(title: "Endurance 90 min", detail: "90 min · Endurance", state: "planned", stress: 58, step: 2),
     week: Week(

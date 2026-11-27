@@ -21,7 +21,17 @@ describe("widgetSnapshot", () => {
   it("rounds exertion and keeps the planned landing", () => {
     const { state } = athlete();
     const s = widgetSnapshot(state, { soFar: 1.234, rideTrimp: 0, offBikeTrimp: 10, target: { low: 3.44, high: 4.46 }, planned: { add: 2.5, landsAt: 3.77 } });
-    expect(s.exertion).toEqual({ soFar: 1.2, low: 3.4, high: 4.5, landsAt: 3.8 });
+    expect(s.exertion).toEqual({ soFar: 1.2, low: 3.4, high: 4.5, landsAt: 3.8, status: "2.2 to target", over: false });
+  });
+
+  it("words where exertion stands for the Watch", () => {
+    const { state } = athlete();
+    const at = (soFar: number | null) => widgetSnapshot(state, { soFar, rideTrimp: 0, offBikeTrimp: 0, target: { low: 5, high: 7 }, planned: null }).exertion;
+    expect(at(5.2)).toMatchObject({ status: "Target reached", over: false });
+    expect(at(7.8)).toMatchObject({ status: "Over target", over: true });
+    expect(at(null)).toMatchObject({ soFar: null, status: null, over: false });
+    const noTarget = widgetSnapshot(state, { soFar: 2, rideTrimp: 0, offBikeTrimp: 0, target: null, planned: null }).exertion;
+    expect(noTarget).toMatchObject({ soFar: 2, status: null });
   });
 
   it("says a ride is done", () => {
