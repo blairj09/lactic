@@ -74,6 +74,13 @@ export const rideActivity = (state: LiveActivityState) => call<void>("ride_activ
 /** Ends it: at once, or after a couple of minutes when the workout was done. */
 export const endRideActivity = (linger: boolean) => call<void>("end_ride_activity", { linger });
 
+/** A button on Android's ride notification, for the phone's own ride: a ride control and its arguments. */
+export async function onRideControl(cb: (press: { name: string; args: unknown[] }) => void): Promise<() => void> {
+  const core = await import("@tauri-apps/api/core");
+  const listener = await core.addPluginListener("lactic-phone", "rideControl", cb);
+  return () => void listener.unregister();
+}
+
 /** Called when a background wake read new Health data. */
 export async function onHealthWake(cb: () => void): Promise<() => void> {
   const core = await import("@tauri-apps/api/core");

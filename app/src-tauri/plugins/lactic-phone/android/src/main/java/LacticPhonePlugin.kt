@@ -80,6 +80,16 @@ class KeysArgs {
 }
 
 @InvokeArg
+class RideActivityArgs {
+    var json: String = ""
+}
+
+@InvokeArg
+class EndRideActivityArgs {
+    var linger: Boolean = false
+}
+
+@InvokeArg
 class OnArgs {
     var on: Boolean = false
 }
@@ -120,6 +130,7 @@ class LacticPhonePlugin(private val activity: Activity) : Plugin(activity) {
 
     companion object {
         private const val ASKED = "health.asked"
+        private const val RIDE_ASKED = "rideLive.asked"
 
         /** The running plugin, for background reads to tell the open app. */
         @Volatile
@@ -303,6 +314,46 @@ class LacticPhonePlugin(private val activity: Activity) : Plugin(activity) {
     fun cancelRideEnd(invoke: Invoke) {
         RideEnd.cancel(ctx)
         invoke.resolve()
+    }
+
+    // --- The ride on the lock screen (RideLive.kt) ----------------------------------------------
+
+    @Command
+    fun rideActivity(invoke: Invoke) {
+        val args = invoke.parseArgs(RideActivityArgs::class.java)
+        // Asked once: without permission the ride still runs, just without the notification.
+        if (Build.VERSION.SDK_INT >= 33 && getPermissionState("notifications") != PermissionState.GRANTED && !prefs.getBoolean(RIDE_ASKED, false)) {
+            prefs.edit().putBoolean(RIDE_ASKED, true).apply()
+            return requestPermissionForAlias("notifications", invoke, "rideNotificationsAnswered")
+        }
+        showRide(invoke, args.json)
+    }
+
+    @PermissionCallback
+    private fun rideNotificationsAnswered(invoke: Invoke) {
+        showRide(invoke, invoke.parseArgs(RideActivityArgs::class.java).json)
+    }
+
+    private fun showRide(invoke: Invoke, json: String) {
+        try {
+            RideLiveService.show(ctx, json)
+            invoke.resolve()
+        } catch (e: Exception) {
+            invoke.reject(e.message ?: e.javaClass.simpleName)
+        }
+    }
+
+    @Command
+    fun endRideActivity(invoke: Invoke) {
+        RideLiveService.end(invoke.parseArgs(EndRideActivityArgs::class.java).linger)
+        invoke.resolve()
+    }
+
+    /** A button on the notification for the phone's own ride: the web view's ride player runs it. */
+    fun rideControl(name: String, argsJson: String) {
+        val payload = nodes.objectNode().put("name", name)
+        payload.set<JsonNode>("args", try { json.readTree(argsJson) } catch (e: Exception) { nodes.arrayNode() })
+        triggerObject("rideControl", payload)
     }
 
     // --- Screen, sign-in, widgets ---------------------------------------------------------------

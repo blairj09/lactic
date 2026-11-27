@@ -1540,7 +1540,7 @@ function RideOnThisDevice({
           />
         )}
         {isDesktop && !isPhone() && <RemoteHost data={data} controls={controls} />}
-        {isPhone() && <LiveActivityHost ride={data} />}
+        {isPhone() && <LiveActivityHost ride={data} controls={controls} />}
       </Page>
     </div>
   );
